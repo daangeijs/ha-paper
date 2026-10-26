@@ -1,0 +1,226 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="description" content="HA Paper turns an Xteink X4 Pro into a Home Assistant display. Install it from this page over USB.">
+<title>HA Paper: a Home Assistant display for the Xteink X4 Pro</title>
+  <script type="module" crossorigin src="./assets/index-Cs1Y-0cU.js"></script>
+  <link rel="modulepreload" crossorigin href="./assets/rom-GkxcFgpz.js">
+  <link rel="modulepreload" crossorigin href="./assets/esp32-CyuAxFQm.js">
+  <link rel="modulepreload" crossorigin href="./assets/esp32c3-XPh2YC9D.js">
+  <link rel="stylesheet" crossorigin href="./assets/index-ThG2P_T9.css">
+</head>
+<body>
+<main>
+  <header>
+    <h1>HA Paper</h1>
+    <p class="lead">HA Paper replaces the reader software on an Xteink X4 Pro with a Home Assistant dashboard. The
+      e-ink screen shows the time, power price, solar, battery and room temperatures from your own Home Assistant,
+      and you can switch lights and heating by touch. It talks to Home Assistant over your Wi-Fi; nothing goes through
+      a cloud service.</p>
+    <p class="warn"><b>Alpha.</b> HA Paper and this installer have not been tested on a real X4 Pro yet. Only continue
+      if you are prepared to put the stock firmware back from the backup this page makes in step 2.</p>
+  </header>
+
+  <section aria-labelledby="screens-h">
+    <h2 id="screens-h" class="section">What it looks like</h2>
+    <p class="mut">Rendered by the firmware itself, at the panel's 800 × 480 pixels and four shades of gray.</p>
+    <div class="screens">
+      <figure>
+        <img src="./assets/classic-home-CmezfN4H.png" width="800" height="480" loading="lazy"
+          alt="Classic style home screen: a large clock, power price 0.18 euro per kWh marked cheap, inside 20.4 °C, solar 3.1 kW, home use 400 W, home battery 64 %, grid 150 W.">
+        <figcaption>Home, Classic style</figcaption>
+      </figure>
+      <figure>
+        <img src="./assets/sleek-home-BmIJOEhh.png" width="800" height="480" loading="lazy"
+          alt="Sleek style home screen: the same values with rounded tiles, small history bars and a ring for the battery.">
+        <figcaption>Home, Sleek style</figcaption>
+      </figure>
+      <figure>
+        <img src="./assets/night-CQMSnXqw.png" width="800" height="480" loading="lazy"
+          alt="Night screen: a large clock 23:30, night mode until 07:00, and one line with inside temperature, battery and the cheapest hours.">
+        <figcaption>Night mode</figcaption>
+      </figure>
+      <figure>
+        <img src="./assets/setup-wifi-DrY7bzm7.png" width="800" height="480" loading="lazy"
+          alt="First setup screen: pick a Wi-Fi network from a list, or set up from your phone.">
+        <figcaption>First start: pick your Wi-Fi</figcaption>
+      </figure>
+    </div>
+  </section>
+
+  <section aria-labelledby="need-h">
+    <h2 id="need-h" class="section">What you need</h2>
+    <ul class="need">
+      <li>An <b>Xteink X4 Pro</b>.</li>
+      <li>The magnetic <b>pogo to USB-C adapter</b> that came with it, and a USB-C cable that carries <b>data</b>.
+        Many cables that came with chargers only charge; with one of those the computer sees nothing.</li>
+      <li>A desktop or laptop computer with <b>Chrome or Edge</b> (Windows, macOS or Linux). Firefox, Safari and
+        phones can't talk to USB devices from a web page.</li>
+      <li>A running <b>Home Assistant</b> on the same network, and a <b>2.4 GHz</b> Wi-Fi network.</li>
+      <li>About 10 minutes. The backup alone takes about 3.</li>
+    </ul>
+  </section>
+
+  <div id="unsupported" class="card error" hidden>
+    <h2>This browser can't do it</h2>
+    <p>Installing needs Web Serial: Chrome, Edge or another Chromium browser on a desktop computer (Windows, macOS,
+      Linux), on an https:// page. Firefox, Safari and phones don't have it. You can still read the steps below.</p>
+  </div>
+
+  <h2 class="section" id="install-h">Install</h2>
+  <p id="release-status" class="mut">Loading the bundled firmware files…</p>
+
+  <section class="card step" aria-labelledby="step1-h">
+    <h3 id="step1-h"><span class="num" aria-hidden="true">1</span> Connect in download mode</h3>
+    <p>Clip the pogo adapter onto the X4 Pro and plug the cable into your computer. Then put the X4 Pro in
+      <b>download mode</b>, so it accepts new software instead of starting the reader:</p>
+    <ol class="combo">
+      <li>Press and <b>hold Left</b>.</li>
+      <li>While still holding Left, <b>press Reset</b> once and let go of Reset.</li>
+      <li><b>Release Left.</b> The screen does not change; that is normal.</li>
+    </ol>
+    <svg class="keys" viewBox="0 0 480 120" role="img" aria-labelledby="combo-title">
+      <title id="combo-title">Left and Reset: hold Left, press and release Reset, then release Left.</title>
+      <g font-family="system-ui, sans-serif" font-size="13" fill="currentColor" text-anchor="middle">
+        <g>
+          <rect x="20" y="22" width="56" height="34" rx="8" class="pressed"/>
+          <text x="48" y="44" class="on-pressed">Left</text>
+          <rect x="84" y="22" width="56" height="34" rx="8" class="key"/>
+          <text x="112" y="44">Reset</text>
+          <text x="80" y="88" font-weight="600">1. Hold Left</text>
+        </g>
+        <g>
+          <rect x="180" y="22" width="56" height="34" rx="8" class="pressed"/>
+          <text x="208" y="44" class="on-pressed">Left</text>
+          <rect x="244" y="22" width="56" height="34" rx="8" class="pressed"/>
+          <text x="272" y="44" class="on-pressed">Reset</text>
+          <text x="240" y="88" font-weight="600">2. Tap Reset</text>
+        </g>
+        <g>
+          <rect x="340" y="22" width="56" height="34" rx="8" class="key"/>
+          <text x="368" y="44">Left</text>
+          <rect x="404" y="22" width="56" height="34" rx="8" class="key"/>
+          <text x="432" y="44">Reset</text>
+          <text x="400" y="88" font-weight="600">3. Let go</text>
+        </g>
+        <text x="240" y="112" font-size="11" class="mut-fill">Filled = held down. Button placement on the device is not to scale.</text>
+      </g>
+    </svg>
+    <p>Within about 10 seconds, click <b>Connect</b> and pick the Espressif device in the list the browser shows.</p>
+    <button id="connect">Connect</button>
+    <p id="chip-status" class="status" role="status"></p>
+    <p class="mut">Nothing in the list, or "Failed to connect": do the button steps again and click Connect sooner.
+      An empty list usually means a charge-only cable.</p>
+  </section>
+
+  <section class="card step" aria-labelledby="step2-h">
+    <h3 id="step2-h"><span class="num" aria-hidden="true">2</span> Back up the stock firmware</h3>
+    <p>Copies everything on the X4 Pro to a file on your computer (about 3 minutes). Keep that file: it is the only
+      way back to the original reader software.</p>
+    <button id="backup" disabled>Read backup</button>
+    <div id="backup-result" class="status" role="status"></div>
+    <label class="check"><input type="checkbox" id="skip-backup" disabled> I already have a full backup of this unit</label>
+  </section>
+
+  <section class="card step" aria-labelledby="step3-h">
+    <h3 id="step3-h"><span class="num" aria-hidden="true">3</span> Install HA Paper</h3>
+    <p>Checks the files, asks you once, then writes HA Paper and restarts the display. Don't unplug until it says it
+      is done. If you install again later, your saved Wi-Fi, Home Assistant link and screens are kept.</p>
+    <button id="install" disabled>Install…</button>
+  </section>
+
+  <section class="card step" aria-labelledby="step4-h">
+    <h3 id="step4-h"><span class="num" aria-hidden="true">4</span> Wi-Fi</h3>
+    <p>After installing, leave the cable in. This page asks the display over USB which networks it sees; type your
+      Wi-Fi password here and the display joins. Nothing has to be typed on the display.</p>
+    <p id="wifi-status" class="status" role="status"></p>
+    <form id="wifi-form" hidden>
+      <label class="field" for="wifi-ssid">Network name</label>
+      <input id="wifi-ssid" list="wifi-networks" autocomplete="off" autocapitalize="off" spellcheck="false" required>
+      <datalist id="wifi-networks"></datalist>
+      <label class="field" for="wifi-password">Password</label>
+      <input id="wifi-password" type="password" autocomplete="off">
+      <button id="wifi-join" type="submit">Join</button>
+    </form>
+  </section>
+
+  <section class="card" aria-labelledby="progress-h">
+    <h3 id="progress-h">Progress</h3>
+    <progress id="progress" max="1" value="0" aria-labelledby="progress-h"></progress>
+    <p id="progress-label" class="mut" aria-live="polite"></p>
+    <p id="error" class="error-text" role="alert"></p>
+    <details>
+      <summary>Log</summary>
+      <pre id="log"></pre>
+    </details>
+  </section>
+
+  <section aria-labelledby="after-h">
+    <h2 id="after-h" class="section">After installing</h2>
+    <ol class="after">
+      <li>The display restarts by itself (press Reset if it doesn't) and shows <b>Connect to Wi-Fi</b>. Join your
+        Wi-Fi from step 4 on this page, then unplug the cable.</li>
+      <li>If step 4 says the display did not answer: unplug the cable, pick your network on the screen and type the
+        password on the on-screen keyboard. Or tap <b>Set up from phone</b>: join the Wi-Fi <b>HA-Paper-Setup</b> with
+        your phone and a setup page opens.</li>
+      <li>The screen then shows a <b>QR code</b> and an address like <code>ha-paper-1a2b.local</code>. Scan it, or open
+        that address on a phone or computer on the same Wi-Fi.</li>
+      <li>Click <b>Sign in with Home Assistant</b> and log in on your Home Assistant's own page. The display stores a
+        Home Assistant sign-in key (encrypted), never your password.</li>
+      <li>The display redraws with your live data. The same page lets you choose what each screen shows.</li>
+    </ol>
+  </section>
+
+  <section class="card" aria-labelledby="restore-h">
+    <h2 id="restore-h">Put the stock firmware back</h2>
+    <p>Pick the <code>x4pro_stock_YYYYMMDD.bin</code> you made in step 2 (and its <code>.sha256</code> file, if you
+      have it). Connect first (step 1).</p>
+    <label class="file-label" for="restore-file">Backup file</label>
+    <input type="file" id="restore-file" accept=".bin,.sha256" multiple>
+    <button id="restore" disabled>Restore…</button>
+  </section>
+
+  <details class="tech">
+    <summary><h2>Technical details</h2></summary>
+    <ul>
+      <li><b>Connect</b> reads the secure boot and flash encryption eFuses and stops if either is on, or if it can't
+        read them.</li>
+      <li><b>Backup</b> reads all 16 MB of flash in 256 KB chunks, checks each chunk against the chip's own MD5, and
+        saves <code>x4pro_stock_YYYYMMDD.bin</code> plus a <code>.sha256</code> file.</li>
+      <li><b>Install</b> checks the bundled files against <code>SHA256SUMS</code> and <code>manifest.json</code>,
+        checks that the partition table already on the display keeps NVS at 0x9000 (0x5000 bytes), and stops if
+        not. It then writes bootloader, partition table, otadata, app and web console at their own offsets. NVS
+        (0x9000-0xDFFF) and userdata (0xFD0000-0xFEFFFF) are never written: saved Wi-Fi, the Home Assistant link,
+        your screens and settings and the factory panel id survive. The page refuses any write plan that would erase
+        a sector in either.</li>
+      <li><b>Wi-Fi</b> uses the Improv Wi-Fi serial protocol (improv-wifi.com) on the
+        display's USB console. The password goes over the cable to the display only; the page does not keep or log
+        it.</li>
+      <li><b>Restore</b> writes a 16 MB backup over the whole flash at 0x0.</li>
+      <li>Prefer a script? Each release also ships <a href="https://github.com/daangeijs/eink-ha-os/blob/main/firmware/tools/x4flash.py"><code>x4flash.py</code></a>,
+        which does the same steps from a terminal. Full notes: <a href="https://github.com/daangeijs/eink-ha-os/blob/main/docs/FLASHING.md"><code>docs/FLASHING.md</code></a>.</li>
+    </ul>
+  </details>
+</main>
+
+<footer class="links">
+  <a href="https://github.com/daangeijs/eink-ha-os/releases/latest">Release notes and files</a>
+  <a href="https://github.com/daangeijs/eink-ha-os/blob/main/firmware/tools/x4flash.py">x4flash.py</a>
+  <a href="https://github.com/daangeijs/eink-ha-os/blob/main/docs/FLASHING.md">Flashing guide</a>
+  <a href="https://github.com/daangeijs/eink-ha-os/issues/new?template=bug_report.yml">Report a problem</a>
+</footer>
+
+<dialog id="confirm">
+  <form method="dialog">
+    <h2 id="confirm-title">Confirm</h2>
+    <div id="confirm-body"></div>
+    <div class="buttons">
+      <button value="cancel" class="secondary">Cancel</button>
+      <button value="ok" id="confirm-ok">Write</button>
+    </div>
+  </form>
+</dialog>
+</body>
+</html>

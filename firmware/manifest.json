@@ -1,0 +1,9 @@
+{
+  "version": "0.2.0-beta.1",
+  "sha256": "03d34b1c64ffb9bcd284280605b9f10a2168e0c35c68f85d0fae31b50e349d3d",
+  "size": 3987712,
+  "notes": [
+    "CI: font drift on x86_64 runners is reported, not fatal (#1)",
+    "HA Paper v0.2.0-beta.1: e-ink dashboard for Home Assistant on the Xteink X4 Pro"
+  ]
+}
