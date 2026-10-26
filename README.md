@@ -51,7 +51,8 @@ Put the X4 Pro in download mode first: hold **Left**, press **Reset**, release L
 Pick one of three ways. Full details, serial port names per OS and troubleshooting:
 [docs/FLASHING.md](docs/FLASHING.md).
 
-**Browser flasher.** Each GitHub release has `ha-paper-flasher-<version>.zip`: a static page with the firmware inside.
+**Browser flasher.** Hosted at [hapaper.daangeijs.nl](https://hapaper.daangeijs.nl) (Chrome or Edge on a desktop;
+the latest beta or stable release, deployed from each such tag; alpha releases are not hosted). Each GitHub release has `ha-paper-flasher-<version>.zip`: a static page with the firmware inside.
 Unzip it and serve the folder over HTTPS, or locally (`python3 -m http.server` in that folder, then open
 http://localhost:8000 in Chrome or Edge; Web Serial needs HTTPS or localhost). The page checks the chip, reads the
 backup, installs, and then sends your Wi-Fi name and password over the same cable

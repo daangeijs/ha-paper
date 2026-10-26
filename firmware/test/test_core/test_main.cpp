@@ -10,6 +10,7 @@
 #include <sstream>
 #include <string>
 #include <vector>
+#include "core/battery_history.h"
 #include "core/catalog.h"
 #include "core/config.h"
 #include "core/cw2017.h"
@@ -782,6 +783,8 @@ void test_diag_merge_and_report() {
   TEST_ASSERT_EQUAL(2, int(j.get("coredump")->get("backtrace")->arr.size()));
   TEST_ASSERT_TRUE(j.get("touch_recoveries")->isNull());
   TEST_ASSERT_TRUE(j.get("deep_sleep")->get("armed")->b);   // #10 first-boot safety: default 0 boots left
+  TEST_ASSERT_TRUE(j.get("deep_sleep")->get("armed_by")->isNull());
+  TEST_ASSERT_TRUE(j.get("battery")->isNull());
   TEST_ASSERT_EQUAL_STRING("PANIC", j.get("last_crash")->get("reason")->str.c_str());
   TEST_ASSERT_FALSE(j.get("panel")->get("failed")->b);
   TEST_ASSERT_TRUE(j.get("panel")->get("failure")->isNull());
@@ -803,6 +806,12 @@ void test_diag_merge_and_report() {
   TEST_ASSERT_TRUE(j.get("panel")->get("verdict")->isNull());
   TEST_ASSERT_TRUE(j.get("panel")->get("failed")->b);
   TEST_ASSERT_EQUAL_STRING("BUSY stuck 20 s (init)", j.get("panel")->get("failure")->str.c_str());
+  rep.sleepArmedBy = "uptime";   // #231
+  rep.batteryJson = batt::History().json();
+  TEST_ASSERT_TRUE(parseJson(diag::reportJson(rtc, rep), j));
+  TEST_ASSERT_EQUAL_STRING("uptime", j.get("deep_sleep")->get("armed_by")->str.c_str());
+  TEST_ASSERT_EQUAL(300, int(j.get("battery")->get("interval_s")->num));
+  TEST_ASSERT_EQUAL(0, int(j.get("battery")->get("history")->arr.size()));
 }
 
 // ---------- power (spec/test-vectors/power, emulator src/core/power.ts) ----------
@@ -883,6 +892,37 @@ static glance::Snapshot snapOf(const Json& o) {   // vectors give region key →
   return glance::snapshotOf(m);
 }
 
+// ---------- battery history (spec/test-vectors/battery-history.json, #231) ----------
+void test_battery_history_vectors() {
+  Json j;
+  TEST_ASSERT_TRUE(parseJson(readFile(std::string(X4_REPO_ROOT) + "/spec/test-vectors/battery-history.json"), j));
+  int cases = 0;
+  for (auto& c : j.get("cases")->arr) {
+    const char* name = c.get("name")->str.c_str();
+    batt::History h;
+    std::vector<std::string> log;
+    for (auto& o : c.get("ops")->arr) {
+      batt::In i;
+      i.ms = uint32_t(o.get("ms")->num);
+      i.epoch = int64_t(o.get("epoch")->num);
+      i.pct = int(o.get("pct")->num);
+      i.mv = o.get("mv")->isNull() ? -1 : int(o.get("mv")->num);
+      i.chg = o.get("chg")->b;
+      i.usb = o.get("usb")->b;
+      i.power = o.get("power")->str.c_str();
+      i.rssi = o.get("rssi")->isNull() ? batt::kNoRssi : int(o.get("rssi")->num);
+      const std::string l = h.step(i);
+      if (!l.empty()) log.push_back(l);
+    }
+    const auto& want = c.get("log")->arr;
+    TEST_ASSERT_EQUAL_MESSAGE(int(want.size()), int(log.size()), name);
+    for (size_t k = 0; k < log.size(); k++) TEST_ASSERT_EQUAL_STRING_MESSAGE(want[k].str.c_str(), log[k].c_str(), name);
+    TEST_ASSERT_EQUAL_STRING_MESSAGE(dumpJson(*c.get("battery")).c_str(), canon(h.json()).c_str(), name);
+    ++cases;
+  }
+  TEST_ASSERT_EQUAL(5, cases);
+}
+
 void test_glance_vectors() {
   Json j;
   TEST_ASSERT_TRUE(parseJson(readFile(std::string(X4_REPO_ROOT) + "/spec/test-vectors/glance.json"), j));
@@ -928,11 +968,20 @@ void test_glance_vectors() {
   for (auto& c : j.get("arm")->arr) {
     glance::ArmRecord stored;
     const Json* s = c.get("stored");
-    if (!s->isNull()) { stored.version = s->get("version")->str; stored.boots = int(s->get("boots")->num); }
+    if (!s->isNull()) {
+      stored.version = s->get("version")->str;
+      stored.boots = int(s->get("boots")->num);
+      stored.uptime = s->get("uptime") && s->get("uptime")->b;
+    }
     glance::ArmRecord r = glance::armFor(s->isNull() ? nullptr : &stored, c.get("version")->str);
     for (int n = 0; n < int(c.get("ops")->num); ++n) r = glance::armCount(r);
-    TEST_ASSERT_EQUAL_MESSAGE(int(c.get("boots")->num), r.boots, c.get("name")->str.c_str());
-    TEST_ASSERT_EQUAL_MESSAGE(int(c.get("left")->num), glance::armBootsLeft(r), c.get("name")->str.c_str());
+    if (const Json* up = c.get("up")) r = glance::armUptime(r, up->arr[0].num, up->arr[1].b);   // #231
+    const char* name = c.get("name")->str.c_str();
+    TEST_ASSERT_EQUAL_MESSAGE(int(c.get("boots")->num), r.boots, name);
+    TEST_ASSERT_EQUAL_MESSAGE(c.get("uptime")->b, r.uptime, name);
+    TEST_ASSERT_EQUAL_MESSAGE(int(c.get("left")->num), glance::armBootsLeft(r), name);
+    const char* by = glance::armedBy(r);
+    TEST_ASSERT_EQUAL_STRING_MESSAGE(c.get("by")->isNull() ? "null" : c.get("by")->str.c_str(), by ? by : "null", name);
     ++cases;
   }
   for (auto& c : j.get("tally")->arr) {   // #178
@@ -1714,6 +1763,7 @@ int main(int, char**) {
   RUN_TEST(test_power_spec_vectors);
   RUN_TEST(test_cpu_mhz_for);
   RUN_TEST(test_glance_vectors);
+  RUN_TEST(test_battery_history_vectors);
   RUN_TEST(test_glance_snapshot_and_rtc);
   RUN_TEST(test_sleep_now_vectors);
   RUN_TEST(test_migration_spec_vectors);

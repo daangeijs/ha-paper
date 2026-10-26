@@ -226,6 +226,9 @@ std::string diagReportJson() {
   coredumpSummary(rep.core);
   rep.touchRecoveries = touchRecoveries();
   rep.sleepBootsLeft = powerArmBootsLeft();
+  rep.sleepArmedBy = powerArmedBy();
+  rep.batteryJson = powerBatteryJson();
+  powerTrail(rep.trailBeforeBoot, rep.trail);
   std::lock_guard<std::mutex> l(g_mu);
   touchLocked();
   return diag::reportJson(g_rtc.ring, rep);

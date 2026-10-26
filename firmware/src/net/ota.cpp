@@ -159,7 +159,7 @@ bool otaBusy() {
   return hub().status.ota == OtaState::Downloading || hub().status.ota == OtaState::Installing;
 }
 bool otaJustUpdated() { return g_justUpdated; }
-double otaAvailableSizeMb() { return g_avail.size / 1048576.0; }
+double otaAvailableSizeMb() { return g_upActive ? 0 : g_avail.size / 1048576.0; }
 
 bool otaBatteryOk(std::string* why) {
   PowerInfo p;
@@ -462,7 +462,31 @@ bool otaInstall(std::string& err) {
   return true;
 }
 
-bool otaUploadBegin(size_t size, std::string& err) {
+// #237: the install face reads otaAvailableVersion; an upload replaces the GitHub target ("" = unknown: no version line)
+static void setUploadTarget(const std::string& v) {
+  std::lock_guard<std::recursive_mutex> l(hub().mu);
+  if (hub().status.otaAvailableVersion == v && hub().status.otaNotes.empty()) return;
+  hub().status.otaAvailableVersion = v;
+  hub().status.otaNotes.clear();
+  hub().markStatus();
+}
+
+std::string otaUploadVersion(const std::string& v) {
+  size_t b = v.find_first_not_of(" \t"), e = v.find_last_not_of(" \t");
+  if (b == std::string::npos) return "";
+  std::string s = v.substr(b, e - b + 1);
+  if (s.size() > 1 && (s[0] == 'v' || s[0] == 'V') && isdigit(static_cast<unsigned char>(s[1]))) s.erase(0, 1);
+  if (s.empty() || s.size() > 64) return "";
+  for (char c : s)
+    if (c < 0x21 || c > 0x7e) return "";
+  return s;
+}
+
+void otaUploadSetVersion(const std::string& v) {
+  if (g_upActive && !v.empty()) setUploadTarget(v);
+}
+
+bool otaUploadBegin(size_t size, const std::string& version, std::string& err) {
   if (g_upActive) {
     err = "an upload is already running";
     return false;
@@ -477,6 +501,7 @@ bool otaUploadBegin(size_t size, std::string& err) {
   wifiPsOffAcquire();   // released in otaUploadEnd/Abort
   g_upActive = true;
   g_upBytes = 0;
+  setUploadTarget(version);   // before the state flips: the face draws once, with the right line
   setOta(OtaState::Installing, 0);
   return true;
 }
@@ -506,12 +531,14 @@ bool otaUploadEnd(const std::string& sha, std::string& err, std::string* digestH
   if (!want.empty() && hex(digest, 32) != want) {
     Update.abort();
     err = "SHA-256 does not match — nothing changed";
+    setUploadTarget("");
     setOta(OtaState::Failed);
     return false;
   }
   wdt::feedIfSubscribed();
   if (!Update.end(true)) {
     err = std::string("image rejected: ") + Update.errorString();
+    setUploadTarget("");
     setOta(OtaState::Failed);
     return false;
   }
@@ -528,6 +555,7 @@ void otaUploadAbort() {
   wifiPsOffRelease();
   mbedtls_sha256_free(&g_upSha);
   Update.abort();
+  setUploadTarget("");
   setOta(OtaState::Failed);
 }
 

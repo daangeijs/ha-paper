@@ -7,6 +7,7 @@ Works from macOS, Linux and Windows. Hardware facts: [HARDWARE.md](HARDWARE.md).
 A static page in `flasher/` (Vite + TypeScript, [esptool-js](https://github.com/espressif/esptool-js) over Web
 Serial) does what `x4flash.py` does, without Python. It needs Chrome, Edge or another Chromium browser on a desktop
 computer and an `https://` page (or `localhost`); Firefox, Safari and phones have no Web Serial.
+Hosted copy: [hapaper.daangeijs.nl](https://hapaper.daangeijs.nl), the latest beta or stable release.
 
 The page doubles as the landing page for people who are not developers: what HA Paper is, four screen renders, what
 you need, the four install steps (with a drawing of the Left + Reset combo), what to do after installing, and a
@@ -34,6 +35,9 @@ Hosting: `make flasher` builds `dist/` and then the site into `dist/flasher/`, w
 Upload that folder to any static HTTPS host; it uses relative URLs only. `make flasher-site` packages an existing
 `dist/` without rebuilding; it fails if `dist/` was built from another commit than the current `git describe`, and
 refuses a `-dirty` version unless `ALLOW_DIRTY=1`. Each GitHub release also has the same folder as `ha-paper-flasher-<version>.zip`.
+The release workflow deploys that folder (plus a `CNAME`) to GitHub Pages of `daangeijs/ha-paper` on every beta and
+stable tag; alpha tags and the private repo never deploy. One-time setup: Settings → Pages → Source "GitHub Actions"
+and custom domain `hapaper.daangeijs.nl`; DNS `CNAME hapaper → daangeijs.github.io`.
 Development: `cd flasher && npm ci && npm test && npm run dev` (copy a `make flasher` `firmware/` folder into
 `flasher/public/firmware/` to have files to install). Not yet tried on a real X4 Pro (as of 2026-10-16; #20).
 

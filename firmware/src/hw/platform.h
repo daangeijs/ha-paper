@@ -46,6 +46,7 @@ class Board {
   virtual uint32_t millis() = 0;
   virtual int64_t epochSeconds() = 0;   // 0 if unknown (no NTP/RTC yet)
   virtual void restart() = 0;
+  virtual void pause(uint32_t ms) { (void)ms; }   // block the calling task (hardware); no-op in host tests
   virtual uint8_t heldKeys() { return 0; }   // keys held now, core/recovery.h bits (kKeyPower | kKeyRight | kKeyLeft)
   virtual bool pushInput(const InputEvent&) { return false; }   // remote input (#214), any task; false = queue full
 };

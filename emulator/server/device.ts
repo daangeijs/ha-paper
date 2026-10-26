@@ -23,6 +23,7 @@ import { changedRegions, serializeRegion, type RegionMap } from '../src/core/reg
 import { parseHaAddress, resolveHaAddress, HA_PROBE_PATH, HA_PROBE_COOLDOWN_MS, HA_PROBE_BUSY, type HaResolved, type ProbeAnswer } from '../src/core/haAddress.ts';
 import { authorizeUrl, exchangeCode, HaHttpError, HaSocket, randomToken, refreshAccess, revokeToken } from './ha-client.ts';
 import { latestFor, sha256, type Manifest, type SimRelease } from './ota.ts';
+import { BATT_ZERO, battHistory, battStep, type BattState } from '../src/core/battery.ts';
 import { bootsJson, diagClear, diagPush, diagTouch, lastCrash, type DiagRing } from '../src/core/diag.ts';
 import { DEVICE_SCHEMA, SETTINGS_SCHEMA, migrate, schemaStatus } from '../src/core/migrate.ts';
 import { reportDue, reportStates, type ReportLast, type ReportPhase, type ReportStatus } from '../src/core/haReport.ts';
@@ -189,6 +190,8 @@ export class DeviceSim {
   pending = new Map<string, { verifier: string; returnTo: string; clientId: string; redirectUri: string; exp: number }>();
   wifiRun: { state: 'idle' | 'connecting' | 'connected' | 'failed'; error?: string } = { state: 'idle' };
   otaRun: { status: string; avail: SimRelease | null; lastCheck: Date | null; message: string } = { status: 'idle', avail: null, lastCheck: null, message: '' };
+  /** POST /ota/upload is receiving an image (firmware otaUploadBegin … End/Abort); version '' = not known (#237). */
+  upload: { version: string } | null = null;
   ha: { socket: HaSocket | null; access: string | null; accessExp: number; connected: boolean; entities: Map<string, { s: string; a: Record<string, any> }>; lastEvent: string | null; version: string; retry?: ReturnType<typeof setTimeout>; retryMs: number; areas: number;
     /** logical id → HA entity from the Energy dashboard (a small subset of firmware core/entity_map; no device discovery, no statistics) */
     alias: Record<string, string> } =
@@ -196,6 +199,8 @@ export class DeviceSim {
   /** Device health → HA states (#32, firmware net/ha_report). GET /status `ha_report` = reportStatus(). */
   report = { last: null as ReportLast | null, force: true, on: true, busy: false, status: 'waiting' as ReportPhase, pushedAt: 0, lastFullAt: 0, retried: false };
   private reportT: ReturnType<typeof setInterval> | null = null;
+  /** GET /diagnostics battery (#231): PSRAM on the device, so a reset or deep-sleep wake starts it over. */
+  batt: BattState = BATT_ZERO;
   display = { mode: 'main' as 'main' | 'boot' | 'updating', idx: 0, full: 0, clean: 0, fast: 0, partial: 0, skipped: 0, sinceFull: 0, navSinceClean: 0, regions: {} as RegionMap, events: [] as DisplayEvent[], progress: null as null | { version: string; pct: number; step: string } };
   authFailures = new Map<string, number[]>();
   /** Power (ROBUSTNESS_PLAN Phase 3): USB plugged (= external power, charging below 100 %), deep sleep, last API request. */
@@ -242,7 +247,7 @@ export class DeviceSim {
     this.save();
     this.boot('power on');
     if (o.connectHa !== false) void this.connectHa();
-    this.reportT = setInterval(() => void this.reportTick(), 5000);
+    this.reportT = setInterval(() => { this.battTick(); void this.reportTick(); }, 5000);
   }
 
   close() {
@@ -818,10 +823,11 @@ export class DeviceSim {
 
   // ------------------------------------------------------------------ OTA
   otaState() {
-    const a = this.otaRun.avail;
+    const a = this.otaRun.avail; const up = this.upload;
     return {
       installed: this.p.ota.fw, channel: this.p.ota.channel, auto: this.otaRepo ? this.p.ota.auto : 'off', status: this.otaRun.status,
-      available: a ? { version: a.manifest.version, size_mb: Math.round((a.manifest.size / 1048576) * 100) / 100, notes: a.manifest.notes } : null,
+      available: up ? (up.version ? { version: up.version, size_mb: 0, notes: [] } : null)
+        : a ? { version: a.manifest.version, size_mb: Math.round((a.manifest.size / 1048576) * 100) / 100, notes: a.manifest.notes } : null,
       last_check: this.otaRun.lastCheck ? this.otaRun.lastCheck.toISOString() : null, message: this.otaRun.message || (this.otaRepo ? '' : OTA_CHECKS_OFF_MSG),
       progress: this.display.progress ? this.display.progress.pct : this.otaRun.status === 'updated' ? 100 : 0, repo: this.otaRepo,
     };
@@ -872,10 +878,28 @@ export class DeviceSim {
     }, this.delays.otaStepMs);
     return null;
   }
+  /** An upload started (firmware: first body byte): the install face, "Updating to" + the version only when known. */
+  uploadStart(version: string) {
+    this.upload = { version }; this.otaRun = { ...this.otaRun, status: 'installing', avail: null, message: '' };
+    this.display.mode = 'updating'; this.display.progress = { version, pct: 0, step: 'Checking SHA-256' };
+    this.fullRefresh('update screen');
+    this.log('OTA upload start · ' + (version ? 'v' + version : 'local file, version unknown'));
+  }
+  /** The manifest part arrived after the upload started (firmware: handleUpload, manifest.json final). */
+  uploadVersion(version: string) {
+    if (!this.upload || !version || version === this.upload.version) return;
+    this.upload = { version }; this.display.progress = { ...this.display.progress!, version }; this.dataChanged('update version');
+  }
+  /** 4xx after the upload started: nothing changed, back to the dashboard, no target version left behind. */
+  uploadFailed(msg: string) {
+    if (!this.upload) return;
+    this.upload = null; this.otaRun = { ...this.otaRun, status: 'error', message: msg };
+    this.display.mode = 'main'; this.display.progress = null; this.fullRefresh('update failed');
+  }
   get otaBusy(): boolean { return ['downloading', 'installing', 'verifying'].includes(this.otaRun.status); }
   /** After a verified image (download or upload): set boot partition, restart, health check (or roll back). */
   rebootInto(m: Manifest) {
-    const prev = this.p.ota.fw;
+    const prev = this.p.ota.fw; this.upload = null;
     this.log('esp_ota_set_boot_partition(ota_1) · RESTART into v' + m.version + ' (pending verify)');
     this.p.ota = { ...this.p.ota, fw: m.version, prev }; this.otaRun = { ...this.otaRun, status: 'verifying', message: '' };
     this.diagReset('SW', null); this.save();
@@ -904,7 +928,7 @@ export class DeviceSim {
     d.ring = diagTouch(d.ring, Math.floor((Date.now() - this.bootAt) / 1000), SIM_HEAP.min_free_internal, Math.floor(Date.now() / 1000));
     d.ring = diagPush(d.ring, reason, this.p.ota.fw, panic);
     this.logsPrev = logTail(this.logs); this.logs = logRing();
-    this.bootAt = Date.now(); this.resetReason = reason; this.bootRefresh = { full: this.display.full, partial: this.display.partial, fast: this.display.fast, clean: this.display.clean };
+    this.bootAt = Date.now(); this.batt = BATT_ZERO; this.resetReason = reason; this.bootRefresh = { full: this.display.full, partial: this.display.partial, fast: this.display.fast, clean: this.display.clean };
   }
   /** POST /__sim/control {crash}: what a panic / task watchdog / brownout leaves behind, then the reboot. */
   crash(kind: SimCrash) {
@@ -925,7 +949,8 @@ export class DeviceSim {
       firmware: this.p.ota.fw, uptime_s: Math.floor((Date.now() - this.bootAt) / 1000), reset_reason: this.resetReason,
       boots: bootsJson(ring), last_crash: lastCrash(ring), heap: { ...SIM_HEAP, low_point: SIM_LOW_POINT },
       panel: { controller: 'UC8179', source: 'probe', verdict: 'ultrachip', promoted: true, ver: '00 00 01 FF FF', flg: 0, nvs_screen_type: 1, failed: false, failure: null },
-      coredump: d.coredump, touch_recoveries: 0, deep_sleep: { armed: true, boots_left: 0 },
+      coredump: d.coredump, touch_recoveries: 0, deep_sleep: { armed: true, boots_left: 0, armed_by: 'boots' }, battery: battHistory(this.battTick()),
+      power_trail: { before_boot: null, lines: ['awake'] },   // #225: a fresh device marks itself awake on /power.txt
     };
   }
   /** GET /logs (x-firmware, #200) */
@@ -997,6 +1022,16 @@ export class DeviceSim {
     this.power.asleep = null; this.power.wakeT = null; this.power.lastApi = null;
     this.tally = tallyWake(this.tally, sleptSeconds(this.power.sleptAt, this.power.plannedWake, Math.floor(Date.now() / 1000)));
     this.log('POWER wake · ' + src); this.diagReset('DEEPSLEEP', null); this.boot('wake · ' + src);
+  }
+  /** Battery sample / [BATT] log line (firmware net/power.cpp, core/battery.ts), every power-loop pass. */
+  battTick(): BattState {
+    if (this.closed || this.power.asleep) return this.batt;
+    const charging = this.power.usb && this.battery < 100;
+    const r = battStep(this.batt, { ms: Date.now() - this.bootAt, epoch: Math.floor(Date.now() / 1000), pct: this.battery, mv: this.batteryMv, chg: charging, usb: this.power.usb,
+      power: this.powerCheck().reason, rssi: NETWORKS.find((n) => n.ssid === this.p.wifi.connected)?.rssi ?? null });
+    if (r.log) this.log('BATT ' + r.log);
+    this.batt = r.s;
+    return r.s;
   }
   setUsb(on: boolean) { this.power.usb = on; this.log('POWER USB ' + (on ? 'plugged' : 'unplugged')); if (on) this.wake('charger'); }
 

@@ -6,6 +6,7 @@ import { join } from 'node:path';
 import { validateYaml, cellsUsed, toYaml, sceneAction } from '../src/core/config.ts';
 import { sevOf, routeLevel, carEta, carLevel, SEV, CAR_FACTOR } from '../src/core/severity.ts';
 import { logPush, logRing, logsQuery, logTail, redact, LOG_CAP, LOG_TAIL_CAP, type LogLevel, type LogRing, type LogsQuery } from '../src/core/logs.ts';
+import { BATT_HISTORY_N, BATT_SAMPLE_S, BATT_ZERO, battHistory, battStep, type BattIn } from '../src/core/battery.ts';
 import { bootsJson, diagApply, lastCrash, type DiagOp, type DiagRing } from '../src/core/diag.ts';
 import { seedAnswerOk, seedPlan, SEED_TEMPLATE, templateEventFinal, type HaSnapshot } from '../src/core/seed.ts';
 import { houseData, seedAnswer, type House } from '../server/fake-ha.ts';
@@ -126,6 +127,30 @@ export function severityVectors() {
     ] as { delay: number; cancelled: boolean }[][]).map((deps) => ({ deps, level: routeLevel(deps) })),
     carEta: [1, 2, 3, 4].map((level) => ({ typical: 21, level, eta: carEta(21, level) })),
     carLevel: [[21, 21], [24, 21], [25, 21], [29, 21], [30, 21], [36, 21], [37, 21], [60, 21]].map(([eta, typical]) => ({ eta, typical, level: carLevel(eta, typical) })),
+  };
+}
+
+/** Battery history (#231): ops = power-loop passes in order from an empty ring; each case lists the log lines and the
+ *  final GET /diagnostics `battery`. */
+/** JSON with 2-space indent, but flat objects and arrays (no nesting inside) on one line: 291 ops stay readable. */
+const compactJson = (v: unknown): string => JSON.stringify(v, null, 2).replace(/([[{])\n\s+([^[\]{}]*?)\n\s*([\]}])/g, (_, a: string, body: string, b: string) => a + body.replace(/\n\s*/g, ' ') + b) + '\n';
+export function batteryVectors() {
+  const E = 1_760_000_000, M = BATT_SAMPLE_S * 1000;
+  const at = (ms: number, o: Partial<BattIn> = {}): BattIn => ({ ms, epoch: E + Math.floor(ms / 1000), pct: 80, mv: 3950, chg: false, usb: false, power: 'not armed', rssi: -78, ...o });
+  const cases: { name: string; ops: BattIn[] }[] = [
+    { name: 'gauge not read yet: nothing', ops: [at(0, { pct: -1 }), at(1000, { pct: -1 })] },
+    { name: 'first reading samples at once; the next one after 300 s', ops: [at(5000), at(6000), at(5000 + M - 1, { pct: 79 }), at(5000 + M, { pct: 79 })] },
+    { name: 'USB plugged / STAT changes log a line but add no row', ops: [at(0), at(60_000, { usb: true, chg: true, power: 'external power' }), at(120_000, { usb: true, chg: false, power: 'external power' }), at(M, { usb: true, power: 'external power' })] },
+    { name: 'clock unknown: t = uptime seconds; mv and rssi unknown', ops: [at(42_000, { epoch: 0, mv: null, rssi: null }), at(42_000 + M, { epoch: 0, power: 'glance' })] },
+    { name: 'ring keeps the newest 288 (24 h)', ops: Array.from({ length: BATT_HISTORY_N + 3 }, (_, n) => at(n * M, { pct: 100 - Math.floor(n / 4) })) },
+  ];
+  return {
+    description: 'Battery history (#231, emulator src/core/battery.ts, firmware core/battery_history.cpp). ops = power-loop passes {ms uptime, epoch (0 = clock unknown), pct (< 0 = not read), mv|null, chg, usb, power reason, rssi|null} from an empty ring. A row every ' + BATT_SAMPLE_S + ' s (the first at once), newest ' + BATT_HISTORY_N + ' kept; t = epoch, or uptime seconds while the clock is unknown. log = the [BATT] lines written: every sample and every chg / usb change. battery = GET /diagnostics battery.',
+    cases: cases.map((c) => {
+      let st = BATT_ZERO; const log: string[] = [];
+      for (const o of c.ops) { const r = battStep(st, o); st = r.s; if (r.log) log.push(r.log); }
+      return { name: c.name, ops: c.ops, log, battery: battHistory(st) };
+    }),
   };
 }
 
@@ -422,6 +447,7 @@ if (process.argv[1] && process.argv[1].endsWith('gen-vectors.ts')) {
   for (const v of configVectors()) writeFileSync(join(dir, v.name + '.json'), JSON.stringify(v, null, 2) + '\n');
   writeFileSync(join(OUT, 'severity.json'), JSON.stringify(severityVectors(), null, 2) + '\n');
   writeFileSync(join(OUT, 'diag.json'), JSON.stringify(diagVectors(), null, 2) + '\n');
+  writeFileSync(join(OUT, 'battery-history.json'), compactJson(batteryVectors()));
   writeFileSync(join(OUT, 'logs.json'), JSON.stringify(logsVectors(), null, 2) + '\n');
   writeFileSync(join(OUT, 'seed.json'), JSON.stringify(seedVectors(), null, 2) + '\n');
   writeFileSync(join(OUT, 'ha-address.json'), JSON.stringify(await haAddressVectors(), null, 2) + '\n');

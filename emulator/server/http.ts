@@ -16,7 +16,7 @@ import type { StoredToken } from '../src/core/auth.ts';
 import { logsQueryOf } from '../src/core/logs.ts';
 import { mergeSettings, PRESETS, presetState, verifyImage, type DeviceSim, type Preset } from './device.ts';
 import { readBuffer } from './fake-ha.ts';
-import { parseMultipart, sha256, type Manifest } from './ota.ts';
+import { parseMultipart, sha256, uploadVersion, type Manifest } from './ota.ts';
 import { previewPng } from './png.ts';
 import { INPUT_SPEC_ERROR, parseInputSpec } from '../src/core/inputSpec.ts';
 
@@ -230,23 +230,31 @@ export function createDeviceHandler(sim: DeviceSim, o: HandlerOptions) {
         if (sim.battery < 30) return err(409, 'Battery at ' + sim.battery + '% — charge to 30% first');
         if (sim.otaBusy) return err(409, 'An update is already running');
         const ct = String(req.headers['content-type'] || '');
-        const body = await readBuffer(req, 8 * 1024 * 1024);
+        const multipart = /multipart\/form-data/i.test(ct);
+        const checked = sim.otaRun.avail;   // the upload screen drops it; still the raw-upload manifest fallback
+        // firmware: the install face shows from the first body byte; a raw upload names its version in ?version= (#237)
+        if (!multipart && Number(req.headers['content-length'] || 0) > 0) sim.uploadStart(uploadVersion(u.searchParams.get('version')));
+        const fail = (code: number, msg: string) => { sim.uploadFailed(msg); return err(code, msg); };
+        let body: Buffer;
+        try { body = await readBuffer(req, 8 * 1024 * 1024); } catch (e) { sim.uploadFailed('upload failed'); throw e; }
         let img: Buffer | null = null; let manifest: Partial<Manifest> | null = null;
-        if (/multipart\/form-data/i.test(ct)) {
+        if (multipart) {
           const parts = parseMultipart(body, ct);
           const fw = parts.find((p) => p.name === 'firmware') || parts.find((p) => p.filename && !/manifest/i.test(p.filename));
           const mf = parts.find((p) => p.name === 'manifest');
           img = fw ? fw.data : null;
-          if (mf) { try { manifest = JSON.parse(mf.data.toString('utf8')); } catch { return err(400, 'manifest.json is not valid JSON'); } }
+          if (img?.length) sim.uploadStart(uploadVersion(u.searchParams.get('version')));
+          if (mf) { try { manifest = JSON.parse(mf.data.toString('utf8')); } catch { return fail(400, 'manifest.json is not valid JSON'); } }
+          sim.uploadVersion(uploadVersion(manifest?.version));
         } else if (body.length) img = body;
         const qsha = u.searchParams.get('sha256') || (req.headers['x-sha256'] as string | undefined);
         if (!manifest && qsha) manifest = { sha256: qsha, version: u.searchParams.get('version') || undefined };
-        if (!manifest && sim.otaRun.avail) manifest = sim.otaRun.avail.manifest;
-        if (!img || !img.length) return err(400, 'firmware.bin missing (multipart field "firmware" or an application/octet-stream body)');
-        if (!manifest || !manifest.sha256) return err(400, 'manifest.json missing (multipart field "manifest", ?sha256=…, or check for an update first)');
+        if (!manifest && checked) manifest = checked.manifest;
+        if (!img || !img.length) return fail(400, 'firmware.bin missing (multipart field "firmware" or an application/octet-stream body)');
+        if (!manifest || !manifest.sha256) return fail(400, 'manifest.json missing (multipart field "manifest", ?sha256=…, or check for an update first)');
         const m: Manifest = { version: String(manifest.version || 'unknown'), sha256: String(manifest.sha256), size: Number(manifest.size || 0), notes: manifest.notes || [] };
         const bad2 = verifyImage(img, m);
-        if (bad2) { sim.log('OTA upload rejected · ' + bad2 + ' · nothing changed'); return err(422, bad2 + ' — nothing changed'); }
+        if (bad2) { sim.log('OTA upload rejected · ' + bad2 + ' · nothing changed'); return fail(422, bad2 + ' — nothing changed'); }
         sim.log('OTA upload ' + img.length + ' bytes · SHA-256 OK');
         res.on('finish', () => sim.rebootInto(m));
         return send(202, { status: 'rebooting', version: m.version, sha256: sha256(img), size: img.length });

@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { armBootsLeft, armCount, armFor, glanceStep, liveNow, sleptSeconds, snapshotDiff, snapshotOf, tallyGlance, tallySleep, tallyWake, wifiFast, TALLY_ZERO, type ArmRecord, type GlanceIn, type GlanceOut, type Snapshot, type WakeTally, type WifiCache, type WifiFast } from './glance.ts';
+import { armBootsLeft, armCount, armedBy, armFor, armUptime, glanceStep, liveNow, sleptSeconds, snapshotDiff, snapshotOf, tallyGlance, tallySleep, tallyWake, wifiFast, TALLY_ZERO, type ArmRecord, type GlanceIn, type GlanceOut, type Snapshot, type WakeTally, type WifiCache, type WifiFast } from './glance.ts';
 import { glanceWaitS } from './power.ts';
 
 type V = {
@@ -9,7 +9,7 @@ type V = {
   glanceStep: { name: string; in: GlanceIn; out: GlanceOut }[];
   wifiFast: { name: string; cache: WifiCache; saved: number; now: number; fast: WifiFast }[];
   liveNow: { name: string; msSinceInput: number | null; liveMin: number; live: boolean }[];
-  arm: { name: string; stored: ArmRecord | null; version: string; ops: number; boots: number; left: number }[];
+  arm: { name: string; stored: Partial<ArmRecord> | null; version: string; ops: number; up?: [number, boolean]; boots: number; uptime: boolean; left: number; by: 'uptime' | 'boots' | null }[];
   tally: { name: string; ops: [string, ...any[]][]; expect: WakeTally }[];
 };
 const v = JSON.parse(readFileSync(join(import.meta.dirname, '..', '..', '..', 'spec', 'test-vectors', 'glance.json'), 'utf8')) as V;
@@ -22,7 +22,8 @@ describe('glance (spec/test-vectors/glance.json)', () => {
   for (const c of v.arm) it('arm: ' + c.name, () => {
     let r = armFor(c.stored, c.version);
     for (let n = 0; n < c.ops; n++) r = armCount(r);
-    expect(r).toEqual({ version: c.version, boots: c.boots }); expect(armBootsLeft(r)).toBe(c.left);
+    if (c.up) r = armUptime(r, c.up[0], c.up[1]);
+    expect(r).toEqual({ version: c.version, boots: c.boots, uptime: c.uptime }); expect(armBootsLeft(r)).toBe(c.left); expect(armedBy(r)).toBe(c.by);
   });
   for (const c of v.tally) it('tally: ' + c.name, () => {
     let t = TALLY_ZERO;

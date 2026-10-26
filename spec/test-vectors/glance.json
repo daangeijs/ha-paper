@@ -1,5 +1,5 @@
 {
-  "description": "Glance wakes (#10, emulator src/core/glance.ts, firmware core/glance.cpp). snapshotDiff: region key -> hash maps (prev null = no valid snapshot in RTC), ignore = clock regions; result sorted. glanceStep: what a wake does with its result. wifiFast: how to reconnect from the RTC Wi-Fi cache. liveNow: live mode after a key press. arm: first-boot safety, ARM_BOOTS = 3 confirmed boots with network per firmware version (stored = null: none; ops count = this boot confirmed). tally (#178): wake counters since power-on in RTC memory, ops in order from zero: [\"wake\", sleptAtEpoch, wakeAtEpoch, nowEpoch] (slept = clock when known and not backwards, else planned timer, else 0), [\"glance\", ok, redraw, wifiMs|null, haMs|null, totalMs], [\"sleep\", awakeMs, fullRefreshes, partialRefreshes].",
+  "description": "Glance wakes (#10, emulator src/core/glance.ts, firmware core/glance.cpp). snapshotDiff: region key -> hash maps (prev null = no valid snapshot in RTC), ignore = clock regions; result sorted. glanceStep: what a wake does with its result. wifiFast: how to reconnect from the RTC Wi-Fi cache. liveNow: live mode after a key press. arm: first-boot safety per firmware version, armed after ARM_BOOTS = 3 confirmed boots with network or (#231) ARM_UPTIME_MIN = 30 min of one boot with network and a confirmed image (stored = null: none; ops count = this boot confirmed; then up = [netUpMin, otaPendingVerify] when present; by = armedBy). tally (#178): wake counters since power-on in RTC memory, ops in order from zero: [\"wake\", sleptAtEpoch, wakeAtEpoch, nowEpoch] (slept = clock when known and not backwards, else planned timer, else 0), [\"glance\", ok, redraw, wifiMs|null, haMs|null, totalMs], [\"sleep\", awakeMs, fullRefreshes, partialRefreshes].",
   "snapshotDiff": [
     {
       "name": "no snapshot: every region but the clock",
@@ -393,7 +393,9 @@
       "version": "0.3.0",
       "ops": 0,
       "boots": 0,
-      "left": 3
+      "left": 3,
+      "uptime": false,
+      "by": null
     },
     {
       "name": "two confirmed boots",
@@ -401,7 +403,9 @@
       "version": "0.3.0",
       "ops": 2,
       "boots": 2,
-      "left": 1
+      "left": 1,
+      "uptime": false,
+      "by": null
     },
     {
       "name": "armed, stops counting at 3",
@@ -412,7 +416,9 @@
       "version": "0.3.0",
       "ops": 2,
       "boots": 3,
-      "left": 0
+      "left": 0,
+      "uptime": false,
+      "by": "boots"
     },
     {
       "name": "new firmware starts over",
@@ -423,7 +429,9 @@
       "version": "0.3.0",
       "ops": 1,
       "boots": 1,
-      "left": 2
+      "left": 2,
+      "uptime": false,
+      "by": null
     },
     {
       "name": "garbage count starts over",
@@ -434,7 +442,96 @@
       "version": "0.3.0",
       "ops": 0,
       "boots": 0,
-      "left": 3
+      "left": 3,
+      "uptime": false,
+      "by": null
+    },
+    {
+      "name": "fresh flash, 30 min online, image confirmed: armed by uptime",
+      "stored": null,
+      "version": "0.3.0",
+      "ops": 1,
+      "up": [
+        30,
+        false
+      ],
+      "boots": 1,
+      "uptime": true,
+      "left": 0,
+      "by": "uptime"
+    },
+    {
+      "name": "29.9 min online is not enough",
+      "stored": null,
+      "version": "0.3.0",
+      "ops": 1,
+      "up": [
+        29.9,
+        false
+      ],
+      "boots": 1,
+      "uptime": false,
+      "left": 2,
+      "by": null
+    },
+    {
+      "name": "pending verify image never arms on uptime",
+      "stored": null,
+      "version": "0.3.0",
+      "ops": 0,
+      "up": [
+        120,
+        true
+      ],
+      "boots": 0,
+      "uptime": false,
+      "left": 3,
+      "by": null
+    },
+    {
+      "name": "armed by uptime stays armed after a restart",
+      "stored": {
+        "version": "0.3.0",
+        "boots": 1,
+        "uptime": true
+      },
+      "version": "0.3.0",
+      "ops": 0,
+      "boots": 1,
+      "uptime": true,
+      "left": 0,
+      "by": "uptime"
+    },
+    {
+      "name": "armed by uptime, new firmware starts over",
+      "stored": {
+        "version": "0.2.9",
+        "boots": 1,
+        "uptime": true
+      },
+      "version": "0.3.0",
+      "ops": 0,
+      "boots": 0,
+      "uptime": false,
+      "left": 3,
+      "by": null
+    },
+    {
+      "name": "armed by boots first: uptime changes nothing",
+      "stored": {
+        "version": "0.3.0",
+        "boots": 3
+      },
+      "version": "0.3.0",
+      "ops": 0,
+      "up": [
+        45,
+        false
+      ],
+      "boots": 3,
+      "uptime": false,
+      "left": 0,
+      "by": "boots"
     }
   ],
   "tally": [

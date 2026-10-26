@@ -5,6 +5,7 @@
 #include <cstddef>
 #include <cstdint>
 #include <string>
+#include <vector>
 
 namespace x4::diag {
 
@@ -86,6 +87,10 @@ struct Report {
   Coredump core;
   int64_t touchRecoveries = -1;   // -1 = no touch hardware → null
   int sleepBootsLeft = 0;         // first-boot safety (#10): confirmed boots still needed before deep sleep
+  const char* sleepArmedBy = nullptr;   // #231: "uptime" | "boots" | nullptr (not armed)
+  std::string batteryJson;        // #231 core/battery_history.h History::json(); empty = null
+  std::string trailBeforeBoot;    // #225 power trail: last line when this boot started; empty = null
+  std::vector<std::string> trail; // #225 newest lines of /power.txt, oldest first
 };
 std::string reportJson(const Ring& r, const Report& rep);
 

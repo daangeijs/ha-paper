@@ -16,6 +16,7 @@
 #include <vector>
 
 #include "Logging.h"
+#include "core/battery_history.h"
 #include "core/power.h"
 #include "core/power_trail.h"
 #include "core/recovery.h"
@@ -41,6 +42,10 @@ std::atomic<const char*> g_mode{"awake"};
 std::atomic<int> g_armLeft{glance::kArmBoots};
 glance::ArmRecord g_arm;
 bool g_armCounted = false;
+std::atomic<const char*> g_armedBy{nullptr};   // glance::armedBy(g_arm), for the web task
+uint32_t g_netUpMs = 0, g_netSeenMs = 0;       // this boot's time with the network up (#231 uptime arming)
+std::mutex g_battMu;                           // g_batt: main task writes, web task reads (/diagnostics)
+batt::History g_batt;
 std::function<void(int64_t)> g_sleepFn;
 
 uint32_t g_bootMs = 0, g_lastCheckMs = 0, g_holdUntilMs = 0;
@@ -58,6 +63,9 @@ bool g_lastInOk = false;
 uint32_t g_lastInMs = 0;
 std::atomic<uint32_t> g_bootFull{0}, g_bootPartial{0}, g_bootFast{0};   // App::Stats of this boot, for /status (web task)
 std::string g_trail;                   // contents of kTrailFile (main task only)
+std::mutex g_trailMu;                  // g_trailLines / g_trailBefore: main task writes, web task reads (/diagnostics)
+std::vector<std::string> g_trailLines;
+std::string g_trailBefore;             // last trail line when this boot started
 bool g_standbyLogged = false;          // last standby face state logged
 uint32_t g_powerDownMs = 0;            // Power key held since (heldKeys), valid when g_powerDown
 bool g_powerDown = false;
@@ -73,10 +81,12 @@ std::atomic<bool> g_psMin{true};
 constexpr uint32_t kCheckMs = 1000;         // live mode: power rules once a second
 constexpr uint32_t kAwakeMinMs = 5000;      // awake at least this long after a boot (same pacing as the emulator)
 constexpr uint32_t kArmUpMs = 60000;        // a boot counts once it ran 60 s with the network up (OTA confirm rule)
+constexpr uint32_t kArmUptimeMs = uint32_t(glance::kArmUptimeMin * 60000);   // #231: or 30 min online in one boot
 constexpr uint32_t kSettleQuietMs = 1500;   // glance: HA data is in once no entity update came for this long
 constexpr uint32_t kHoldWindowMs = 3000;    // a Right key held this early in the boot keeps it live
 constexpr int64_t kSaneEpoch = 1700000000;
 constexpr uint32_t kLongPressLogMs = 1000;  // Power held this long or more: logged on release (#225)
+constexpr size_t kTrailShown = 8;           // /diagnostics power_trail.lines and the POWERON log line
 constexpr const char* kTrailFile = "/power.txt";   // core/power_trail.h: last power transition, survives a power loss
 constexpr uint32_t kSleepReqDelayMs = 500;  // POST /device/sleep: let the 202 leave before Wi-Fi goes off
 #if X4_QEMU
@@ -104,26 +114,66 @@ void loadArm() {
     if (!deserializeJson(d, text) && d["version"].is<const char*>() && d["boots"].is<int>()) {
       stored.version = d["version"].as<const char*>();
       stored.boots = d["boots"].as<int>();
+      stored.uptime = d["uptime"] | false;
       have = true;
     }
   }
   g_arm = glance::armFor(have ? &stored : nullptr, firmwareVersion());
   g_armLeft = glance::armBootsLeft(g_arm);
+  g_armedBy = glance::armedBy(g_arm);
+}
+
+// Stores g_arm (userdata, at most kArmBoots + 1 writes per firmware version) and logs the moment it arms.
+void saveArm(const glance::ArmRecord& next) {
+  const bool arms = glance::armBootsLeft(g_arm) > 0 && glance::armBootsLeft(next) == 0;
+  g_arm = next;
+  JsonDocument d;
+  d["version"] = g_arm.version;
+  d["boots"] = g_arm.boots;
+  if (g_arm.uptime) d["uptime"] = true;
+  std::string out;
+  serializeJson(d, out);
+  storage().writeFile("/arm.json", out);
+  g_armLeft = glance::armBootsLeft(g_arm);
+  g_armedBy = glance::armedBy(g_arm);
+  if (arms) LOG_INF("POWER", "sleep armed · %s", glance::armReason(g_arm).c_str());
 }
 
 void countArm() {
   g_armCounted = true;
   if (glance::armBootsLeft(g_arm) == 0) return;
-  g_arm = glance::armCount(g_arm);
-  JsonDocument d;
-  d["version"] = g_arm.version;
-  d["boots"] = g_arm.boots;
-  std::string out;
-  serializeJson(d, out);
-  storage().writeFile("/arm.json", out);   // userdata, at most kArmBoots writes per firmware version
-  g_armLeft = glance::armBootsLeft(g_arm);
+  saveArm(glance::armCount(g_arm));
   LOG_INF("POWER", "confirmed boot %d/%d with network · %s", g_arm.boots, glance::kArmBoots,
           g_armLeft ? "deep sleep not armed yet" : "deep sleep armed");
+}
+
+// #231: a fresh flash or OTA that never restarts arms after 30 min online with the image confirmed.
+void uptimeArm(uint32_t now) {
+  if (netConnected()) g_netUpMs += now - g_netSeenMs;
+  g_netSeenMs = now;
+  if (g_netUpMs < kArmUptimeMs || glance::armBootsLeft(g_arm) == 0) return;
+  const glance::ArmRecord next = glance::armUptime(g_arm, g_netUpMs / 60000.0, otaPendingVerify());
+  if (next.uptime != g_arm.uptime) saveArm(next);
+}
+
+// #231: battery history + [BATT] line, once per power-rules pass (inputs() already read the gauge).
+void battSample(const PowerInputs& in, uint32_t now) {
+  batt::In b;
+  b.ms = now;
+  b.epoch = in.nowEpoch;
+  b.pct = in.battery;
+  b.mv = in.voltage > 0 ? int(in.voltage * 1000 + 0.5) : -1;
+  b.chg = in.charging;
+  b.usb = in.usb;
+  b.power = g_glance ? "glance" : powerDecision(in).reason;
+  int dbm = 0;
+  if (wifiRssi(dbm)) b.rssi = dbm;
+  std::string line;
+  {
+    std::lock_guard<std::mutex> l(g_battMu);
+    line = g_batt.step(b);
+  }
+  if (!line.empty()) LOG_INF("BATT", "%s", line.c_str());
 }
 
 int armLeftNow() {
@@ -217,10 +267,21 @@ void applyProfile(const PowerDecision& d) {
   g_psMin = min;
 }
 
-void writeTrail(const std::string& m) {
-  if (m.empty()) return;
-  if (storage().writeFile(kTrailFile, m)) g_trail = m;
-  else LOG_WRN("POWER", "could not write %s", kTrailFile);
+void trailShown() {
+  auto l = powertrail::lastLines(g_trail, kTrailShown);
+  std::lock_guard<std::mutex> g(g_trailMu);
+  g_trailLines = std::move(l);
+}
+
+// t = the whole new file (core/power_trail.h); writeFile closes and renames it, so it survives a power cut after this
+void writeTrail(const std::string& t) {
+  if (t.empty()) return;
+  if (!storage().writeFile(kTrailFile, t)) {
+    LOG_WRN("POWER", "could not write %s", kTrailFile);
+    return;
+  }
+  g_trail = t;
+  trailShown();
 }
 
 void leaveGlance(App& app, const char* why) {
@@ -399,20 +460,28 @@ WakeKind powerWake() { return g_wake; }
 const char* powerWakeName() { return reasonOf(g_wake); }
 
 bool powerBegin(const DisplaySettings& s) {
-  g_bootMs = millis();
+  g_bootMs = g_netSeenMs = millis();
   loadArm();
   g_glance = g_wake == WakeKind::Timer && s.powerSave == "glance";
   g_mode = g_glance ? "glance" : "awake";
   LOG_INF("POWER", "wake: %s · %s · first-boot safety: %d boot(s) left", powerWakeName(),
           g_glance ? "glance (panel held, no boot screen)" : "live", armLeftNow());
   if (!storage().readFile(kTrailFile, g_trail)) g_trail.clear();
+  {
+    std::lock_guard<std::mutex> g(g_trailMu);
+    g_trailBefore = powertrail::lastLine(g_trail);
+  }
+  trailShown();
+  std::string last;   // newest stages of the previous boot, oldest first: "key … | standby drawn …"
+  for (auto& l : powertrail::lastLines(g_trail, 4)) last += (last.empty() ? "" : " | ") + l;
   switch (powertrail::verdict(g_trail, diagResetReason())) {
     case powertrail::Verdict::LostAsleep:
       LOG_WRN("POWER", "power was lost while asleep: the previous boot entered deep sleep (%s), this one is a POWERON",
-              g_trail.c_str() + 6);
+              powertrail::lastLine(g_trail).c_str() + 6);
       break;
     case powertrail::Verdict::LostAwake:
-      LOG_INF("POWER", "power-on after running: battery empty, power cut, or USB plugged into a board that was off");
+      LOG_INF("POWER", "power-on after running: battery empty, power cut, or USB plugged into a board that was off · last trail: %s",
+              last.c_str());
       break;
     case powertrail::Verdict::None: break;
   }
@@ -436,21 +505,28 @@ void powerLoop(App& app, Board& board) {
     }
   }
   // Power key: every press and how long it was held (no long-press power-off: #225, docs/HARDWARE_ASSUMPTIONS.md A41)
+  // Down from the KeyDown stage (powerKeyStage) or the GPIO; the release is seen at the first pass after it, so a
+  // press released during the standby refresh reads as held up to the refresh time.
   const bool powerDown = board.heldKeys() & kKeyPower;
   if (powerDown && !g_powerDown) g_powerDownMs = now;
-  if (!powerDown && g_powerDown && now - g_powerDownMs >= kLongPressLogMs)
-    LOG_INF("POWER", "Power key held %u ms · no power-off on a long press", unsigned(now - g_powerDownMs));
+  if (!powerDown && g_powerDown) {
+    const uint32_t held = now - g_powerDownMs;
+    if (held >= kLongPressLogMs) LOG_INF("POWER", "Power key held %u ms · no power-off on a long press", unsigned(held));
+    writeTrail(powertrail::append(g_trail, powertrail::keyUpLine(held)));
+  }
   g_powerDown = powerDown;
   if (const bool standby = app.powerView().standby; standby != g_standbyLogged) {
     g_standbyLogged = standby;
     LOG_INF("POWER", "standby face %s", standby ? "on · Power wakes" : "off");
   }
   if (!g_armCounted && now - g_bootMs >= kArmUpMs && netConnected() && !otaPendingVerify()) countArm();
+  uptimeArm(now);
   g_bootFull = app.stats().fullRefreshes;
   g_bootPartial = app.stats().partialRefreshes;
   g_bootFast = app.stats().fastRefreshes;
   if (!g_lastInOk || now - g_lastInMs >= kCheckMs) {
     const PowerInputs in = inputs(app, board);
+    battSample(in, now);
     std::lock_guard<std::mutex> l(g_inMu);
     g_lastIn = in;
     g_lastInOk = true;
@@ -522,6 +598,45 @@ void powerTallyJson(JsonObject power, JsonObject refreshes) {
 }
 
 int powerArmBootsLeft() { return armLeftNow(); }
+const char* powerArmedBy() {
+#if X4_QEMU
+  if (g_rtc.simArmed) return "boots";   // POST /__qemu/power armed: the first-boot count is skipped
+#endif
+  return g_armedBy;
+}
+void powerTrail(std::string& beforeBoot, std::vector<std::string>& lines) {
+  std::lock_guard<std::mutex> g(g_trailMu);
+  beforeBoot = g_trailBefore;
+  lines = g_trailLines;
+}
+
+void powerKeyStage(const char* stage) {
+  const uint32_t t0 = millis();
+  std::string line;
+  if (!strcmp(stage, "key")) {
+    int mv = -1;
+    bool usb = false;
+    {
+      std::lock_guard<std::mutex> l(g_inMu);   // last inputs(), at most a second old
+      if (g_lastInOk && g_lastIn.voltage > 0) mv = int(g_lastIn.voltage * 1000 + 0.5);
+      if (g_lastInOk) usb = g_lastIn.usb;
+    }
+    if (!g_powerDown) {
+      g_powerDown = true;
+      g_powerDownMs = t0;
+    }
+    line = powertrail::keyLine(t0, mv, usb);
+  } else {
+    line = powertrail::standbyLine(t0);
+  }
+  writeTrail(powertrail::append(g_trail, line));
+  LOG_INF("POWER", "trail: %s · written in %u ms", line.c_str(), unsigned(millis() - t0));
+}
+
+std::string powerBatteryJson() {
+  std::lock_guard<std::mutex> l(g_battMu);
+  return g_batt.json();
+}
 const char* powerMode() { return g_mode; }
 int powerAppliedCpuMhz() { return g_cpuMhz; }
 const char* powerAppliedWifiPs() { return g_psMin ? "min" : "none"; }

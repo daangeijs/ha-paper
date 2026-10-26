@@ -53,6 +53,7 @@ struct App::Impl {
   EntityStore store;
   std::function<void(const DisplaySettings&)> onSettings;
   std::function<void(const std::string&)> onLog;
+  std::function<void(const char*)> onPowerStage;
 
   // ---- UI state (emulator `state`) ----
   Mode mode = Mode::Boot;
@@ -76,6 +77,7 @@ struct App::Impl {
   std::string otaMsg;            // local OTA message (blocked/no network)
   bool otaBlocked = false;
   int lastOtaPct = -1;
+  std::string lastOtaVer;   // install face version line (an upload's manifest can arrive after the image, #237)
 
   // optimistic overrides until Home Assistant acknowledges
   std::map<std::string, double> setOverride;      // zone id → setpoint

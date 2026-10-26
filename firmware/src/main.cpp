@@ -204,6 +204,7 @@ void setup() {
             unsigned(t2 - t1), unsigned(micros() - t2));
   }
   g_app->onLog([](const std::string& s) { LOG_INF("APP", "%s", s.c_str()); });   // every refresh with its reason (#71)
+  g_app->onPowerStage([](const char* s) { x4::net::powerKeyStage(s); });   // #225 power trail
   g_app->onSettingsChanged([](const x4::DisplaySettings& s) { x4::net::deviceServices().saveDeviceSettings(s); });
   g_app->begin(services.bootConfig(), services.bootSettings());
   // Safe recovery (#21): ≥ 3 crash resets in a row → offer the factory reset screen (Right erases, 10 s timeout).

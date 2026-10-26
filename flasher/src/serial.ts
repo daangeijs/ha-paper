@@ -2,6 +2,7 @@
 
 import { ESPLoader, type IEspLoaderTerminal, Transport } from "esptool-js";
 import type { Loader } from "./flow.ts";
+import { hardReset } from "./reset.ts";
 
 export const ESPRESSIF_VID = 0x303a;
 export const USB_SERIAL_JTAG_PID = 0x1001;
@@ -21,6 +22,8 @@ export function webSerialSupported(): boolean {
 export interface Connection {
   loader: Loader;
   description: string;
+  /** Wi-Fi MAC as esptool prints it, "" when it can't be read. */
+  mac: string;
   close(): Promise<void>;
 }
 
@@ -31,10 +34,17 @@ export async function connect(terminal: IEspLoaderTerminal): Promise<Connection>
   const transport = new Transport(port, false);
   const loader = new ESPLoader({ transport, baudrate: BAUD, romBaudrate: romBaudFor(pid), terminal });
   try {
+    // On the X4 Pro (303a:1001) "default_reset" runs esptool-js's UsbJtagSerialReset: the chip restarts into the ROM
+    // bootloader over USB without any key, as long as the running firmware keeps USB-Serial/JTAG on.
     const description = await loader.main("default_reset");
+    const l = loader as unknown as Loader;
+    // esptool-js's own hard reset doesn't reset the chip; see reset.ts.
+    l.after = () => hardReset(transport);
+    const mac = await loader.chip.readMac(loader).catch(() => "");
     return {
-      loader: loader as unknown as Loader,
+      loader: l,
       description,
+      mac,
       close: () => transport.disconnect(),
     };
   } catch (e) {

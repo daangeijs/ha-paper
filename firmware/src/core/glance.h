@@ -20,6 +20,7 @@ constexpr int kStaleMin = 60;                   // unchanged values: redraw anyw
 constexpr int64_t kWifiIpMaxAgeS = 3600;        // reuse the cached IP (no DHCP) while younger
 constexpr int kWifiCacheMaxFails = 2;           // fast connects failed in a row → drop the cache
 constexpr int kArmBoots = 3;                    // first-boot safety: confirmed boots with network before any sleep
+constexpr double kArmUptimeMin = 30;            // ... or this long online in one boot with a confirmed image (#231)
 constexpr int kBootHoldLiveMin = 10;            // a key held through the boot screen keeps it live this long
 
 uint32_t fnv1a(const void* data, size_t n, uint32_t h = 0x811c9dc5u);
@@ -52,10 +53,13 @@ const char* wifiFastName(WifiFast f);   // none | radio | ip
 
 bool liveNow(int64_t msSinceInput, int liveMin);   // msSinceInput < 0 = no input since the wake
 
-struct ArmRecord { std::string version; int boots = 0; };
+struct ArmRecord { std::string version; int boots = 0; bool uptime = false; };   // uptime: armed by kArmUptimeMin
 ArmRecord armFor(const ArmRecord* stored, const std::string& version);   // other version / none → 0 boots
 ArmRecord armCount(const ArmRecord& r);                                   // this boot confirmed with network
-int armBootsLeft(const ArmRecord& r);
+ArmRecord armUptime(const ArmRecord& r, double netUpMin, bool pendingVerify);   // #231
+int armBootsLeft(const ArmRecord& r);   // 0 = armed
+const char* armedBy(const ArmRecord& r);   // "uptime" | "boots" | nullptr (not armed)
+std::string armReason(const ArmRecord& r);   // "30 min online" | "3 boots online" | ""
 
 // Wake counters since power-on (#178, emulator WakeTally; vectors glance.json tally): GET /status power + refreshes.
 constexpr uint32_t kNoMs = 0xFFFFFFFFu;   // lastWifiMs / lastHaMs: not reached in that wake

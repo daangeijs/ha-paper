@@ -1241,6 +1241,10 @@
       "en": "Installing…",
       "nl": "Installeren…"
     },
+    "otaLocalFile": {
+      "en": "From a file uploaded to this device",
+      "nl": "Van een bestand dat naar dit apparaat is geüpload"
+    },
     "otaNothingChanged": {
       "en": "Nothing changed. Try again.",
       "nl": "Er is niets veranderd. Probeer het opnieuw."

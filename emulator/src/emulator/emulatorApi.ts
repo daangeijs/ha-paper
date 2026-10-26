@@ -7,6 +7,8 @@ import { validateYaml, toYaml } from '../core/config.ts';
 import { HA_ENTITIES, HOST, FW_INSTALLED, ROOMS } from '../core/data.ts';
 import { listCounts } from '../core/paging.ts';
 import { bootsJson, diagClear, diagPush, diagTouch, lastCrash, type DiagRing } from '../core/diag.ts';
+import { BATT_ZERO, battHistory, battStep } from '../core/battery.ts';
+import { powerDecision } from '../core/power.ts';
 import { logRing, logsQuery, LOG_LIMIT_MAX, LOG_TAIL_CAP } from '../core/logs.ts';
 import type { Emulator } from './Emulator.tsx';
 
@@ -33,6 +35,7 @@ function makeApi(emu: Emulator): DeviceApi {
   // The emulated display never crashes: one power-on boot, the device-sim's figures for heap and panel.
   const bootAt = Date.now();
   let ring: DiagRing = diagPush([], 'POWERON', FW_INSTALLED, null);
+  let batt = BATT_ZERO;   // #231: sampled when the console asks (the device samples every 5 min in its power loop)
   return {
     async getState() { return emu.snapshot(); },
     subscribe(fn) { emu.listeners.add(fn); return () => { emu.listeners.delete(fn); }; },
@@ -79,10 +82,13 @@ function makeApi(emu: Emulator): DeviceApi {
     async getDiagnostics() {
       const up = Math.floor((Date.now() - bootAt) / 1000);
       ring = diagTouch(ring, up, 141_020, Math.floor(Date.now() / 1000));
+      const st = emu.state, chg = st.usb && emu.battery < 100;
+      batt = battStep(batt, { ms: Date.now() - bootAt, epoch: Math.floor(Date.now() / 1000), pct: emu.battery, mv: null, chg, usb: st.usb, power: powerDecision(emu.powerInputs(st)).reason, rssi: st.wifi.connected ? -58 : null }).s;
       return { firmware: FW_INSTALLED, uptime_s: up, reset_reason: 'POWERON', boots: bootsJson(ring), last_crash: lastCrash(ring),
         heap: { free_internal: 182_344, min_free_internal: 141_020, largest_free_internal: 110_592, free_psram: 7_864_320, low_point: null },
         panel: { controller: 'UC8179', source: 'probe', verdict: 'ultrachip', promoted: true, ver: '00 00 01 FF FF', flg: 0, nvs_screen_type: 1, failed: false, failure: null },
-        coredump: null, touch_recoveries: 0, deep_sleep: { armed: emu.armLeft === 0, boots_left: emu.armLeft } };
+        coredump: null, touch_recoveries: 0, deep_sleep: { armed: emu.armLeft === 0, boots_left: emu.armLeft, armed_by: emu.armLeft === 0 ? 'boots' : null }, battery: battHistory(batt),
+        power_trail: { before_boot: null, lines: [] } };
     },
     // the emulator's event log is the device log; it never reboots, so the previous boot is empty
     async getLogs(since, previous) { return previous ? logsQuery(logRing(LOG_TAIL_CAP), {}, 'previous') : logsQuery(emu.logs, { since, limit: LOG_LIMIT_MAX }); },

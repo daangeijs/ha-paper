@@ -43,6 +43,8 @@ describe('device renders', () => {
     expect(html(emu({ mode: 'updating', upd: { version: '0.4.0', pct: 40, step: 'Downloading firmware.bin' } }))).toContain('Updating to');
     const long = html(emu({ mode: 'updating', upd: { version: '0.1.0-alpha.6-devtest-212-199-gbf929d4-and-a-much-longer-tail-that-goes-on-and-on-and-on-xy', pct: 40, step: 'x' } }));
     expect(long).toMatch(/>v0\.1\.0-alpha\.6-[^<]*…[^<]*-on-xy<\/div>/);   // #215
+    const local = html(emu({ mode: 'updating', upd: { version: '', pct: 0, step: 'Checking SHA-256' } }));   // upload, no manifest (#237)
+    expect(local).toContain('Updating to'); expect(local).not.toMatch(/>v<\/div>/);
     expect(html(emu({ mode: 'boot' }))).toContain('Connecting to Home Assistant');
     const ha = emu().state.ha;
     expect(html(emu({ idx: emu().state.screens.findIndex((s) => s.id === 'ha'), ha: { ...ha, view: 'link' } }))).toContain('Simulate phone');

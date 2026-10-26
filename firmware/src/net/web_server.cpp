@@ -310,7 +310,9 @@ void otaToJson(JsonObject o) {
   else if (otaJustUpdated()) status = "updated";
   else if (otaLastCheckEpoch() > 0) status = "uptodate";
   o["status"] = status;
-  if (st.ota == OtaState::Available || st.ota == OtaState::Downloading || st.ota == OtaState::Installing) {
+  // an upload without a version (#237) has nothing to name: null, like the install face without its version line
+  if ((st.ota == OtaState::Available || st.ota == OtaState::Downloading || st.ota == OtaState::Installing) &&
+      !st.otaAvailableVersion.empty()) {
     JsonObject a = o["available"].to<JsonObject>();
     a["version"] = st.otaAvailableVersion;
     a["size_mb"] = static_cast<double>(static_cast<int>(otaAvailableSizeMb() * 10 + 0.5)) / 10.0;
@@ -1257,6 +1259,7 @@ class ApiHandler : public AsyncWebHandler {
       size_t n = len < room ? len : room;
       memcpy(s->manifest + s->manifestLen, data, n);
       s->manifestLen += n;
+      if (final && s->started && !s->failed) otaUploadSetVersion(manifestVersion(s));   // after the image: update the face
       return;
     }
     uploadChunk(r, data, len, index, r->contentLength(), final);   // multipart: total unknown → 0
@@ -1271,6 +1274,12 @@ class ApiHandler : public AsyncWebHandler {
   }
 
  private:
+  static std::string manifestVersion(const UploadState* s) {
+    JsonDocument m;
+    if (!s->manifestLen || deserializeJson(m, s->manifest, s->manifestLen)) return "";
+    return otaUploadVersion(m["version"] | "");
+  }
+
   static UploadState* state(AsyncWebServerRequest* r) {
     if (!r->_tempObject) r->_tempObject = calloc(1, sizeof(UploadState));
     return static_cast<UploadState*>(r->_tempObject);
@@ -1294,7 +1303,10 @@ class ApiHandler : public AsyncWebHandler {
       std::string err;
       // multipart bodies are larger than the image → size unknown
       const bool raw = !r->contentType().startsWith("multipart/");
-      if (!otaUploadBegin(raw ? total : 0, err)) {
+      // the install face shows now: name the version if a manifest part came first or ?version= has it (#237)
+      std::string ver = manifestVersion(s);
+      if (ver.empty() && r->hasParam("version")) ver = otaUploadVersion(str(r->arg("version")));
+      if (!otaUploadBegin(raw ? total : 0, ver, err)) {
         s->failed = true;
         snprintf(s->err, sizeof s->err, "409:%s", err.c_str());
         return;

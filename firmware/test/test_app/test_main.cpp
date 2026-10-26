@@ -416,6 +416,22 @@ void test_home_key_and_idle() {
   TEST_ASSERT_TRUE(r.has("bar"));
 }
 
+// #225 power trail: the "key" stage runs before the App acts, "standby drawn" after the standby clean with the light off
+void test_power_stages() {
+  Rig r;
+  std::vector<std::string> st;
+  r.app.onPowerStage([&](const char* s) { st.push_back(std::string(s) + " full=" + std::to_string(r.d.fulls()) + " light=" + std::to_string(r.b.light)); });
+  r.key(Key::Power);
+  TEST_ASSERT_TRUE(r.has("standby"));
+  TEST_ASSERT_EQUAL_UINT32(2, st.size());
+  TEST_ASSERT_EQUAL_STRING("key full=0", st[0].substr(0, 10).c_str());
+  TEST_ASSERT_EQUAL_STRING("standby drawn full=1 light=0", st[1].c_str());
+  st.clear();
+  r.key(Key::Power);                                      // wake: only the key stage
+  TEST_ASSERT_TRUE(r.has("bar"));
+  TEST_ASSERT_EQUAL_UINT32(1, st.size());
+}
+
 // ---- hardware-key factory reset (#21, core/recovery.h): Power + Right 5 s → screen → release → Right ----
 void test_key_factory_reset() {
   Rig r;
@@ -613,6 +629,17 @@ void test_ota_screen() {
   r.s.st.ota = OtaState::Failed; r.step(50);
   TEST_ASSERT_TRUE(r.has("bar"));
   TEST_ASSERT_TRUE(r.sig("bar").find("I4,") != std::string::npos);   // alert icon
+}
+
+// ---- OTA install screen for an upload: the version line only when the upload named one (#237) ----
+void test_ota_upload_version_line() {
+  Rig r;
+  r.s.st.otaAvailableVersion = ""; r.s.st.ota = OtaState::Installing; r.s.st.otaProgressPct = 0; r.step(50);
+  std::string sig = r.sig("upd");
+  TEST_ASSERT_TRUE(sig.find(":Updating to;") != std::string::npos);
+  TEST_ASSERT_TRUE_MESSAGE(sig.find(":v;") == std::string::npos, sig.c_str());   // no bare "v"
+  r.s.st.otaAvailableVersion = "0.5.0"; r.step(50);                                  // manifest part arrived later
+  TEST_ASSERT_TRUE(r.sig("upd").find(":v0.5.0;") != std::string::npos);
 }
 
 // ---- OTA install screen: a long version gets its own line and fits the panel (#215) ----
@@ -1249,6 +1276,7 @@ int main(int, char**) {
   RUN_TEST(test_glance_hooks);
   RUN_TEST(test_ota_screen);
   RUN_TEST(test_ota_long_version);
+  RUN_TEST(test_ota_upload_version_line);
   RUN_TEST(test_ota_checks_off);
   RUN_TEST(test_light_toggle);
   RUN_TEST(test_generic_entities);
@@ -1273,5 +1301,6 @@ int main(int, char**) {
   RUN_TEST(test_key_restart);
   RUN_TEST(test_language_from_ha);
   RUN_TEST(test_settings_built_in);
+  RUN_TEST(test_power_stages);
   return UNITY_END();
 }

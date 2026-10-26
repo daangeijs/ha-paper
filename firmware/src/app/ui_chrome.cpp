@@ -322,10 +322,13 @@ void updatingFace(Canvas& c, I& a) {
   int top = 90;
   c.icon(Icon::Download48, kScreenW / 2 - 24, top);
   c.textCenter(kScreenW / 2, top + 48 + 18 + 34, a.t(S::updatingTo), B(36));
-  // #215: the version on its own line; long git-describe names step down, then lose their middle
-  FitValue ver = fitMiddle(a.t(S::updVersion, st.otaAvailableVersion), {28, 24, 20, 18}, kScreenW - 80,
-                           [&c](const std::string& v, int z) { return c.textWidth(v, B(z)); });
-  c.textCenter(kScreenW / 2, top + 48 + 18 + 43 + 34, ver.value, B(ver.size));
+  // #215: the version on its own line; long git-describe names step down, then lose their middle.
+  // #237: an upload without a version leaves the line out (never a bare "v")
+  if (!st.otaAvailableVersion.empty()) {
+    FitValue ver = fitMiddle(a.t(S::updVersion, st.otaAvailableVersion), {28, 24, 20, 18}, kScreenW - 80,
+                             [&c](const std::string& v, int z) { return c.textWidth(v, B(z)); });
+    c.textCenter(kScreenW / 2, top + 48 + 18 + 43 + 34, ver.value, B(ver.size));
+  }
   Rect bar = rc(kScreenW / 2 - 260, top + 48 + 18 + 43 + 43 + 18, 520, 26);
   c.frame(bar, 2, Ink::Black, 6);
   c.fill(rc(bar.x + 5, bar.y + 5, (bar.w - 10) * pct / 100, bar.h - 10), Ink::Black);

@@ -14,15 +14,15 @@ describe("full flow against esptool-js with a fake chip", () => {
     release = await makeRelease();
   });
 
-  it("chip check -> backup -> verify -> write the five parts; NVS untouched", async () => {
+  it("chip check -> chosen backup -> verify -> write the five parts; NVS untouched", async () => {
     const chip = fakeChip();
     const before = chip.flash.slice();
     const s = new Session(chip.loader, () => new Date(2026, 9, 15));
 
     await expect(s.install(release)).rejects.toThrow(/chip check first/);
-    await s.chipCheck();
     expect(s.readyToInstall).toBe(false);
-    await expect(s.install(release)).rejects.toThrow(/backup first/);
+    await s.chipCheck();
+    expect(s.readyToInstall).toBe(true);
 
     const b = await s.makeBackup();
     expect(b.name).toBe("x4pro_stock_20261015.bin");
@@ -61,11 +61,10 @@ describe("full flow against esptool-js with a fake chip", () => {
     }
   });
 
-  it("'I already have a backup' skips the read", async () => {
+  it("installs without a backup (optional since #239) and reads no flash beyond the partition table", async () => {
     const chip = fakeChip();
     const s = new Session(chip.loader);
     await s.chipCheck();
-    s.skipBackup();
     await s.install(release);
     expect(chip.events).not.toContain("readFlash");
     expect(chip.flash.subarray(NVS_START, NVS_END).every((x) => x === NVS_MARK)).toBe(true);
@@ -75,7 +74,6 @@ describe("full flow against esptool-js with a fake chip", () => {
     const chip = fakeChip();
     const s = new Session(chip.loader);
     await s.chipCheck();
-    s.skipBackup();
     release.files.get("firmware.bin")![10] ^= 0xff;
     await expect(s.install(release)).rejects.toThrow(/does not match SHA256SUMS/);
     expect(chip.events.some((e) => e.startsWith("begin"))).toBe(false);
@@ -91,7 +89,6 @@ describe("full flow against esptool-js with a fake chip", () => {
     const s = new Session(chip.loader);
     await expect(s.chipCheck()).rejects.toThrow(msg);
     await expect(s.chipCheck()).rejects.toBeInstanceOf(RefusedError);
-    s.skipBackup();
     await expect(s.install(release)).rejects.toThrow(/chip check first/);
     await expect(s.restore("b.bin", new Uint8Array(FLASH_SIZE))).rejects.toThrow(/chip check first/);
     expect(chip.events.some((e) => e.startsWith("begin") || e === "readFlash")).toBe(false);
@@ -135,7 +132,6 @@ describe("full flow against esptool-js with a fake chip", () => {
     );
     const s = new Session(chip.loader);
     await s.chipCheck();
-    s.skipBackup();
     await expect(s.install(release)).rejects.toThrow(/not 0x9000 \(0x5000 bytes\)/);
     expect(chip.events.some((e) => e.startsWith("begin"))).toBe(false);
   });
@@ -144,7 +140,6 @@ describe("full flow against esptool-js with a fake chip", () => {
     const chip = fakeChip();
     const s = new Session(chip.loader);
     await s.chipCheck();
-    s.skipBackup();
     const table = encodeTable(X4_ROWS.map((r) => (r[0] === "nvs" ? (["nvs", 1, 2, 0xa000, 0x4000] as typeof r) : r)));
     release.files.set("partitions.bin", table);
     release.sums.set("partitions.bin", await sha256Hex(table));

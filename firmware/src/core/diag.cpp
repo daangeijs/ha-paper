@@ -193,7 +193,12 @@ std::string reportJson(const Ring& r, const Report& rep) {
   }
   o += ",\"touch_recoveries\":" + (rep.touchRecoveries >= 0 ? std::to_string(rep.touchRecoveries) : std::string("null"));
   o += ",\"deep_sleep\":{\"armed\":" + std::string(rep.sleepBootsLeft > 0 ? "false" : "true") + ",\"boots_left\":" +
-       std::to_string(rep.sleepBootsLeft > 0 ? rep.sleepBootsLeft : 0) + "}";
+       std::to_string(rep.sleepBootsLeft > 0 ? rep.sleepBootsLeft : 0) +
+       ",\"armed_by\":" + (rep.sleepArmedBy ? jsonQuote(rep.sleepArmedBy) : std::string("null")) + "}";
+  o += ",\"battery\":" + (rep.batteryJson.empty() ? std::string("null") : rep.batteryJson);
+  o += ",\"power_trail\":{\"before_boot\":" + strOrNull(rep.trailBeforeBoot.c_str()) + ",\"lines\":[";
+  for (size_t i = 0; i < rep.trail.size(); i++) o += (i ? "," : "") + jsonQuote(rep.trail[i]);
+  o += "]}";
   return o + "}";
 }
 

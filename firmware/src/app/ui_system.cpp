@@ -59,7 +59,8 @@ static void ota(Canvas& c, I& a, Rect r) {
   else switch (st.ota) {
     case OtaState::UpToDate: title = a.t(S::otaUpToDate); subt = chan; break;
     case OtaState::Available: title = a.t(S::otaAvailable, st.otaAvailableVersion); subt = chan; break;
-    case OtaState::Downloading: case OtaState::Installing: title = a.t(S::otaInstalling); subt = "v" + st.otaAvailableVersion; break;
+    case OtaState::Downloading: case OtaState::Installing: title = a.t(S::otaInstalling);
+      subt = st.otaAvailableVersion.empty() ? std::string(a.t(S::otaLocalFile)) : "v" + st.otaAvailableVersion; break;
     case OtaState::Failed: title = a.t(S::otaFailed); subt = a.t(S::otaNothingChanged); break;
   }
   TextOpts tto; tto.maxW = lx1 - x0;

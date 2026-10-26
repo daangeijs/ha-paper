@@ -18,15 +18,17 @@ describe("landing page", () => {
     for (const id of ids) at(`id="${id}"`);
   });
 
-  it("orders intro, needs, download mode, connect, backup, install, after, details", () => {
+  it("orders screens, device, connect, install, Wi-Fi, advanced (restore), details", () => {
     const order = [
-      'id="screens-h"',
-      'id="need-h"',
-      "hold Left",
+      'id="carousel"',
+      'id="device-pick"',
+      'id="device-controls"',
       'id="connect"',
-      'id="backup"',
       'id="install"',
-      'id="after-h"',
+      'id="want-backup"',
+      'id="wifi-step"',
+      'class="advanced"',
+      'id="restore"',
       'class="tech"',
     ].map(at);
     expect(order).toEqual([...order].sort((a, b) => a - b));
@@ -39,7 +41,7 @@ describe("landing page", () => {
 
   it("has alt text on every screen image and the files exist", () => {
     const imgs = [...html.matchAll(/<img\b[^>]*>/g)].map((m) => m[0]);
-    expect(imgs.length).toBe(4);
+    expect(imgs.length).toBe(5);
     for (const img of imgs) {
       expect(img).toMatch(/alt="[^"]{20,}"/);
       const src = img.match(/src="\.\/([^"]+)"/)![1];
@@ -50,11 +52,65 @@ describe("landing page", () => {
   it("loads nothing from another host (plain <a> links to github.com are fine)", () => {
     expect(html).not.toMatch(/src="(https?:)?\/\//);
     expect(html).not.toMatch(/<link[^>]+href="(https?:)?\/\//);
-    for (const m of html.matchAll(/href="((https?:)?\/\/[^"]*)"/g)) expect(m[1]).toMatch(/^https:\/\/github\.com\/daangeijs\/eink-ha-os\//);
+    const css = readFileSync(new URL("src/style.css", root), "utf8");
+    expect(css).not.toMatch(/@import|url\(/);
+    for (const m of html.matchAll(/href="((https?:)?\/\/[^"]*)"/g)) expect(m[1]).toMatch(/^https:\/\/github\.com\/daangeijs\/ha-paper\//);
   });
 
   it("links the release, x4flash.py, the flashing guide and the issue form (#44)", () => {
     for (const p of ["/releases/latest", "/firmware/tools/x4flash.py", "/docs/FLASHING.md", "/issues/new?template=bug_report.yml"])
-      at(`href="https://github.com/daangeijs/eink-ha-os${p.startsWith("/releases") || p.startsWith("/issues") ? "" : "/blob/main"}${p}"`);
+      at(`href="https://github.com/daangeijs/ha-paper${p.startsWith("/releases") || p.startsWith("/issues") ? "" : "/blob/main"}${p}"`);
+  });
+
+  it("keeps restore under Advanced; backup privacy in the details (#233, #239)", () => {
+    const adv = html.slice(at('<details class="advanced">'), at('class="tech"'));
+    expect(adv).toContain('id="restore-h">Restore backup<');
+    expect(html).toMatch(/Wi-Fi password/);
+    expect(html).toMatch(/nothing is uploaded/);
+    expect(html).toMatch(/Chrome or Edge/);
+  });
+
+  it("makes the backup an unchecked option and draws no button layout (#239)", () => {
+    expect(html).toMatch(/<input type="checkbox" id="want-backup">/);
+    expect(html).not.toMatch(/<svg/);
+    expect(html).not.toMatch(/press Reset|hold Left/i);
+    expect(main).toContain('"Done. Replug USB."');
+  });
+
+  it("shows progress and errors inline, in the step that runs (#239)", () => {
+    expect(html).not.toContain('id="progress"');
+    for (const step of ["backup", "install", "restore"]) {
+      const ids = [`id="${step}-progress"`, `id="${step}-bar"`, `id="${step}-label"`, `id="${step}-error"`];
+      const pos = ids.map(at);
+      expect(pos, step).toEqual([...pos].sort((a, b) => a - b));
+    }
+    expect(at('id="install"')).toBeLessThan(at('id="backup-progress"'));
+    expect(at('id="restore"')).toBeLessThan(at('id="restore-progress"'));
+    at('id="connect-error"');
+    at('id="wifi-error"');
+  });
+
+  it("keeps the landing state short: under 60 visible words (#239)", () => {
+    let b = html.slice(html.indexOf("<body>"));
+    b = b.replace(/<details[\s\S]*?<\/details>\s*<\/details>|<details class="tech">[\s\S]*?<\/details>/g, "");
+    b = b.replace(/<(p|div|li)\b[^>]*\bhidden\b[^>]*>[\s\S]*?<\/\1>/g, "");
+    b = b.replace(/<(dialog|script)[\s\S]*?<\/\1>/g, "").replace(/<[^>]+>/g, " ");
+    expect(b.split(/\s+/).filter(Boolean).length).toBeLessThan(60);
+  });
+
+  it("offers the X4 Pro and Other as radio tiles; Other hides the controls and says why (#239)", () => {
+    const pick = html.slice(at('<fieldset id="device-pick"'), at("</fieldset>"));
+    expect([...pick.matchAll(/<input type="radio" name="device" value="(\w+)"/g)].map((m) => m[1])).toEqual(["x4pro", "other"]);
+    expect(pick).toMatch(/value="x4pro" checked/);
+    expect(pick).toMatch(/id="x4pro-verified"/);
+    expect(pick).not.toMatch(/Tested on/); // rendered from src/devices.ts
+        expect(html).toMatch(/<p id="other-device"[^>]*hidden>Only Xteink X4 Pro is supported\./);
+    expect(main).toContain("ui.deviceControls.hidden = !supported");
+  });
+
+
+  it("always shows a Version select before Install, even with one release (#239)", () => {
+    expect(html).toMatch(/<select id="version-select"><\/select>/);
+    expect(at('id="version-select"')).toBeLessThan(at('id="install"'));
   });
 });

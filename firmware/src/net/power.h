@@ -1,8 +1,8 @@
 // Power saving on the device (#10, ROBUSTNESS_PLAN Phase 3): runs core/power.h powerDecision() from the main loop and
 // takes the display into deep sleep; glance wakes (core/glance.h): Wi-Fi from the RTC cache, one HA snapshot, redraw
 // only when a visible value changed, sleep again, 20 s cap. A key press means live mode for `liveMin` minutes; on USB
-// it is always live. First-boot safety: no deep sleep before kArmBoots confirmed boots of this version (userdata
-// /arm.json), a Right key held through the boot screen keeps it live 10 min, a USB host blocks sleep (external power).
+// it is always live. First-boot safety: no deep sleep before kArmBoots confirmed boots of this version or 30 min online
+// with a confirmed image (#231, userdata /arm.json), a Right key held through the boot screen keeps it live 10 min, a USB host blocks sleep (external power).
 //
 // Sleep entry: home page + ambient chrome drawn (App::prepareSleep), snapshot → RTC, WebSocket closed, Wi-Fi off, then
 // the board: panel deep-sleep command, front light parked, rails down, GPIO1 latch held, ext1 wake Power/Right,
@@ -12,6 +12,8 @@
 
 #include <cstdint>
 #include <functional>
+#include <string>
+#include <vector>
 
 #include "app/app.h"
 #include "core/glance.h"
@@ -32,6 +34,12 @@ bool powerBegin(const DisplaySettings& s);
 void powerOnSleep(std::function<void(int64_t seconds)> fn);
 void powerLoop(App& app, Board& board);   // main loop, every pass
 int powerArmBootsLeft();             // GET /diagnostics deep_sleep (any task)
+const char* powerArmedBy();          // "uptime" | "boots" | nullptr (#231, any task)
+std::string powerBatteryJson();      // GET /diagnostics battery (#231, any task)
+// GET /diagnostics power_trail (#225, any task): last /power.txt line when this boot started, and the newest lines
+void powerTrail(std::string& beforeBoot, std::vector<std::string>& lines);
+// App::onPowerStage (main task): append the Power key stage to /power.txt, closed before the App goes on
+void powerKeyStage(const char* stage);
 const char* powerMode();             // GET /status power.mode: awake | glance (a glance wake in progress)
 // POST /api/v1/device/sleep (#178, any task): core sleepNowCheck on the last power inputs; 202 = powerLoop enters deep
 // sleep within a second (checked once more there), skipping liveMin and the API quiet.

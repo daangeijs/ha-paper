@@ -27,6 +27,7 @@ const Screen& setupScreen(Setup s) {
   return s == Setup::Wifi ? wifi : web;
 }
 bool after(uint32_t now, uint32_t t) { return int32_t(now - t) >= 0; }
+constexpr uint32_t kStandbyLightMs = 50;   // Power → standby: frontlight off, this pause, then the full refresh (#225)
 }  // namespace
 
 // ======================= construction =======================
@@ -174,6 +175,7 @@ void App::onSettingsChanged(std::function<void(const DisplaySettings&)> cb) { im
 void App::setPressFeedback(bool on) { impl_->pressFeedback = on; }
 const std::vector<std::string>& App::log() const { return impl_->log; }
 void App::onLog(std::function<void(const std::string&)> cb) { impl_->onLog = std::move(cb); }
+void App::onPowerStage(std::function<void(const char*)> cb) { impl_->onPowerStage = std::move(cb); }
 std::map<std::string, std::string> App::regionSignatures() const {
   std::map<std::string, std::string> m;
   for (auto& kv : impl_->regions) m[kv.first] = kv.second.sig;
@@ -202,6 +204,7 @@ void App::loop() {
     I->userInputAt = now;
     if (e.kind != InputEvent::Kind::KeyDown || e.key == Key::Home) keys |= kKeyOther;
     else keys |= e.key == Key::Prev ? kKeyLeft : e.key == Key::Next ? kKeyRight : kKeyPower;
+    if (e.kind == InputEvent::Kind::KeyDown && e.key == Key::Power && I->onPowerStage) I->onPowerStage("key");
   }
   bool swallow = false;
   if (I->mode != Mode::Updating) {
@@ -694,7 +697,9 @@ void App::Impl::power() {
   if (sleeping) { wake("BTN_POWER"); return; }
   sleeping = true; menu = Menu::None;
   applyFrontlight();
+  board.pause(kStandbyLightMs);   // #225: frontlight off settles before the refresh load, not both at once
   fullRefresh("standby");
+  if (onPowerStage) onPowerStage("standby drawn");
 }
 
 void App::Impl::tap(int x, int y) {
@@ -914,8 +919,12 @@ void App::Impl::netChanged() {
 
   // OTA install screen
   if (st.ota == OtaState::Downloading || st.ota == OtaState::Installing) {
-    if (mode != Mode::Updating) { mode = Mode::Updating; menu = Menu::None; lastOtaPct = st.otaProgressPct / 10; fullRefresh("update screen"); }
-    else if (st.otaProgressPct / 10 != lastOtaPct) { lastOtaPct = st.otaProgressPct / 10; commit("progress", true); }
+    if (mode != Mode::Updating) {
+      mode = Mode::Updating; menu = Menu::None; lastOtaPct = st.otaProgressPct / 10; lastOtaVer = st.otaAvailableVersion;
+      fullRefresh("update screen");
+    } else if (st.otaProgressPct / 10 != lastOtaPct || st.otaAvailableVersion != lastOtaVer) {
+      lastOtaPct = st.otaProgressPct / 10; lastOtaVer = st.otaAvailableVersion; commit("progress", true);
+    }
     return;
   }
   if (mode == Mode::Updating) { mode = Mode::Main; fullRefresh(st.ota == OtaState::Failed ? "update failed" : "update"); return; }

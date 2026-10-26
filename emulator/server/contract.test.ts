@@ -16,7 +16,7 @@
 // live-data and rate-limit tests run against the firmware too. Simulator-only checks (/__sim, OTA mock feed) stay skipped.
 import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
 import { mkdtempSync, readFileSync } from 'node:fs';
-import { createServer, request as nodeRequest, type Server } from 'node:http';
+import { createServer, request as nodeRequest, type ClientRequest, type Server } from 'node:http';
 import type { AddressInfo } from 'node:net';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -737,6 +737,31 @@ describe('OTA with update checks off (no release repository in the build)', () =
       if (sim) await http(base, 'POST', '/__sim/control', { body: JSON.stringify({ ota_repo: SIM_OTA_REPO }), type: 'application/json' });
     }
   });
+  // #237: the install face said "Updating to" + a bare "v" for an upload; GET /ota `available` mirrors its version line
+  it.skipIf(NO_RW)('POST /ota/upload: the version from ?version= shows while the image streams; a 422 leaves none behind', async () => {
+    const img = Buffer.alloc(16 * 1024); img[0] = 0xe9;   // ESP image magic: the updater accepts the first 4 KB block
+    const u = new URL(base + '/api/v1/ota/upload?version=v0.5.0-test&sha256=' + 'f'.repeat(64));
+    let req!: ClientRequest;
+    const done = new Promise<{ status: number; json: any }>((resolve, reject) => {
+      req = nodeRequest({ hostname: u.hostname, port: u.port, path: u.pathname + u.search, method: 'POST',
+        headers: { Authorization: 'Bearer ' + rw, 'Content-Type': 'application/octet-stream', 'Content-Length': img.length } }, (res) => {
+        let t = ''; res.setEncoding('utf8'); res.on('data', (c) => { t += c; });
+        res.on('end', () => { let j: any = null; try { j = JSON.parse(t); } catch { /* not json */ } resolve({ status: res.statusCode || 0, json: j }); });
+      });
+      req.on('error', reject);
+    });
+    req.write(img.subarray(0, 1024));
+    try {
+      const mid = await until(() => http(base, 'GET', '/api/v1/ota', { token: rw }), (r) => r.json?.status === 'installing', 15000);
+      expect(mid.json.available).toMatchObject({ version: '0.5.0-test' });   // "v" stripped: the face adds it
+      if (sim) expect((await simState()).progress).toMatchObject({ version: '0.5.0-test' });
+    } finally { req.end(img.subarray(1024)); }
+    const r = await done;
+    expect(r.status).toBe(422); expect(r.json.error).toMatch(/SHA-256/);
+    const after = await until(() => http(base, 'GET', '/api/v1/ota', { token: rw }), (x) => x.json?.status !== 'installing', 15000);
+    expect(after.json).toMatchObject({ status: 'error', available: null });
+    if (sim) expect((await simState())).toMatchObject({ mode: 'main', progress: null });
+  });
 });
 
 describe('settings (x-firmware)', () => {
@@ -990,6 +1015,16 @@ describe('diagnostics (x-firmware)', () => {
     expect(d.touch_recoveries === null || typeof d.touch_recoveries === 'number').toBe(true);
     expect(d.deep_sleep).toMatchObject({ armed: expect.any(Boolean), boots_left: expect.any(Number) });   // #10 first-boot safety
     expect(d.deep_sleep.armed).toBe(d.deep_sleep.boots_left === 0);
+    // #225 power trail (/power.txt): the last line when this boot started and the newest lines
+    expect(d.power_trail.before_boot === null || typeof d.power_trail.before_boot === 'string').toBe(true);
+    expect(Array.isArray(d.power_trail.lines) && d.power_trail.lines.length <= 8).toBe(true);
+    expect(d.power_trail.lines.every((l: unknown) => typeof l === 'string')).toBe(true);
+    expect(d.deep_sleep.armed_by === null ? !d.deep_sleep.armed : ['uptime', 'boots'].includes(d.deep_sleep.armed_by)).toBe(true);   // #231
+    // #231 battery history: the first sample is taken as soon as the gauge is read (the device and the simulator both have one)
+    expect(d.battery).toMatchObject({ interval_s: 300, fields: ['t', 'pct', 'mv', 'chg', 'usb', 'power', 'rssi'] });
+    expect(d.battery.history.length).toBeGreaterThanOrEqual(1); expect(d.battery.history.length).toBeLessThanOrEqual(288);
+    const row = d.battery.history[d.battery.history.length - 1];
+    expect(row).toHaveLength(7); expect(row[1]).toBeGreaterThanOrEqual(0); expect([0, 1]).toContain(row[3]); expect([0, 1]).toContain(row[4]); expect(typeof row[5]).toBe('string');
     expect(d.panel.failed).toEqual(expect.any(Boolean));   // #181: null failure while the panel is fine
     expect(d.panel.failed ? typeof d.panel.failure === 'string' : d.panel.failure === null).toBe(true);
     expect((await http(base, 'GET', '/api/v1/status', { token: rw })).json.uptime_s).toEqual(expect.any(Number));

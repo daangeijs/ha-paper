@@ -2,6 +2,8 @@
 // firmware/src/core/diag.cpp: a ring of the last 8 boots, newest first; boots[0] is the running boot and gets its
 // uptime / min heap / wall clock refreshed while it runs. Vectors: spec/test-vectors/diag.json (scripts/gen-vectors.ts).
 
+import type { BattHistory } from './battery.ts';
+
 export const DIAG_BOOTS = 8;
 /** Field sizes of the firmware's RTC struct (C strings, NUL included): longer values are cut. */
 export const DIAG_REASON_LEN = 12, DIAG_VERSION_LEN = 24, DIAG_PANIC_LEN = 96;
@@ -65,8 +67,13 @@ export type Diagnostics = {
   panel: { controller: string; source: 'probe' | 'default' | 'none'; verdict: 'primary' | 'ultrachip' | 'inconclusive' | null; promoted: boolean; ver: string | null; flg: number | null; nvs_screen_type: number | null; failed: boolean; failure: string | null };
   coredump: null | { task: string; pc: string; backtrace: string[]; backtrace_corrupted: boolean; exc_cause: number; exc_vaddr: string; panic: string | null; elf_sha256: string; size: number };
   touch_recoveries: number | null;
-  /** First-boot safety (#10): confirmed boots this image still needs before it may deep-sleep (0 = armed). */
-  deep_sleep: { armed: boolean; boots_left: number };
+  /** First-boot safety (#10): confirmed boots this image still needs before it may deep-sleep (0 = armed); armed_by
+   *  (#231): 'boots' (3 boots online) or 'uptime' (30 min online, image confirmed), null while not armed. */
+  deep_sleep: { armed: boolean; boots_left: number; armed_by: 'uptime' | 'boots' | null };
+  /** Battery history (#231, core/battery.ts): 5 min samples, 24 h, since the last reset or deep-sleep wake. */
+  battery: BattHistory;
+  /** Power trail (#225, firmware core/power_trail.h): /power.txt lines; the emulator has no power path (null, []). */
+  power_trail: { before_boot: string | null; lines: string[] };
 };
 
 /** "3 h 12 min" / "45 s" for the console. */

@@ -87,7 +87,18 @@ ArmRecord armCount(const ArmRecord& r) {
   if (n.boots < kArmBoots) n.boots++;
   return n;
 }
-int armBootsLeft(const ArmRecord& r) { return std::max(0, kArmBoots - r.boots); }
+ArmRecord armUptime(const ArmRecord& r, double netUpMin, bool pendingVerify) {
+  if (armBootsLeft(r) == 0 || pendingVerify || netUpMin < kArmUptimeMin) return r;
+  ArmRecord n = r;
+  n.uptime = true;
+  return n;
+}
+int armBootsLeft(const ArmRecord& r) { return r.uptime ? 0 : std::max(0, kArmBoots - r.boots); }
+const char* armedBy(const ArmRecord& r) { return r.uptime ? "uptime" : r.boots >= kArmBoots ? "boots" : nullptr; }
+std::string armReason(const ArmRecord& r) {
+  if (r.uptime) return std::to_string(int(kArmUptimeMin)) + " min online";
+  return r.boots >= kArmBoots ? std::to_string(kArmBoots) + " boots online" : "";
+}
 
 int64_t sleptSeconds(int64_t sleptAtEpoch, int64_t wakeAtEpoch, int64_t nowEpoch) {
   if (sleptAtEpoch > 0 && nowEpoch >= sleptAtEpoch) return nowEpoch - sleptAtEpoch;

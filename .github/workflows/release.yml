@@ -1,6 +1,8 @@
 # Release on tag vX.Y.Z (stable) or vX.Y.Z-<pre>.N (any '-' → GitHub pre-release → device "beta" channel).
 # Publishes: firmware.bin + manifest.json (device OTA), www.bin (web console), bootloader/partitions/boot_app0,
 # x4flash.py (USB flasher, keeps NVS), ha-paper-flasher-<version>.zip (browser flasher site), build provenance.
+# Public repo only (daangeijs/ha-paper), beta and stable tags: the same flasher site goes to GitHub Pages at
+# hapaper.daangeijs.nl (Settings → Pages → Source: GitHub Actions; DNS CNAME hapaper → daangeijs.github.io).
 # Runner: GitHub-hosted ubuntu-24.04 unless the repo variable CI_RUNNER names another (see ci.yml).
 name: release
 on:
@@ -70,6 +72,57 @@ jobs:
           (cd dist/flasher/firmware && sha256sum -c SHA256SUMS)
           (cd dist/flasher && zip -r -X "../ha-paper-flasher-$v.zip" .)
           unzip -l "dist/ha-paper-flasher-$v.zip"
+      # GitHub Pages: the site built above plus every published beta/stable release, so the page can install any of
+      # them (#239). Browsers can't fetch release assets (no CORS), so each version's files sit in firmware/<version>/
+      # next to the page, listed in firmware/versions.json. This release isn't published yet: its files come from dist/.
+      # Older releases missing an asset or failing SHA256SUMS are skipped with a warning.
+      - name: Pages site (public repo, beta/stable)
+        if: github.repository == 'daangeijs/ha-paper' && !contains(github.ref_name, 'alpha')
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          v="${GITHUB_REF_NAME#v}"
+          site=dist/flasher
+          printf 'hapaper.daangeijs.nl\n' > "$site/CNAME"
+          test -f "$site/index.html" && test -f "$site/firmware/manifest.json"
+          mv "$site/firmware" dist/current-firmware
+          mkdir -p "$site/firmware/$v"
+          mv dist/current-firmware/* "$site/firmware/$v/"
+          now="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+          prerel=$([[ "$v" == *-* ]] && echo true || echo false)
+          printf '%s\t%s\t%s\n' "$v" "$prerel" "$now" > dist/versions.tsv
+          gh api --paginate "repos/$GITHUB_REPOSITORY/releases" \
+            --jq '.[] | select(.draft | not) | select(.tag_name | test("alpha") | not)
+                  | [.tag_name, (.prerelease | tostring), .published_at] | @tsv' > dist/releases.tsv
+          while IFS=$'\t' read -r tag pre date; do
+            ver="${tag#v}"
+            [ "$ver" = "$v" ] && continue
+            dir="$site/firmware/$ver"
+            if gh release download "$tag" -R "$GITHUB_REPOSITORY" -D "$dir" \
+                 -p firmware.bin -p bootloader.bin -p partitions.bin -p boot_app0.bin -p www.bin \
+                 -p manifest.json -p SHA256SUMS \
+               && for f in firmware.bin bootloader.bin partitions.bin boot_app0.bin www.bin manifest.json SHA256SUMS; do
+                    test -f "$dir/$f" || { echo "missing $f"; false; }; done \
+               && (cd "$dir" && sha256sum -c --ignore-missing SHA256SUMS); then
+              printf '%s\t%s\t%s\n' "$ver" "$pre" "$date" >> dist/versions.tsv
+            else
+              echo "::warning::$tag skipped on the flasher page (missing assets or checksum mismatch)"
+              rm -rf "$dir"
+            fi
+          done < dist/releases.tsv
+          python3 - "$site/firmware/versions.json" dist/versions.tsv <<'PY'
+          import json, sys
+          rows = [l.rstrip("\n").split("\t") for l in open(sys.argv[2]) if l.strip()]
+          out = [{"version": v, "prerelease": p == "true", "date": d, "path": f"firmware/{v}/"} for v, p, d in rows]
+          out.sort(key=lambda e: e["date"], reverse=True)
+          json.dump(out, open(sys.argv[1], "w"), indent=1)
+          print(json.dumps(out, indent=1))
+          PY
+      - if: github.repository == 'daangeijs/ha-paper' && !contains(github.ref_name, 'alpha')
+        uses: actions/upload-pages-artifact@fc324d3547104276b827a68afc52ff2a11cc49c9 # v5.0.0
+        with:
+          path: dist/flasher
       # Build provenance (SLSA) for every binary + the OTA manifest; verify with `gh attestation verify <file> -R <repo>`.
       # Attestation needs a public repo (or GitHub Enterprise Cloud); the step must never block the release.
       - name: Attest build provenance
@@ -161,3 +214,19 @@ jobs:
           prerelease: ${{ contains(github.ref_name, '-') }}
           body_path: body.md
           fail_on_unmatched_files: true
+
+  # Browser flasher on GitHub Pages (hapaper.daangeijs.nl); the private repo and alpha tags never deploy.
+  pages:
+    needs: release
+    if: github.repository == 'daangeijs/ha-paper' && !contains(github.ref_name, 'alpha')
+    runs-on: ${{ vars.CI_RUNNER || 'ubuntu-24.04' }}
+    timeout-minutes: 15
+    permissions:
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deploy.outputs.page_url }}
+    steps:
+      - id: deploy
+        uses: actions/deploy-pages@368f82528645a54fb793d4d04e342629a3f51346 # v5.0.1

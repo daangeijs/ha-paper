@@ -61,6 +61,9 @@ class App {
   void setPressFeedback(bool on);                                     // invert pressed control before the action (default on)
   const std::vector<std::string>& log() const;                        // recent refresh/action log (tests, serial)
   void onLog(std::function<void(const std::string&)> cb);            // each new log line as it happens (serial, #71)
+  // Power key stages (#225 power trail): "key" on each Power KeyDown before the App acts, "standby drawn" after the
+  // standby full refresh of a Power press
+  void onPowerStage(std::function<void(const char* stage)> cb);
   std::map<std::string, std::string> regionSignatures() const;        // key → text signature of what is on screen
   std::map<std::string, Rect> regionRects() const;
   void offerRecovery();                                               // crash loop at boot: factory reset screen (#21)

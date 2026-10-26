@@ -68,18 +68,27 @@ export function wifiFast(c: WifiCache, savedSsidHash: number, nowEpoch: number):
 }
 
 /** First-boot safety (#10, council): a wrong power latch or wake pin would make a sleeping display look dead and
- *  invisible on USB. So an image deep-sleeps only after ARM_BOOTS boots on this device that confirmed with the network
- *  up (the OTA confirm rule: 60 s up, Wi-Fi connected); a new firmware version starts counting again. */
+ *  invisible on USB. So an image deep-sleeps only once it is armed on this device: ARM_BOOTS boots that confirmed with
+ *  the network up (the OTA confirm rule: 60 s up, Wi-Fi connected), or (#231) ARM_UPTIME_MIN minutes of one boot with
+ *  the network up and the OTA image confirmed valid, whichever comes first. A new firmware version starts over. */
 export const ARM_BOOTS = 3;
-export type ArmRecord = { version: string; boots: number };
+export const ARM_UPTIME_MIN = 30;
+/** uptime: armed by ARM_UPTIME_MIN minutes online (stored, so a restart stays armed). */
+export type ArmRecord = { version: string; boots: number; uptime: boolean };
 /** The stored record for this firmware (another version or none → counting starts at 0). */
-export const armFor = (stored: ArmRecord | null, version: string): ArmRecord => (stored && stored.version === version && Number.isInteger(stored.boots) && stored.boots >= 0 ? stored : { version, boots: 0 });
+export const armFor = (stored: Partial<ArmRecord> | null, version: string): ArmRecord => (stored && stored.version === version && Number.isInteger(stored.boots) && (stored.boots as number) >= 0 ? { version, boots: stored.boots as number, uptime: stored.uptime === true } : { version, boots: 0, uptime: false });
 /** This boot confirmed with the network up: count it (once per boot; stops counting at ARM_BOOTS). */
-export const armCount = (r: ArmRecord): ArmRecord => (r.boots >= ARM_BOOTS ? r : { version: r.version, boots: r.boots + 1 });
-/** powerDecision `armBootsLeft`; /diagnostics "glance armed after N more boots". */
-export const armBootsLeft = (r: ArmRecord): number => Math.max(0, ARM_BOOTS - r.boots);
+export const armCount = (r: ArmRecord): ArmRecord => (r.boots >= ARM_BOOTS ? r : { ...r, boots: r.boots + 1 });
+/** #231: this boot has been online `netUpMin` minutes; arms once that reaches ARM_UPTIME_MIN with the image confirmed. */
+export const armUptime = (r: ArmRecord, netUpMin: number, pendingVerify: boolean): ArmRecord =>
+  (armBootsLeft(r) === 0 || pendingVerify || netUpMin < ARM_UPTIME_MIN ? r : { ...r, uptime: true });
+/** powerDecision `armBootsLeft` (0 = armed); /diagnostics "glance armed after N more boots". */
+export const armBootsLeft = (r: ArmRecord): number => (r.uptime ? 0 : Math.max(0, ARM_BOOTS - r.boots));
+/** Why it is armed (log "sleep armed · …", /diagnostics deep_sleep.armed_by); null = not armed. */
+export const armedBy = (r: ArmRecord): 'uptime' | 'boots' | null => (r.uptime ? 'uptime' : r.boots >= ARM_BOOTS ? 'boots' : null);
+export const armReason = (r: ArmRecord): string => (r.uptime ? ARM_UPTIME_MIN + ' min online' : r.boots >= ARM_BOOTS ? ARM_BOOTS + ' boots online' : '');
 /** Diagnostics card line. */
-export const armLine = (left: number): string => (left > 0 ? 'Glance armed after ' + left + ' more boot' + (left === 1 ? '' : 's') : 'Glance armed');
+export const armLine = (left: number): string => (left > 0 ? 'Glance armed after ' + left + ' more boot' + (left === 1 ? '' : 's') + ' or ' + ARM_UPTIME_MIN + ' min online' : 'Glance armed');
 /** A key held through the boot / wake screen keeps the display live this long (way out of a bad sleep loop). */
 export const BOOT_HOLD_LIVE_MIN = 10;
 

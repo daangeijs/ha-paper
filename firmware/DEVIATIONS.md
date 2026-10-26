@@ -61,3 +61,4 @@ that behaviour.
 - [Internal RAM caps: Wi-Fi buffers, TLS allocations, open HTTP connections (issue #198)](deviations/198-internal-ram-caps.md)
 - [Device log ring, GET /logs and the heap low point (issue #200)](deviations/200-device-log.md)
 - [Tap to page: B/W fast refresh, press feedback folded in, last input wins (issue #212)](deviations/212-snappy-taps.md)
+- [Power trail in /power.txt and the Power key stages (issue #225)](deviations/225-power-trail.md)

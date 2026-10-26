@@ -9,7 +9,8 @@ from pathlib import Path
 from PIL import Image
 
 SCREENS = {"home.png": "classic-home.png", "sleek_geist_home.png": "sleek-home.png",
-           "night.png": "night.png", "first_install_step1.png": "setup-wifi.png"}
+           "night.png": "night.png", "first_install_step1.png": "setup-wifi.png",
+           "first_install_step2.png": "setup-ha.png"}
 here = Path(__file__).resolve().parent
 src = Path(sys.argv[1]) if len(sys.argv) > 1 else here.parent / "firmware/test/out"
 dst = here / "src/screens"

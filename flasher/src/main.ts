@@ -1,32 +1,43 @@
 // Page wiring. All decisions about what may be written live in flow.ts / writePlan.ts.
+// Layout follows crosspoint's flash tool (#239): connect, one install button, progress inline, extras under Advanced.
 
 import { sha256Sidecar } from "./backup.ts";
-import { type Backup, type Progress, Session } from "./flow.ts";
+import { startCarousel } from "./carousel.ts";
+import { DEVICES, verifiedLine } from "./devices.ts";
+import { type AppDesc, parseAppDesc, readInstalled } from "./firmwareInfo.ts";
+import { type Progress, Session } from "./flow.ts";
 import { ImprovClient, STATE } from "./improv.ts";
-import { loadRelease, type Release } from "./release.ts";
+import type { Release } from "./release.ts";
 import { type Connection, connect, reopenConsole, webSerialSupported } from "./serial.ts";
+import { loadVersion, loadVersions, type VersionEntry, versionLabel } from "./versions.ts";
 
 const $ = <T extends HTMLElement>(id: string) => document.getElementById(id) as T;
 const ui = {
   unsupported: $("unsupported"),
   release: $("release-status"),
+  version: $<HTMLSelectElement>("version-select"),
   connect: $<HTMLButtonElement>("connect"),
   chip: $("chip-status"),
-  backup: $<HTMLButtonElement>("backup"),
-  backupResult: $("backup-result"),
-  skip: $<HTMLInputElement>("skip-backup"),
+  connectError: $("connect-error"),
+  devicePick: $("device-pick"),
+  otherDevice: $("other-device"),
+  deviceControls: $("device-controls"),
+  deviceInfo: $("device-info"),
+  wantBackup: $<HTMLInputElement>("want-backup"),
   install: $<HTMLButtonElement>("install"),
+  backupTask: $("backup-task"),
+  backupFiles: $("backup-files"),
+  installTask: $("install-task"),
   restoreFile: $<HTMLInputElement>("restore-file"),
   restore: $<HTMLButtonElement>("restore"),
+  wifiStep: $("wifi-step"),
   wifiStatus: $("wifi-status"),
   wifiForm: $<HTMLFormElement>("wifi-form"),
   wifiSsid: $<HTMLInputElement>("wifi-ssid"),
   wifiNetworks: $<HTMLDataListElement>("wifi-networks"),
   wifiPassword: $<HTMLInputElement>("wifi-password"),
   wifiJoin: $<HTMLButtonElement>("wifi-join"),
-  progress: $<HTMLProgressElement>("progress"),
-  progressLabel: $("progress-label"),
-  error: $("error"),
+  wifiError: $("wifi-error"),
   log: $("log"),
   dialog: $<HTMLDialogElement>("confirm"),
   dialogTitle: $("confirm-title"),
@@ -35,13 +46,41 @@ const ui = {
 };
 
 let release: Release | null = null;
+let versions: VersionEntry[] | null = null; // null: the single firmware/ layout
+let releaseDesc: AppDesc | null = null; // the bundled firmware.bin's app descriptor, to recognise this build
 let conn: Connection | null = null;
 let session: Session | null = null;
 let busy = false;
-// The installed firmware's console, reopened after the reset for Improv Wi-Fi (step 4).
+// The installed firmware's console, reopened after the reset for Improv Wi-Fi.
 let improv: { port: SerialPort; client: ImprovClient } | null = null;
 
-const DOWNLOAD_MODE = "Put the display in download mode (hold Left, press Reset, release Left) and click Connect again.";
+/** Where a step shows its progress and errors: inline, where the user clicked (#239). */
+interface StepUi {
+  box?: HTMLElement;
+  bar?: HTMLProgressElement;
+  label?: HTMLElement;
+  error: HTMLElement;
+}
+
+function stepUi(name: "backup" | "install" | "restore"): StepUi {
+  return {
+    box: $(`${name}-progress`),
+    bar: $<HTMLProgressElement>(`${name}-bar`),
+    label: $(`${name}-label`),
+    error: $(`${name}-error`),
+  };
+}
+
+const steps = {
+  connect: { error: ui.connectError } as StepUi,
+  wifi: { error: ui.wifiError } as StepUi,
+  backup: stepUi("backup"),
+  install: stepUi("install"),
+  restore: stepUi("restore"),
+};
+let current: StepUi = steps.connect;
+
+const DONE = "Done. Replug USB.";
 
 function log(line: string) {
   ui.log.textContent += line;
@@ -56,40 +95,58 @@ const terminal = {
   write: (s: string) => log(s),
 };
 
-const progress: Progress = (label, done, total) => {
-  ui.progress.max = total || 1;
-  ui.progress.value = done;
-  const pct = total ? Math.floor((100 * done) / total) : 0;
-  ui.progressLabel.textContent = `${label}: ${pct}%`;
-};
+function progressFor(step: StepUi, verb: string): Progress {
+  return (_label, done, total) => {
+    if (!step.box || !step.bar || !step.label) return;
+    step.box.hidden = false;
+    step.bar.max = total || 1;
+    step.bar.value = done;
+    const pct = total ? Math.floor((100 * done) / total) : 0;
+    step.label.textContent = `${verb} ${pct}%`;
+  };
+}
+
+function stepMessage(step: StepUi, text: string) {
+  if (!step.box || !step.label) return;
+  step.box.hidden = false;
+  step.label.textContent = text;
+}
+
+type TaskState = "" | "running" | "done" | "failed";
+function mark(li: HTMLElement, state: TaskState) {
+  if (state) li.dataset.state = state;
+  else delete li.dataset.state;
+}
 
 function setStatus(el: HTMLElement, text: string, kind: "ok" | "bad" | "" = "") {
   el.textContent = text;
-  el.className = "status " + kind;
+  el.className = `${el.id === "chip-status" ? "status-inline" : "status"} ${kind}`;
 }
 
 function showError(e: unknown, hint = "") {
   const msg = e instanceof Error ? e.message : String(e);
-  ui.error.textContent = hint ? `${msg} ${hint}` : msg;
+  current.error.textContent = hint ? `${msg} ${hint}` : msg;
   terminal.writeLine("ERROR: " + msg);
 }
 
 function refresh() {
   const checked = session?.security != null;
   ui.connect.disabled = busy || !webSerialSupported();
-  ui.backup.disabled = busy || !checked || session?.backup != null;
-  ui.skip.disabled = busy || !checked || session?.backup != null;
+  ui.connect.textContent = conn ? "Disconnect" : "Connect";
+  ui.wantBackup.disabled = busy;
+  ui.version.disabled = busy;
   ui.install.disabled = busy || !release || !session?.readyToInstall;
   ui.restore.disabled = busy || !checked || !ui.restoreFile.files?.length;
   ui.wifiJoin.disabled = busy || !improv;
 }
 
-async function run(task: () => Promise<void>, hint = "") {
+async function run(step: StepUi, job: () => Promise<void>, hint = "") {
   busy = true;
-  ui.error.textContent = "";
+  current = step;
+  for (const s of Object.values(steps)) s.error.textContent = "";
   refresh();
   try {
-    await task();
+    await job();
   } catch (e) {
     showError(e, hint);
   } finally {
@@ -124,13 +181,18 @@ function download(name: string, data: BlobPart, label: string): HTMLAnchorElemen
   return a;
 }
 
-async function finishWrite(message: string) {
-  setStatus(ui.chip, message, "ok");
-  ui.progressLabel.textContent = message;
-  // The chip resets after the write; the USB port goes away with it.
+async function disconnect() {
+  ui.deviceInfo.textContent = "";
   await conn?.close().catch(() => {});
   conn = null;
   session = null;
+}
+
+async function finishWrite(step: StepUi, message: string) {
+  stepMessage(step, message);
+  // The chip resets after the write; the USB port goes away with it.
+  await disconnect();
+  setStatus(ui.chip, "Not connected");
 }
 
 async function closeImprov() {
@@ -143,8 +205,7 @@ async function closeImprov() {
 }
 
 const NO_IMPROV =
-  "The display did not answer over USB. Unplug the cable and set up Wi-Fi on the display: pick your network on the " +
-  "screen, or tap Set up from phone and join the HA-Paper-Setup Wi-Fi with your phone.";
+  "No answer over USB. Set up Wi-Fi on the display.";
 
 function urlLinks(urls: string[]): Node[] {
   const nodes: Node[] = [];
@@ -164,8 +225,9 @@ function urlLinks(urls: string[]): Node[] {
 // init and the first full refresh come first), so keep asking for ~10 s before falling back to the on-screen setup.
 async function startWifiStep() {
   await closeImprov();
-  setStatus(ui.wifiStatus, "Waiting for the display to start…");
-  const deadline = Date.now() + 20_000;
+  setStatus(ui.wifiStatus, "Waiting for display…");
+  // A minute: long enough for an unplug and replug when the reset after the write didn't restart it.
+  const deadline = Date.now() + 60_000;
   let found: { state: number; urls: string[] } | null = null;
   while (!found && Date.now() < deadline) {
     const port = await reopenConsole(deadline - Date.now());
@@ -189,13 +251,13 @@ async function startWifiStep() {
   if (info) terminal.writeLine(`Improv: ${info.join(" · ")}`);
   if (found.state === STATE.provisioned && found.urls.length) {
     ui.wifiStatus.replaceChildren(
-      document.createTextNode("The display is already on Wi-Fi: "),
+      document.createTextNode("On Wi-Fi: "),
       ...urlLinks(found.urls),
       document.createTextNode(". To use another network, enter it below."),
     );
     ui.wifiStatus.className = "status ok";
   } else {
-    setStatus(ui.wifiStatus, "The display is listening. Looking for networks…");
+    setStatus(ui.wifiStatus, "Scanning networks…");
   }
   ui.wifiForm.hidden = false;
   refresh();
@@ -211,8 +273,8 @@ async function startWifiStep() {
     setStatus(
       ui.wifiStatus,
       nets.length
-        ? `The display sees ${nets.length} network${nets.length === 1 ? "" : "s"}. Pick yours and type its password.`
-        : "Type your network name and password. Only 2.4 GHz networks work.",
+        ? "Pick a network."
+        : "Enter network and password (2.4 GHz).",
     );
   }
   if (!ui.wifiSsid.value && nets[0]) ui.wifiSsid.value = nets[0].ssid;
@@ -221,19 +283,19 @@ async function startWifiStep() {
 
 ui.wifiForm.addEventListener("submit", (ev) => {
   ev.preventDefault();
-  void run(async () => {
+  void run(steps.wifi, async () => {
     const client = improv?.client;
     if (!client) return;
     const ssid = ui.wifiSsid.value.trim();
-    if (!ssid) throw new Error("Type the network name.");
-    setStatus(ui.wifiStatus, `Joining "${ssid}"… (up to half a minute)`);
+    if (!ssid) throw new Error("Enter a network name.");
+    setStatus(ui.wifiStatus, "Joining…");
     terminal.writeLine(`Improv: joining "${ssid}"`); // never the password
     try {
       const urls = await client.provision(ssid, ui.wifiPassword.value);
       ui.wifiPassword.value = "";
       await closeImprov();
       ui.wifiStatus.replaceChildren(
-        document.createTextNode(`Joined "${ssid}". You can unplug the cable. Open `),
+        document.createTextNode("Joined. Open "),
         ...urlLinks(urls),
         document.createTextNode(" on a phone or computer on the same Wi-Fi to sign in with Home Assistant."),
       );
@@ -241,7 +303,7 @@ ui.wifiForm.addEventListener("submit", (ev) => {
     } catch (e) {
       if (client.ended) {
         await closeImprov();
-        setStatus(ui.wifiStatus, `The USB connection to the display was lost. ${NO_IMPROV}`, "bad");
+        setStatus(ui.wifiStatus, `USB connection lost. ${NO_IMPROV}`, "bad");
       } else {
         setStatus(ui.wifiStatus, e instanceof Error ? e.message : String(e), "bad");
       }
@@ -249,110 +311,180 @@ ui.wifiForm.addEventListener("submit", (ev) => {
   });
 });
 
+
 ui.connect.addEventListener("click", () =>
-  run(async () => {
+  run(steps.connect, async () => {
     await closeImprov();
-    await conn?.close().catch(() => {});
-    conn = null;
-    session = null;
+    if (conn) {
+      await disconnect();
+      setStatus(ui.chip, "Not connected");
+      return;
+    }
     setStatus(ui.chip, "Connecting…");
     try {
       conn = await connect(terminal);
     } catch (e) {
-      setStatus(ui.chip, "Not connected.", "bad");
+      setStatus(ui.chip, "Not connected", "bad");
       if (e instanceof DOMException && e.name === "NotFoundError") throw new Error("No device picked.");
       throw e;
     }
     session = new Session(conn.loader, undefined, terminal.writeLine);
-    setStatus(ui.chip, `Connected: ${conn.description}. Checking eFuses…`);
+    setStatus(ui.chip, "Checking…");
     try {
       await session.chipCheck();
     } catch (e) {
-      setStatus(ui.chip, "Chip check failed. Nothing was written.", "bad");
+      setStatus(ui.chip, "Not supported", "bad");
+      await disconnect();
       throw e;
     }
-    setStatus(ui.chip, `${conn.description}: no secure boot, no flash encryption.`, "ok");
-  }, DOWNLOAD_MODE),
+    setStatus(ui.chip, "Connected", "ok");
+    terminal.writeLine(`${conn.description}: no secure boot, no flash encryption.`);
+    await showDevice(conn);
+  }, "Replug USB and retry."),
 );
 
-ui.backup.addEventListener("click", () =>
-  run(async () => {
-    if (!session) return;
-    const b: Backup = await session.makeBackup(progress);
-    const kb = el("p", "", [
-      download(b.name, b.data as Uint8Array<ArrayBuffer>, `Save ${b.name}`),
-      document.createTextNode(" · "),
-      download(b.name + ".sha256", sha256Sidecar(b.name, b.sha256), "Save .sha256"),
-    ]);
-    const parts = [
-      el("p", "Backup read: 16 MB. Save both files now; the page does not keep them.", []),
-      kb,
-      el("p", "", [el("code", "SHA-256 " + b.sha256)]),
-    ];
-    if (!b.looksValid) {
-      parts.push(el("p", "Warning: the backup does not start with an ESP32 bootloader header. Read it again before installing."));
-    }
-    ui.backupResult.replaceChildren(...parts);
-    ui.backupResult.className = "status " + (b.looksValid ? "ok" : "bad");
-    // Download the image right away so it isn't lost if the tab closes.
-    (kb.firstChild as HTMLAnchorElement).click();
-  }),
-);
+// Chip, flash, MAC and what is installed, read-only (a few KB). A failure here only hides the line.
+async function showDevice(c: Connection) {
+  const size = (await c.loader.detectFlashSize().catch(() => undefined)) ?? "?";
+  const mac = c.mac ? ` · …${c.mac.slice(-8)}` : "";
+  ui.deviceInfo.textContent = `ESP32-S3 · ${size.replace("MB", " MB")}${mac}`;
+  try {
+    const found = await readInstalled(c.loader, release ? { desc: releaseDesc, version: release.manifest.version } : undefined);
+    ui.deviceInfo.textContent += ` · ${found.label}`;
+    if (found.desc) terminal.writeLine(`Installed (${found.slot}): ${found.desc.project} ${found.desc.version}, ${found.desc.date}`);
+  } catch (e) {
+    terminal.writeLine(`Could not read the installed firmware: ${e instanceof Error ? e.message : e}`);
+  }
+}
 
-ui.skip.addEventListener("change", () => {
-  if (ui.skip.checked) session?.skipBackup();
-  else if (session) session.backupSkipped = false;
-  refresh();
-});
+function showVerified(version?: string) {
+  for (const d of DEVICES) {
+    const el = document.getElementById(`${d.id}-verified`);
+    const text = el?.querySelector(".text");
+    const line = verifiedLine(d, version);
+    if (!el || !text) continue;
+    text.textContent = line;
+    el.hidden = !line;
+  }
+}
+
+function pickDevice() {
+  const supported = ui.devicePick.querySelector<HTMLInputElement>("input:checked")?.value === "x4pro";
+  ui.deviceControls.hidden = !supported;
+  ui.otherDevice.hidden = supported;
+}
+ui.devicePick.addEventListener("change", pickDevice);
 
 ui.install.addEventListener("click", () =>
-  run(async () => {
+  run(steps.install, async () => {
     if (!session || !release) return;
-    // offsets live under Technical details (#183)
+    const s = session;
+    const backupFirst = ui.wantBackup.checked && !s.backup;
+    // Ask before anything runs; offsets live under Technical details (#183).
     const body = el("div", "", [
-      el("p", `Write HA Paper ${release.manifest.version} to this display? It replaces the firmware on it.`),
-      el("p", "Saved Wi-Fi, your screens and the factory panel settings stay. Don't unplug the cable until it says done."),
+      el("p", "Replaces the current firmware. Wi-Fi and settings stay."),
+      ...(backupFirst ? [el("p", "Backup first.")] : []),
     ]);
-    if (!(await confirmWrite("Install HA Paper", body, "Write"))) return;
-    await session.install(release, progress);
-    await finishWrite(`HA Paper ${release.manifest.version} written. The display restarts; press Reset if it doesn't.`);
+    if (!(await confirmWrite(`Install HA Paper ${release.manifest.version}?`, body, "Install"))) return;
+    ui.installTask.hidden = false;
+    mark(ui.installTask, "");
+    if (backupFirst) {
+      ui.backupTask.hidden = false;
+      mark(ui.backupTask, "running");
+      current = steps.backup;
+      try {
+        const b = await s.makeBackup(progressFor(steps.backup, "Reading…"));
+        const bin = download(b.name, b.data as Uint8Array<ArrayBuffer>, b.name);
+        ui.backupFiles.replaceChildren(
+          bin,
+          document.createTextNode(" · "),
+          download(b.name + ".sha256", sha256Sidecar(b.name, b.sha256), ".sha256"),
+        );
+        bin.click(); // save right away so it isn't lost if the tab closes
+        if (!b.looksValid) throw new Error("Backup is not a valid flash image.");
+        stepMessage(steps.backup, "Saved");
+        mark(ui.backupTask, "done");
+      } catch (e) {
+        mark(ui.backupTask, "failed");
+        throw e;
+      }
+    }
+    current = steps.install;
+    mark(ui.installTask, "running");
+    try {
+      await s.install(release, progressFor(steps.install, "Writing…"));
+    } catch (e) {
+      mark(ui.installTask, "failed");
+      throw e;
+    }
+    mark(ui.installTask, "done");
+    await finishWrite(steps.install, DONE);
+    ui.wifiStep.hidden = false;
     await startWifiStep().catch(() => setStatus(ui.wifiStatus, NO_IMPROV));
-  }, "If it stopped halfway, reconnect in download mode and install again, or restore your backup."),
+  }, "Reconnect and retry."),
 );
 
 ui.restoreFile.addEventListener("change", refresh);
 
 ui.restore.addEventListener("click", () =>
-  run(async () => {
+  run(steps.restore, async () => {
     if (!session) return;
     const files = [...(ui.restoreFile.files ?? [])];
     const bin = files.find((f) => !f.name.endsWith(".sha256"));
     const side = files.find((f) => f.name.endsWith(".sha256"));
-    if (!bin) throw new Error("Pick the backup .bin file.");
+    if (!bin) throw new Error("Pick a .bin file.");
     const data = new Uint8Array(await bin.arrayBuffer());
     const expected = side ? (await side.text()).trim().split(/\s+/)[0] : undefined;
     const body = el("div", "", [
-      el("p", `Write ${bin.name} (${data.length} bytes) over the whole flash at 0x0? This replaces HA Paper.`),
-      el("p", side ? `Checked against ${side.name} first.` : "No .sha256 file picked: only the size is checked."),
+      el("p", `Overwrites all flash with ${bin.name}.`),
+      el("p", side ? `Verified with ${side.name}.` : "No .sha256: size check only."),
     ]);
-    if (!(await confirmWrite("Restore backup", body, "Restore"))) return;
-    await session.restore(bin.name, data, expected, progress);
-    await finishWrite("Backup restored. Press Reset.");
+    if (!(await confirmWrite("Restore backup?", body, "Restore"))) return;
+    await session.restore(bin.name, data, expected, progressFor(steps.restore, "Writing…"));
+    await finishWrite(steps.restore, DONE);
   }),
 );
 
+// Load the chosen version's files. Every release is tested on a real X4 Pro before it ships, so the badge shows
+// only for the latest one (#239).
+async function selectVersion(i: number) {
+  release = null;
+  releaseDesc = null;
+  showVerified();
+  refresh();
+  try {
+    const r = await loadVersion((u) => fetch(u), versions ? versions[i] : null);
+    release = r;
+    releaseDesc = parseAppDesc(r.files.get("firmware.bin") ?? new Uint8Array());
+    if (!versions) {
+      const only = { version: r.manifest.version, prerelease: r.manifest.version.includes("-"), date: "", path: "firmware/" };
+      ui.version.replaceChildren(new Option(versionLabel(only, true), "0"));
+    }
+    if (i === 0) showVerified(r.manifest.version);
+    setStatus(ui.release, "");
+  } catch (e) {
+    setStatus(ui.release, `Firmware files invalid: ${e instanceof Error ? e.message : e}`, "bad");
+  }
+  refresh();
+}
+
+ui.version.addEventListener("change", () => void selectVersion(Number(ui.version.value)));
+
 async function init() {
+  startCarousel($("carousel"));
+  showVerified();
+  pickDevice();
   if (!webSerialSupported() || !window.isSecureContext) {
     ui.unsupported.hidden = false;
   }
   refresh();
   try {
-    release = await loadRelease((u) => fetch(u));
-    setStatus(ui.release, `HA Paper ${release.manifest.version}. Files match SHA256SUMS and manifest.json.`, "ok");
+    versions = await loadVersions((u) => fetch(u));
   } catch (e) {
-    setStatus(ui.release, `Firmware files not usable: ${e instanceof Error ? e.message : e} Installing is off.`, "bad");
+    setStatus(ui.release, `${e instanceof Error ? e.message : e}`, "bad"); // a broken list: fall back to firmware/
   }
-  refresh();
+  if (versions) ui.version.replaceChildren(...versions.map((v, i) => new Option(versionLabel(v, i === 0), String(i))));
+  await selectVersion(0);
 }
 
 void init();

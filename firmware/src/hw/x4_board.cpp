@@ -471,6 +471,8 @@ void X4Board::deepSleep(int64_t seconds) {
 }
 
 // Plain GPIO reads, safe from loopTask (no I2C): Left GPIO0 / Right GPIO7 active-LOW, Power per board polarity.
+void X4Board::pause(uint32_t ms) { ::delay(ms); }
+
 uint8_t X4Board::heldKeys() {
   const auto& in = BoardConfig::ACTIVE.input;
   uint8_t k = 0;

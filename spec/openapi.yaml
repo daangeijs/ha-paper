@@ -198,7 +198,7 @@ components:
         channel: { type: string, enum: [stable, beta] }
         auto: { type: string, enum: [off, notify, night], description: "off when the build has no release repository (repo empty)" }
         status: { type: string, enum: [idle, checking, uptodate, available, downloading, installing, updated, blocked, error, verifying], description: "downloading/installing: x-firmware" }
-        available: { type: object, nullable: true, properties: { version: { type: string }, size_mb: { type: number }, notes: { type: array, items: { type: string } } } }
+        available: { type: object, nullable: true, description: "The release found by a check, or the version an upload in progress named (null when it named none, #237)", properties: { version: { type: string }, size_mb: { type: number }, notes: { type: array, items: { type: string } } } }
         last_check: { type: string, format: date-time, nullable: true }
         message: { type: string, description: "With update checks off (repo empty): \"Update checks are off in this build. Install new firmware by upload (POST /api/v1/ota/upload).\"" }
         progress: { type: integer, description: "x-firmware: download progress 0–100" }
@@ -309,10 +309,37 @@ components:
         touch_recoveries: { type: integer, nullable: true, description: "GT911 rail power-cycles since boot; null without touch hardware" }
         deep_sleep:
           type: object
-          description: "First-boot safety (#10): no deep sleep until this firmware version has had 3 boots on this device that confirmed with the network up (60 s, Wi-Fi connected). Console: \"Glance armed after N more boots\"."
+          description: "First-boot safety (#10, #231): no deep sleep until this firmware version is armed on this device: 3 boots that confirmed with the network up (60 s, Wi-Fi connected), or 30 min of one boot with the network up and the OTA image confirmed valid, whichever comes first. Stored per version (userdata /arm.json), so a restart stays armed; a new version starts over. Console: \"Glance armed after N more boots or 30 min online\"."
           properties:
             armed: { type: boolean }
-            boots_left: { type: integer, example: 0 }
+            boots_left: { type: integer, example: 0, description: "0 when armed (also when armed by uptime)" }
+            armed_by: { type: string, nullable: true, enum: [uptime, boots], description: "null while not armed" }
+        battery:
+          type: object
+          description: |
+            #231: the fuel gauge every 5 min, newest 288 rows (24 h), oldest first; reference emulator src/core/battery.ts,
+            spec/test-vectors/battery-history.json. RAM only (PSRAM on the device): a reset or a deep-sleep wake starts it
+            over. The device also logs each sample and each chg / usb change as `[I][BATT] 92% 4334 mV · chg 1 · usb 1 · rssi -78`.
+          required: [interval_s, fields, history]
+          properties:
+            interval_s: { type: integer, example: 300 }
+            fields: { type: array, items: { type: string }, example: [t, pct, mv, chg, usb, power, rssi] }
+            history:
+              type: array
+              description: "rows in `fields` order: t = epoch seconds, or uptime seconds while the clock is unknown (< 1e9); pct; mv (null = not read); chg = charger STAT 0/1; usb = USB host 0/1; power = the power decision reason (\"not armed\", \"external power\", \"glance\", …); rssi dBm (null = not on Wi-Fi)"
+              items: { type: array, items: { nullable: true, oneOf: [{ type: integer }, { type: string }] } }
+              example: [[1761465600, 92, 4334, 1, 1, "external power", -78]]
+        power_trail:
+          type: object
+          description: |
+            x-firmware (#225): the power trail in /power.txt on userdata (32 lines max, survives a power loss), so a POWERON
+            shows what the previous boot was doing. Lines: `awake`, `sleep <reason>`, `key <ms> <mV> <usb 0/1>` (Power
+            KeyDown, written before the display acts; mV -1 = not read), `standby drawn <ms>` (after the standby full
+            refresh), `keyup <held ms>`. ms = uptime. The emulator has no power path: before_boot null, lines [].
+          required: [before_boot, lines]
+          properties:
+            before_boot: { type: string, nullable: true, example: "key 123456 3950 0", description: "last line when this boot started; null = no trail yet" }
+            lines: { type: array, maxItems: 8, items: { type: string }, description: newest lines, oldest first, example: ["awake", "key 123456 3950 0", "standby drawn 125020", "keyup 1180", "awake"] }
     SeedReport:
       type: object
       description: |
@@ -648,12 +675,14 @@ paths:
     post:
       x-firmware: true
       summary: Install a local firmware.bin (write). Raw body (application/octet-stream) or multipart file.
-      parameters: [{ name: sha256, in: query, required: false, schema: { type: string }, description: "optional; also accepted as X-SHA256 header" }]
+      parameters:
+        - { name: sha256, in: query, required: false, schema: { type: string }, description: "optional; also accepted as X-SHA256 header" }
+        - { name: version, in: query, required: false, schema: { type: string, maxLength: 64 }, description: "optional (#237): the version the update screen shows (\"Updating to / v…\") and GET /ota `available.version` reports while the image streams; a leading v is dropped, non-printable or longer values are ignored. A multipart manifest.json version wins. Neither: no version line, `available` null, the Updates page says a local file is installing" }
       requestBody: { required: true, content: { application/octet-stream: { schema: { type: string, format: binary } } } }
       responses:
         "202": { description: "Written and verified; the device restarts into it (confirmed after 60 s with network and a running UI loop; rolls back on a crash, no network within 10 min, or a hang). Body {status: rebooting, version?, sha256}. Multipart: field firmware (+ optional manifest.json {version, sha256, size})" }
         "409": { description: Battery below 30 % / upload already running }
-        "422": { description: SHA-256 mismatch or invalid image — nothing changed }
+        "422": { description: "SHA-256 mismatch or invalid image — nothing changed; the target version is cleared (GET /ota: status error, available null)" }
   /diagnostics:
     get:
       x-firmware: true

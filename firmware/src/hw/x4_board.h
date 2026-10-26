@@ -31,6 +31,7 @@ class X4Board : public Board {
   uint32_t millis() override;
   int64_t epochSeconds() override;
   void restart() override;
+  void pause(uint32_t ms) override;
   uint8_t heldKeys() override;           // GPIO levels now (not the debounced events): hardware-key factory reset
 
   void writeRtcFromSystemClock();        // after NTP sync (thread-safe: handed to the input task)

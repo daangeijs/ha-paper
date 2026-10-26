@@ -45,7 +45,10 @@ double otaAvailableSizeMb();
 bool otaBatteryOk(std::string* why);      // ≥ 30 % (or charging)
 
 // Local upload (AsyncTCP task). sha256Hex optional ("" = rely on the image's own checksum + app header).
-bool otaUploadBegin(size_t size, std::string& err);
+// version: from ?version= or a manifest part sent first ("" = unknown); shown on the install face (#237)
+bool otaUploadBegin(size_t size, const std::string& version, std::string& err);
+void otaUploadSetVersion(const std::string& version);   // manifest part arrived after the image started
+std::string otaUploadVersion(const std::string& raw);    // printable, <= 64 chars, leading "v" dropped; else ""
 bool otaUploadWrite(const uint8_t* d, size_t n);
 bool otaUploadEnd(const std::string& sha256Hex, std::string& err, std::string* digestHex = nullptr);
 void otaUploadAbort();

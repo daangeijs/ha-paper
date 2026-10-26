@@ -1,6 +1,6 @@
 // The flashing sequence, independent of the DOM and of Web Serial so it can be tested with a fake loader.
-// Order is enforced here, not in the UI: chip check -> backup (or explicit skip) -> verify files -> check partition
-// tables -> write.
+// Order is enforced here, not in the UI: chip check -> (optional backup) -> verify files -> check partition tables ->
+// write. The backup became optional on 2026-10-26 (Daan, #239): the install never writes NVS or userdata.
 
 import { backupFileName, type FlashReader, looksLikeFlashImage, readFullFlash } from "./backup.ts";
 import { sha256Hex, verifyRelease } from "./checksums.ts";
@@ -49,7 +49,6 @@ export type Progress = (label: string, done: number, total: number) => void;
 export class Session {
   security: SecurityState | null = null;
   backup: Backup | null = null;
-  backupSkipped = false;
 
   private readonly loader: Loader;
   private readonly now: () => Date;
@@ -102,18 +101,13 @@ export class Session {
     return backup;
   }
 
-  skipBackup(): void {
-    this.backupSkipped = true;
-  }
-
   get readyToInstall(): boolean {
-    return this.security !== null && (this.backup !== null || this.backupSkipped);
+    return this.security !== null;
   }
 
   /** Verify the bundled files again (right before writing), build the plan, write. */
   async install(release: Release, progress?: Progress): Promise<WritePlan> {
     this.requireChipCheck();
-    if (!this.backup && !this.backupSkipped) throw new RefusedError("Make a backup first (or tick that you have one).");
     await verifyRelease(release.files, release.sums, release.manifest);
     checkOurTable(release.files.get("partitions.bin")!);
     const onDevice = await this.loader.readFlash(PARTITION_TABLE_OFFSET, PARTITION_TABLE_SIZE);

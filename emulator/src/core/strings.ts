@@ -314,6 +314,7 @@ export const STRINGS = {
   otaUpToDate: ['Up to date', 'Up-to-date'],
   otaAvailable: ['v{} available', 'v{} beschikbaar'],
   otaInstalling: ['Installing…', 'Installeren…'],
+  otaLocalFile: ['From a file uploaded to this device', 'Van een bestand dat naar dit apparaat is geüpload'],   // installing, version unknown (#237)
   otaNothingChanged: ['Nothing changed. Try again.', 'Er is niets veranderd. Probeer het opnieuw.'],
   otaWhatsNew: ['What’s new', 'Wat is nieuw'],
   otaChannel: ['Channel', 'Kanaal'], otaAutomatic: ['Automatic', 'Automatisch'],

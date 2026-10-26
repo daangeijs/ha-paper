@@ -9,6 +9,12 @@ import { newer } from '../src/core/format.ts';
 export type Manifest = { version: string; sha256: string; size: number; notes: string[] };
 export type SimRelease = { tag: string; prerelease: boolean; manifest: Manifest; image: () => Buffer };
 
+/** A version from an upload (manifest.json or ?version=): printable, ≤ 64 chars, no leading "v"; else '' (#237). */
+export const uploadVersion = (v: unknown): string => {
+  const s = typeof v === 'string' ? v.trim().replace(/^[vV](?=\d)/, '') : '';
+  return /^[\x21-\x7e]{1,64}$/.test(s) ? s : '';
+};
+
 export const sha256 = (b: Buffer | string): string => createHash('sha256').update(b).digest('hex');
 
 /** Deterministic stand-in for firmware.bin of a version (what `--releases-file`-less releases "download"). */
