@@ -1,0 +1,10 @@
+{
+  "name": "10-version-unsupported",
+  "description": "Rule: version must be 1.",
+  "input": "version: 2\nscreens:\n  - id: a\n    widgets:\n      - {type: clock}\n",
+  "expect": {
+    "ok": false,
+    "line": 1,
+    "message": "Only version 1 is supported"
+  }
+}

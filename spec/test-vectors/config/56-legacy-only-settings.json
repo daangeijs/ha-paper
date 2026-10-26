@@ -1,0 +1,10 @@
+{
+  "name": "56-legacy-only-settings",
+  "description": "Rule: a file with only Settings screens has no screens of your own → No screens found (line 1), like an empty list.",
+  "input": "version: 1\napps:\n  - id: settings\n    title: Settings\nscreens:\n  - id: about\n    app: settings\n    widgets:\n      - {type: about, cs: 4, rs: 2}\n",
+  "expect": {
+    "ok": false,
+    "line": 1,
+    "message": "No screens found"
+  }
+}

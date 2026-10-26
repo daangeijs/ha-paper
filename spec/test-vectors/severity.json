@@ -1,0 +1,288 @@
+{
+  "description": "Travel severity (SPEC §6). sevOf(delay, cancelled) per departure; route = worst of the NEXT TWO departures; car ETA = round(typical × factor[level]). carLevel is the inverse used with a real travel-time sensor (ratio ≥ 1.75 → 4, ≥ 1.4 → 3, ≥ 1.15 → 2).",
+  "levels": [
+    {
+      "level": 1,
+      "word": "On time",
+      "car": "Clear",
+      "color": "#1E8E3E"
+    },
+    {
+      "level": 2,
+      "word": "Minor",
+      "car": "Busy",
+      "color": "#F2B705"
+    },
+    {
+      "level": 3,
+      "word": "Delayed",
+      "car": "Slow",
+      "color": "#EF6C00"
+    },
+    {
+      "level": 4,
+      "word": "Disrupted",
+      "car": "Jammed",
+      "color": "#D32F2F"
+    }
+  ],
+  "carFactor": [
+    1,
+    1.15,
+    1.4,
+    1.75
+  ],
+  "sevOf": [
+    {
+      "delay": 0,
+      "cancelled": false,
+      "level": 1
+    },
+    {
+      "delay": 1,
+      "cancelled": false,
+      "level": 1
+    },
+    {
+      "delay": 1.9,
+      "cancelled": false,
+      "level": 1
+    },
+    {
+      "delay": 2,
+      "cancelled": false,
+      "level": 2
+    },
+    {
+      "delay": 3,
+      "cancelled": false,
+      "level": 2
+    },
+    {
+      "delay": 4.9,
+      "cancelled": false,
+      "level": 2
+    },
+    {
+      "delay": 5,
+      "cancelled": false,
+      "level": 3
+    },
+    {
+      "delay": 10,
+      "cancelled": false,
+      "level": 3
+    },
+    {
+      "delay": 15,
+      "cancelled": false,
+      "level": 3
+    },
+    {
+      "delay": 15.1,
+      "cancelled": false,
+      "level": 4
+    },
+    {
+      "delay": 16,
+      "cancelled": false,
+      "level": 4
+    },
+    {
+      "delay": 30,
+      "cancelled": false,
+      "level": 4
+    },
+    {
+      "delay": 0,
+      "cancelled": true,
+      "level": 4
+    },
+    {
+      "delay": 3,
+      "cancelled": true,
+      "level": 4
+    }
+  ],
+  "routeLevel": [
+    {
+      "deps": [],
+      "level": 1
+    },
+    {
+      "deps": [
+        {
+          "delay": 0,
+          "cancelled": false
+        },
+        {
+          "delay": 0,
+          "cancelled": false
+        },
+        {
+          "delay": 0,
+          "cancelled": false
+        }
+      ],
+      "level": 1
+    },
+    {
+      "deps": [
+        {
+          "delay": 3,
+          "cancelled": false
+        },
+        {
+          "delay": 0,
+          "cancelled": false
+        },
+        {
+          "delay": 2,
+          "cancelled": false
+        }
+      ],
+      "level": 2
+    },
+    {
+      "deps": [
+        {
+          "delay": 8,
+          "cancelled": false
+        },
+        {
+          "delay": 6,
+          "cancelled": false
+        },
+        {
+          "delay": 0,
+          "cancelled": false
+        }
+      ],
+      "level": 3
+    },
+    {
+      "deps": [
+        {
+          "delay": 0,
+          "cancelled": true
+        },
+        {
+          "delay": 18,
+          "cancelled": false
+        },
+        {
+          "delay": 25,
+          "cancelled": false
+        }
+      ],
+      "level": 4
+    },
+    {
+      "deps": [
+        {
+          "delay": 0,
+          "cancelled": false
+        },
+        {
+          "delay": 0,
+          "cancelled": false
+        },
+        {
+          "delay": 40,
+          "cancelled": false
+        }
+      ],
+      "level": 1
+    },
+    {
+      "deps": [
+        {
+          "delay": 1,
+          "cancelled": false
+        },
+        {
+          "delay": 0,
+          "cancelled": false
+        },
+        {
+          "delay": 0,
+          "cancelled": true
+        }
+      ],
+      "level": 1
+    },
+    {
+      "deps": [
+        {
+          "delay": 4,
+          "cancelled": false
+        }
+      ],
+      "level": 2
+    }
+  ],
+  "carEta": [
+    {
+      "typical": 21,
+      "level": 1,
+      "eta": 21
+    },
+    {
+      "typical": 21,
+      "level": 2,
+      "eta": 24
+    },
+    {
+      "typical": 21,
+      "level": 3,
+      "eta": 29
+    },
+    {
+      "typical": 21,
+      "level": 4,
+      "eta": 37
+    }
+  ],
+  "carLevel": [
+    {
+      "eta": 21,
+      "typical": 21,
+      "level": 1
+    },
+    {
+      "eta": 24,
+      "typical": 21,
+      "level": 1
+    },
+    {
+      "eta": 25,
+      "typical": 21,
+      "level": 2
+    },
+    {
+      "eta": 29,
+      "typical": 21,
+      "level": 2
+    },
+    {
+      "eta": 30,
+      "typical": 21,
+      "level": 3
+    },
+    {
+      "eta": 36,
+      "typical": 21,
+      "level": 3
+    },
+    {
+      "eta": 37,
+      "typical": 21,
+      "level": 4
+    },
+    {
+      "eta": 60,
+      "typical": 21,
+      "level": 4
+    }
+  ]
+}

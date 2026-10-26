@@ -1,0 +1,27 @@
+{
+  "name": "Living room display",
+  "firmware": "0.3.0",
+  "battery": 76,
+  "wifi": "HomeNet",
+  "home_assistant": "linked",
+  "screens": 14,
+  "hostname": "ha-paper-a1b2.local",
+  "free_heap": 182344,
+  "free_psram": 7864320,
+  "heap_largest_block": 110592,
+  "heap_min_free": 141020,
+  "uptime_s": 3,
+  "power": {
+    "source": "battery",
+    "charging": false,
+    "cpuMhz": 240,
+    "wifiPs": "min",
+    "mode": "awake",
+    "nextWakeEpoch": null
+  },
+  "ha_report": {
+    "enabled": true,
+    "state": "waiting",
+    "last_push_epoch": null
+  }
+}

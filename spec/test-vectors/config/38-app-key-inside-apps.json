@@ -1,0 +1,10 @@
+{
+  "name": "38-app-key-inside-apps",
+  "description": "Rule: an app entry only has id and title.",
+  "input": "version: 1\napps:\n  - id: a\n    app: b\nscreens:\n  - id: x\n    widgets:\n      - {type: clock}\n",
+  "expect": {
+    "ok": false,
+    "line": 4,
+    "message": "Can’t read this line"
+  }
+}

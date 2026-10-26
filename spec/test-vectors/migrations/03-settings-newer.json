@@ -1,0 +1,19 @@
+{
+  "name": "03-settings-newer",
+  "description": "A newer firmware wrote the file, then an OTA rollback booted this one. Read what you can, never rewrite at boot, never downgrade: a save replaces only the keys this firmware knows and keeps the newer schema and every other key.",
+  "cases": [
+    {
+      "name": "boot: left alone",
+      "op": "migrate",
+      "stored": { "schema": 7, "brightness": 30, "dimAt": "22:00" },
+      "expect": { "status": "newer", "from": 7, "version": 7, "output": { "schema": 7, "brightness": 30, "dimAt": "22:00" } }
+    },
+    {
+      "name": "save after rollback: schema 7 and unknown keys stay",
+      "op": "persist",
+      "stored": { "schema": 7, "brightness": 30, "dimAt": "22:00" },
+      "known": { "brightness": 60, "style": "sleek" },
+      "expect": { "output": { "schema": 7, "brightness": 60, "dimAt": "22:00", "style": "sleek" } }
+    }
+  ]
+}

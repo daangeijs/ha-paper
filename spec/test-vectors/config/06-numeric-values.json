@@ -1,0 +1,38 @@
+{
+  "name": "06-numeric-values",
+  "description": "Values matching ^\\d+$ become numbers (\"02\" → 2); everything else stays a string.",
+  "input": "# HA Paper display config\nversion: 1\nscreens:\n  - id: n\n    widgets:\n      - {type: stat, entity: sensor.solar_power, cs: 02}\n      - {type: setting, key: 12}\n",
+  "expect": {
+    "ok": true,
+    "apps": [
+      {
+        "id": "home",
+        "title": "Home"
+      },
+      {
+        "id": "house",
+        "title": "House"
+      },
+      {
+        "id": "travel",
+        "title": "Travel"
+      }
+    ],
+    "screens": [
+      {
+        "id": "n",
+        "app": "home",
+        "title": "n",
+        "cells": 2,
+        "widgets": [
+          {
+            "type": "stat",
+            "entity": "sensor.solar_power",
+            "cs": 2
+          }
+        ]
+      }
+    ],
+    "yaml": "# HA Paper display config\nversion: 1\nscreens:\n  - id: n\n    app: home\n    title: n\n    widgets:\n      - {type: stat, entity: sensor.solar_power, cs: 2}\n"
+  }
+}

@@ -1,0 +1,78 @@
+{
+  "name": "05-low-battery",
+  "description": "Below 5 % and not charging: deep sleep with no timer, wake only on a button or the charger (\"Charge me\" face). Applies even with power saving off and in setup.",
+  "base": {
+    "nowEpoch": 1800000000,
+    "localSec": 43200,
+    "powerSave": "standby",
+    "wakeEvery": 15,
+    "night": "23-07",
+    "peeking": false,
+    "standby": true,
+    "charging": false,
+    "usb": false,
+    "chargedAgoMin": null,
+    "voltage": 3.9,
+    "battery": 60,
+    "otaPendingVerify": false,
+    "otaBusy": false,
+    "otaAuto": "notify",
+    "otaDue": false,
+    "setup": false,
+    "msSinceApi": null
+  },
+  "cases": [
+    {
+      "name": "4 % with power saving off",
+      "input": {
+        "battery": 4,
+        "powerSave": "off"
+      },
+      "expect": {
+        "deepSleepNow": true,
+        "wakeAtEpoch": null,
+        "buttonWakeOnly": true,
+        "reason": "low battery"
+      }
+    },
+    {
+      "name": "4 % in setup, right after an API call",
+      "input": {
+        "battery": 4,
+        "setup": true,
+        "msSinceApi": 1000
+      },
+      "expect": {
+        "deepSleepNow": true,
+        "wakeAtEpoch": null,
+        "buttonWakeOnly": true,
+        "reason": "low battery"
+      }
+    },
+    {
+      "name": "4 % but charging",
+      "input": {
+        "battery": 4,
+        "charging": true
+      },
+      "expect": {
+        "deepSleepNow": false,
+        "wakeAtEpoch": null,
+        "reason": "external power",
+        "buttonWakeOnly": false
+      }
+    },
+    {
+      "name": "5 % is not low",
+      "input": {
+        "battery": 5
+      },
+      "expect": {
+        "deepSleepNow": true,
+        "wakeAtEpoch": 1800000900,
+        "buttonWakeOnly": false,
+        "reason": "standby"
+      }
+    }
+  ]
+}

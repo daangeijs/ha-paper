@@ -1,0 +1,10 @@
+{
+  "name": "39-unknown-app-custom",
+  "description": "Rule: with an apps: section, the message lists those ids.",
+  "input": "version: 1\napps:\n  - id: garden\n  - id: car\nscreens:\n  - id: x\n    app: home\n    widgets:\n      - {type: clock}\n",
+  "expect": {
+    "ok": false,
+    "line": 7,
+    "message": "Unknown app “home” (garden, car)"
+  }
+}

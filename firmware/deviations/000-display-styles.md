@@ -1,0 +1,26 @@
+# Display styles (Classic + Sleek)
+
+Reference: the original display-styles package (`handoff/x4-display-styles/`, removed; see commit `c7393ae`), plan and
+owner decisions in `docs/DISPLAY_STYLES_PLAN.md`. Setting: `DisplaySettings.style` `classic|sleek` (default classic),
+`typeface` `archivo|bricolage|fraunces|geist`, `surface` `dither|dots`; `/settings.json`, `GET/PUT /api/v1/settings`
+`display` (422 `display.style must be classic or sleek`, `display.typeface must be archivo, bricolage, fraunces or
+geist`, `display.surface must be dither or dots`). Painters: `src/app/ui_sleek.cpp`; look/palette: `src/app/gfx/style.h`.
+
+| Area | Package / emulator | Firmware | Why |
+|---|---|---|---|
+| Where the switch lives | emulator Simulation panel (`look`) | Settings › **Display style** (new default page after Display: Style, Typeface (cs 2), Card surface steppers), web console Device tab, `PUT /settings` | Display page is full (8 tiles). The emulator's default config needs the same page. Typeface spans 2 cells so "Bricolage" fits next to − and +. |
+| Region diff | diff on `vm()`, skin applied after | draw-op signatures (as Classic). A style/typeface/surface change → `commit()` sees `drawnLook` ≠ settings → exactly one full refresh ("style"), never a whole-page partial | No view model in the firmware (plan §3.2). Guarded by `test_style_region_parity`: same data change → same changed keys in Classic and Sleek (all four faces). |
+| Hourly redraw | — | on the hour, Sleek also redraws stat cards with spark bars (Solar, Home use: the "now" bar moves) | Correct; the emulator misses it (skin reads the hour outside `vm()`). Only documented exception in the parity test. |
+| Card surface SURF (#DEDCD5) | CSS colour | one palette table (`toneInk()` in `gfx/canvas.cpp`): `dither` = 25 % ordered level-2 dots on paper (option B), `dots` = 1-in-16 black dots on paper (option D). Owner: build both, pick on the panel | No native level. B turns white after a B/W partial refresh; D survives it. |
+| G2 that carries information on cards | #A8A8A8 | `Tone::Track` = 25 % black dots on paper (ring/dial tracks, future spark/chart bars, "normal" price cells, battery bar track) | Solid G2 → white after a B/W partial; owner decision 6 (readable in B/W). Since #38 the emulator draws the same patterns (`core/panel.ts`), and nothing else is G2 either (below). |
+| Fonts | browser (Google Fonts, variable) | 2-bit bitmaps from the variable TTFs, one per (face, weight, size): display 700 at token px × fk (rounded half-up), units 600 at 16/20/24, text 700/600/400. Bricolage/Fraunces `opsz` = pixel size (like `font-optical-sizing: auto`), Fraunces `WONK` 1 (default). Tabular figures = the face's `tnum` zero width; Fraunces has no `tnum` → proportional | Flash: +1.29 MB for all four faces. |
+| Big numerals with letters | any text at 62–150 px | sizes ≥ 48 × fk are digits-only fonts; a value with letters uses the 40 px size | Flash. |
+| Battery ring "%" | display face 600, 16 px | text face 700, 16 px | Archivo condensed 600 at 16 px loses the slash at 2 bits. |
+| Setting stepper value | ellipsis | steps down 20 → 18 (display) → 15 → 13 (text 700); then drops "after "/"every " (the label says it) | 53 px between the buttons in a 1-wide card. |
+| Thermostat value | 34 × fk | 34 → 30 → 27 × fk until it fits 70 px inside the ring; room name max 62 px (design 76) | Overlapped the arc at 2 bits. |
+| "Power price" label | wraps to 2 lines in wide faces | one line, 16 → 15 → 14 px | No wrapping in card headers. |
+| Screens with the Classic layout (travel, updates, Wi-Fi, HA, About, setup, link card, app switcher, ghosts, "needs HA" card) | `sleek-fallback.css` | Classic painters, Classic `B()`/`R()` fonts remapped to the Sleek text face (`resolveFont`), SURF cards radius 20, borderless paper pills/circles (`button`, `roundButton`, `btnBox`), sentence-case labels at 600, dividers 1 px dotted ink (`rule`). Route severity badges and stepper circles keep their outline | CSS overrides map onto four helpers (OQ5). |
+| Boot, OTA install, standby, night faces | Sleek text face (DISPLAY_STYLES.md §5) | unchanged Classic (Atkinson) | EINK_NOTES.md §3 says unchanged; saves the 92/150 px faces. |
+| Top bar notification pill | in the Sleek bar | not drawn (the Classic bar has none either) | No notification source yet. |
+| Main loop / input cadence | browser events | `loop()` waits on a task notification, 20 ms timeout (was `delay(1)`); the input task notifies it per queued event. "x4input" sleeps on GPIO interrupts (keys GPIO0/7/3 and GT911 INT GPIO10, both edges) and polls at 8 ms only while a key debounce or touch contact is in flight; idle wake at most every 1 s (battery 30 s, touch probe 60 s). Until a touch-down arrives with an INT edge it keeps the old 15 ms poll. Swipe uses core `swipeNav()` (ratio 1.5, as the emulator; it was 2.0 inline, issue #13) | Lets the CPU idle (ROBUSTNESS_PLAN 0.4). The GT911 trigger mode comes from its self-loaded OEM config, unknown, hence both edges and the poll fallback. |
+| Default for existing devices | — | missing `style` in `/settings.json` = classic; unknown stored values ignored (lenient), `PUT` strict | OTA never changes the look (OQ4). |

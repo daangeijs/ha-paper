@@ -1,0 +1,19 @@
+{
+  "name": "HA Paper",
+  "firmware": "0.1.0-alpha.4-18-g433e247",
+  "battery": 80,
+  "wifi": "QEMU-ETH",
+  "home_assistant": "linked",
+  "screens": 12,
+  "charging": false,
+  "ip": "10.0.2.15",
+  "hostname": "ha-paper",
+  "uptime_s": 244,
+  "free_heap": 9096,
+  "free_psram": 7793256,
+  "heap_largest_block": 468,
+  "heap_min_free": 2252,
+  "ha_report": { "enabled": true, "state": "error", "last_push_epoch": 1792157086 },
+  "ota": { "state": "up_to_date" },
+  "power": { "source": "battery", "charging": false, "cpuMhz": 80, "wifiPs": null, "mode": "awake", "nextWakeEpoch": null }
+}

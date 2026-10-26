@@ -1,0 +1,47 @@
+{
+ "energy_sources": [
+  {
+   "type": "grid",
+   "flow_from": [
+    {
+     "stat_energy_from": "sensor.electricity_meter_energy_consumption_tarif_1",
+     "stat_cost": null,
+     "entity_energy_price": "sensor.current_electricity_price_all_in",
+     "number_energy_price": null
+    },
+    {
+     "stat_energy_from": "sensor.electricity_meter_energy_consumption_tarif_2",
+     "stat_cost": null,
+     "entity_energy_price": "sensor.current_electricity_price_all_in",
+     "number_energy_price": null
+    }
+   ],
+   "flow_to": [
+    {
+     "stat_energy_to": "sensor.electricity_meter_energy_production_tarif_1",
+     "stat_compensation": null,
+     "entity_energy_price": null,
+     "number_energy_price": null
+    },
+    {
+     "stat_energy_to": "sensor.electricity_meter_energy_production_tarif_2",
+     "stat_compensation": null,
+     "entity_energy_price": null,
+     "number_energy_price": null
+    }
+   ],
+   "cost_adjustment_day": 0.0
+  },
+  {
+   "type": "solar",
+   "stat_energy_from": "sensor.solaredge_lifetime_energy",
+   "config_entry_solar_forecast": null
+  },
+  {
+   "type": "battery",
+   "stat_energy_from": "sensor.powerwall_battery_export",
+   "stat_energy_to": "sensor.powerwall_battery_import"
+  }
+ ],
+ "device_consumption": []
+}

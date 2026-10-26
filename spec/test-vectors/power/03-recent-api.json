@@ -1,0 +1,61 @@
+{
+  "name": "03-recent-api",
+  "description": "No deep sleep within 2 min (120000 ms) of an API request.",
+  "base": {
+    "nowEpoch": 1800000000,
+    "localSec": 43200,
+    "powerSave": "standby",
+    "wakeEvery": 15,
+    "night": "23-07",
+    "peeking": false,
+    "standby": true,
+    "charging": false,
+    "usb": false,
+    "chargedAgoMin": null,
+    "voltage": 3.9,
+    "battery": 60,
+    "otaPendingVerify": false,
+    "otaBusy": false,
+    "otaAuto": "notify",
+    "otaDue": false,
+    "setup": false,
+    "msSinceApi": null
+  },
+  "cases": [
+    {
+      "name": "30 s after a request",
+      "input": {
+        "msSinceApi": 30000
+      },
+      "expect": {
+        "deepSleepNow": false,
+        "wakeAtEpoch": null,
+        "reason": "recent api",
+        "wifiPs": "min"
+      }
+    },
+    {
+      "name": "1 ms before the quiet period ends",
+      "input": {
+        "msSinceApi": 119999
+      },
+      "expect": {
+        "deepSleepNow": false,
+        "wakeAtEpoch": null,
+        "reason": "recent api"
+      }
+    },
+    {
+      "name": "quiet period over",
+      "input": {
+        "msSinceApi": 120000
+      },
+      "expect": {
+        "deepSleepNow": true,
+        "wakeAtEpoch": 1800000900,
+        "buttonWakeOnly": false,
+        "reason": "standby"
+      }
+    }
+  ]
+}

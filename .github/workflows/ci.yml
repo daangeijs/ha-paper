@@ -1,0 +1,143 @@
+# Pull requests (not drafts), merges to main and manual runs: core + emulator tests, device firmware + www.bin build,
+# and the real firmware (env:x4pro code + X4_QEMU seams) in Espressif QEMU: contract suite + OTA/rollback.
+# Cost caps: feature PRs get test-and-build only (the coordinator runs the QEMU suites locally); the QEMU job (contract http +
+# https + OTA, ~16-21 min) runs on each merge to main (newer merges cancel the running one), on a PR labelled
+# `release`, or by hand. No runs on draft PRs, no in-job retries, docs-only changes run nothing.
+#
+# Runners: GitHub-hosted ubuntu-24.04 by default; the repo variable CI_RUNNER or the workflow_dispatch input
+# `runner` picks another runs-on label (e.g. a self-hosted runner). .github/actions/host-deps installs the few host
+# packages a minimal runner image lacks.
+name: ci
+on:
+  pull_request:
+    types: [opened, synchronize, reopened, ready_for_review, labeled]
+    paths-ignore: ['docs/**', '**/*.md']
+  push:
+    branches: [main]
+    paths-ignore: ['docs/**', '**/*.md']
+  workflow_dispatch:
+    inputs:
+      runner:
+        description: 'runs-on label for this run (empty = vars.CI_RUNNER or ubuntu-24.04; e.g. ubuntu-24.04)'
+        required: false
+        default: ''
+permissions:
+  contents: read
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+# Node version: .node-version (24; emulator/server/*.ts and scripts/*.ts run directly with `node`, native type
+# stripping needs Node ≥ 23.6). Python tools: firmware/requirements.txt (exact pins, same file developers install).
+jobs:
+  test-and-build:
+    # Not on draft PRs (builder WIP pushes) and not again when a label is added (same commit, already tested).
+    if: github.event_name != 'pull_request' || (!github.event.pull_request.draft && github.event.action != 'labeled')
+    runs-on: ${{ (github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name != github.repository) && 'ubuntu-24.04' || inputs.runner || vars.CI_RUNNER || 'ubuntu-24.04' }}
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with: { submodules: recursive }
+      - uses: ./.github/actions/host-deps
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with: { python-version: '3.12' }
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version-file: .node-version
+          cache: npm
+          cache-dependency-path: |
+            emulator/package-lock.json
+            flasher/package-lock.json
+      - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ~/.platformio
+          key: pio-${{ runner.os }}-${{ hashFiles('firmware/platformio.ini') }}
+          restore-keys: pio-${{ runner.os }}-
+      - run: pip install -r firmware/requirements.txt
+      - run: cd emulator && npm ci
+      - name: Emulator lint (Biome)
+        run: cd emulator && npm run lint
+      - name: Generated fonts + icons match their generators (firmware/src/app/gen)
+        run: make gen-check PYTHON=python
+      # Linux is the reference rasteriser (macOS Pillow differs in a few edge pixels): on drift, download this and commit it.
+      - name: Upload regenerated fonts + icons on drift
+        if: failure()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with: { name: gen-linux, path: "firmware/src/app/gen/\nemulator/src/plain-zero.css" }
+      - name: Emulator tests
+        run: make test-emulator
+      - name: Emulator type check + build
+        run: cd emulator && npm run build
+      - name: Browser flasher (flasher/) lint + tests + type check + build
+        run: cd flasher && npm ci && npm run lint && npm test && npm run build
+      - name: Native core tests
+        run: make test-native PIO=pio
+      - name: Tool tests (monitor.py, x4flash.py backup -> flash -> restore on a fake esptool)
+        run: make test-tools PYTHON=python
+      # cppcheck over firmware/src only (platformio.ini check_*); tool-cppcheck lands in the cached ~/.platformio.
+      - name: Firmware static analysis (pio check, cppcheck)
+        run: cd firmware && pio check -e x4pro --fail-on-defect=medium
+      - name: Firmware + www.bin (env:x4pro) + release artifacts
+        run: make dist PIO=pio ESPTOOL=esptool VERSION=0.0.0-ci.${{ github.run_number }}
+      - name: Browser flasher site with these files (dist/flasher/)
+        run: make flasher-site PIO=pio ESPTOOL=esptool VERSION=0.0.0-ci.${{ github.run_number }}
+      - name: Size report
+        run: |
+          ls -l dist
+          python3 - <<'PY'
+          import os
+          size = os.path.getsize("dist/firmware.bin"); slot = 0x640000
+          print(f"firmware.bin {size/1024:.0f} KB = {100*size/slot:.1f}% of the 6.25 MB OTA slot")
+          assert size < slot, "firmware does not fit the OTA slot"
+          PY
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: ha-paper-${{ github.sha }}
+          path: dist/
+          retention-days: 3
+
+  qemu-firmware:
+    # On every merge to main (a newer merge cancels the running one), a PR labelled `release`, or by hand.
+    # Feature PRs are gated by the coordinator's local QEMU runs.
+    if: github.event_name != 'pull_request' || (!github.event.pull_request.draft && contains(github.event.pull_request.labels.*.name, 'release') && (github.event.action != 'labeled' || github.event.label.name == 'release'))
+    runs-on: ${{ (github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name != github.repository) && 'ubuntu-24.04' || inputs.runner || vars.CI_RUNNER || 'ubuntu-24.04' }}
+    timeout-minutes: 100   # setup ~3 + http 35 + https 35 + OTA 20 (#193, 2026-10-26)
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with: { submodules: recursive }
+      - uses: ./.github/actions/host-deps
+        with: { qemu: 'true' }
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with: { python-version: '3.12' }
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with: { node-version-file: .node-version, cache: npm, cache-dependency-path: emulator/package-lock.json }
+      - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ~/.platformio
+          key: pio-${{ runner.os }}-${{ hashFiles('firmware/platformio.ini') }}
+          restore-keys: pio-${{ runner.os }}-
+      - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0 — Espressif QEMU download (version pinned in run.sh: QEMU_VER)
+        with:
+          path: sim/qemu/.state/qemu
+          key: esp-qemu-${{ runner.os }}-${{ hashFiles('sim/qemu/run.sh') }}
+      - run: pip install -r firmware/requirements.txt
+      - run: cd emulator && npm ci
+      # timeouts ~2× the slowest runs seen on this runner (#193): http 13.4 min, https 11.3 min (Oct 26, 88 tests)
+      - name: Contract suite against the QEMU firmware (OAuth2 + PKCE + WebSocket through the fake HA)
+        timeout-minutes: 35
+        run: make qemu-contract PIO=pio
+      - name: Contract suite with the device linked to the fake HA over https (TLS reset, hung handshake)
+        timeout-minutes: 35
+        run: CONTRACT_HA_TLS=1 PIO=pio X4_FW_VERSION=0.0.0-qemu sim/qemu/contract.sh --no-build
+      - name: OTA upload → PENDING_VERIFY → valid; broken + hung image → bootloader rollback
+        timeout-minutes: 20
+        run: make qemu-ota PIO=pio
+      - if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: qemu-logs-${{ github.sha }}
+          path: |
+            sim/qemu/.state/contract/**/*.log
+            sim/qemu/.state/contract-tls/**/*.log
+            sim/qemu/.state/ota-fw/**/*.log
+          if-no-files-found: ignore
+          retention-days: 3

@@ -1,0 +1,14 @@
+# Wokwi (VS Code extension "Wokwi Simulator" or wokwi-cli) config. UNTESTED here: needs a Wokwi
+# license token (VS Code ext = Hobby+ / CI = Pro, see docs/ESP32_EMULATION.md).
+# Points at the sim/qemu smoke build; Wokwi emulates Wi-Fi (SSID "Wokwi-GUEST", open), not open_eth,
+# so for the real firmware point these at firmware/.pio/build/x4pro/*.
+[wokwi]
+version = 1
+firmware = '../qemu/.pio/build/qemu/firmware.bin'
+elf = '../qemu/.pio/build/qemu/firmware.elf'
+
+# Reach the device web server/REST API from the Mac at http://localhost:8180
+# (needs the Private IoT Gateway, bundled in the VS Code extension).
+[[net.forward]]
+from = "localhost:8180"
+to = "target:80"

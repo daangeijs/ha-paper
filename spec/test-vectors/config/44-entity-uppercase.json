@@ -1,0 +1,10 @@
+{
+  "name": "44-entity-uppercase",
+  "description": "Rule: entity ids are lower-case (HA entity_id format).",
+  "input": "# HA Paper display config\nversion: 1\nscreens:\n  - id: a\n    widgets:\n      - {type: switch, entity: switch.Coffee}\n",
+  "expect": {
+    "ok": false,
+    "line": 6,
+    "message": "switch: “switch.Coffee” is not a switch / light / input_boolean / fan entity"
+  }
+}

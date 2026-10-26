@@ -1,0 +1,64 @@
+{
+  "name": "01-pending-ota",
+  "description": "Never deep-sleep while the running image is unconfirmed (a deep-sleep wake is a reset, a reset rolls back) or while an update downloads/installs.",
+  "base": {
+    "nowEpoch": 1800000000,
+    "localSec": 43200,
+    "powerSave": "standby",
+    "wakeEvery": 15,
+    "night": "23-07",
+    "peeking": false,
+    "standby": true,
+    "charging": false,
+    "usb": false,
+    "chargedAgoMin": null,
+    "voltage": 3.9,
+    "battery": 60,
+    "otaPendingVerify": false,
+    "otaBusy": false,
+    "otaAuto": "notify",
+    "otaDue": false,
+    "setup": false,
+    "msSinceApi": null
+  },
+  "cases": [
+    {
+      "name": "pending verify blocks night sleep",
+      "input": {
+        "otaPendingVerify": true,
+        "localSec": 3600
+      },
+      "expect": {
+        "deepSleepNow": false,
+        "wakeAtEpoch": null,
+        "reason": "unconfirmed image"
+      }
+    },
+    {
+      "name": "pending verify wins over low battery",
+      "input": {
+        "otaPendingVerify": true,
+        "battery": 3
+      },
+      "expect": {
+        "deepSleepNow": false,
+        "wakeAtEpoch": null,
+        "reason": "unconfirmed image",
+        "buttonWakeOnly": false
+      }
+    },
+    {
+      "name": "download running: no sleep, full speed, no modem sleep",
+      "input": {
+        "otaBusy": true
+      },
+      "expect": {
+        "deepSleepNow": false,
+        "wakeAtEpoch": null,
+        "reason": "ota running",
+        "cpuProfile": "full",
+        "wifiPs": "none"
+      }
+    }
+  ]
+}

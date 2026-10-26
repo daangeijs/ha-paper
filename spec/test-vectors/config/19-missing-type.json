@@ -1,0 +1,10 @@
+{
+  "name": "19-missing-type",
+  "description": "Rule: a widget without type is an unknown type (quirk: the message literally says “undefined”).",
+  "input": "# HA Paper display config\nversion: 1\nscreens:\n  - id: a\n    widgets:\n      - {cs: 2}\n",
+  "expect": {
+    "ok": false,
+    "line": 6,
+    "message": "Unknown widget type “undefined”"
+  }
+}

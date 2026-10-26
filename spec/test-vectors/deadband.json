@@ -1,0 +1,24 @@
+{
+  "description": "Power deadband (issue #85; emulator src/core/refresh.ts powerMoved/holdPower, firmware core/logic.cpp powerMoved/PowerHold). Formatting shows every watt (format.json); a power tile only takes a new value when it moved >= 50 W and >= 5 % of the shown value (the larger of the two), or when |W| crosses 1000 (the W <-> kW boundary). Otherwise it keeps the last shown value and the region diff sees no change. Values are signed W. Other units: a change of the formatted text redraws.",
+  "moved": [
+    { "name": "small step stays", "shown": 400, "now": 410, "moved": false },
+    { "name": "49 W stays", "shown": 400, "now": 449, "moved": false },
+    { "name": "50 W moves", "shown": 400, "now": 450, "moved": true },
+    { "name": "down 80 W moves", "shown": 480, "now": 400, "moved": true },
+    { "name": "1234 to 1240 stays", "shown": 1234, "now": 1240, "moved": false },
+    { "name": "5 % of 3000 is the larger threshold", "shown": 3000, "now": 3149, "moved": false },
+    { "name": "exactly 5 % moves", "shown": 3000, "now": 3150, "moved": true },
+    { "name": "big drop moves", "shown": 3456, "now": 1234, "moved": true },
+    { "name": "W to kW crossing moves", "shown": 990, "now": 1010, "moved": true },
+    { "name": "kW to W crossing moves", "shown": 1000, "now": 999, "moved": true },
+    { "name": "negative, small", "shown": -1800, "now": -1850, "moved": false },
+    { "name": "negative crossing to kW", "shown": -995, "now": -1005, "moved": true },
+    { "name": "sign change within 50 W stays", "shown": 20, "now": -20, "moved": false },
+    { "name": "from zero needs 50 W", "shown": 0, "now": 49, "moved": false },
+    { "name": "from zero 50 W moves", "shown": 0, "now": 50, "moved": true }
+  ],
+  "hold": [
+    { "name": "first value is shown, then held, then moves", "in": [400, 410, 440, 451, 460, 510], "out": [400, 400, 400, 451, 451, 510] },
+    { "name": "drift does not creep: compared with the shown value", "in": [1000, 1030, 1060, 1090], "out": [1000, 1000, 1060, 1060] }
+  ]
+}

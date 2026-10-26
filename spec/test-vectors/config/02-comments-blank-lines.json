@@ -1,0 +1,37 @@
+{
+  "name": "02-comments-blank-lines",
+  "description": "Blank lines and # comments (any indent) are ignored; line numbers still count them.",
+  "input": "# hello\n\nversion: 1\n   # indented comment\nscreens:\n\n  - id: a\n    widgets:\n      - {type: clock, cs: 2}\n",
+  "expect": {
+    "ok": true,
+    "apps": [
+      {
+        "id": "home",
+        "title": "Home"
+      },
+      {
+        "id": "house",
+        "title": "House"
+      },
+      {
+        "id": "travel",
+        "title": "Travel"
+      }
+    ],
+    "screens": [
+      {
+        "id": "a",
+        "app": "home",
+        "title": "a",
+        "cells": 2,
+        "widgets": [
+          {
+            "type": "clock",
+            "cs": 2
+          }
+        ]
+      }
+    ],
+    "yaml": "# HA Paper display config\nversion: 1\nscreens:\n  - id: a\n    app: home\n    title: a\n    widgets:\n      - {type: clock, cs: 2}\n"
+  }
+}

@@ -1,0 +1,109 @@
+{
+  "name": "04-external-power",
+  "description": "On external power (charging, USB host connected, or charged within 30 min and >= 4.15 V): full speed, no modem sleep, no deep sleep. Unknown battery: no deep sleep.",
+  "base": {
+    "nowEpoch": 1800000000,
+    "localSec": 43200,
+    "powerSave": "standby",
+    "wakeEvery": 15,
+    "night": "23-07",
+    "peeking": false,
+    "standby": true,
+    "charging": false,
+    "usb": false,
+    "chargedAgoMin": null,
+    "voltage": 3.9,
+    "battery": 60,
+    "otaPendingVerify": false,
+    "otaBusy": false,
+    "otaAuto": "notify",
+    "otaDue": false,
+    "setup": false,
+    "msSinceApi": null
+  },
+  "cases": [
+    {
+      "name": "USB connected",
+      "input": {
+        "usb": true
+      },
+      "expect": {
+        "deepSleepNow": false,
+        "wakeAtEpoch": null,
+        "reason": "external power",
+        "cpuProfile": "full",
+        "wifiPs": "none",
+        "external": true
+      }
+    },
+    {
+      "name": "charging at night",
+      "input": {
+        "charging": true,
+        "localSec": 3600
+      },
+      "expect": {
+        "deepSleepNow": false,
+        "wakeAtEpoch": null,
+        "reason": "external power",
+        "external": true
+      }
+    },
+    {
+      "name": "charged 10 min ago at 4.18 V",
+      "input": {
+        "chargedAgoMin": 10,
+        "voltage": 4.18
+      },
+      "expect": {
+        "deepSleepNow": false,
+        "wakeAtEpoch": null,
+        "reason": "external power",
+        "external": true
+      }
+    },
+    {
+      "name": "charged 10 min ago but 4.10 V",
+      "input": {
+        "chargedAgoMin": 10,
+        "voltage": 4.1
+      },
+      "expect": {
+        "deepSleepNow": true,
+        "wakeAtEpoch": 1800000900,
+        "buttonWakeOnly": false,
+        "reason": "standby",
+        "external": false,
+        "cpuProfile": "auto",
+        "wifiPs": "min"
+      }
+    },
+    {
+      "name": "charged 45 min ago at 4.20 V",
+      "input": {
+        "chargedAgoMin": 45,
+        "voltage": 4.2
+      },
+      "expect": {
+        "deepSleepNow": true,
+        "wakeAtEpoch": 1800000900,
+        "buttonWakeOnly": false,
+        "reason": "standby",
+        "external": false
+      }
+    },
+    {
+      "name": "battery not read yet",
+      "input": {
+        "battery": null
+      },
+      "expect": {
+        "deepSleepNow": false,
+        "wakeAtEpoch": null,
+        "reason": "battery unknown",
+        "cpuProfile": "full",
+        "wifiPs": "min"
+      }
+    }
+  ]
+}

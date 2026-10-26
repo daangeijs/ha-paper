@@ -1,0 +1,37 @@
+{
+  "name": "71-thermo-no-zone",
+  "description": "A thermo tile without a zone parses (#148: the console palette adds it, then the user picks a climate entity); the panel shows \"—\".",
+  "input": "# HA Paper display config\nversion: 1\nscreens:\n  - id: a\n    widgets:\n      - {type: thermo, rs: 2}\n",
+  "expect": {
+    "ok": true,
+    "apps": [
+      {
+        "id": "home",
+        "title": "Home"
+      },
+      {
+        "id": "house",
+        "title": "House"
+      },
+      {
+        "id": "travel",
+        "title": "Travel"
+      }
+    ],
+    "screens": [
+      {
+        "id": "a",
+        "app": "home",
+        "title": "a",
+        "cells": 2,
+        "widgets": [
+          {
+            "type": "thermo",
+            "rs": 2
+          }
+        ]
+      }
+    ],
+    "yaml": "# HA Paper display config\nversion: 1\nscreens:\n  - id: a\n    app: home\n    title: a\n    widgets:\n      - {type: thermo, rs: 2}\n"
+  }
+}

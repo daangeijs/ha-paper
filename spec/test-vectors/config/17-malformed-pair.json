@@ -1,0 +1,10 @@
+{
+  "name": "17-malformed-pair",
+  "description": "Rule: every comma-separated part must be key: value.",
+  "input": "# HA Paper display config\nversion: 1\nscreens:\n  - id: a\n    widgets:\n      - {type clock}\n",
+  "expect": {
+    "ok": false,
+    "line": 6,
+    "message": "Expected key: value"
+  }
+}

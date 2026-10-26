@@ -1,0 +1,65 @@
+{
+  "name": "40-ha-entities",
+  "description": "stat / gauge / switch take any HA entity_id of their domains (sensor, binary_sensor, input_number, number, climate, weather | sensor, input_number, number | switch, light, input_boolean, fan); gauge without entity = home battery.",
+  "input": "# HA Paper display config\nversion: 1\nscreens:\n  - id: a\n    widgets:\n      - {type: stat, entity: sensor.outdoor_temperature}\n      - {type: stat, entity: binary_sensor.front_door, label: Door}\n      - {type: stat, entity: input_number.target}\n      - {type: gauge}\n      - {type: gauge, entity: sensor.phone_battery}\n      - {type: switch, entity: switch.coffee}\n      - {type: switch, entity: input_boolean.guest_mode}\n      - {type: switch, entity: fan.attic}\n",
+  "expect": {
+    "ok": true,
+    "apps": [
+      {
+        "id": "home",
+        "title": "Home"
+      },
+      {
+        "id": "house",
+        "title": "House"
+      },
+      {
+        "id": "travel",
+        "title": "Travel"
+      }
+    ],
+    "screens": [
+      {
+        "id": "a",
+        "app": "home",
+        "title": "a",
+        "cells": 8,
+        "widgets": [
+          {
+            "type": "stat",
+            "entity": "sensor.outdoor_temperature"
+          },
+          {
+            "type": "stat",
+            "entity": "binary_sensor.front_door",
+            "label": "Door"
+          },
+          {
+            "type": "stat",
+            "entity": "input_number.target"
+          },
+          {
+            "type": "gauge"
+          },
+          {
+            "type": "gauge",
+            "entity": "sensor.phone_battery"
+          },
+          {
+            "type": "switch",
+            "entity": "switch.coffee"
+          },
+          {
+            "type": "switch",
+            "entity": "input_boolean.guest_mode"
+          },
+          {
+            "type": "switch",
+            "entity": "fan.attic"
+          }
+        ]
+      }
+    ],
+    "yaml": "# HA Paper display config\nversion: 1\nscreens:\n  - id: a\n    app: home\n    title: a\n    widgets:\n      - {type: stat, entity: sensor.outdoor_temperature}\n      - {type: stat, entity: binary_sensor.front_door, label: Door}\n      - {type: stat, entity: input_number.target}\n      - {type: gauge}\n      - {type: gauge, entity: sensor.phone_battery}\n      - {type: switch, entity: switch.coffee}\n      - {type: switch, entity: input_boolean.guest_mode}\n      - {type: switch, entity: fan.attic}\n"
+  }
+}

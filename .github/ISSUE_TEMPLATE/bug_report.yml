@@ -1,0 +1,73 @@
+name: Bug report
+description: Something on the display or in the web console did not work.
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for testing. Short answers are fine. The Diagnostics JSON at the bottom helps most.
+  - type: textarea
+    id: what-happened
+    attributes:
+      label: What happened
+      description: What did you see? A photo of the display helps.
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: What you expected
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps
+      description: What did you do before it happened? Does it happen again if you repeat it?
+      placeholder: |
+        1.
+        2.
+        3.
+    validations:
+      required: false
+  - type: input
+    id: firmware
+    attributes:
+      label: Firmware version
+      description: On the display under Settings › About, or the `firmware` field of `GET /api/v1/status`.
+      placeholder: v0.1.0-alpha.3
+    validations:
+      required: true
+  - type: dropdown
+    id: install-method
+    attributes:
+      label: Install method
+      options:
+        - Web flasher
+        - x4flash.py
+        - make flash
+        - Not sure
+    validations:
+      required: true
+  - type: dropdown
+    id: display-style
+    attributes:
+      label: Display style
+      options:
+        - Classic
+        - Sleek
+        - Not sure
+    validations:
+      required: false
+  - type: textarea
+    id: diagnostics
+    attributes:
+      label: Diagnostics
+      description: |
+        Paste the JSON from `http://<display-ip>/api/v1/diagnostics`.
+        Easiest: open the web console in a browser (the address is shown on the display), go to Device › Diagnostics and press copy.
+        Or: `curl -H "Authorization: Bearer <api-token>" http://<display-ip>/api/v1/diagnostics`.
+        It contains no passwords, but it does contain your Home Assistant URL. You may replace that with `<redacted>`.
+      render: json
+    validations:
+      required: true

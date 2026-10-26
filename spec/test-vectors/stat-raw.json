@@ -1,0 +1,134 @@
+{
+  "description": "What a stat tile shows for an HA entity that is not one of our logical sensors (emulator src/core/format.ts statSource, firmware core/home.cpp statSource, #161). climate: current_temperature in °C; weather: temperature in temperature_unit (absent = °C); anything else: its state and unit_of_measurement. ok false = a climate / weather without a temperature: the tile shows \"—\". The console entity list sends the same state / unit for climate and weather. Unavailable / unknown states never get here (gap, #86). attrs are text as the firmware keeps them (\"\" = null).",
+  "cases": [
+    {
+      "name": "sensor: state and unit_of_measurement",
+      "entity": "sensor.outdoor_temperature",
+      "state": "11.4",
+      "attrs": {
+        "unit_of_measurement": "°C"
+      },
+      "ok": true,
+      "out": {
+        "state": "11.4",
+        "unit": "°C"
+      }
+    },
+    {
+      "name": "sensor without a unit",
+      "entity": "sensor.afvalwijzer_gft",
+      "state": "2026-10-21",
+      "attrs": {},
+      "ok": true,
+      "out": {
+        "state": "2026-10-21",
+        "unit": ""
+      }
+    },
+    {
+      "name": "climate: current_temperature in °C, not the hvac state",
+      "entity": "climate.living_room",
+      "state": "auto",
+      "attrs": {
+        "current_temperature": "20.83",
+        "temperature": "21"
+      },
+      "ok": true,
+      "out": {
+        "state": "20.83",
+        "unit": "°C"
+      }
+    },
+    {
+      "name": "climate off with a temperature still shows it",
+      "entity": "climate.playroom",
+      "state": "off",
+      "attrs": {
+        "current_temperature": "18.5"
+      },
+      "ok": true,
+      "out": {
+        "state": "18.5",
+        "unit": "°C"
+      }
+    },
+    {
+      "name": "climate without current_temperature: no value",
+      "entity": "climate.car",
+      "state": "heat_cool",
+      "attrs": {
+        "temperature": "21"
+      },
+      "ok": false,
+      "out": {
+        "state": "",
+        "unit": ""
+      }
+    },
+    {
+      "name": "climate with current_temperature null (empty text): no value",
+      "entity": "climate.attic",
+      "state": "auto",
+      "attrs": {
+        "current_temperature": ""
+      },
+      "ok": false,
+      "out": {
+        "state": "",
+        "unit": ""
+      }
+    },
+    {
+      "name": "weather: temperature in its temperature_unit",
+      "entity": "weather.forecast_home",
+      "state": "cloudy",
+      "attrs": {
+        "temperature": "10.9",
+        "temperature_unit": "°C"
+      },
+      "ok": true,
+      "out": {
+        "state": "10.9",
+        "unit": "°C"
+      }
+    },
+    {
+      "name": "weather in °F",
+      "entity": "weather.us",
+      "state": "sunny",
+      "attrs": {
+        "temperature": "51",
+        "temperature_unit": "°F"
+      },
+      "ok": true,
+      "out": {
+        "state": "51",
+        "unit": "°F"
+      }
+    },
+    {
+      "name": "weather without temperature_unit: °C",
+      "entity": "weather.old",
+      "state": "rainy",
+      "attrs": {
+        "temperature": "8"
+      },
+      "ok": true,
+      "out": {
+        "state": "8",
+        "unit": "°C"
+      }
+    },
+    {
+      "name": "weather without temperature: no value",
+      "entity": "weather.broken",
+      "state": "cloudy",
+      "attrs": {},
+      "ok": false,
+      "out": {
+        "state": "",
+        "unit": ""
+      }
+    }
+  ]
+}

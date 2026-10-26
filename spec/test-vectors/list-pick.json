@@ -1,0 +1,338 @@
+{
+  "description": "lightList / zoneList picks (spec/SCHEMA.md list picks, emulator src/core/paging.ts pickLights / pickZones / listPages). `groups`: the derived lights by area (ids without \"light.\"), `zones`: derived climate ids (without \"climate.\"). Each case: the widget, the groups / zone ids it shows, and its page count (0 = nothing to show; the screen still has one page).",
+  "groups": [
+    {
+      "area": "living",
+      "ids": [
+        "living_ceiling",
+        "living_floor",
+        "living_reading",
+        "living_tv"
+      ]
+    },
+    {
+      "area": "kitchen",
+      "ids": [
+        "kitchen_spots",
+        "kitchen_island",
+        "kitchen_cabinet"
+      ]
+    },
+    {
+      "area": "dining",
+      "ids": [
+        "dining_pendant"
+      ]
+    },
+    {
+      "area": "hall",
+      "ids": [
+        "hall_ceiling",
+        "hall_stairs"
+      ]
+    },
+    {
+      "area": "bedroom",
+      "ids": [
+        "bedroom_ceiling",
+        "bedroom_left",
+        "bedroom_right"
+      ]
+    },
+    {
+      "area": "office",
+      "ids": [
+        "office_desk"
+      ]
+    },
+    {
+      "area": "garden",
+      "ids": [
+        "garden_terrace",
+        "garden_path"
+      ]
+    },
+    {
+      "area": "attic",
+      "ids": [
+        "attic_0",
+        "attic_1",
+        "attic_2",
+        "attic_3",
+        "attic_4",
+        "attic_5",
+        "attic_6",
+        "attic_7",
+        "attic_8",
+        "attic_9",
+        "attic_10",
+        "attic_11"
+      ]
+    }
+  ],
+  "zones": [
+    "living",
+    "kitchen",
+    "dining",
+    "hall",
+    "office",
+    "bedroom",
+    "kids",
+    "guest",
+    "bathroom",
+    "attic",
+    "laundry",
+    "studio",
+    "toilet",
+    "garage"
+  ],
+  "cases": [
+    {
+      "name": "nothing picked = all",
+      "widget": {
+        "type": "lightList"
+      },
+      "groups": [
+        {
+          "area": "living",
+          "ids": [
+            "living_ceiling",
+            "living_floor",
+            "living_reading",
+            "living_tv"
+          ]
+        },
+        {
+          "area": "kitchen",
+          "ids": [
+            "kitchen_spots",
+            "kitchen_island",
+            "kitchen_cabinet"
+          ]
+        },
+        {
+          "area": "dining",
+          "ids": [
+            "dining_pendant"
+          ]
+        },
+        {
+          "area": "hall",
+          "ids": [
+            "hall_ceiling",
+            "hall_stairs"
+          ]
+        },
+        {
+          "area": "bedroom",
+          "ids": [
+            "bedroom_ceiling",
+            "bedroom_left",
+            "bedroom_right"
+          ]
+        },
+        {
+          "area": "office",
+          "ids": [
+            "office_desk"
+          ]
+        },
+        {
+          "area": "garden",
+          "ids": [
+            "garden_terrace",
+            "garden_path"
+          ]
+        },
+        {
+          "area": "attic",
+          "ids": [
+            "attic_0",
+            "attic_1",
+            "attic_2",
+            "attic_3",
+            "attic_4",
+            "attic_5",
+            "attic_6",
+            "attic_7",
+            "attic_8",
+            "attic_9",
+            "attic_10",
+            "attic_11"
+          ]
+        }
+      ],
+      "pages": 4
+    },
+    {
+      "name": "areas in pick order; unknown area skipped",
+      "widget": {
+        "type": "lightList",
+        "areas": "kitchen nowhere living"
+      },
+      "groups": [
+        {
+          "area": "kitchen",
+          "ids": [
+            "kitchen_spots",
+            "kitchen_island",
+            "kitchen_cabinet"
+          ]
+        },
+        {
+          "area": "living",
+          "ids": [
+            "living_ceiling",
+            "living_floor",
+            "living_reading",
+            "living_tv"
+          ]
+        }
+      ],
+      "pages": 1
+    },
+    {
+      "name": "entities grouped under their area, a new area last",
+      "widget": {
+        "type": "lightList",
+        "entities": "light.hall_stairs light.living_tv light.hall_ceiling light.gone light.hall_stairs"
+      },
+      "groups": [
+        {
+          "area": "hall",
+          "ids": [
+            "hall_stairs",
+            "hall_ceiling"
+          ]
+        },
+        {
+          "area": "living",
+          "ids": [
+            "living_tv"
+          ]
+        }
+      ],
+      "pages": 1
+    },
+    {
+      "name": "entity of a picked area adds nothing; another area appends",
+      "widget": {
+        "type": "lightList",
+        "areas": "office living",
+        "entities": "light.living_tv light.garden_path light.office_desk"
+      },
+      "groups": [
+        {
+          "area": "office",
+          "ids": [
+            "office_desk"
+          ]
+        },
+        {
+          "area": "living",
+          "ids": [
+            "living_ceiling",
+            "living_floor",
+            "living_reading",
+            "living_tv"
+          ]
+        },
+        {
+          "area": "garden",
+          "ids": [
+            "garden_path"
+          ]
+        }
+      ],
+      "pages": 1
+    },
+    {
+      "name": "a long area pages",
+      "widget": {
+        "type": "lightList",
+        "areas": "attic kitchen"
+      },
+      "groups": [
+        {
+          "area": "attic",
+          "ids": [
+            "attic_0",
+            "attic_1",
+            "attic_2",
+            "attic_3",
+            "attic_4",
+            "attic_5",
+            "attic_6",
+            "attic_7",
+            "attic_8",
+            "attic_9",
+            "attic_10",
+            "attic_11"
+          ]
+        },
+        {
+          "area": "kitchen",
+          "ids": [
+            "kitchen_spots",
+            "kitchen_island",
+            "kitchen_cabinet"
+          ]
+        }
+      ],
+      "pages": 2
+    },
+    {
+      "name": "only unknown ids = empty list",
+      "widget": {
+        "type": "lightList",
+        "entities": "light.gone"
+      },
+      "groups": [],
+      "pages": 0
+    },
+    {
+      "name": "zones: all",
+      "widget": {
+        "type": "zoneList"
+      },
+      "zones": [
+        "living",
+        "kitchen",
+        "dining",
+        "hall",
+        "office",
+        "bedroom",
+        "kids",
+        "guest",
+        "bathroom",
+        "attic",
+        "laundry",
+        "studio",
+        "toilet",
+        "garage"
+      ],
+      "pages": 2
+    },
+    {
+      "name": "zones: pick order, unknown and duplicates skipped",
+      "widget": {
+        "type": "zoneList",
+        "entities": "climate.office climate.x climate.living climate.office"
+      },
+      "zones": [
+        "office",
+        "living"
+      ],
+      "pages": 1
+    },
+    {
+      "name": "zones: only unknown",
+      "widget": {
+        "type": "zoneList",
+        "entities": "climate.x"
+      },
+      "zones": [],
+      "pages": 0
+    }
+  ]
+}

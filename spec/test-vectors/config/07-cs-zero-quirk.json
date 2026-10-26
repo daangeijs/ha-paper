@@ -1,0 +1,38 @@
+{
+  "name": "07-cs-zero-quirk",
+  "description": "Quirk kept for parity: cs: 0 / rs: 0 are falsy, so they are NOT range-checked and count as 1 cell.",
+  "input": "# HA Paper display config\nversion: 1\nscreens:\n  - id: z\n    widgets:\n      - {type: clock, cs: 0, rs: 0}\n",
+  "expect": {
+    "ok": true,
+    "apps": [
+      {
+        "id": "home",
+        "title": "Home"
+      },
+      {
+        "id": "house",
+        "title": "House"
+      },
+      {
+        "id": "travel",
+        "title": "Travel"
+      }
+    ],
+    "screens": [
+      {
+        "id": "z",
+        "app": "home",
+        "title": "z",
+        "cells": 1,
+        "widgets": [
+          {
+            "type": "clock",
+            "cs": 0,
+            "rs": 0
+          }
+        ]
+      }
+    ],
+    "yaml": "# HA Paper display config\nversion: 1\nscreens:\n  - id: z\n    app: home\n    title: z\n    widgets:\n      - {type: clock, cs: 0, rs: 0}\n"
+  }
+}

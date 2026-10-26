@@ -1,0 +1,52 @@
+{
+  "name": "02-setup-ap",
+  "description": "No deep sleep in the setup wizard / SoftAP: the phone or browser is talking to the display.",
+  "base": {
+    "nowEpoch": 1800000000,
+    "localSec": 43200,
+    "powerSave": "standby",
+    "wakeEvery": 15,
+    "night": "23-07",
+    "peeking": false,
+    "standby": true,
+    "charging": false,
+    "usb": false,
+    "chargedAgoMin": null,
+    "voltage": 3.9,
+    "battery": 60,
+    "otaPendingVerify": false,
+    "otaBusy": false,
+    "otaAuto": "notify",
+    "otaDue": false,
+    "setup": false,
+    "msSinceApi": null
+  },
+  "cases": [
+    {
+      "name": "setup in standby",
+      "input": {
+        "setup": true
+      },
+      "expect": {
+        "deepSleepNow": false,
+        "wakeAtEpoch": null,
+        "reason": "setup mode",
+        "cpuProfile": "auto",
+        "wifiPs": "none"
+      }
+    },
+    {
+      "name": "setup at night",
+      "input": {
+        "setup": true,
+        "localSec": 7200,
+        "powerSave": "night"
+      },
+      "expect": {
+        "deepSleepNow": false,
+        "wakeAtEpoch": null,
+        "reason": "setup mode"
+      }
+    }
+  ]
+}

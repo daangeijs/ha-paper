@@ -1,0 +1,56 @@
+# HA Paper display config
+version: 1
+apps:
+  - id: home
+    title: Home
+  - id: house
+    title: House
+screens:
+  - id: overview
+    app: home
+    title: Home
+    widgets:
+      - {type: clock, cs: 2}
+      - {type: price}
+      - {type: stat, entity: sensor.living_temperature}
+      - {type: stat, entity: sensor.solar_power}
+      - {type: stat, entity: sensor.home_power}
+      - {type: gauge}
+      - {type: stat, entity: sensor.grid_power}
+  - id: prices
+    app: home
+    title: Energy prices
+    widgets:
+      - {type: price}
+      - {type: stat, entity: sensor.price_cheap_window}
+      - {type: stat, entity: sensor.price_min}
+      - {type: stat, entity: sensor.price_max}
+      - {type: bars, series: prices, cs: 4}
+  - id: energy
+    app: home
+    title: Energy
+    widgets:
+      - {type: stat, entity: sensor.energy_today}
+      - {type: stat, entity: sensor.grid_import_today}
+      - {type: stat, entity: sensor.grid_export_today}
+      - {type: stat, entity: sensor.home_power}
+      - {type: bars, series: usage, cs: 4}
+  - id: solar
+    app: home
+    title: Solar & battery
+    widgets:
+      - {type: stat, entity: sensor.solar_power}
+      - {type: stat, entity: sensor.solar_today}
+      - {type: gauge}
+      - {type: stat, entity: sensor.battery_power}
+      - {type: bars, series: solar, cs: 4}
+  - id: lights
+    app: house
+    title: Lights
+    widgets:
+      - {type: lightList, cs: 4, rs: 2}
+  - id: climate
+    app: house
+    title: Heating
+    widgets:
+      - {type: zoneList, cs: 4, rs: 2}

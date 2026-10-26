@@ -1,0 +1,32 @@
+/* Styles the web console needs (subset of Main.dc.html <helmet>). */
+body{margin:0}
+button{font:inherit;color:inherit;cursor:pointer}
+.dev-btn:hover{background:#e6e3dc}
+.dev-btn:active{background:#d6d2c9}
+/* One way to add a tile (#184): the widget column on wide screens, the "+ Add tile" menu on phones and in Values. */
+.x4-add{display:none}
+/* Phone width (#83): one column; the editor's side lists stack above and below the screen. */
+@media (max-width:760px){
+.x4-page{min-width:0!important;height:auto!important;min-height:100vh!important;overflow:visible!important}
+.x4-head{flex-wrap:wrap;gap:8px 12px!important;padding:10px 12px!important}
+.x4-head>div{flex-wrap:wrap}
+.x4-head .x4-grow{display:none}
+.x4-screens{flex-direction:column}
+.x4-list{width:auto!important;max-height:40vh;border-right:0!important;border-bottom:1px solid #e3e0d9}
+.x4-side{display:none!important}
+.x4-add{display:inline-block!important}
+.x4-main{padding:12px!important;overflow:visible!important}
+.x4-out-card{padding:36px 22px 28px!important}
+.x4-canvas{height:240px!important;padding:6px!important;gap:5px!important}
+.x4-tile{padding:6px!important}
+}
+.x4-tile:focus-visible{outline:3px solid #1d1d1f;outline-offset:2px}
+/* Device settings and Advanced (#190, #191) on a phone: one column; the Advanced pages as a row of links. */
+@media (max-width:760px){
+.x4-dev{flex-direction:column;align-items:stretch!important;padding:16px!important}
+.x4-dev-side{width:auto!important}
+.x4-adv{flex-direction:column}
+.x4-adv-nav{width:auto!important;flex-direction:row!important;flex-wrap:wrap;border-right:0!important;border-bottom:1px solid #e3e0d9;padding:10px 16px!important}
+.x4-adv-hint{display:none}
+.x4-api-grid{grid-template-columns:minmax(0,1fr)!important}
+}

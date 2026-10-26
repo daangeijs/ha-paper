@@ -1,0 +1,42 @@
+{
+  "name": "43-legacy-light",
+  "description": "Legacy {type: light, light: id} is read as {type: switch, entity: light.id} (key keeps its position); a full id is kept.",
+  "input": "# HA Paper display config\nversion: 1\nscreens:\n  - id: a\n    widgets:\n      - {type: light, light: living_ceiling, cs: 2}\n      - {type: light, light: light.kitchen_spots}\n",
+  "expect": {
+    "ok": true,
+    "apps": [
+      {
+        "id": "home",
+        "title": "Home"
+      },
+      {
+        "id": "house",
+        "title": "House"
+      },
+      {
+        "id": "travel",
+        "title": "Travel"
+      }
+    ],
+    "screens": [
+      {
+        "id": "a",
+        "app": "home",
+        "title": "a",
+        "cells": 3,
+        "widgets": [
+          {
+            "type": "switch",
+            "entity": "light.living_ceiling",
+            "cs": 2
+          },
+          {
+            "type": "switch",
+            "entity": "light.kitchen_spots"
+          }
+        ]
+      }
+    ],
+    "yaml": "# HA Paper display config\nversion: 1\nscreens:\n  - id: a\n    app: home\n    title: a\n    widgets:\n      - {type: switch, entity: light.living_ceiling, cs: 2}\n      - {type: switch, entity: light.kitchen_spots}\n"
+  }
+}

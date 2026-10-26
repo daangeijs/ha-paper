@@ -1,0 +1,166 @@
+{
+  "name": "00-default-screens",
+  "description": "The default config shipped with the device (spec/default-screens.yaml) is valid.",
+  "input": "# HA Paper display config\nversion: 1\napps:\n  - id: home\n    title: Home\n  - id: house\n    title: House\nscreens:\n  - id: overview\n    app: home\n    title: Home\n    widgets:\n      - {type: clock, cs: 2}\n      - {type: price}\n      - {type: stat, entity: sensor.living_temperature}\n      - {type: stat, entity: sensor.solar_power}\n      - {type: stat, entity: sensor.home_power}\n      - {type: gauge}\n      - {type: stat, entity: sensor.grid_power}\n  - id: prices\n    app: home\n    title: Energy prices\n    widgets:\n      - {type: price}\n      - {type: stat, entity: sensor.price_cheap_window}\n      - {type: stat, entity: sensor.price_min}\n      - {type: stat, entity: sensor.price_max}\n      - {type: bars, series: prices, cs: 4}\n  - id: energy\n    app: home\n    title: Energy\n    widgets:\n      - {type: stat, entity: sensor.energy_today}\n      - {type: stat, entity: sensor.grid_import_today}\n      - {type: stat, entity: sensor.grid_export_today}\n      - {type: stat, entity: sensor.home_power}\n      - {type: bars, series: usage, cs: 4}\n  - id: solar\n    app: home\n    title: Solar & battery\n    widgets:\n      - {type: stat, entity: sensor.solar_power}\n      - {type: stat, entity: sensor.solar_today}\n      - {type: gauge}\n      - {type: stat, entity: sensor.battery_power}\n      - {type: bars, series: solar, cs: 4}\n  - id: lights\n    app: house\n    title: Lights\n    widgets:\n      - {type: lightList, cs: 4, rs: 2}\n  - id: climate\n    app: house\n    title: Heating\n    widgets:\n      - {type: zoneList, cs: 4, rs: 2}\n",
+  "expect": {
+    "ok": true,
+    "apps": [
+      {
+        "id": "home",
+        "title": "Home"
+      },
+      {
+        "id": "house",
+        "title": "House"
+      }
+    ],
+    "screens": [
+      {
+        "id": "overview",
+        "app": "home",
+        "title": "Home",
+        "cells": 8,
+        "widgets": [
+          {
+            "type": "clock",
+            "cs": 2
+          },
+          {
+            "type": "price"
+          },
+          {
+            "type": "stat",
+            "entity": "sensor.living_temperature"
+          },
+          {
+            "type": "stat",
+            "entity": "sensor.solar_power"
+          },
+          {
+            "type": "stat",
+            "entity": "sensor.home_power"
+          },
+          {
+            "type": "gauge"
+          },
+          {
+            "type": "stat",
+            "entity": "sensor.grid_power"
+          }
+        ]
+      },
+      {
+        "id": "prices",
+        "app": "home",
+        "title": "Energy prices",
+        "cells": 8,
+        "widgets": [
+          {
+            "type": "price"
+          },
+          {
+            "type": "stat",
+            "entity": "sensor.price_cheap_window"
+          },
+          {
+            "type": "stat",
+            "entity": "sensor.price_min"
+          },
+          {
+            "type": "stat",
+            "entity": "sensor.price_max"
+          },
+          {
+            "type": "bars",
+            "series": "prices",
+            "cs": 4
+          }
+        ]
+      },
+      {
+        "id": "energy",
+        "app": "home",
+        "title": "Energy",
+        "cells": 8,
+        "widgets": [
+          {
+            "type": "stat",
+            "entity": "sensor.energy_today"
+          },
+          {
+            "type": "stat",
+            "entity": "sensor.grid_import_today"
+          },
+          {
+            "type": "stat",
+            "entity": "sensor.grid_export_today"
+          },
+          {
+            "type": "stat",
+            "entity": "sensor.home_power"
+          },
+          {
+            "type": "bars",
+            "series": "usage",
+            "cs": 4
+          }
+        ]
+      },
+      {
+        "id": "solar",
+        "app": "home",
+        "title": "Solar & battery",
+        "cells": 8,
+        "widgets": [
+          {
+            "type": "stat",
+            "entity": "sensor.solar_power"
+          },
+          {
+            "type": "stat",
+            "entity": "sensor.solar_today"
+          },
+          {
+            "type": "gauge"
+          },
+          {
+            "type": "stat",
+            "entity": "sensor.battery_power"
+          },
+          {
+            "type": "bars",
+            "series": "solar",
+            "cs": 4
+          }
+        ]
+      },
+      {
+        "id": "lights",
+        "app": "house",
+        "title": "Lights",
+        "cells": 8,
+        "widgets": [
+          {
+            "type": "lightList",
+            "cs": 4,
+            "rs": 2
+          }
+        ]
+      },
+      {
+        "id": "climate",
+        "app": "house",
+        "title": "Heating",
+        "cells": 8,
+        "widgets": [
+          {
+            "type": "zoneList",
+            "cs": 4,
+            "rs": 2
+          }
+        ]
+      }
+    ],
+    "yaml": "# HA Paper display config\nversion: 1\napps:\n  - id: home\n    title: Home\n  - id: house\n    title: House\nscreens:\n  - id: overview\n    app: home\n    title: Home\n    widgets:\n      - {type: clock, cs: 2}\n      - {type: price}\n      - {type: stat, entity: sensor.living_temperature}\n      - {type: stat, entity: sensor.solar_power}\n      - {type: stat, entity: sensor.home_power}\n      - {type: gauge}\n      - {type: stat, entity: sensor.grid_power}\n  - id: prices\n    app: home\n    title: Energy prices\n    widgets:\n      - {type: price}\n      - {type: stat, entity: sensor.price_cheap_window}\n      - {type: stat, entity: sensor.price_min}\n      - {type: stat, entity: sensor.price_max}\n      - {type: bars, series: prices, cs: 4}\n  - id: energy\n    app: home\n    title: Energy\n    widgets:\n      - {type: stat, entity: sensor.energy_today}\n      - {type: stat, entity: sensor.grid_import_today}\n      - {type: stat, entity: sensor.grid_export_today}\n      - {type: stat, entity: sensor.home_power}\n      - {type: bars, series: usage, cs: 4}\n  - id: solar\n    app: home\n    title: Solar & battery\n    widgets:\n      - {type: stat, entity: sensor.solar_power}\n      - {type: stat, entity: sensor.solar_today}\n      - {type: gauge}\n      - {type: stat, entity: sensor.battery_power}\n      - {type: bars, series: solar, cs: 4}\n  - id: lights\n    app: house\n    title: Lights\n    widgets:\n      - {type: lightList, cs: 4, rs: 2}\n  - id: climate\n    app: house\n    title: Heating\n    widgets:\n      - {type: zoneList, cs: 4, rs: 2}\n"
+  }
+}

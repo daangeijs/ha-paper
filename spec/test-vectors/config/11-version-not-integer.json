@@ -1,0 +1,10 @@
+{
+  "name": "11-version-not-integer",
+  "description": "Rule: version must be exactly \"1\" (\"1.0\" is rejected).",
+  "input": "version: 1.0\nscreens:\n  - id: a\n    widgets:\n      - {type: clock}\n",
+  "expect": {
+    "ok": false,
+    "line": 1,
+    "message": "Only version 1 is supported"
+  }
+}

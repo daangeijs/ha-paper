@@ -1,0 +1,743 @@
+{
+  "description": "Boot / crash ring (GET /api/v1/diagnostics boots + last_crash). ops run in order on an empty ring: boot = a new boot (esp_reset_reason name, firmware version, panic message or null), touch = the running boot is alive (uptime_s, min_free_heap, epoch; epoch 0 = clock unknown → last_seen unchanged), clear = DELETE /diagnostics. Newest first, 8 kept; a DEEPSLEEP boot right after a DEEPSLEEP boot replaces it (glance wakes, #10). Strings are cut to 11 / 23 / 95 bytes (RTC struct).",
+  "cases": [
+    {
+      "name": "first boot",
+      "ops": [
+        {
+          "op": "boot",
+          "reason": "POWERON",
+          "version": "0.3.0",
+          "panic": null
+        }
+      ],
+      "boots": [
+        {
+          "reason": "POWERON",
+          "crash": false,
+          "version": "0.3.0",
+          "uptime_s": 0,
+          "min_free_heap": 0,
+          "panic": null,
+          "last_seen": null
+        }
+      ],
+      "last_crash": null
+    },
+    {
+      "name": "touch updates only the running boot; last_seen stays null until the clock is known",
+      "ops": [
+        {
+          "op": "boot",
+          "reason": "POWERON",
+          "version": "0.3.0",
+          "panic": null
+        },
+        {
+          "op": "touch",
+          "uptime_s": 10,
+          "min_free_heap": 200000,
+          "epoch": 0
+        },
+        {
+          "op": "boot",
+          "reason": "SW",
+          "version": "0.3.0",
+          "panic": null
+        },
+        {
+          "op": "touch",
+          "uptime_s": 20,
+          "min_free_heap": 190000,
+          "epoch": 0
+        },
+        {
+          "op": "touch",
+          "uptime_s": 30,
+          "min_free_heap": 180000,
+          "epoch": 1760000000
+        },
+        {
+          "op": "touch",
+          "uptime_s": 40,
+          "min_free_heap": 170000,
+          "epoch": 0
+        }
+      ],
+      "boots": [
+        {
+          "reason": "SW",
+          "crash": false,
+          "version": "0.3.0",
+          "uptime_s": 40,
+          "min_free_heap": 170000,
+          "panic": null,
+          "last_seen": 1760000000
+        },
+        {
+          "reason": "POWERON",
+          "crash": false,
+          "version": "0.3.0",
+          "uptime_s": 10,
+          "min_free_heap": 200000,
+          "panic": null,
+          "last_seen": null
+        }
+      ],
+      "last_crash": null
+    },
+    {
+      "name": "panic after a long run: last_crash names the crashed boot",
+      "ops": [
+        {
+          "op": "boot",
+          "reason": "POWERON",
+          "version": "0.3.0",
+          "panic": null
+        },
+        {
+          "op": "touch",
+          "uptime_s": 3600,
+          "min_free_heap": 150000,
+          "epoch": 1760003600
+        },
+        {
+          "op": "boot",
+          "reason": "PANIC",
+          "version": "0.3.0",
+          "panic": "assert failed: xQueueSemaphoreTake queue.c:1709 (pxQueue->uxItemSize == 0)"
+        }
+      ],
+      "boots": [
+        {
+          "reason": "PANIC",
+          "crash": true,
+          "version": "0.3.0",
+          "uptime_s": 0,
+          "min_free_heap": 0,
+          "panic": "assert failed: xQueueSemaphoreTake queue.c:1709 (pxQueue->uxItemSize == 0)",
+          "last_seen": null
+        },
+        {
+          "reason": "POWERON",
+          "crash": false,
+          "version": "0.3.0",
+          "uptime_s": 3600,
+          "min_free_heap": 150000,
+          "panic": null,
+          "last_seen": 1760003600
+        }
+      ],
+      "last_crash": {
+        "reason": "PANIC",
+        "panic": "assert failed: xQueueSemaphoreTake queue.c:1709 (pxQueue->uxItemSize == 0)",
+        "version": "0.3.0",
+        "uptime_s": 3600,
+        "last_seen": 1760003600
+      }
+    },
+    {
+      "name": "crash after an OTA: version is the one that crashed",
+      "ops": [
+        {
+          "op": "boot",
+          "reason": "POWERON",
+          "version": "0.3.0",
+          "panic": null
+        },
+        {
+          "op": "boot",
+          "reason": "SW",
+          "version": "0.4.0-beta.1",
+          "panic": null
+        },
+        {
+          "op": "touch",
+          "uptime_s": 95,
+          "min_free_heap": 120000,
+          "epoch": 0
+        },
+        {
+          "op": "boot",
+          "reason": "TASK_WDT",
+          "version": "0.3.0",
+          "panic": null
+        }
+      ],
+      "boots": [
+        {
+          "reason": "TASK_WDT",
+          "crash": true,
+          "version": "0.3.0",
+          "uptime_s": 0,
+          "min_free_heap": 0,
+          "panic": null,
+          "last_seen": null
+        },
+        {
+          "reason": "SW",
+          "crash": false,
+          "version": "0.4.0-beta.1",
+          "uptime_s": 95,
+          "min_free_heap": 120000,
+          "panic": null,
+          "last_seen": null
+        },
+        {
+          "reason": "POWERON",
+          "crash": false,
+          "version": "0.3.0",
+          "uptime_s": 0,
+          "min_free_heap": 0,
+          "panic": null,
+          "last_seen": null
+        }
+      ],
+      "last_crash": {
+        "reason": "TASK_WDT",
+        "panic": null,
+        "version": "0.4.0-beta.1",
+        "uptime_s": 95,
+        "last_seen": null
+      }
+    },
+    {
+      "name": "the newest crash wins; brownout counts",
+      "ops": [
+        {
+          "op": "boot",
+          "reason": "POWERON",
+          "version": "0.3.0",
+          "panic": null
+        },
+        {
+          "op": "boot",
+          "reason": "PANIC",
+          "version": "0.3.0",
+          "panic": "abort() was called at PC 0x42001234"
+        },
+        {
+          "op": "touch",
+          "uptime_s": 50,
+          "min_free_heap": 1,
+          "epoch": 0
+        },
+        {
+          "op": "boot",
+          "reason": "BROWNOUT",
+          "version": "0.3.0",
+          "panic": null
+        },
+        {
+          "op": "touch",
+          "uptime_s": 5,
+          "min_free_heap": 2,
+          "epoch": 0
+        },
+        {
+          "op": "boot",
+          "reason": "SW",
+          "version": "0.3.0",
+          "panic": null
+        }
+      ],
+      "boots": [
+        {
+          "reason": "SW",
+          "crash": false,
+          "version": "0.3.0",
+          "uptime_s": 0,
+          "min_free_heap": 0,
+          "panic": null,
+          "last_seen": null
+        },
+        {
+          "reason": "BROWNOUT",
+          "crash": true,
+          "version": "0.3.0",
+          "uptime_s": 5,
+          "min_free_heap": 2,
+          "panic": null,
+          "last_seen": null
+        },
+        {
+          "reason": "PANIC",
+          "crash": true,
+          "version": "0.3.0",
+          "uptime_s": 50,
+          "min_free_heap": 1,
+          "panic": "abort() was called at PC 0x42001234",
+          "last_seen": null
+        },
+        {
+          "reason": "POWERON",
+          "crash": false,
+          "version": "0.3.0",
+          "uptime_s": 0,
+          "min_free_heap": 0,
+          "panic": null,
+          "last_seen": null
+        }
+      ],
+      "last_crash": {
+        "reason": "BROWNOUT",
+        "panic": null,
+        "version": "0.3.0",
+        "uptime_s": 50,
+        "last_seen": null
+      }
+    },
+    {
+      "name": "ring keeps 8; the crashed boot fell out → uptime null",
+      "ops": [
+        {
+          "op": "boot",
+          "reason": "POWERON",
+          "version": "0.3.0",
+          "panic": null
+        },
+        {
+          "op": "boot",
+          "reason": "INT_WDT",
+          "version": "0.3.0",
+          "panic": null
+        },
+        {
+          "op": "boot",
+          "reason": "SW",
+          "version": "0.3.0",
+          "panic": null
+        },
+        {
+          "op": "boot",
+          "reason": "SW",
+          "version": "0.3.0",
+          "panic": null
+        },
+        {
+          "op": "boot",
+          "reason": "SW",
+          "version": "0.3.0",
+          "panic": null
+        },
+        {
+          "op": "boot",
+          "reason": "SW",
+          "version": "0.3.0",
+          "panic": null
+        },
+        {
+          "op": "boot",
+          "reason": "SW",
+          "version": "0.3.0",
+          "panic": null
+        },
+        {
+          "op": "boot",
+          "reason": "SW",
+          "version": "0.3.0",
+          "panic": null
+        },
+        {
+          "op": "boot",
+          "reason": "SW",
+          "version": "0.3.0",
+          "panic": null
+        }
+      ],
+      "boots": [
+        {
+          "reason": "SW",
+          "crash": false,
+          "version": "0.3.0",
+          "uptime_s": 0,
+          "min_free_heap": 0,
+          "panic": null,
+          "last_seen": null
+        },
+        {
+          "reason": "SW",
+          "crash": false,
+          "version": "0.3.0",
+          "uptime_s": 0,
+          "min_free_heap": 0,
+          "panic": null,
+          "last_seen": null
+        },
+        {
+          "reason": "SW",
+          "crash": false,
+          "version": "0.3.0",
+          "uptime_s": 0,
+          "min_free_heap": 0,
+          "panic": null,
+          "last_seen": null
+        },
+        {
+          "reason": "SW",
+          "crash": false,
+          "version": "0.3.0",
+          "uptime_s": 0,
+          "min_free_heap": 0,
+          "panic": null,
+          "last_seen": null
+        },
+        {
+          "reason": "SW",
+          "crash": false,
+          "version": "0.3.0",
+          "uptime_s": 0,
+          "min_free_heap": 0,
+          "panic": null,
+          "last_seen": null
+        },
+        {
+          "reason": "SW",
+          "crash": false,
+          "version": "0.3.0",
+          "uptime_s": 0,
+          "min_free_heap": 0,
+          "panic": null,
+          "last_seen": null
+        },
+        {
+          "reason": "SW",
+          "crash": false,
+          "version": "0.3.0",
+          "uptime_s": 0,
+          "min_free_heap": 0,
+          "panic": null,
+          "last_seen": null
+        },
+        {
+          "reason": "INT_WDT",
+          "crash": true,
+          "version": "0.3.0",
+          "uptime_s": 0,
+          "min_free_heap": 0,
+          "panic": null,
+          "last_seen": null
+        }
+      ],
+      "last_crash": {
+        "reason": "INT_WDT",
+        "panic": null,
+        "version": "0.3.0",
+        "uptime_s": null,
+        "last_seen": null
+      }
+    },
+    {
+      "name": "clear empties the ring (running boot included); touch on an empty ring does nothing",
+      "ops": [
+        {
+          "op": "boot",
+          "reason": "POWERON",
+          "version": "0.3.0",
+          "panic": null
+        },
+        {
+          "op": "touch",
+          "uptime_s": 10,
+          "min_free_heap": 1,
+          "epoch": 0
+        },
+        {
+          "op": "boot",
+          "reason": "PANIC",
+          "version": "0.3.0",
+          "panic": "boom"
+        },
+        {
+          "op": "touch",
+          "uptime_s": 20,
+          "min_free_heap": 2,
+          "epoch": 0
+        },
+        {
+          "op": "clear"
+        },
+        {
+          "op": "touch",
+          "uptime_s": 30,
+          "min_free_heap": 3,
+          "epoch": 0
+        }
+      ],
+      "boots": [],
+      "last_crash": null
+    },
+    {
+      "name": "long strings are cut to the RTC field sizes",
+      "ops": [
+        {
+          "op": "boot",
+          "reason": "PWR_GLITCH_TOO_LONG",
+          "version": "1.2.3-beta.45+averyveryverylongbuild",
+          "panic": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+        }
+      ],
+      "boots": [
+        {
+          "reason": "PWR_GLITCH_",
+          "crash": false,
+          "version": "1.2.3-beta.45+averyvery",
+          "uptime_s": 0,
+          "min_free_heap": 0,
+          "panic": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+          "last_seen": null
+        }
+      ],
+      "last_crash": null
+    },
+    {
+      "name": "a boot after clear starts a new ring",
+      "ops": [
+        {
+          "op": "boot",
+          "reason": "POWERON",
+          "version": "0.3.0",
+          "panic": null
+        },
+        {
+          "op": "boot",
+          "reason": "PANIC",
+          "version": "0.3.0",
+          "panic": null
+        },
+        {
+          "op": "clear"
+        },
+        {
+          "op": "boot",
+          "reason": "SW",
+          "version": "0.3.0",
+          "panic": null
+        }
+      ],
+      "boots": [
+        {
+          "reason": "SW",
+          "crash": false,
+          "version": "0.3.0",
+          "uptime_s": 0,
+          "min_free_heap": 0,
+          "panic": null,
+          "last_seen": null
+        }
+      ],
+      "last_crash": null
+    },
+    {
+      "name": "glance: DEEPSLEEP wakes in a row take one slot; they are not crashes and keep the old crash in view",
+      "ops": [
+        {
+          "op": "boot",
+          "reason": "POWERON",
+          "version": "0.3.0",
+          "panic": null
+        },
+        {
+          "op": "boot",
+          "reason": "PANIC",
+          "version": "0.3.0",
+          "panic": "boom"
+        },
+        {
+          "op": "touch",
+          "uptime_s": 30,
+          "min_free_heap": 1,
+          "epoch": 0
+        },
+        {
+          "op": "boot",
+          "reason": "DEEPSLEEP",
+          "version": "0.3.0",
+          "panic": null
+        },
+        {
+          "op": "touch",
+          "uptime_s": 8,
+          "min_free_heap": 2,
+          "epoch": 1760000000
+        },
+        {
+          "op": "boot",
+          "reason": "DEEPSLEEP",
+          "version": "0.3.0",
+          "panic": null
+        },
+        {
+          "op": "touch",
+          "uptime_s": 6,
+          "min_free_heap": 3,
+          "epoch": 0
+        },
+        {
+          "op": "boot",
+          "reason": "DEEPSLEEP",
+          "version": "0.3.0",
+          "panic": null
+        },
+        {
+          "op": "touch",
+          "uptime_s": 7,
+          "min_free_heap": 4,
+          "epoch": 1760001800
+        },
+        {
+          "op": "boot",
+          "reason": "DEEPSLEEP",
+          "version": "0.3.0",
+          "panic": null
+        },
+        {
+          "op": "boot",
+          "reason": "DEEPSLEEP",
+          "version": "0.3.0",
+          "panic": null
+        },
+        {
+          "op": "boot",
+          "reason": "DEEPSLEEP",
+          "version": "0.3.0",
+          "panic": null
+        },
+        {
+          "op": "boot",
+          "reason": "DEEPSLEEP",
+          "version": "0.3.0",
+          "panic": null
+        },
+        {
+          "op": "boot",
+          "reason": "DEEPSLEEP",
+          "version": "0.3.0",
+          "panic": null
+        },
+        {
+          "op": "boot",
+          "reason": "DEEPSLEEP",
+          "version": "0.3.0",
+          "panic": null
+        }
+      ],
+      "boots": [
+        {
+          "reason": "DEEPSLEEP",
+          "crash": false,
+          "version": "0.3.0",
+          "uptime_s": 0,
+          "min_free_heap": 0,
+          "panic": null,
+          "last_seen": null
+        },
+        {
+          "reason": "PANIC",
+          "crash": true,
+          "version": "0.3.0",
+          "uptime_s": 30,
+          "min_free_heap": 1,
+          "panic": "boom",
+          "last_seen": null
+        },
+        {
+          "reason": "POWERON",
+          "crash": false,
+          "version": "0.3.0",
+          "uptime_s": 0,
+          "min_free_heap": 0,
+          "panic": null,
+          "last_seen": null
+        }
+      ],
+      "last_crash": {
+        "reason": "PANIC",
+        "panic": "boom",
+        "version": "0.3.0",
+        "uptime_s": 0,
+        "last_seen": null
+      }
+    },
+    {
+      "name": "a crash during a glance wake names that wake",
+      "ops": [
+        {
+          "op": "boot",
+          "reason": "POWERON",
+          "version": "0.3.0",
+          "panic": null
+        },
+        {
+          "op": "boot",
+          "reason": "DEEPSLEEP",
+          "version": "0.3.0",
+          "panic": null
+        },
+        {
+          "op": "touch",
+          "uptime_s": 12,
+          "min_free_heap": 5,
+          "epoch": 1760000000
+        },
+        {
+          "op": "boot",
+          "reason": "PANIC",
+          "version": "0.3.0",
+          "panic": "boom"
+        },
+        {
+          "op": "boot",
+          "reason": "DEEPSLEEP",
+          "version": "0.3.0",
+          "panic": null
+        }
+      ],
+      "boots": [
+        {
+          "reason": "DEEPSLEEP",
+          "crash": false,
+          "version": "0.3.0",
+          "uptime_s": 0,
+          "min_free_heap": 0,
+          "panic": null,
+          "last_seen": null
+        },
+        {
+          "reason": "PANIC",
+          "crash": true,
+          "version": "0.3.0",
+          "uptime_s": 0,
+          "min_free_heap": 0,
+          "panic": "boom",
+          "last_seen": null
+        },
+        {
+          "reason": "DEEPSLEEP",
+          "crash": false,
+          "version": "0.3.0",
+          "uptime_s": 12,
+          "min_free_heap": 5,
+          "panic": null,
+          "last_seen": 1760000000
+        },
+        {
+          "reason": "POWERON",
+          "crash": false,
+          "version": "0.3.0",
+          "uptime_s": 0,
+          "min_free_heap": 0,
+          "panic": null,
+          "last_seen": null
+        }
+      ],
+      "last_crash": {
+        "reason": "PANIC",
+        "panic": "boom",
+        "version": "0.3.0",
+        "uptime_s": 12,
+        "last_seen": 1760000000
+      }
+    }
+  ]
+}

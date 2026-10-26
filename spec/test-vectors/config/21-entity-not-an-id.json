@@ -1,0 +1,10 @@
+{
+  "name": "21-entity-not-an-id",
+  "description": "Rule: entity must look like domain.object_id (\"constructor\" is not one).",
+  "input": "# HA Paper display config\nversion: 1\nscreens:\n  - id: a\n    widgets:\n      - {type: stat, entity: constructor}\n",
+  "expect": {
+    "ok": false,
+    "line": 6,
+    "message": "stat: “constructor” is not a sensor / binary_sensor / input_number / number / climate / weather entity"
+  }
+}

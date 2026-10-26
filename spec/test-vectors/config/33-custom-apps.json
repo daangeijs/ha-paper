@@ -1,0 +1,47 @@
+{
+  "name": "33-custom-apps",
+  "description": "apps: (before screens:) replaces the default apps, in order; a screen without app: belongs to the first app; toYaml writes apps: back.",
+  "input": "# HA Paper display config\nversion: 1\napps:\n  - id: garden\n    title: \"Garden: back\"\n  - id: home\n    title: Home\n  - id: empty\nscreens:\n  - id: g\n    widgets:\n      - {type: clock}\n  - id: h\n    app: home\n    widgets:\n      - {type: price}\n",
+  "expect": {
+    "ok": true,
+    "apps": [
+      {
+        "id": "garden",
+        "title": "Garden: back"
+      },
+      {
+        "id": "home",
+        "title": "Home"
+      },
+      {
+        "id": "empty",
+        "title": "empty"
+      }
+    ],
+    "screens": [
+      {
+        "id": "g",
+        "app": "garden",
+        "title": "g",
+        "cells": 1,
+        "widgets": [
+          {
+            "type": "clock"
+          }
+        ]
+      },
+      {
+        "id": "h",
+        "app": "home",
+        "title": "h",
+        "cells": 1,
+        "widgets": [
+          {
+            "type": "price"
+          }
+        ]
+      }
+    ],
+    "yaml": "# HA Paper display config\nversion: 1\napps:\n  - id: garden\n    title: \"Garden: back\"\n  - id: home\n    title: Home\n  - id: empty\n    title: empty\nscreens:\n  - id: g\n    app: garden\n    title: g\n    widgets:\n      - {type: clock}\n  - id: h\n    app: home\n    title: h\n    widgets:\n      - {type: price}\n"
+  }
+}

@@ -1,0 +1,10 @@
+{
+  "name": "37-empty-apps",
+  "description": "Rule: an apps: section needs at least one app (reported on the apps: line).",
+  "input": "version: 1\napps:\nscreens:\n  - id: x\n    title: X\n    widgets:\n      - {type: clock}\n",
+  "expect": {
+    "ok": false,
+    "line": 2,
+    "message": "No apps found"
+  }
+}

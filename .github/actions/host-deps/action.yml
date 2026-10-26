@@ -1,0 +1,32 @@
+# Host packages the build needs beyond setup-python / setup-node.
+# GitHub-hosted ubuntu-24.04 has most of them; a minimal self-hosted runner image (ghcr.io/actions/actions-runner,
+# Ubuntu 24.04 runtime-deps) has only sudo, curl, git, jq, unzip. Installs only what is missing, so on ubuntu-24.04
+# the base set is a no-op.
+name: host-deps
+description: Install build tools (make, gcc/g++ for native tests, zip, xz, procps) and, optionally, Espressif QEMU runtime libraries
+inputs:
+  qemu:
+    description: Also install the libraries the Espressif qemu-xtensa x86_64-linux-gnu build links against
+    default: 'false'
+runs:
+  using: composite
+  steps:
+    - shell: bash
+      env:
+        WANT_QEMU: ${{ inputs.qemu }}
+      run: |
+        set -euo pipefail
+        # make + gcc/g++: `pio test -e native`; zip: flasher zip; xz-utils: QEMU tarball; procps: pgrep/pkill in sim/qemu.
+        pkgs=(build-essential zip xz-utils procps ca-certificates gzip)
+        # libglib2.0-0 is a virtual name on 24.04 (apt selects libglib2.0-0t64), so it is always passed to apt.
+        [[ "$WANT_QEMU" == true ]] && pkgs+=(libgcrypt20 libglib2.0-0 libpixman-1-0 libsdl2-2.0-0 libslirp0)
+        missing=()
+        for p in "${pkgs[@]}"; do dpkg-query -W -f='${Status}' "$p" 2>/dev/null | grep -q 'ok installed' || missing+=("$p"); done
+        if (( ${#missing[@]} )); then
+          echo "installing: ${missing[*]}"
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq --no-install-recommends "${missing[@]}"
+        else
+          echo "host packages already present"
+        fi
+        echo "runner: ${RUNNER_NAME:-?} $(. /etc/os-release && echo "$PRETTY_NAME") $(uname -m), $(nproc) cpu"

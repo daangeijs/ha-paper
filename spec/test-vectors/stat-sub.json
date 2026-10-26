@@ -1,0 +1,18 @@
+{
+  "description": "Stat tile subtitle (issue #28; emulator src/core/data.ts ENT, firmware core/home.cpp statText). The line under the number is a fact or empty, never filler ('Right now', 'Producing'). Power values are unsigned (kw()), so grid and battery keep the direction word. data: W for solar/home/grid (+import)/batt (+charge), % for soc, kWh for the *Today fields.",
+  "data": { "solar": 2800, "home": 650, "grid": 0, "batt": 0, "soc": 64, "usedToday": 7.43, "solarToday": 12.27, "importToday": 3.2, "exportToday": 5.06 },
+  "cases": [
+    { "name": "solar producing: today's yield", "entity": "sensor.solar_power", "sub": "12.3 kWh today" },
+    { "name": "solar at night", "entity": "sensor.solar_power", "data": { "solar": 0 }, "sub": "No sun" },
+    { "name": "home use: today's use", "entity": "sensor.home_power", "sub": "7.4 kWh today" },
+    { "name": "grid importing", "entity": "sensor.grid_power", "data": { "grid": 1200 }, "sub": "In · 3.2 kWh today" },
+    { "name": "grid exporting", "entity": "sensor.grid_power", "data": { "grid": -1800 }, "sub": "Out · 5.1 kWh today" },
+    { "name": "grid within 30 W", "entity": "sensor.grid_power", "data": { "grid": 20 }, "sub": "Balanced" },
+    { "name": "battery charging", "entity": "sensor.battery_power", "data": { "batt": 900 }, "sub": "Charging · 64%" },
+    { "name": "battery discharging", "entity": "sensor.battery_power", "data": { "batt": -400, "soc": 12.5 }, "sub": "Discharging · 13%" },
+    { "name": "battery idle", "entity": "sensor.battery_power", "sub": "Idle · 64%" },
+    { "name": "used today: the label says it", "entity": "sensor.energy_today", "sub": "" },
+    { "name": "imported: the label says it", "entity": "sensor.grid_import_today", "sub": "" },
+    { "name": "exported: the label says it", "entity": "sensor.grid_export_today", "sub": "" }
+  ]
+}

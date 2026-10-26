@@ -1,0 +1,10 @@
+{
+  "name": "47-lightlist-bad-entity",
+  "description": "Rule: lightList entities are light.* ids.",
+  "input": "# HA Paper display config\nversion: 1\nscreens:\n  - id: a\n    widgets:\n      - {type: lightList, entities: light.porch switch.coffee}\n",
+  "expect": {
+    "ok": false,
+    "line": 6,
+    "message": "lightList: “switch.coffee” is not a light entity"
+  }
+}

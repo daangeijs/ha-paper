@@ -1,0 +1,473 @@
+[
+ {
+  "name": "default",
+  "yaml": "# HA Paper display config\nversion: 1\napps:\n  - id: home\n    title: Home\n  - id: house\n    title: House\nscreens:\n  - id: overview\n    app: home\n    title: Home\n    widgets:\n      - {type: clock, cs: 2}\n      - {type: price}\n      - {type: stat, entity: sensor.living_temperature}\n      - {type: stat, entity: sensor.solar_power}\n      - {type: stat, entity: sensor.home_power}\n      - {type: gauge}\n      - {type: stat, entity: sensor.grid_power}\n  - id: prices\n    app: home\n    title: Energy prices\n    widgets:\n      - {type: price}\n      - {type: stat, entity: sensor.price_cheap_window}\n      - {type: stat, entity: sensor.price_min}\n      - {type: stat, entity: sensor.price_max}\n      - {type: bars, series: prices, cs: 4}\n  - id: energy\n    app: home\n    title: Energy\n    widgets:\n      - {type: stat, entity: sensor.energy_today}\n      - {type: stat, entity: sensor.grid_import_today}\n      - {type: stat, entity: sensor.grid_export_today}\n      - {type: stat, entity: sensor.home_power}\n      - {type: bars, series: usage, cs: 4}\n  - id: solar\n    app: home\n    title: Solar & battery\n    widgets:\n      - {type: stat, entity: sensor.solar_power}\n      - {type: stat, entity: sensor.solar_today}\n      - {type: gauge}\n      - {type: stat, entity: sensor.battery_power}\n      - {type: bars, series: solar, cs: 4}\n  - id: lights\n    app: house\n    title: Lights\n    widgets:\n      - {type: lightList, cs: 4, rs: 2}\n  - id: climate\n    app: house\n    title: Heating\n    widgets:\n      - {type: zoneList, cs: 4, rs: 2}\n",
+  "ok": true,
+  "line": 0,
+  "message": "",
+  "screens": 6,
+  "toYaml": "# HA Paper display config\nversion: 1\napps:\n  - id: home\n    title: Home\n  - id: house\n    title: House\nscreens:\n  - id: overview\n    app: home\n    title: Home\n    widgets:\n      - {type: clock, cs: 2}\n      - {type: price}\n      - {type: stat, entity: sensor.living_temperature}\n      - {type: stat, entity: sensor.solar_power}\n      - {type: stat, entity: sensor.home_power}\n      - {type: gauge}\n      - {type: stat, entity: sensor.grid_power}\n  - id: prices\n    app: home\n    title: Energy prices\n    widgets:\n      - {type: price}\n      - {type: stat, entity: sensor.price_cheap_window}\n      - {type: stat, entity: sensor.price_min}\n      - {type: stat, entity: sensor.price_max}\n      - {type: bars, series: prices, cs: 4}\n  - id: energy\n    app: home\n    title: Energy\n    widgets:\n      - {type: stat, entity: sensor.energy_today}\n      - {type: stat, entity: sensor.grid_import_today}\n      - {type: stat, entity: sensor.grid_export_today}\n      - {type: stat, entity: sensor.home_power}\n      - {type: bars, series: usage, cs: 4}\n  - id: solar\n    app: home\n    title: Solar & battery\n    widgets:\n      - {type: stat, entity: sensor.solar_power}\n      - {type: stat, entity: sensor.solar_today}\n      - {type: gauge}\n      - {type: stat, entity: sensor.battery_power}\n      - {type: bars, series: solar, cs: 4}\n  - id: lights\n    app: house\n    title: Lights\n    widgets:\n      - {type: lightList, cs: 4, rs: 2}\n  - id: climate\n    app: house\n    title: Heating\n    widgets:\n      - {type: zoneList, cs: 4, rs: 2}\n"
+ },
+ {
+  "name": "empty",
+  "yaml": "",
+  "ok": false,
+  "line": 1,
+  "message": "No screens found"
+ },
+ {
+  "name": "comments only",
+  "yaml": "# nothing\n\n   # more\n",
+  "ok": false,
+  "line": 1,
+  "message": "No screens found"
+ },
+ {
+  "name": "version 2",
+  "yaml": "version: 2\nscreens:\n  - id: a\n",
+  "ok": false,
+  "line": 1,
+  "message": "Only version 1 is supported"
+ },
+ {
+  "name": "version 01",
+  "yaml": "version: 01\n",
+  "ok": false,
+  "line": 1,
+  "message": "Only version 1 is supported"
+ },
+ {
+  "name": "id before screens",
+  "yaml": "version: 1\n  - id: a\n",
+  "ok": false,
+  "line": 2,
+  "message": "“screens:” must come first"
+ },
+ {
+  "name": "app before any screen",
+  "yaml": "screens:\n    app: home\n",
+  "ok": false,
+  "line": 2,
+  "message": "Belongs to no screen"
+ },
+ {
+  "name": "widgets before any screen",
+  "yaml": "screens:\n    widgets:\n",
+  "ok": false,
+  "line": 2,
+  "message": "Belongs to no screen"
+ },
+ {
+  "name": "unknown app",
+  "yaml": "version: 1\nscreens:\n  - id: a\n    app: garden\n",
+  "ok": false,
+  "line": 4,
+  "message": "Unknown app “garden” (home, house, travel)"
+ },
+ {
+  "name": "widget outside widgets",
+  "yaml": "version: 1\nscreens:\n  - id: a\n      - {type: clock}\n",
+  "ok": false,
+  "line": 4,
+  "message": "Widget outside a “widgets:” list"
+ },
+ {
+  "name": "unknown type",
+  "yaml": "version: 1\nscreens:\n  - id: a\n    title: A\n    widgets:\n      - {type: radar}\n",
+  "ok": false,
+  "line": 6,
+  "message": "Unknown widget type “radar”"
+ },
+ {
+  "name": "missing type",
+  "yaml": "version: 1\nscreens:\n  - id: a\n    title: A\n    widgets:\n      - {cs: 2}\n",
+  "ok": false,
+  "line": 6,
+  "message": "Unknown widget type “undefined”"
+ },
+ {
+  "name": "numeric type",
+  "yaml": "version: 1\nscreens:\n  - id: a\n    title: A\n    widgets:\n      - {type: 5}\n",
+  "ok": false,
+  "line": 6,
+  "message": "Unknown widget type “5”"
+ },
+ {
+  "name": "any sensor entity",
+  "yaml": "version: 1\nscreens:\n  - id: a\n    title: A\n    widgets:\n      - {type: stat, entity: sensor.nope}\n",
+  "ok": true,
+  "line": 0,
+  "message": "",
+  "screens": 1,
+  "toYaml": "# HA Paper display config\nversion: 1\nscreens:\n  - id: a\n    app: home\n    title: A\n    widgets:\n      - {type: stat, entity: sensor.nope}\n"
+ },
+ {
+  "name": "stat wrong domain",
+  "yaml": "version: 1\nscreens:\n  - id: a\n    title: A\n    widgets:\n      - {type: stat, entity: light.nope}\n",
+  "ok": false,
+  "line": 6,
+  "message": "stat: “light.nope” is not a sensor / binary_sensor / input_number / number / climate / weather entity"
+ },
+ {
+  "name": "stat without entity",
+  "yaml": "version: 1\nscreens:\n  - id: a\n    title: A\n    widgets:\n      - {type: stat}\n",
+  "ok": false,
+  "line": 6,
+  "message": "stat: “undefined” is not a sensor / binary_sensor / input_number / number / climate / weather entity"
+ },
+ {
+  "name": "unknown route",
+  "yaml": "version: 1\nscreens:\n  - id: a\n    title: A\n    widgets:\n      - {type: route, route: bus99}\n",
+  "ok": true,
+  "line": 0,
+  "message": "",
+  "screens": 1,
+  "toYaml": "# HA Paper display config\nversion: 1\nscreens:\n  - id: a\n    app: home\n    title: A\n    widgets:\n      - {type: route, route: bus99}\n"
+ },
+ {
+  "name": "cs 5",
+  "yaml": "version: 1\nscreens:\n  - id: a\n    title: A\n    widgets:\n      - {type: clock, cs: 5}\n",
+  "ok": false,
+  "line": 6,
+  "message": "cs must be 1–4"
+ },
+ {
+  "name": "cs 0 accepted",
+  "yaml": "version: 1\nscreens:\n  - id: a\n    title: A\n    widgets:\n      - {type: clock, cs: 0}\n",
+  "ok": true,
+  "line": 0,
+  "message": "",
+  "screens": 1,
+  "toYaml": "# HA Paper display config\nversion: 1\nscreens:\n  - id: a\n    app: home\n    title: A\n    widgets:\n      - {type: clock, cs: 0}\n"
+ },
+ {
+  "name": "cs empty accepted",
+  "yaml": "version: 1\nscreens:\n  - id: a\n    title: A\n    widgets:\n      - {type: clock, cs: }\n",
+  "ok": true,
+  "line": 0,
+  "message": "",
+  "screens": 1,
+  "toYaml": "# HA Paper display config\nversion: 1\nscreens:\n  - id: a\n    app: home\n    title: A\n    widgets:\n      - {type: clock, cs: }\n"
+ },
+ {
+  "name": "cs text",
+  "yaml": "version: 1\nscreens:\n  - id: a\n    title: A\n    widgets:\n      - {type: clock, cs: two}\n",
+  "ok": false,
+  "line": 6,
+  "message": "cs must be 1–4"
+ },
+ {
+  "name": "cs leading zero",
+  "yaml": "version: 1\nscreens:\n  - id: a\n    title: A\n    widgets:\n      - {type: clock, cs: 02}\n",
+  "ok": true,
+  "line": 0,
+  "message": "",
+  "screens": 1,
+  "toYaml": "# HA Paper display config\nversion: 1\nscreens:\n  - id: a\n    app: home\n    title: A\n    widgets:\n      - {type: clock, cs: 2}\n"
+ },
+ {
+  "name": "rs 3",
+  "yaml": "version: 1\nscreens:\n  - id: a\n    title: A\n    widgets:\n      - {type: clock, rs: 3}\n",
+  "ok": false,
+  "line": 6,
+  "message": "rs must be 1 or 2"
+ },
+ {
+  "name": "rs 2 ok",
+  "yaml": "version: 1\nscreens:\n  - id: a\n    title: A\n    widgets:\n      - {type: thermo, zone: living, rs: 2}\n",
+  "ok": true,
+  "line": 0,
+  "message": "",
+  "screens": 1,
+  "toYaml": "# HA Paper display config\nversion: 1\nscreens:\n  - id: a\n    app: home\n    title: A\n    widgets:\n      - {type: thermo, zone: living, rs: 2}\n"
+ },
+ {
+  "name": "expected key value",
+  "yaml": "version: 1\nscreens:\n  - id: a\n    title: A\n    widgets:\n      - {type clock}\n",
+  "ok": false,
+  "line": 6,
+  "message": "Expected key: value"
+ },
+ {
+  "name": "empty braces",
+  "yaml": "version: 1\nscreens:\n  - id: a\n    title: A\n    widgets:\n      - {}\n",
+  "ok": false,
+  "line": 6,
+  "message": "Expected key: value"
+ },
+ {
+  "name": "trailing comma",
+  "yaml": "version: 1\nscreens:\n  - id: a\n    title: A\n    widgets:\n      - {type: clock,}\n",
+  "ok": false,
+  "line": 6,
+  "message": "Expected key: value"
+ },
+ {
+  "name": "value with colon",
+  "yaml": "version: 1\nscreens:\n  - id: a\n    title: A\n    widgets:\n      - {type: setting, key: a:b}\n",
+  "ok": true,
+  "line": 0,
+  "message": "",
+  "screens": 1,
+  "toYaml": "# HA Paper display config\nversion: 1\nscreens:\n  - id: a\n    app: home\n    title: A\n    widgets: []\n"
+ },
+ {
+  "name": "index-like keys first",
+  "yaml": "version: 1\nscreens:\n  - id: a\n    title: A\n    widgets:\n      - {zz: 1, 2: x, type: clock, 0: y}\n",
+  "ok": true,
+  "line": 0,
+  "message": "",
+  "screens": 1,
+  "toYaml": "# HA Paper display config\nversion: 1\nscreens:\n  - id: a\n    app: home\n    title: A\n    widgets:\n      - {0: y, 2: x, zz: 1, type: clock}\n"
+ },
+ {
+  "name": "duplicate keys",
+  "yaml": "version: 1\nscreens:\n  - id: a\n    title: A\n    widgets:\n      - {type: clock, cs: 2, cs: 1}\n",
+  "ok": true,
+  "line": 0,
+  "message": "",
+  "screens": 1,
+  "toYaml": "# HA Paper display config\nversion: 1\nscreens:\n  - id: a\n    app: home\n    title: A\n    widgets:\n      - {type: clock, cs: 1}\n"
+ },
+ {
+  "name": "too many cells",
+  "yaml": "version: 1\nscreens:\n  - id: a\n    title: A\n    widgets:\n      - {type: clock, cs: 4}\n      - {type: bars, series: prices, cs: 4}\n      - {type: price}\n",
+  "ok": false,
+  "line": 3,
+  "message": "“A” uses 9 of 8 cells"
+ },
+ {
+  "name": "too many cells quoted title",
+  "yaml": "version: 1\nscreens:\n  - id: a\n    title: \"Big: one\"\n    widgets:\n      - {type: lightList, cs: 4, rs: 2}\n      - {type: gauge}\n",
+  "ok": false,
+  "line": 3,
+  "message": "“Big: one” uses 9 of 8 cells"
+ },
+ {
+  "name": "exactly 8 cells",
+  "yaml": "version: 1\nscreens:\n  - id: a\n    title: A\n    widgets:\n      - {type: lightList, cs: 4, rs: 2}\n",
+  "ok": true,
+  "line": 0,
+  "message": "",
+  "screens": 1,
+  "toYaml": "# HA Paper display config\nversion: 1\nscreens:\n  - id: a\n    app: home\n    title: A\n    widgets:\n      - {type: lightList, cs: 4, rs: 2}\n"
+ },
+ {
+  "name": "duplicate id",
+  "yaml": "version: 1\nscreens:\n  - id: a\n    widgets: []\n  - id: b\n    widgets: []\n  - id: a\n    widgets: []\n",
+  "ok": false,
+  "line": 7,
+  "message": "Duplicate screen id “a”"
+ },
+ {
+  "name": "malformed line",
+  "yaml": "version: 1\nscreens:\n  - id: a\n    colour: red\n",
+  "ok": false,
+  "line": 4,
+  "message": "Can’t read this line"
+ },
+ {
+  "name": "bad indent",
+  "yaml": "version: 1\nscreens:\n - id: a\n",
+  "ok": false,
+  "line": 3,
+  "message": "Can’t read this line"
+ },
+ {
+  "name": "empty widgets list",
+  "yaml": "version: 1\nscreens:\n  - id: a\n    title: Empty\n    widgets: []\n",
+  "ok": true,
+  "line": 0,
+  "message": "",
+  "screens": 1,
+  "toYaml": "# HA Paper display config\nversion: 1\nscreens:\n  - id: a\n    app: home\n    title: Empty\n    widgets: []\n"
+ },
+ {
+  "name": "quoted title escapes",
+  "yaml": "version: 1\nscreens:\n  - id: a\n    title: \"Say \\\"hi\\\" \\u00e9\"\n    widgets: []\n",
+  "ok": true,
+  "line": 0,
+  "message": "",
+  "screens": 1,
+  "toYaml": "# HA Paper display config\nversion: 1\nscreens:\n  - id: a\n    app: home\n    title: \"Say \\\"hi\\\" é\"\n    widgets: []\n"
+ },
+ {
+  "name": "broken quoted title",
+  "yaml": "version: 1\nscreens:\n  - id: a\n    title: \"unterminated\n    widgets: []\n",
+  "ok": true,
+  "line": 0,
+  "message": "",
+  "screens": 1,
+  "toYaml": "# HA Paper display config\nversion: 1\nscreens:\n  - id: a\n    app: home\n    title: \"\\\"unterminated\"\n    widgets: []\n"
+ },
+ {
+  "name": "title needs quoting",
+  "yaml": "version: 1\nscreens:\n  - id: a\n    title: Prices, today\n    widgets: []\n",
+  "ok": true,
+  "line": 0,
+  "message": "",
+  "screens": 1,
+  "toYaml": "# HA Paper display config\nversion: 1\nscreens:\n  - id: a\n    app: home\n    title: \"Prices, today\"\n    widgets: []\n"
+ },
+ {
+  "name": "title spaces only",
+  "yaml": "version: 1\nscreens:\n  - id: a\n    title:   \n    widgets: []\n",
+  "ok": true,
+  "line": 0,
+  "message": "",
+  "screens": 1,
+  "toYaml": "# HA Paper display config\nversion: 1\nscreens:\n  - id: a\n    app: home\n    title: \n    widgets: []\n"
+ },
+ {
+  "name": "title missing value",
+  "yaml": "version: 1\nscreens:\n  - id: a\n    title:\n",
+  "ok": false,
+  "line": 4,
+  "message": "Can’t read this line"
+ },
+ {
+  "name": "title unicode",
+  "yaml": "version: 1\nscreens:\n  - id: a\n    title: Attic · Ŝ → €\n    widgets: []\n",
+  "ok": true,
+  "line": 0,
+  "message": "",
+  "screens": 1,
+  "toYaml": "# HA Paper display config\nversion: 1\nscreens:\n  - id: a\n    app: home\n    title: Attic · Ŝ → €\n    widgets: []\n"
+ },
+ {
+  "name": "crlf",
+  "yaml": "version: 1\r\nscreens:\r\n  - id: a\r\n    title: A\r\n    widgets: []\r\n",
+  "ok": false,
+  "line": 4,
+  "message": "Can’t read this line"
+ },
+ {
+  "name": "crlf no title",
+  "yaml": "version: 1\r\nscreens:\r\n  - id: a\r\n    widgets:\r\n      - {type: clock}\r\n",
+  "ok": true,
+  "line": 0,
+  "message": "",
+  "screens": 1,
+  "toYaml": "# HA Paper display config\nversion: 1\nscreens:\n  - id: a\n    app: home\n    title: a\n    widgets:\n      - {type: clock}\n"
+ },
+ {
+  "name": "tabs and trailing spaces",
+  "yaml": "version: 1   \nscreens:\t\n  - id: a  \n    widgets:   \n      - {type: clock}   \n",
+  "ok": true,
+  "line": 0,
+  "message": "",
+  "screens": 1,
+  "toYaml": "# HA Paper display config\nversion: 1\nscreens:\n  - id: a\n    app: home\n    title: a\n    widgets:\n      - {type: clock}\n"
+ },
+ {
+  "name": "screens twice",
+  "yaml": "version: 1\nscreens:\n  - id: a\n    widgets: []\nscreens:\n  - id: b\n    widgets: []\n",
+  "ok": true,
+  "line": 0,
+  "message": "",
+  "screens": 1,
+  "toYaml": "# HA Paper display config\nversion: 1\nscreens:\n  - id: b\n    app: home\n    title: b\n    widgets: []\n"
+ },
+ {
+  "name": "screens reset orphan widgets",
+  "yaml": "version: 1\nscreens:\n  - id: a\n    widgets:\nscreens:\n      - {type: clock}\n  - id: b\n    widgets: []\n",
+  "ok": true,
+  "line": 0,
+  "message": "",
+  "screens": 1,
+  "toYaml": "# HA Paper display config\nversion: 1\nscreens:\n  - id: b\n    app: home\n    title: b\n    widgets: []\n"
+ },
+ {
+  "name": "no screens",
+  "yaml": "version: 1\nscreens:\n",
+  "ok": false,
+  "line": 1,
+  "message": "No screens found"
+ },
+ {
+  "name": "id with spaces",
+  "yaml": "version: 1\nscreens:\n  - id: a b\n",
+  "ok": false,
+  "line": 3,
+  "message": "Can’t read this line"
+ },
+ {
+  "name": "all widget types",
+  "yaml": "version: 1\nscreens:\n  - id: a\n    widgets:\n      - {type: clock}\n      - {type: stat, entity: sensor.grid_power}\n      - {type: price}\n      - {type: gauge}\n      - {type: bars, series: usage}\n      - {type: switch, entity: switch.x}\n      - {type: scene, scene: all_off}\n      - {type: setting, key: night}\n  - id: b\n    widgets:\n      - {type: route, route: car, cs: 2}\n      - {type: thermo, zone: hall}\n      - {type: ota}\n      - {type: wifi}\n      - {type: ha}\n      - {type: about}\n  - id: c\n    app: house\n    widgets:\n      - {type: zoneList}\n      - {type: lightList}\n",
+  "ok": true,
+  "line": 0,
+  "message": "",
+  "screens": 3,
+  "toYaml": "# HA Paper display config\nversion: 1\nscreens:\n  - id: a\n    app: home\n    title: a\n    widgets:\n      - {type: clock}\n      - {type: stat, entity: sensor.grid_power}\n      - {type: price}\n      - {type: gauge}\n      - {type: bars, series: usage}\n      - {type: switch, entity: switch.x}\n      - {type: scene, scene: all_off}\n  - id: b\n    app: home\n    title: b\n    widgets:\n      - {type: route, route: car, cs: 2}\n      - {type: thermo, zone: hall}\n  - id: c\n    app: house\n    title: c\n    widgets:\n      - {type: zoneList}\n      - {type: lightList}\n"
+ },
+ {
+  "name": "app settings and travel",
+  "yaml": "version: 1\nscreens:\n  - id: a\n    app: settings\n  - id: b\n    app: travel\n    title: \"Trips\"\n    widgets: []\n",
+  "ok": true,
+  "line": 0,
+  "message": "",
+  "screens": 1,
+  "toYaml": "# HA Paper display config\nversion: 1\nscreens:\n  - id: b\n    app: travel\n    title: Trips\n    widgets: []\n"
+ },
+ {
+  "name": "quoted app",
+  "yaml": "version: 1\nscreens:\n  - id: a\n    app: \"house\"\n    widgets: []\n",
+  "ok": true,
+  "line": 0,
+  "message": "",
+  "screens": 1,
+  "toYaml": "# HA Paper display config\nversion: 1\nscreens:\n  - id: a\n    app: house\n    title: a\n    widgets: []\n"
+ },
+ {
+  "name": "comment between",
+  "yaml": "version: 1\nscreens:\n  - id: a\n    # comment\n    widgets:\n      # inner\n      - {type: clock}\n",
+  "ok": true,
+  "line": 0,
+  "message": "",
+  "screens": 1,
+  "toYaml": "# HA Paper display config\nversion: 1\nscreens:\n  - id: a\n    app: home\n    title: a\n    widgets:\n      - {type: clock}\n"
+ },
+ {
+  "name": "widget extra spaces inside",
+  "yaml": "version: 1\nscreens:\n  - id: a\n    title: A\n    widgets:\n      - { type :  clock ,  cs : 2 }\n",
+  "ok": true,
+  "line": 0,
+  "message": "",
+  "screens": 1,
+  "toYaml": "# HA Paper display config\nversion: 1\nscreens:\n  - id: a\n    app: home\n    title: A\n    widgets:\n      - {type: clock, cs: 2}\n"
+ },
+ {
+  "name": "widget text after brace",
+  "yaml": "version: 1\nscreens:\n  - id: a\n    title: A\n    widgets:\n      - {type: clock} x\n",
+  "ok": false,
+  "line": 6,
+  "message": "Can’t read this line"
+ },
+ {
+  "name": "brace inside value",
+  "yaml": "version: 1\nscreens:\n  - id: a\n    title: A\n    widgets:\n      - {type: setting, key: {x}}\n",
+  "ok": true,
+  "line": 0,
+  "message": "",
+  "screens": 1,
+  "toYaml": "# HA Paper display config\nversion: 1\nscreens:\n  - id: a\n    app: home\n    title: A\n    widgets: []\n"
+ },
+ {
+  "name": "legacy light",
+  "yaml": "version: 1\nscreens:\n  - id: a\n    title: A\n    widgets:\n      - {type: light, light: x, cs: 2}\n",
+  "ok": true,
+  "line": 0,
+  "message": "",
+  "screens": 1,
+  "toYaml": "# HA Paper display config\nversion: 1\nscreens:\n  - id: a\n    app: home\n    title: A\n    widgets:\n      - {type: switch, entity: light.x, cs: 2}\n"
+ },
+ {
+  "name": "custom apps",
+  "yaml": "version: 1\napps:\n  - id: a\n    title: \"A, b\"\nscreens:\n  - id: s\n    widgets: []\n",
+  "ok": true,
+  "line": 0,
+  "message": "",
+  "screens": 1,
+  "toYaml": "# HA Paper display config\nversion: 1\napps:\n  - id: a\n    title: \"A, b\"\nscreens:\n  - id: s\n    app: a\n    title: s\n    widgets: []\n"
+ }
+]

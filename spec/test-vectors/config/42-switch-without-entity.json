@@ -1,0 +1,10 @@
+{
+  "name": "42-switch-without-entity",
+  "description": "Rule: switch needs an entity.",
+  "input": "# HA Paper display config\nversion: 1\nscreens:\n  - id: a\n    widgets:\n      - {type: switch}\n",
+  "expect": {
+    "ok": false,
+    "line": 6,
+    "message": "switch: “undefined” is not a switch / light / input_boolean / fan entity"
+  }
+}

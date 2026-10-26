@@ -1,0 +1,24 @@
+{
+  "firmware": "0.3.0",
+  "uptime_s": 28,
+  "reset_reason": "POWERON",
+  "boots": [],
+  "last_crash": null,
+  "heap": {
+    "free_internal": 182344,
+    "min_free_internal": 141020,
+    "largest_free_internal": 110592,
+    "free_psram": 7864320
+  },
+  "panel": {
+    "controller": "UC8179",
+    "source": "probe",
+    "verdict": "ultrachip",
+    "promoted": true,
+    "ver": "00 00 01 FF FF",
+    "flg": 0,
+    "nvs_screen_type": 1
+  },
+  "coredump": null,
+  "touch_recoveries": 0
+}

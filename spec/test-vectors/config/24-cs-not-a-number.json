@@ -1,0 +1,10 @@
+{
+  "name": "24-cs-not-a-number",
+  "description": "Rule: cs must be 1–4 (non-numeric value).",
+  "input": "# HA Paper display config\nversion: 1\nscreens:\n  - id: a\n    widgets:\n      - {type: clock, cs: wide}\n",
+  "expect": {
+    "ok": false,
+    "line": 6,
+    "message": "cs must be 1–4"
+  }
+}

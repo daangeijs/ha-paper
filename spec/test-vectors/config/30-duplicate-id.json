@@ -1,0 +1,10 @@
+{
+  "name": "30-duplicate-id",
+  "description": "Rule: duplicate screen id (reported on the LAST line that declares it).",
+  "input": "# HA Paper display config\nversion: 1\nscreens:\n  - id: dup\n    widgets:\n      - {type: clock}\n  - id: other\n    widgets:\n      - {type: price}\n  - id: dup\n    widgets:\n      - {type: gauge}\n",
+  "expect": {
+    "ok": false,
+    "line": 10,
+    "message": "Duplicate screen id “dup”"
+  }
+}

@@ -1,0 +1,10 @@
+{
+  "name": "52-route-wrong-domain",
+  "description": "Rule: a route entity must be a sensor.* id.",
+  "input": "# HA Paper display config\nversion: 1\nscreens:\n  - id: t\n    app: travel\n    widgets:\n      - {type: route, label: Drive, entity: switch.car}\n",
+  "expect": {
+    "ok": false,
+    "line": 7,
+    "message": "route: “switch.car” is not a sensor entity"
+  }
+}

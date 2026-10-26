@@ -1,0 +1,10 @@
+{
+  "name": "15-unknown-app",
+  "description": "Rule: app must be one of the apps (without an apps: section: home | house | travel | settings).",
+  "input": "# HA Paper display config\nversion: 1\nscreens:\n  - id: a\n    app: garden\n    widgets:\n      - {type: clock}\n",
+  "expect": {
+    "ok": false,
+    "line": 5,
+    "message": "Unknown app “garden” (home, house, travel)"
+  }
+}

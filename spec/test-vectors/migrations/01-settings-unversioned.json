@@ -1,0 +1,27 @@
+{
+  "name": "01-settings-unversioned",
+  "description": "/settings.json written before versioning (no schema key) is upgraded 0 → 1: values and key order kept, unknown keys kept, schema stamped as the first key.",
+  "cases": [
+    {
+      "name": "firmware file from before #12",
+      "op": "migrate",
+      "stored": { "brightness": 30, "warmth": 40, "night": "23-07", "returnHome": "5", "standby": "never", "clock": "24", "intervalSec": 30, "fullEvery": 8, "otaAuto": "notify", "style": "classic", "typeface": "archivo", "surface": "dither" },
+      "expect": {
+        "status": "upgrade", "from": 0, "version": 1,
+        "output": { "schema": 1, "brightness": 30, "warmth": 40, "night": "23-07", "returnHome": "5", "standby": "never", "clock": "24", "intervalSec": 30, "fullEvery": 8, "otaAuto": "notify", "style": "classic", "typeface": "archivo", "surface": "dither" }
+      }
+    },
+    {
+      "name": "file from before display styles, plus a key nobody knows",
+      "op": "migrate",
+      "stored": { "brightness": 0, "clock": "12", "future": { "a": [1, 2.5, null, true, "é\n"] } },
+      "expect": { "status": "upgrade", "from": 0, "version": 1, "output": { "schema": 1, "brightness": 0, "clock": "12", "future": { "a": [1, 2.5, null, true, "é\n"] } } }
+    },
+    {
+      "name": "empty object",
+      "op": "migrate",
+      "stored": {},
+      "expect": { "status": "upgrade", "from": 0, "version": 1, "output": { "schema": 1 } }
+    }
+  ]
+}

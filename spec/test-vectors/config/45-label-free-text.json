@@ -1,0 +1,48 @@
+{
+  "name": "45-label-free-text",
+  "description": "Labels and titles are free text: spaces, %, accents (issue #80); surrounding spaces are trimmed.",
+  "input": "# HA Paper display config\nversion: 1\nscreens:\n  - id: a\n    title: Energie & café 100%\n    widgets:\n      - {type: stat, entity: sensor.phone_battery, label: Batterij %}\n      - {type: gauge, entity: sensor.phone_battery, label:  Température café }\n      - {type: switch, entity: switch.coffee, label: Koffie & thee}\n",
+  "expect": {
+    "ok": true,
+    "apps": [
+      {
+        "id": "home",
+        "title": "Home"
+      },
+      {
+        "id": "house",
+        "title": "House"
+      },
+      {
+        "id": "travel",
+        "title": "Travel"
+      }
+    ],
+    "screens": [
+      {
+        "id": "a",
+        "app": "home",
+        "title": "Energie & café 100%",
+        "cells": 3,
+        "widgets": [
+          {
+            "type": "stat",
+            "entity": "sensor.phone_battery",
+            "label": "Batterij %"
+          },
+          {
+            "type": "gauge",
+            "entity": "sensor.phone_battery",
+            "label": "Température café"
+          },
+          {
+            "type": "switch",
+            "entity": "switch.coffee",
+            "label": "Koffie & thee"
+          }
+        ]
+      }
+    ],
+    "yaml": "# HA Paper display config\nversion: 1\nscreens:\n  - id: a\n    app: home\n    title: Energie & café 100%\n    widgets:\n      - {type: stat, entity: sensor.phone_battery, label: Batterij %}\n      - {type: gauge, entity: sensor.phone_battery, label: Température café}\n      - {type: switch, entity: switch.coffee, label: Koffie & thee}\n"
+  }
+}

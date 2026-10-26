@@ -1,0 +1,9 @@
+# Host tools for building, flashing and generating fonts/icons. CI installs exactly these.
+# python3 -m venv .venv && .venv/bin/pip install -r firmware/requirements.txt
+platformio==6.2.0
+esptool==5.5.0
+# firmware/tools/fontgen.py + icongen.py: the committed firmware/src/app/gen files were rendered with these on the CI
+# runner image (GitHub-hosted ubuntu-24.04; make gen-check in CI is the reference)
+# versions (make gen-check). Another Pillow/FreeType may rasterise glyphs differently.
+Pillow==12.3.0
+fonttools==4.67.0

@@ -1,0 +1,10 @@
+{
+  "name": "25-rs-out-of-range",
+  "description": "Rule: rs must be 1 or 2.",
+  "input": "# HA Paper display config\nversion: 1\nscreens:\n  - id: a\n    widgets:\n      - {type: thermo, zone: living, rs: 3}\n",
+  "expect": {
+    "ok": false,
+    "line": 6,
+    "message": "rs must be 1 or 2"
+  }
+}

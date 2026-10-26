@@ -1,0 +1,11 @@
+time,kind,detail,recovered_s,result
+2026-10-16T15:24:45+02:00,entity-list,"800 entities",10,ok
+2026-10-16T15:26:00+02:00,ha-restart,"down 37 s",60,ok
+2026-10-16T15:28:15+02:00,ws-drop,"1 dropped",2,ok
+2026-10-16T15:29:32+02:00,clock-jump,"7200 s",21,ok
+2026-10-16T15:29:58+02:00,entity-list,"800 entities",10,ok
+2026-10-16T15:31:08+02:00,link-drop,"off 36 s · new session yes",63,ok
+2026-10-16T15:33:27+02:00,config-push,"config/settings HTTP 000/200, clock 12",,fail
+2026-10-16T15:34:51+02:00,ha-restart,"down 58 s",79,ok
+2026-10-16T15:36:15+02:00,entity-list,"800 entities",11,ok
+2026-10-16T15:37:27+02:00,ws-drop,"1 dropped",5,ok

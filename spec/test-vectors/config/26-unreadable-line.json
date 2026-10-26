@@ -1,0 +1,10 @@
+{
+  "name": "26-unreadable-line",
+  "description": "Rule: anything else (e.g. wrong indent) is unreadable.",
+  "input": "# HA Paper display config\nversion: 1\nscreens:\n  - id: a\n   app: home\n",
+  "expect": {
+    "ok": false,
+    "line": 5,
+    "message": "Can’t read this line"
+  }
+}

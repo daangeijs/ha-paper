@@ -1,0 +1,10 @@
+{
+  "name": "48-lightlist-bad-area",
+  "description": "Rule: lightList areas are HA area ids (^[a-z0-9_]+$), not names.",
+  "input": "# HA Paper display config\nversion: 1\nscreens:\n  - id: a\n    widgets:\n      - {type: lightList, areas: kitchen Living Room}\n",
+  "expect": {
+    "ok": false,
+    "line": 6,
+    "message": "lightList: “Living” is not an area id"
+  }
+}

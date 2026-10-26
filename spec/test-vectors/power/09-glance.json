@@ -1,0 +1,289 @@
+{
+  "name": "09-glance",
+  "description": "Glance (#10, default on battery per #18): deep sleep between timer wakes every wakeEvery minutes; a key press keeps it live (live = within liveMin minutes); HA unreachable doubles the wait per failed wake (cap 2 h); night and the 03:00 OTA window still win; every guard of 01-07 holds. armBootsLeft > 0 (first-boot safety: confirmed boots with network still needed) blocks every deep sleep.",
+  "base": {
+    "nowEpoch": 1800000000,
+    "localSec": 43200,
+    "powerSave": "glance",
+    "wakeEvery": 15,
+    "night": "23-07",
+    "peeking": false,
+    "standby": false,
+    "charging": false,
+    "usb": false,
+    "chargedAgoMin": null,
+    "voltage": 3.9,
+    "battery": 60,
+    "otaPendingVerify": false,
+    "otaBusy": false,
+    "otaAuto": "notify",
+    "otaDue": false,
+    "setup": false,
+    "msSinceApi": null,
+    "live": false,
+    "glanceFails": 0,
+    "armBootsLeft": 0
+  },
+  "cases": [
+    {
+      "name": "glance by day, no key press: sleep 15 min",
+      "input": {},
+      "expect": {
+        "deepSleepNow": true,
+        "wakeAtEpoch": 1800000900,
+        "buttonWakeOnly": false,
+        "reason": "glance",
+        "cpuProfile": "auto",
+        "wifiPs": "min",
+        "external": false
+      }
+    },
+    {
+      "name": "glance, every 60 min",
+      "input": {
+        "wakeEvery": 60
+      },
+      "expect": {
+        "deepSleepNow": true,
+        "wakeAtEpoch": 1800003600,
+        "reason": "glance"
+      }
+    },
+    {
+      "name": "live window after a key press: awake",
+      "input": {
+        "live": true
+      },
+      "expect": {
+        "deepSleepNow": false,
+        "wakeAtEpoch": null,
+        "reason": "live"
+      }
+    },
+    {
+      "name": "live wins over night",
+      "input": {
+        "live": true,
+        "localSec": 7200
+      },
+      "expect": {
+        "deepSleepNow": false,
+        "wakeAtEpoch": null,
+        "reason": "live"
+      }
+    },
+    {
+      "name": "glance at 02:00: night end, no wakes in the night",
+      "input": {
+        "localSec": 7200
+      },
+      "expect": {
+        "deepSleepNow": true,
+        "wakeAtEpoch": 1800018000,
+        "reason": "night"
+      }
+    },
+    {
+      "name": "glance 22:50, every 15: 15 min (the 23:05 wake draws the night face)",
+      "input": {
+        "localSec": 82200
+      },
+      "expect": {
+        "deepSleepNow": true,
+        "wakeAtEpoch": 1800000900,
+        "reason": "glance"
+      }
+    },
+    {
+      "name": "standby face on in glance: still glance",
+      "input": {
+        "standby": true
+      },
+      "expect": {
+        "deepSleepNow": true,
+        "wakeAtEpoch": 1800000900,
+        "reason": "glance"
+      }
+    },
+    {
+      "name": "HA unreachable once: 30 min",
+      "input": {
+        "glanceFails": 1
+      },
+      "expect": {
+        "deepSleepNow": true,
+        "wakeAtEpoch": 1800001800,
+        "reason": "glance"
+      }
+    },
+    {
+      "name": "HA unreachable twice: 60 min",
+      "input": {
+        "glanceFails": 2
+      },
+      "expect": {
+        "deepSleepNow": true,
+        "wakeAtEpoch": 1800003600,
+        "reason": "glance"
+      }
+    },
+    {
+      "name": "backoff capped at 2 h",
+      "input": {
+        "glanceFails": 9,
+        "wakeEvery": 60
+      },
+      "expect": {
+        "deepSleepNow": true,
+        "wakeAtEpoch": 1800007200,
+        "reason": "glance"
+      }
+    },
+    {
+      "name": "auto install due: the 03:00 wake comes first",
+      "input": {
+        "localSec": 10200,
+        "otaAuto": "night",
+        "otaDue": true,
+        "night": "off"
+      },
+      "expect": {
+        "deepSleepNow": true,
+        "wakeAtEpoch": 1800000600,
+        "reason": "glance"
+      }
+    },
+    {
+      "name": "on USB: always live",
+      "input": {
+        "usb": true
+      },
+      "expect": {
+        "deepSleepNow": false,
+        "reason": "external power",
+        "cpuProfile": "full",
+        "wifiPs": "none",
+        "external": true
+      }
+    },
+    {
+      "name": "charging: always live",
+      "input": {
+        "charging": true
+      },
+      "expect": {
+        "deepSleepNow": false,
+        "reason": "external power"
+      }
+    },
+    {
+      "name": "unconfirmed OTA image never sleeps",
+      "input": {
+        "otaPendingVerify": true
+      },
+      "expect": {
+        "deepSleepNow": false,
+        "wakeAtEpoch": null,
+        "reason": "unconfirmed image"
+      }
+    },
+    {
+      "name": "OTA running",
+      "input": {
+        "otaBusy": true
+      },
+      "expect": {
+        "deepSleepNow": false,
+        "reason": "ota running"
+      }
+    },
+    {
+      "name": "setup / AP mode",
+      "input": {
+        "setup": true
+      },
+      "expect": {
+        "deepSleepNow": false,
+        "reason": "setup mode"
+      }
+    },
+    {
+      "name": "API used 90 s ago",
+      "input": {
+        "msSinceApi": 90000
+      },
+      "expect": {
+        "deepSleepNow": false,
+        "reason": "recent api"
+      }
+    },
+    {
+      "name": "battery not read yet",
+      "input": {
+        "battery": null
+      },
+      "expect": {
+        "deepSleepNow": false,
+        "reason": "battery unknown",
+        "cpuProfile": "full"
+      }
+    },
+    {
+      "name": "below 5 %: button / charger wake only",
+      "input": {
+        "battery": 4
+      },
+      "expect": {
+        "deepSleepNow": true,
+        "wakeAtEpoch": null,
+        "buttonWakeOnly": true,
+        "reason": "low battery"
+      }
+    },
+    {
+      "name": "first-boot safety: 3 boots left, no sleep",
+      "input": {
+        "armBootsLeft": 3
+      },
+      "expect": {
+        "deepSleepNow": false,
+        "wakeAtEpoch": null,
+        "reason": "not armed"
+      }
+    },
+    {
+      "name": "first-boot safety: 1 boot left blocks the night too",
+      "input": {
+        "armBootsLeft": 1,
+        "localSec": 7200
+      },
+      "expect": {
+        "deepSleepNow": false,
+        "reason": "not armed"
+      }
+    },
+    {
+      "name": "first-boot safety blocks the low-battery sleep",
+      "input": {
+        "armBootsLeft": 1,
+        "battery": 3
+      },
+      "expect": {
+        "deepSleepNow": false,
+        "buttonWakeOnly": false,
+        "reason": "not armed"
+      }
+    },
+    {
+      "name": "USB host seen while not armed: external power",
+      "input": {
+        "armBootsLeft": 2,
+        "usb": true
+      },
+      "expect": {
+        "deepSleepNow": false,
+        "reason": "external power"
+      }
+    }
+  ]
+}

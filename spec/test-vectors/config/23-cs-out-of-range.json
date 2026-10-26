@@ -1,0 +1,10 @@
+{
+  "name": "23-cs-out-of-range",
+  "description": "Rule: cs must be 1–4.",
+  "input": "# HA Paper display config\nversion: 1\nscreens:\n  - id: a\n    widgets:\n      - {type: bars, series: prices, cs: 5}\n",
+  "expect": {
+    "ok": false,
+    "line": 6,
+    "message": "cs must be 1–4"
+  }
+}

@@ -1,0 +1,39 @@
+{
+  "name": "65-scene-entity-wins",
+  "description": "An entity next to the older `scene: all_off` parses with both keys kept; the tap runs the entity (scene-action.json).",
+  "input": "# HA Paper display config\nversion: 1\nscreens:\n  - id: a\n    widgets:\n      - {type: scene, scene: all_off, entity: scene.movie_night, cs: 2}\n",
+  "expect": {
+    "ok": true,
+    "apps": [
+      {
+        "id": "home",
+        "title": "Home"
+      },
+      {
+        "id": "house",
+        "title": "House"
+      },
+      {
+        "id": "travel",
+        "title": "Travel"
+      }
+    ],
+    "screens": [
+      {
+        "id": "a",
+        "app": "home",
+        "title": "a",
+        "cells": 2,
+        "widgets": [
+          {
+            "type": "scene",
+            "scene": "all_off",
+            "entity": "scene.movie_night",
+            "cs": 2
+          }
+        ]
+      }
+    ],
+    "yaml": "# HA Paper display config\nversion: 1\nscreens:\n  - id: a\n    app: home\n    title: a\n    widgets:\n      - {type: scene, scene: all_off, entity: scene.movie_night, cs: 2}\n"
+  }
+}

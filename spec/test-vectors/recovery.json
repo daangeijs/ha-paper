@@ -1,0 +1,119 @@
+{
+  "description": "Hardware-key factory reset (issue #21) and restart (Power + Left 5 s, issue #226; emulator src/core/recovery.ts). Each case starts from recoveryInit(), or recoveryOffer(offer) when `offer` (ms) is set (boot after a crash loop). Steps feed recoveryStep(state, t, keys) in order; keys = letters held or pressed since the last sample: P = Power, R = Right, L = Left, O = other (Home key, touch); \"\" = none. Each step expects the action and the phase after it. crash_loops: boot-ring reset reasons newest first → crashStreak / isCrashLoop.",
+  "hold_ms": 5000,
+  "confirm_ms": 10000,
+  "restart_hold_ms": 5000,
+  "cases": [
+    { "name": "hold 5 s, release, Right resets", "steps": [
+      { "t": 0, "keys": "PR", "action": "none", "phase": "hold" },
+      { "t": 4999, "keys": "PR", "action": "none", "phase": "hold" },
+      { "t": 5000, "keys": "PR", "action": "show", "phase": "confirm" },
+      { "t": 5200, "keys": "", "action": "none", "phase": "confirm" },
+      { "t": 7000, "keys": "R", "action": "reset", "phase": "idle" } ] },
+    { "name": "released before 5 s: nothing", "steps": [
+      { "t": 0, "keys": "PR", "action": "none", "phase": "hold" },
+      { "t": 4000, "keys": "P", "action": "none", "phase": "idle" },
+      { "t": 9000, "keys": "PR", "action": "none", "phase": "hold" },
+      { "t": 9100, "keys": "", "action": "none", "phase": "idle" } ] },
+    { "name": "a third key breaks the hold", "steps": [
+      { "t": 0, "keys": "PR", "action": "none", "phase": "hold" },
+      { "t": 3000, "keys": "PRL", "action": "none", "phase": "idle" },
+      { "t": 6000, "keys": "PRL", "action": "none", "phase": "idle" } ] },
+    { "name": "Power + Left 5 s restarts (#226)", "steps": [
+      { "t": 0, "keys": "PL", "action": "none", "phase": "rhold" },
+      { "t": 4999, "keys": "PL", "action": "none", "phase": "rhold" },
+      { "t": 5000, "keys": "PL", "action": "restart", "phase": "idle" },
+      { "t": 5100, "keys": "PL", "action": "none", "phase": "idle" },
+      { "t": 11000, "keys": "PL", "action": "none", "phase": "idle" } ] },
+    { "name": "Power + Left released before 5 s: nothing (#226)", "steps": [
+      { "t": 0, "keys": "PL", "action": "none", "phase": "rhold" },
+      { "t": 4900, "keys": "L", "action": "none", "phase": "idle" },
+      { "t": 5100, "keys": "", "action": "none", "phase": "idle" },
+      { "t": 9000, "keys": "PL", "action": "none", "phase": "rhold" },
+      { "t": 9100, "keys": "", "action": "none", "phase": "idle" } ] },
+    { "name": "Power + Left + Right is neither combo (#226)", "steps": [
+      { "t": 0, "keys": "PL", "action": "none", "phase": "rhold" },
+      { "t": 2000, "keys": "PLR", "action": "none", "phase": "idle" },
+      { "t": 8000, "keys": "PLR", "action": "none", "phase": "idle" } ] },
+    { "name": "Power + Left on the reset screen cancels, no restart (#226)", "steps": [
+      { "t": 0, "keys": "PR", "action": "none", "phase": "hold" },
+      { "t": 5000, "keys": "PR", "action": "show", "phase": "confirm" },
+      { "t": 5200, "keys": "", "action": "none", "phase": "confirm" },
+      { "t": 6000, "keys": "PL", "action": "cancel", "phase": "idle" },
+      { "t": 12000, "keys": "PL", "action": "none", "phase": "idle" } ] },
+    { "name": "keys still held after show: Right does not count until all are released", "steps": [
+      { "t": 0, "keys": "PR", "action": "none", "phase": "hold" },
+      { "t": 5000, "keys": "PR", "action": "show", "phase": "confirm" },
+      { "t": 5500, "keys": "R", "action": "none", "phase": "confirm" },
+      { "t": 6000, "keys": "", "action": "none", "phase": "confirm" },
+      { "t": 6500, "keys": "R", "action": "reset", "phase": "idle" } ] },
+    { "name": "Power cancels", "steps": [
+      { "t": 0, "keys": "PR", "action": "none", "phase": "hold" },
+      { "t": 5000, "keys": "PR", "action": "show", "phase": "confirm" },
+      { "t": 5100, "keys": "", "action": "none", "phase": "confirm" },
+      { "t": 6000, "keys": "P", "action": "cancel", "phase": "idle" } ] },
+    { "name": "Left, Home or touch cancel", "steps": [
+      { "t": 0, "keys": "PR", "action": "none", "phase": "hold" },
+      { "t": 5000, "keys": "PR", "action": "show", "phase": "confirm" },
+      { "t": 5100, "keys": "", "action": "none", "phase": "confirm" },
+      { "t": 6000, "keys": "O", "action": "cancel", "phase": "idle" },
+      { "t": 6100, "keys": "", "action": "none", "phase": "idle" },
+      { "t": 6200, "keys": "PR", "action": "none", "phase": "hold" },
+      { "t": 11200, "keys": "PR", "action": "show", "phase": "confirm" },
+      { "t": 11300, "keys": "", "action": "none", "phase": "confirm" },
+      { "t": 11400, "keys": "L", "action": "cancel", "phase": "idle" } ] },
+    { "name": "Right together with another key cancels", "steps": [
+      { "t": 0, "keys": "PR", "action": "none", "phase": "hold" },
+      { "t": 5000, "keys": "PR", "action": "show", "phase": "confirm" },
+      { "t": 5100, "keys": "", "action": "none", "phase": "confirm" },
+      { "t": 6000, "keys": "PR", "action": "cancel", "phase": "idle" } ] },
+    { "name": "10 s without an answer times out", "steps": [
+      { "t": 0, "keys": "PR", "action": "none", "phase": "hold" },
+      { "t": 5000, "keys": "PR", "action": "show", "phase": "confirm" },
+      { "t": 5100, "keys": "", "action": "none", "phase": "confirm" },
+      { "t": 14999, "keys": "", "action": "none", "phase": "confirm" },
+      { "t": 15000, "keys": "", "action": "timeout", "phase": "idle" },
+      { "t": 15100, "keys": "R", "action": "none", "phase": "idle" } ] },
+    { "name": "stuck keys (bag): one screen, then nothing until every key is released", "steps": [
+      { "t": 0, "keys": "PR", "action": "none", "phase": "hold" },
+      { "t": 5000, "keys": "PR", "action": "show", "phase": "confirm" },
+      { "t": 15000, "keys": "PR", "action": "timeout", "phase": "idle" },
+      { "t": 20000, "keys": "PR", "action": "none", "phase": "idle" },
+      { "t": 60000, "keys": "PR", "action": "none", "phase": "idle" },
+      { "t": 60100, "keys": "", "action": "none", "phase": "idle" },
+      { "t": 60200, "keys": "PR", "action": "none", "phase": "hold" } ] },
+    { "name": "held from power-on counts (first sample already PR)", "steps": [
+      { "t": 300, "keys": "PR", "action": "none", "phase": "hold" },
+      { "t": 5300, "keys": "PR", "action": "show", "phase": "confirm" } ] },
+    { "name": "after a reset answer the keys must be released first", "steps": [
+      { "t": 0, "keys": "PR", "action": "none", "phase": "hold" },
+      { "t": 5000, "keys": "PR", "action": "show", "phase": "confirm" },
+      { "t": 5100, "keys": "", "action": "none", "phase": "confirm" },
+      { "t": 5200, "keys": "R", "action": "reset", "phase": "idle" },
+      { "t": 5300, "keys": "PR", "action": "none", "phase": "idle" } ] },
+    { "name": "millis wrap: elapsed is unsigned", "steps": [
+      { "t": 4294965000, "keys": "PR", "action": "none", "phase": "hold" },
+      { "t": 2704, "keys": "PR", "action": "show", "phase": "confirm" } ] },
+    { "name": "crash-loop offer: Right resets", "offer": 2000, "steps": [
+      { "t": 2100, "keys": "", "action": "none", "phase": "confirm" },
+      { "t": 3000, "keys": "R", "action": "reset", "phase": "idle" } ] },
+    { "name": "crash-loop offer: Right held from boot must be released first", "offer": 2000, "steps": [
+      { "t": 2100, "keys": "R", "action": "none", "phase": "confirm" },
+      { "t": 2500, "keys": "", "action": "none", "phase": "confirm" },
+      { "t": 2600, "keys": "P", "action": "cancel", "phase": "idle" } ] },
+    { "name": "crash-loop offer times out and the device boots on", "offer": 2000, "steps": [
+      { "t": 11999, "keys": "", "action": "none", "phase": "confirm" },
+      { "t": 12000, "keys": "", "action": "timeout", "phase": "idle" } ] }
+  ],
+  "crash_loops": [
+    { "reasons": [], "streak": 0, "loop": false },
+    { "reasons": ["POWERON"], "streak": 0, "loop": false },
+    { "reasons": ["PANIC", "PANIC"], "streak": 2, "loop": false },
+    { "reasons": ["PANIC", "TASK_WDT", "INT_WDT", "POWERON"], "streak": 3, "loop": true },
+    { "reasons": ["CPU_LOCKUP", "WDT", "PANIC", "PANIC", "PANIC"], "streak": 5, "loop": true },
+    { "reasons": ["SW", "PANIC", "PANIC", "PANIC"], "streak": 0, "loop": false },
+    { "reasons": ["PANIC", "PANIC", "BROWNOUT", "PANIC"], "streak": 2, "loop": false },
+    { "reasons": ["BROWNOUT", "BROWNOUT", "BROWNOUT"], "streak": 0, "loop": false },
+    { "reasons": ["DEEPSLEEP", "PANIC", "PANIC", "PANIC"], "streak": 0, "loop": false }
+  ]
+}

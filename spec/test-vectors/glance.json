@@ -1,0 +1,677 @@
+{
+  "description": "Glance wakes (#10, emulator src/core/glance.ts, firmware core/glance.cpp). snapshotDiff: region key -> hash maps (prev null = no valid snapshot in RTC), ignore = clock regions; result sorted. glanceStep: what a wake does with its result. wifiFast: how to reconnect from the RTC Wi-Fi cache. liveNow: live mode after a key press. arm: first-boot safety, ARM_BOOTS = 3 confirmed boots with network per firmware version (stored = null: none; ops count = this boot confirmed). tally (#178): wake counters since power-on in RTC memory, ops in order from zero: [\"wake\", sleptAtEpoch, wakeAtEpoch, nowEpoch] (slept = clock when known and not backwards, else planned timer, else 0), [\"glance\", ok, redraw, wifiMs|null, haMs|null, totalMs], [\"sleep\", awakeMs, fullRefreshes, partialRefreshes].",
+  "snapshotDiff": [
+    {
+      "name": "no snapshot: every region but the clock",
+      "prev": null,
+      "next": {
+        "t0": 1,
+        "t1": 2,
+        "bar": 3
+      },
+      "ignore": [
+        "t0"
+      ],
+      "changed": [
+        "bar",
+        "t1"
+      ]
+    },
+    {
+      "name": "same",
+      "prev": {
+        "t0": 1,
+        "t1": 2
+      },
+      "next": {
+        "t0": 1,
+        "t1": 2
+      },
+      "ignore": [],
+      "changed": []
+    },
+    {
+      "name": "only the clock moved",
+      "prev": {
+        "t0": 1,
+        "t1": 2
+      },
+      "next": {
+        "t0": 9,
+        "t1": 2
+      },
+      "ignore": [
+        "t0"
+      ],
+      "changed": []
+    },
+    {
+      "name": "one tile changed",
+      "prev": {
+        "t0": 1,
+        "t1": 2,
+        "t2": 3
+      },
+      "next": {
+        "t0": 1,
+        "t1": 5,
+        "t2": 3
+      },
+      "ignore": [],
+      "changed": [
+        "t1"
+      ]
+    },
+    {
+      "name": "night face -> dashboard: keys appear and vanish",
+      "prev": {
+        "night": 7
+      },
+      "next": {
+        "t0": 1,
+        "t1": 2
+      },
+      "ignore": [],
+      "changed": [
+        "night",
+        "t0",
+        "t1"
+      ]
+    },
+    {
+      "name": "list row removed",
+      "prev": {
+        "h0": 1,
+        "z:a": 2,
+        "z:b": 3
+      },
+      "next": {
+        "h0": 1,
+        "z:a": 2
+      },
+      "ignore": [],
+      "changed": [
+        "z:b"
+      ]
+    }
+  ],
+  "glanceStep": [
+    {
+      "name": "first wake after a cold boot",
+      "in": {
+        "ok": true,
+        "changed": [
+          "t0"
+        ],
+        "hadSnapshot": false,
+        "fails": 0,
+        "drawnOffline": false,
+        "minSinceDraw": 0
+      },
+      "out": {
+        "redraw": true,
+        "reason": "first",
+        "fails": 0,
+        "drawnOffline": false
+      }
+    },
+    {
+      "name": "a value changed",
+      "in": {
+        "ok": true,
+        "changed": [
+          "t1"
+        ],
+        "hadSnapshot": true,
+        "fails": 0,
+        "drawnOffline": false,
+        "minSinceDraw": 15
+      },
+      "out": {
+        "redraw": true,
+        "reason": "changed",
+        "fails": 0,
+        "drawnOffline": false
+      }
+    },
+    {
+      "name": "nothing changed: no refresh",
+      "in": {
+        "ok": true,
+        "changed": [],
+        "hadSnapshot": true,
+        "fails": 0,
+        "drawnOffline": false,
+        "minSinceDraw": 45
+      },
+      "out": {
+        "redraw": false,
+        "reason": "unchanged",
+        "fails": 0,
+        "drawnOffline": false
+      }
+    },
+    {
+      "name": "nothing changed for an hour: redraw (clock)",
+      "in": {
+        "ok": true,
+        "changed": [],
+        "hadSnapshot": true,
+        "fails": 0,
+        "drawnOffline": false,
+        "minSinceDraw": 60
+      },
+      "out": {
+        "redraw": true,
+        "reason": "stale",
+        "fails": 0,
+        "drawnOffline": false
+      }
+    },
+    {
+      "name": "HA unreachable once: keep the panel, count it",
+      "in": {
+        "ok": false,
+        "changed": [],
+        "hadSnapshot": true,
+        "fails": 0,
+        "drawnOffline": false,
+        "minSinceDraw": 15
+      },
+      "out": {
+        "redraw": false,
+        "reason": "unreachable",
+        "fails": 1,
+        "drawnOffline": false
+      }
+    },
+    {
+      "name": "third failure: draw the offline mark once",
+      "in": {
+        "ok": false,
+        "changed": [],
+        "hadSnapshot": true,
+        "fails": 2,
+        "drawnOffline": false,
+        "minSinceDraw": 45
+      },
+      "out": {
+        "redraw": true,
+        "reason": "offline",
+        "fails": 3,
+        "drawnOffline": true
+      }
+    },
+    {
+      "name": "still offline: no second redraw",
+      "in": {
+        "ok": false,
+        "changed": [],
+        "hadSnapshot": true,
+        "fails": 5,
+        "drawnOffline": true,
+        "minSinceDraw": 200
+      },
+      "out": {
+        "redraw": false,
+        "reason": "unreachable",
+        "fails": 6,
+        "drawnOffline": true
+      }
+    },
+    {
+      "name": "back online, values unchanged: clear the mark",
+      "in": {
+        "ok": true,
+        "changed": [],
+        "hadSnapshot": true,
+        "fails": 6,
+        "drawnOffline": true,
+        "minSinceDraw": 200
+      },
+      "out": {
+        "redraw": true,
+        "reason": "back online",
+        "fails": 0,
+        "drawnOffline": false
+      }
+    },
+    {
+      "name": "back online after one failure, unchanged: nothing to draw",
+      "in": {
+        "ok": true,
+        "changed": [],
+        "hadSnapshot": true,
+        "fails": 1,
+        "drawnOffline": false,
+        "minSinceDraw": 30
+      },
+      "out": {
+        "redraw": false,
+        "reason": "unchanged",
+        "fails": 0,
+        "drawnOffline": false
+      }
+    }
+  ],
+  "wifiFast": [
+    {
+      "name": "fresh lease: static IP",
+      "cache": {
+        "valid": true,
+        "ssidHash": 42,
+        "channel": 6,
+        "fails": 0,
+        "ipAtEpoch": 1800000000
+      },
+      "saved": 42,
+      "now": 1800000900,
+      "fast": "ip"
+    },
+    {
+      "name": "lease older than 1 h: DHCP, keep BSSID/channel",
+      "cache": {
+        "valid": true,
+        "ssidHash": 42,
+        "channel": 6,
+        "fails": 0,
+        "ipAtEpoch": 1800000000
+      },
+      "saved": 42,
+      "now": 1800003600,
+      "fast": "radio"
+    },
+    {
+      "name": "clock unknown: DHCP",
+      "cache": {
+        "valid": true,
+        "ssidHash": 42,
+        "channel": 6,
+        "fails": 0,
+        "ipAtEpoch": 1800000000
+      },
+      "saved": 42,
+      "now": 0,
+      "fast": "radio"
+    },
+    {
+      "name": "clock went backwards: DHCP",
+      "cache": {
+        "valid": true,
+        "ssidHash": 42,
+        "channel": 6,
+        "fails": 0,
+        "ipAtEpoch": 1800000000
+      },
+      "saved": 42,
+      "now": 1799999000,
+      "fast": "radio"
+    },
+    {
+      "name": "another network saved since",
+      "cache": {
+        "valid": true,
+        "ssidHash": 42,
+        "channel": 6,
+        "fails": 0,
+        "ipAtEpoch": 1800000000
+      },
+      "saved": 43,
+      "now": 1800000900,
+      "fast": "none"
+    },
+    {
+      "name": "two fast connects failed",
+      "cache": {
+        "valid": true,
+        "ssidHash": 42,
+        "channel": 6,
+        "fails": 2,
+        "ipAtEpoch": 1800000000
+      },
+      "saved": 42,
+      "now": 1800000900,
+      "fast": "none"
+    },
+    {
+      "name": "bad channel",
+      "cache": {
+        "valid": true,
+        "ssidHash": 42,
+        "channel": 0,
+        "fails": 0,
+        "ipAtEpoch": 1800000000
+      },
+      "saved": 42,
+      "now": 1800000900,
+      "fast": "none"
+    },
+    {
+      "name": "RTC checksum bad",
+      "cache": {
+        "valid": false,
+        "ssidHash": 42,
+        "channel": 6,
+        "fails": 0,
+        "ipAtEpoch": 1800000000
+      },
+      "saved": 42,
+      "now": 1800000900,
+      "fast": "none"
+    }
+  ],
+  "liveNow": [
+    {
+      "name": "no key press since the wake",
+      "msSinceInput": null,
+      "liveMin": 3,
+      "live": false
+    },
+    {
+      "name": "2 min ago, 3 min window",
+      "msSinceInput": 120000,
+      "liveMin": 3,
+      "live": true
+    },
+    {
+      "name": "exactly 3 min: over",
+      "msSinceInput": 180000,
+      "liveMin": 3,
+      "live": false
+    },
+    {
+      "name": "9 min ago, 10 min window",
+      "msSinceInput": 540000,
+      "liveMin": 10,
+      "live": true
+    }
+  ],
+  "arm": [
+    {
+      "name": "fresh device",
+      "stored": null,
+      "version": "0.3.0",
+      "ops": 0,
+      "boots": 0,
+      "left": 3
+    },
+    {
+      "name": "two confirmed boots",
+      "stored": null,
+      "version": "0.3.0",
+      "ops": 2,
+      "boots": 2,
+      "left": 1
+    },
+    {
+      "name": "armed, stops counting at 3",
+      "stored": {
+        "version": "0.3.0",
+        "boots": 3
+      },
+      "version": "0.3.0",
+      "ops": 2,
+      "boots": 3,
+      "left": 0
+    },
+    {
+      "name": "new firmware starts over",
+      "stored": {
+        "version": "0.2.9",
+        "boots": 3
+      },
+      "version": "0.3.0",
+      "ops": 1,
+      "boots": 1,
+      "left": 2
+    },
+    {
+      "name": "garbage count starts over",
+      "stored": {
+        "version": "0.3.0",
+        "boots": -4
+      },
+      "version": "0.3.0",
+      "ops": 0,
+      "boots": 0,
+      "left": 3
+    }
+  ],
+  "tally": [
+    {
+      "name": "power-on: all zero, no last wake",
+      "ops": [],
+      "expect": {
+        "wakes": 0,
+        "redraws": 0,
+        "failedWakes": 0,
+        "asleepS": 0,
+        "awakeMs": 0,
+        "fullRefreshes": 0,
+        "partialRefreshes": 0,
+        "last": null
+      }
+    },
+    {
+      "name": "button boot, 3 min live, sleep; timer wake 900 s later by the clock, glance redraw, sleep",
+      "ops": [
+        [
+          "sleep",
+          180000,
+          2,
+          9
+        ],
+        [
+          "wake",
+          1800000000,
+          1800000900,
+          1800000900
+        ],
+        [
+          "glance",
+          true,
+          true,
+          1450,
+          2300,
+          6120
+        ],
+        [
+          "sleep",
+          7400,
+          1,
+          0
+        ]
+      ],
+      "expect": {
+        "wakes": 1,
+        "redraws": 1,
+        "failedWakes": 0,
+        "asleepS": 900,
+        "awakeMs": 187400,
+        "fullRefreshes": 3,
+        "partialRefreshes": 9,
+        "last": {
+          "wifiMs": 1450,
+          "haMs": 2300,
+          "totalMs": 6120
+        }
+      }
+    },
+    {
+      "name": "clock unknown at sleep: the planned timer counts",
+      "ops": [
+        [
+          "wake",
+          0,
+          600,
+          1800000000
+        ]
+      ],
+      "expect": {
+        "wakes": 1,
+        "redraws": 0,
+        "failedWakes": 0,
+        "asleepS": 600,
+        "awakeMs": 0,
+        "fullRefreshes": 0,
+        "partialRefreshes": 0,
+        "last": null
+      }
+    },
+    {
+      "name": "clock lost after the wake: the planned timer counts",
+      "ops": [
+        [
+          "wake",
+          1800000000,
+          1800000900,
+          0
+        ]
+      ],
+      "expect": {
+        "wakes": 1,
+        "redraws": 0,
+        "failedWakes": 0,
+        "asleepS": 900,
+        "awakeMs": 0,
+        "fullRefreshes": 0,
+        "partialRefreshes": 0,
+        "last": null
+      }
+    },
+    {
+      "name": "button-only sleep (low battery), clock unknown: 0 s",
+      "ops": [
+        [
+          "wake",
+          0,
+          0,
+          0
+        ]
+      ],
+      "expect": {
+        "wakes": 1,
+        "redraws": 0,
+        "failedWakes": 0,
+        "asleepS": 0,
+        "awakeMs": 0,
+        "fullRefreshes": 0,
+        "partialRefreshes": 0,
+        "last": null
+      }
+    },
+    {
+      "name": "clock went backwards: the planned timer counts",
+      "ops": [
+        [
+          "wake",
+          1800000900,
+          1800001800,
+          1800000000
+        ]
+      ],
+      "expect": {
+        "wakes": 1,
+        "redraws": 0,
+        "failedWakes": 0,
+        "asleepS": 900,
+        "awakeMs": 0,
+        "fullRefreshes": 0,
+        "partialRefreshes": 0,
+        "last": null
+      }
+    },
+    {
+      "name": "failed wake: no Wi-Fi, HA never; then a wake without a change keeps the newer last wake",
+      "ops": [
+        [
+          "wake",
+          1800000000,
+          1800000900,
+          1800000901
+        ],
+        [
+          "glance",
+          false,
+          false,
+          null,
+          null,
+          20000
+        ],
+        [
+          "sleep",
+          20500,
+          0,
+          0
+        ],
+        [
+          "wake",
+          1800000921,
+          1800002721,
+          1800002721
+        ],
+        [
+          "glance",
+          true,
+          false,
+          900,
+          1800,
+          4100
+        ],
+        [
+          "sleep",
+          4600,
+          0,
+          0
+        ]
+      ],
+      "expect": {
+        "wakes": 2,
+        "redraws": 0,
+        "failedWakes": 1,
+        "asleepS": 2701,
+        "awakeMs": 25100,
+        "fullRefreshes": 0,
+        "partialRefreshes": 0,
+        "last": {
+          "wifiMs": 900,
+          "haMs": 1800,
+          "totalMs": 4100
+        }
+      }
+    },
+    {
+      "name": "third failed wake draws the offline mark: failed and redrawn",
+      "ops": [
+        [
+          "wake",
+          1800000000,
+          1800000900,
+          1800000900
+        ],
+        [
+          "glance",
+          false,
+          true,
+          1200,
+          null,
+          20000
+        ]
+      ],
+      "expect": {
+        "wakes": 1,
+        "redraws": 1,
+        "failedWakes": 1,
+        "asleepS": 900,
+        "awakeMs": 0,
+        "fullRefreshes": 0,
+        "partialRefreshes": 0,
+        "last": {
+          "wifiMs": 1200,
+          "haMs": null,
+          "totalMs": 20000
+        }
+      }
+    }
+  ]
+}

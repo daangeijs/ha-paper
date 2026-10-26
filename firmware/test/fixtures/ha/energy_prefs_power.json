@@ -1,0 +1,66 @@
+{
+ "energy_sources": [
+  {
+   "type": "grid",
+   "flow_from": [
+    {
+     "stat_energy_from": "sensor.p1_meter_energy_import_tariff_1",
+     "stat_cost": null,
+     "entity_energy_price": "sensor.nordpool_kwh_nl_eur_3_10_021",
+     "number_energy_price": null
+    },
+    {
+     "stat_energy_from": "sensor.p1_meter_energy_import_tariff_2",
+     "stat_cost": null,
+     "entity_energy_price": "sensor.nordpool_kwh_nl_eur_3_10_021",
+     "number_energy_price": null
+    }
+   ],
+   "flow_to": [
+    {
+     "stat_energy_to": "sensor.p1_meter_energy_export_tariff_1",
+     "stat_compensation": null,
+     "entity_energy_price": null,
+     "number_energy_price": null
+    }
+   ],
+   "power": [
+    {
+     "stat_rate": "sensor.p1_meter_power"
+    }
+   ],
+   "cost_adjustment_day": 0.0
+  },
+  {
+   "type": "solar",
+   "stat_energy_from": "sensor.solaredge_lifetime_energy",
+   "config_entry_solar_forecast": [
+    "01JB2Y6Q3W4N1Q8M9V5T7K2X3R"
+   ],
+   "stat_rate": "sensor.solaredge_current_power"
+  },
+  {
+   "type": "battery",
+   "stat_energy_from": "sensor.homewizard_battery_energy_export",
+   "stat_energy_to": "sensor.homewizard_battery_energy_import",
+   "power_config": {
+    "stat_rate_from": "sensor.homewizard_battery_discharge_power",
+    "stat_rate_to": "sensor.homewizard_battery_charge_power"
+   }
+  },
+  {
+   "type": "gas",
+   "stat_energy_from": "sensor.p1_meter_total_gas",
+   "stat_cost": null,
+   "entity_energy_price": null,
+   "number_energy_price": null
+  }
+ ],
+ "device_consumption": [
+  {
+   "stat_consumption": "sensor.dishwasher_energy",
+   "name": null,
+   "included_in_stat": null
+  }
+ ]
+}

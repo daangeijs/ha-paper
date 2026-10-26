@@ -1,0 +1,10 @@
+{
+  "name": "68-zonelist-label-no-name",
+  "description": "Rule: a zoneList labels item is climate.<id>=Name with a name (#151).",
+  "input": "# HA Paper display config\nversion: 1\nscreens:\n  - id: a\n    widgets:\n      - {type: zoneList, labels: climate.bathroom}\n",
+  "expect": {
+    "ok": false,
+    "line": 6,
+    "message": "zoneList: “climate.bathroom” in labels is not climate.<id>=Name"
+  }
+}

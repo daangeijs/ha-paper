@@ -1,0 +1,60 @@
+{
+  "name": "50-user-routes",
+  "description": "Routes are user tiles (#145): free label, mode train | bus | car (absent = train), entity = a sensor.* id; the route id is optional free text.",
+  "input": "# HA Paper display config\nversion: 1\nscreens:\n  - id: t\n    app: travel\n    widgets:\n      - {type: route, label: To work, mode: train, entity: sensor.commute_departures, cs: 2}\n      - {type: route, label: Bus 52, mode: bus, entity: sensor.bus_52, cs: 2}\n      - {type: route, label: Drive, mode: car, entity: sensor.drive_time, cs: 2}\n      - {type: route, route: my_line, entity: sensor.x4_route_my_line, cs: 2}\n",
+  "expect": {
+    "ok": true,
+    "apps": [
+      {
+        "id": "home",
+        "title": "Home"
+      },
+      {
+        "id": "house",
+        "title": "House"
+      },
+      {
+        "id": "travel",
+        "title": "Travel"
+      }
+    ],
+    "screens": [
+      {
+        "id": "t",
+        "app": "travel",
+        "title": "t",
+        "cells": 8,
+        "widgets": [
+          {
+            "type": "route",
+            "label": "To work",
+            "mode": "train",
+            "entity": "sensor.commute_departures",
+            "cs": 2
+          },
+          {
+            "type": "route",
+            "label": "Bus 52",
+            "mode": "bus",
+            "entity": "sensor.bus_52",
+            "cs": 2
+          },
+          {
+            "type": "route",
+            "label": "Drive",
+            "mode": "car",
+            "entity": "sensor.drive_time",
+            "cs": 2
+          },
+          {
+            "type": "route",
+            "route": "my_line",
+            "entity": "sensor.x4_route_my_line",
+            "cs": 2
+          }
+        ]
+      }
+    ],
+    "yaml": "# HA Paper display config\nversion: 1\nscreens:\n  - id: t\n    app: travel\n    title: t\n    widgets:\n      - {type: route, label: To work, mode: train, entity: sensor.commute_departures, cs: 2}\n      - {type: route, label: Bus 52, mode: bus, entity: sensor.bus_52, cs: 2}\n      - {type: route, label: Drive, mode: car, entity: sensor.drive_time, cs: 2}\n      - {type: route, route: my_line, entity: sensor.x4_route_my_line, cs: 2}\n"
+  }
+}

@@ -1,0 +1,760 @@
+openapi: 3.0.3
+info:
+  title: HA Paper device API
+  version: "1"
+  description: |
+    Served by the display on the local network. Tokens (x4_…) are created in the web console
+    (API access) and are not Home Assistant tokens. Scopes: read, write (write implies read).
+
+    This file = the original design-handoff API + the endpoints the on-device web console needs
+    (marked `x-console: true`; implemented by emulator/src/webconsole/httpApi.ts, behaviour defined
+    by the emulator's in-memory DeviceApi in emulator/src/emulator/emulatorApi.ts):
+      GET  /console/state                 everything the console renders (no auth needed for the setup fields)
+      POST /auth/ha/start                 start "Sign in with Home Assistant" (links the display + browser session)
+      POST /session/logout                end the browser session
+      GET  /wifi, POST /wifi              Wi-Fi status / join a network (async, poll GET /wifi)
+      POST /wifi/scan                     scan 2.4 GHz networks
+      DELETE /ha                          unlink Home Assistant (revoke + delete the key)
+      POST /setup/finish                  leave the setup wizard
+      GET/POST /tokens, DELETE /tokens/{id}   API token management (session only)
+      GET  /ota, POST /ota/check          update status / check GitHub now
+    Non-API paths (not under /api/v1):
+      GET /auth/start?return_to=/   302 straight to HA's authorize URL (same as POST /auth/ha/start, for links)
+      GET /auth/callback?code=…&state=…   HA OAuth redirect target (docs/ARCHITECTURE.md §2). Unknown/used state → 400
+          (no session). Exchanges the code with PKCE (code_verifier), reads auth/current_user over the WebSocket;
+          Set-Cookie x4_session (HttpOnly; SameSite=Lax; Max-Age=43200) + 302 return_to. An HA admin gets a full
+          session; any other HA user a view-only one (read scope; writes and the session-only endpoints → 403
+          "Home Assistant admin required"). ConsoleState.session.admin tells the console which (issue #22).
+    Reference implementation: emulator/server (npm run device-sim); contract tests: emulator/server/contract.test.ts.
+
+    Auth: API clients use `Authorization: Bearer x4_…`. The web console uses the HttpOnly session
+    cookie `x4_session` (12 h) created by the HA sign-in: full access for an HA admin, read scope for any
+    other HA user (issue #22). Endpoints marked
+    "setup-open" also work without auth while the display is in first-install setup
+    (no Wi-Fi saved / reached through the SoftAP 192.168.4.1, or not linked to HA yet).
+    Cookie-authenticated writes (any method but GET/HEAD) need an `Origin` header equal to
+    http://<Host header>, or without Origin a `Referer` on that origin; otherwise 403
+    {"error":"cross-origin request refused"}. Bearer-token requests are not checked.
+
+    Firmware notes (firmware/src/net/web_server.cpp, marked `x-firmware: true` below):
+      * Failed bearer auth is rate-limited per client IP: 5 failures / 60 s → 429 + Retry-After for 60 s.
+      * 422 config errors carry `line` and `message` next to `error` ("line 14: …").
+      * PUT /config and POST /config/validate refuse application/x-www-form-urlencoded (curl's default for
+        --data-binary) with 415: send Content-Type application/yaml or application/json.
+      * Extra endpoints: GET/PUT /settings, POST /ha/token (long-lived token fallback), POST /ha/url,
+        POST /ha/discover, POST /ota/upload, POST /device/restart, POST /device/factory-reset,
+        GET/DELETE /diagnostics, GET /diagnostics/coredump, GET /logs.
+      * Non-API paths: GET /link?p=CODE (QR on the display; 4-char pairing code, single use, 10 min) and
+        GET /auth/start[?ha=URL] both 302 to Home Assistant's /auth/authorize; GET /auth/callback.
+      * OAuth: client_id = http://<Host header>/, redirect_uri = http://<Host>/auth/callback, plus PKCE (S256).
+servers:
+  - url: http://{host}.local/api/v1
+    description: Each display announces itself over mDNS as ha-paper-XXXX (last 4 hex digits of its Wi-Fi MAC), shown on the display.
+    variables:
+      host: { default: ha-paper-a1b2 }
+security:
+  - bearer: []
+  - session: []
+components:
+  securitySchemes:
+    bearer: { type: http, scheme: bearer }
+    session: { type: apiKey, in: cookie, name: x4_session, description: "HttpOnly session cookie from Sign in with Home Assistant (web console only)" }
+  schemas:
+    Error:
+      type: object
+      properties: { error: { type: string, example: "token is read-only" } }
+    ConfigError:
+      type: object
+      properties:
+        error: { type: string, example: "line 14: Unknown entity “sensor.sola_power”" }
+        line: { type: integer, example: 14, description: "1-based; 0 when not line-specific" }
+        message: { type: string, example: "Unknown entity “sensor.sola_power”" }
+    Status:
+      type: object
+      properties:
+        name: { type: string, example: Living room display }
+        firmware: { type: string, example: "0.3.0" }
+        battery: { type: integer, example: 76 }
+        battery_mv: { type: integer, nullable: true, example: 3950, description: "battery cell voltage, mV (CW2017 VCELL 0x02/0x03, 312.5 µV/LSB, read with the SoC every 30 s; spec/test-vectors/cw2017-vcell.json). null until the gauge has been read or when VCELL failed. Feeds the external-power check: charged within 30 min and >= 4150 mV counts as a charger (spec/test-vectors/power/04-external-power.json). QEMU: fixed 3950" }
+        wifi: { type: string, example: HomeNet }
+        home_assistant: { type: string, enum: [linked, not linked, revoked, offline] }
+        screens: { type: integer, example: 13 }
+        language: { type: string, nullable: true, enum: [en, nl], description: "x-firmware: the display's UI language, from Home Assistant's get_config `language` (#98; spec/test-vectors/strings.json). null = not linked or not known yet (English)" }
+        currency: { type: string, nullable: true, example: EUR, description: "x-firmware: Home Assistant's currency (get_config `currency`, ISO 4217, #147), kept in userdata /currency. Price tiles show € for EUR, $ for USD, £ for GBP, else the code (SEK 0.31). null = not linked or not known yet (€)" }
+        hostname: { type: string, example: ha-paper-a1b2.local, description: "mDNS name, ha-paper-<last 4 hex digits of the Wi-Fi MAC>.local" }
+        uptime_s: { type: integer, format: int64, example: 5400, description: "x-firmware: seconds since boot (esp_timer, 64-bit: no 49.7-day wrap)" }
+        free_heap: { type: integer, example: 182344, description: "internal RAM free, bytes" }
+        free_psram: { type: integer, example: 7864320, description: "PSRAM free, bytes" }
+        heap_largest_block: { type: integer, example: 110592, description: "largest free internal RAM block, bytes. Below 20480, or with free_heap below 65536, the display skips TLS connects (HA over https, OTA download) and retries later; low for 30 min → restart between 03:00 and 04:00" }
+        heap_min_free: { type: integer, example: 141020, description: "lowest internal RAM free since boot, bytes" }
+        ha_report:
+          type: object
+          description: "x-firmware: device health as Home Assistant entities (#32, settings display.haReport). Web console: Device tab, Home Assistant card."
+          properties:
+            enabled: { type: boolean, description: "settings display.haReport" }
+            state: { type: string, enum: [ok, off, waiting, not_admin, error], description: "ok = last push accepted; off = setting off; waiting = nothing pushed yet (not connected, toggled on again, or a reconnect after not_admin); not_admin = HA answered 401/403 (POST /api/states is admin-only), stopped until the next connect; error = last push failed, retried after 60 s" }
+            last_push_epoch: { type: integer, format: int64, nullable: true, description: "last accepted push, epoch seconds; null when none this boot (firmware: or no clock)" }
+        power:
+          type: object
+          description: "x-firmware: power instrumentation (docs/ROBUSTNESS_PLAN.md 3.0). A deep-sleeping display does not answer at all."
+          properties:
+            source: { type: string, enum: [usb, battery], description: "usb = charging or a USB host attached. A full battery on a charger without data lines reads battery (no VBUS pin confirmed). spec/test-vectors/battery-label.json" }
+            charging: { type: boolean, description: "charger STAT pin. Drops when the battery is full, so a full battery on USB is source usb, charging false" }
+            cpuMhz: { type: integer, example: 240, description: "getCpuFrequencyMhz(): the clock the CPU runs at now" }
+            wifiPs: { type: string, nullable: true, enum: [none, min, max], description: "Wi-Fi modem sleep (esp_wifi_get_ps); null when the Wi-Fi driver is not running (QEMU)" }
+            applied:
+              type: object
+              description: "What the power rules set (#177, core/power powerDecision): full CPU and no modem sleep on external power, during an OTA or with the battery unknown (CPU) / in setup (Wi-Fi); 80 MHz and modem sleep min on battery. Applied once a second while live; a glance wake keeps the boot defaults (240 MHz, min). QEMU tracks it without touching clocks or radio."
+              properties:
+                cpuMhz: { type: integer, enum: [240, 80], description: "full = 240, auto = 80 (lowest clock with APB at 80 MHz; no esp_pm DFS in the Arduino libs)" }
+                wifiPs: { type: string, enum: [none, min], description: "modem sleep the rules want; power.wifiPs reads none while psOffHeld" }
+                psOffHeld: { type: boolean, description: "an OTA, HA token refresh or TLS handshake holds modem sleep off; the rules' wifiPs returns when it ends" }
+            mode: { type: string, enum: [awake], description: "Only awake for now; asleep/night values come with deep sleep (Phase 3.3)" }
+            nextWakeEpoch: { type: integer, nullable: true, description: "Planned timer wake (Unix seconds); null while awake" }
+            wakes: { type: integer, example: 64, description: "#178: deep-sleep wakes since power-on (timer, button, charger). Counters live in RTC memory: they survive deep sleep and restarts, power-on zeroes them (spec/test-vectors/glance.json tally)" }
+            redraws: { type: integer, example: 9, description: "#178: glance wakes that redrew the panel" }
+            failedWakes: { type: integer, example: 1, description: "#178: glance wakes without Home Assistant data within the 20 s cap" }
+            awakeS: { type: integer, format: int64, example: 1830, description: "#178: total awake seconds since power-on (boots that ended in deep sleep + this one; a restart without deep sleep loses that boot's time)" }
+            asleepS: { type: integer, example: 57600, description: "#178: total deep-sleep seconds since power-on (clock when known, else the planned timer)" }
+            lastWake:
+              type: object
+              nullable: true
+              description: "#178: the last glance wake (null = none since power-on). Milliseconds since the reset"
+              properties:
+                wifiMs: { type: integer, nullable: true, example: 1450, description: "Wi-Fi up; null = never" }
+                haMs: { type: integer, nullable: true, example: 2300, description: "Home Assistant WebSocket connected, after Wi-Fi; null = never" }
+                totalMs: { type: integer, example: 6120, description: "wake decided (redraw or not), then deep sleep" }
+        panel: { type: string, enum: [ok, failed], description: "x-firmware (#181): failed = the panel's BUSY line never released within 20 s (dead or unplugged panel); the display keeps serving the API and web console and skips every refresh until restart. Details: GET /diagnostics panel.failure" }
+        refreshes:
+          type: object
+          description: "x-firmware (#178): panel refreshes since power-on (boots that ended in deep sleep + this one) and in this boot. full = refreshes with a flash (clean + the manual multi-flash full), partial = windowed partials. #197: boot.fast = navigations drawn without a flash, boot.clean = the one-flash cleans (part of full)"
+          properties:
+            full: { type: integer, example: 120 }
+            partial: { type: integer, example: 840 }
+            boot: { type: object, properties: { full: { type: integer, example: 3 }, partial: { type: integer, example: 41 }, fast: { type: integer, example: 57 }, clean: { type: integer, example: 3 } } }
+    Screen:
+      type: object
+      required: [id, app, title, widgets]
+      properties:
+        id: { type: string, example: overview }
+        app: { type: string, enum: [home, house, travel, settings] }
+        title: { type: string, example: Home }
+        widgets:
+          type: array
+          items: { type: object, required: [type], additionalProperties: true, properties: { type: { type: string }, cs: { type: integer, minimum: 1, maximum: 4 }, rs: { type: integer, minimum: 1, maximum: 2 } } }
+    ListCount:
+      type: object
+      properties: { total: { type: integer, example: 149 }, shown: { type: integer, example: 66 } }
+    Network:
+      type: object
+      properties: { ssid: { type: string, example: HomeNet }, rssi: { type: integer, example: -48 }, secure: { type: boolean } }
+    Token:
+      type: object
+      properties:
+        id: { type: string, example: tok_lx3k9 }
+        name: { type: string, example: Laptop }
+        scope: { type: string, enum: [read, write] }
+        created: { type: string, example: "2026-10-13 10:42", description: "device local time; empty when the clock was unknown" }
+        last_used: { type: string, nullable: true, example: "2026-10-13 10:44" }
+        masked: { type: string, example: "x4_abc…wxyz" }
+    WifiState:
+      type: object
+      properties:
+        state: { type: string, enum: [idle, connecting, connected, failed] }
+        connected: { type: string, nullable: true, example: HomeNet }
+        saved: { type: array, items: { type: string } }
+        error: { type: string, example: "Wrong password. Try again." }
+    ConsoleState:
+      type: object
+      description: |
+        Everything the web console renders. Without a session only the setup fields are filled
+        (screens and tokens are empty arrays; tokens also stay empty for a view-only session). Once the display is linked, home_assistant.server, .user and
+        .discovered are also empty without a session: anyone on the LAN can call this (issue #37). The console polls this (~3 s); it drops its local draft
+        when config_rev changes and all local state when install_id changes (factory reset).
+      properties:
+        name: { type: string, example: Living room display }
+        firmware: { type: string, example: "0.3.0" }
+        battery: { type: integer, example: 76 }
+        ip: { type: string, nullable: true, example: 192.168.1.42 }
+        hostname: { type: string, example: ha-paper-a1b2.local, description: "mDNS name, ha-paper-<last 4 hex digits of the Wi-Fi MAC>.local" }
+        setup: { type: string, nullable: true, enum: [wifi, web], description: "first-install step: wifi = connect on the display / SoftAP, web = finish in the browser, null = set up" }
+        softap: { type: boolean, description: "this browser reached the display through its setup hotspot (192.168.4.1)" }
+        wifi: { type: object, properties: { connected: { type: string, nullable: true }, saved: { type: array, items: { type: string } } } }
+        networks: { type: array, items: { $ref: '#/components/schemas/Network' } }
+        home_assistant: { type: object, properties: { linked: { type: boolean }, revoked: { type: boolean }, server: { type: string, example: "http://homeassistant.local:8123", description: "Linked: the linked server. Not linked: the address a sign-in would use (typed or remembered, else the first discovered one)" }, user: { type: string, example: X4 display }, discovered: { type: array, items: { type: string }, description: "mDNS _home-assistant._tcp results. The console says \"Found on your network\" only when server is one of these; otherwise \"Home Assistant at <server>\" (#54)" } } }
+        offline: { type: boolean, description: "Home Assistant unreachable. The console shows one line under its header; the display shows its offline mark with \"since hh:mm\" (the last data, #86)" }
+        entity_gaps: { type: object, additionalProperties: { type: string, enum: [unavailable, unknown] }, example: { sensor.garden_temperature: unavailable }, description: "Signed in only (else {}). Entities of stat / gauge / switch tiles that Home Assistant has no value for right now (#86); the console names the reason on the tile, the display draws a ring. Our own logical sensors are never listed" }
+        language: { type: string, nullable: true, enum: [en, nl], description: "x-firmware: Home Assistant's language (WebSocket get_config `language` after every auth_ok, #98; any nl variant → nl, everything else → en), kept in userdata /lang. null = not linked or not known yet. The console uses it while linked, else the browser's language" }
+        session: { type: object, properties: { signed_in: { type: boolean }, user: { type: string }, admin: { type: boolean, description: "HA admin: full access. false = view-only session (read scope)" } } }
+        screens: { type: array, items: { $ref: '#/components/schemas/Screen' } }
+        config_rev: { type: integer, description: increments on every applied config }
+        install_id: { type: string, description: random, regenerated on factory reset }
+        seed_pending: { type: boolean, description: "x-firmware: no saved screens yet; the next Home Assistant connection builds them from HA (#23). false once seeded or a config was pushed. Clients that read the config after linking wait for false" }
+        tokens: { type: array, items: { $ref: '#/components/schemas/Token' } }
+    OtaState:
+      type: object
+      properties:
+        installed: { type: string, example: "0.3.0" }
+        channel: { type: string, enum: [stable, beta] }
+        auto: { type: string, enum: [off, notify, night], description: "off when the build has no release repository (repo empty)" }
+        status: { type: string, enum: [idle, checking, uptodate, available, downloading, installing, updated, blocked, error, verifying], description: "downloading/installing: x-firmware" }
+        available: { type: object, nullable: true, properties: { version: { type: string }, size_mb: { type: number }, notes: { type: array, items: { type: string } } } }
+        last_check: { type: string, format: date-time, nullable: true }
+        message: { type: string, description: "With update checks off (repo empty): \"Update checks are off in this build. Install new firmware by upload (POST /api/v1/ota/upload).\"" }
+        progress: { type: integer, description: "x-firmware: download progress 0–100" }
+        repo: { type: string, description: "x-firmware: GitHub owner/repo checked; empty = not configured in this build (alpha builds): update checks off, auto off, status idle, POST /ota → 409, POST /ota/check → 202 without a check; POST /ota/upload still works" }
+    Logs:
+      type: object
+      properties:
+        boot: { type: string, enum: [current, previous] }
+        seq: { type: integer, description: "the last line looked at: pass it as since in the next poll" }
+        first: { type: integer, description: "oldest line still held (seq + 1 when empty)" }
+        dropped: { type: boolean, description: "lines after since were already overwritten" }
+        more: { type: boolean, description: "cut by limit: poll again with since = seq" }
+        lines:
+          type: array
+          items:
+            type: object
+            properties:
+              seq: { type: integer, description: "1 = first line of that boot" }
+              ms: { type: integer, description: uptime in ms }
+              epoch: { type: integer, nullable: true, description: "Unix time; null before the clock is set" }
+              level: { type: string, enum: [E, W, I] }
+              tag: { type: string, example: HEAP }
+              msg: { type: string, example: "free 182344 min 141020 largest 110592 psram 7864320 min_dma 139812 min_8bit_int 141020 · net stack 2100" }
+    Diagnostics:
+      type: object
+      description: |
+        x-firmware: what the display remembers about its last boots and crashes (ROBUSTNESS_PLAN Phase 1).
+        The boot ring lives in RTC memory (survives resets and panics) and in /diag.json on the userdata partition (survives power loss, re-flash and factory reset).
+      properties:
+        firmware: { type: string, example: "0.3.0" }
+        uptime_s: { type: integer, example: 5400 }
+        reset_reason: { type: string, example: PANIC, description: "why this boot started (= boots[0].reason)" }
+        boots:
+          type: array
+          maxItems: 8
+          description: "newest first; boots[0] is the running boot ([] after DELETE until the next boot)"
+          items:
+            type: object
+            properties:
+              reason: { type: string, enum: [UNKNOWN, POWERON, EXT, SW, PANIC, INT_WDT, TASK_WDT, WDT, DEEPSLEEP, BROWNOUT, SDIO, USB, JTAG, EFUSE, PWR_GLITCH, CPU_LOCKUP], description: "esp_reset_reason() at the start of this boot" }
+              crash: { type: boolean, description: "reason is PANIC, INT_WDT, TASK_WDT, WDT, BROWNOUT or CPU_LOCKUP" }
+              version: { type: string, example: "0.3.0", description: firmware that ran this boot }
+              uptime_s: { type: integer, description: "how long this boot ran (last update, every 10 s)" }
+              min_free_heap: { type: integer, description: "lowest free internal heap seen in this boot (bytes)" }
+              panic: { type: string, nullable: true, example: "assert failed: xQueueSemaphoreTake queue.c:1709", description: "panic message that caused this reset (captured in panic_abort, or the core dump's panic reason)" }
+              last_seen: { type: integer, nullable: true, description: "Unix time of the last update; null while the clock was unknown" }
+        last_crash:
+          type: object
+          nullable: true
+          description: newest boot that started with a crash reason; version/uptime_s are those of the boot that crashed (the one before it)
+          properties:
+            reason: { type: string, example: PANIC }
+            panic: { type: string, nullable: true }
+            version: { type: string, example: "0.3.0" }
+            uptime_s: { type: integer, nullable: true, description: "how long the crashed boot ran; null when that boot is no longer in the ring" }
+            last_seen: { type: integer, nullable: true }
+        heap:
+          type: object
+          properties:
+            free_internal: { type: integer }
+            min_free_internal: { type: integer, description: since this boot }
+            largest_free_internal: { type: integer, description: "largest allocatable internal block (TLS gate, core/net_policy.h: >= 20 KB with >= 64 KB free, or 4 KB / 40 KB with two TLS pool slots free)" }
+            free_psram: { type: integer }
+            low_point:
+              type: object
+              nullable: true
+              description: "x-firmware (#198): snapshot at the last internal-heap low point (the minimum since boot dropped >= 512 B below the previous one; checked after TLS handshakes, HA report pushes, API requests and every 10 s). null until the first checkpoint. Each one is also a `[W][HEAP] low point …` line in GET /logs"
+              properties:
+                min_free_internal: { type: integer }
+                min_dma: { type: integer, description: "heap_caps_get_minimum_free_size(MALLOC_CAP_DMA)" }
+                min_8bit_int: { type: integer, description: "heap_caps_get_minimum_free_size(MALLOC_CAP_8BIT | MALLOC_CAP_INTERNAL)" }
+                uptime_s: { type: integer }
+                where: { type: string, example: tls handshake, description: "checkpoint that saw the drop: tls handshake | ha report | web | health" }
+                ws: { type: boolean, description: Home Assistant WebSocket up }
+                tls_slots: { type: integer, description: "TLS reserve slots in use (of 3)" }
+                ha_report: { type: boolean, description: "POST /api/states push to HA running" }
+                ota: { type: boolean }
+                web_open: { type: integer, description: API requests whose connection is still open }
+                last_path: { type: string, example: /api/v1/ha/entities, description: "path of the last API request (no query string)" }
+                rssi: { type: integer, nullable: true, description: "dBm; null off Wi-Fi (QEMU: Ethernet)" }
+        panel:
+          type: object
+          description: XteinkDetect display-controller probe (freeink-sdk) + the OEM NVS value, read only
+          properties:
+            controller: { type: string, example: UC8179, description: "driver in use (SSD1677, UC8179, UC8279, none)" }
+            source: { type: string, enum: [probe, default, none], description: "probe = live VER/FLG read on the display bus decided; default = no probe in this build; none = no panel (QEMU)" }
+            verdict: { type: string, nullable: true, enum: [primary, ultrachip, inconclusive] }
+            promoted: { type: boolean, description: the probe switched SSD1677 to an UltraChip driver }
+            ver: { type: string, nullable: true, example: "00 00 01 FF FF" }
+            flg: { type: integer, nullable: true }
+            nvs_screen_type: { type: integer, nullable: true, description: "OEM hw_calib/screenType (diagnostic only, never decides); null = not set" }
+            failed: { type: boolean, description: "#181: the panel was given up this boot (a BUSY wait ran past 20 s); no panel I/O until the next restart. Same as /status panel" }
+            failure: { type: string, nullable: true, example: "BUSY stuck 20 s (init)", description: "why the panel was given up (the SDK wait tag in parentheses); null while failed is false" }
+        coredump:
+          type: object
+          nullable: true
+          description: summary of the ELF core dump in the coredump partition (0xFF0000); null when none is stored
+          properties:
+            task: { type: string, example: loopTask }
+            pc: { type: string, example: "0x42012abc" }
+            backtrace: { type: array, items: { type: string }, example: ["0x42012abc", "0x42009f10"] }
+            backtrace_corrupted: { type: boolean }
+            exc_cause: { type: integer, description: Xtensa EXCCAUSE }
+            exc_vaddr: { type: string, example: "0x00000000" }
+            panic: { type: string, nullable: true, description: panic reason stored in the dump }
+            elf_sha256: { type: string, description: "first characters of the crashing app's ELF SHA-256 (match it with firmware.elf)" }
+            size: { type: integer, description: bytes; download with GET /diagnostics/coredump }
+        touch_recoveries: { type: integer, nullable: true, description: "GT911 rail power-cycles since boot; null without touch hardware" }
+        deep_sleep:
+          type: object
+          description: "First-boot safety (#10): no deep sleep until this firmware version has had 3 boots on this device that confirmed with the network up (60 s, Wi-Fi connected). Console: \"Glance armed after N more boots\"."
+          properties:
+            armed: { type: boolean }
+            boots_left: { type: integer, example: 0 }
+    SeedReport:
+      type: object
+      description: |
+        x-firmware: what the first-link seed (#23) decided per tile (#89), saved as /seed.json on userdata next to the
+        seeded screens.yaml. Reference: seedPlan in emulator/src/core/seed.ts; spec/test-vectors/seed.json `report`.
+        Travel tiles are opt-in and not reported. A grid-only house reports no grid_power tile (its meter is home_power, rule grid).
+      required: [filled, total, tiles, dismissed]
+      properties:
+        filled: { type: integer, example: 11 }
+        total: { type: integer, example: 17 }
+        dismissed: { type: boolean, description: "DELETE /seed sets it; the console shows the report until then" }
+        tiles:
+          type: array
+          items:
+            type: object
+            required: [tile, screen]
+            properties:
+              tile: { type: string, enum: [price, inside, outside, solar_power, home_power, grid_power, battery_soc, battery_power, solar_today, solar_chart, energy_today, grid_import_today, grid_export_today, usage_chart, lights, heating, rooms] }
+              screen: { type: string, description: "screen id the tile belongs on (the console's \"pick one\" opens it; it may not exist when nothing filled it)" }
+              entity: { type: string, description: "filled single-entity tiles: the HA entity" }
+              rule: { type: string, enum: [id, energy, device, name, area, grid, found], description: "filled: HA has the logical id | the Energy dashboard names it | same device as an Energy dashboard meter | by name | by area | the grid meter stands in for home use | HA has entities of the domain" }
+              why: { type: string, enum: [no_energy, no_meter, no_sensor, none, few_rooms, overview_full], description: "dropped: no Energy dashboard | the Energy dashboard lacks that meter / price | no sensor matched | no lights / climate entities | fewer than 2 rooms with a thermometer | the Home screen had no cell left" }
+  responses:
+    Unauthorized: { description: "Missing, invalid or revoked token, or a console session cookie the display no longer knows ('session expired, sign in again')", content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } } }
+    Forbidden: { description: "Token is read-only, or a view-only (non-admin) console session", content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } } }
+paths:
+  /status:
+    get:
+      summary: Device, battery, Wi-Fi, Home Assistant link (read)
+      responses:
+        "200": { description: OK, content: { application/json: { schema: { $ref: '#/components/schemas/Status' } } } }
+        "401": { $ref: '#/components/responses/Unauthorized' }
+  /config:
+    get:
+      summary: All screens as YAML (JSON with Accept application/json) (read)
+      description: "Your own apps and screens only: the Settings app and its pages are built into the display (#159, spec/SCHEMA.md)."
+      responses:
+        "200": { description: OK, content: { application/yaml: { schema: { type: string } }, application/json: { schema: { type: object } } } }
+        "401": { $ref: '#/components/responses/Unauthorized' }
+    put:
+      summary: Replace all screens; validated first, applied with one full redraw (write)
+      description: "A settings app, `app: settings` screens and system tiles (setting, ota, wifi, ha, about) from older files are accepted and dropped; the display keeps its built-in Settings app (#159)."
+      requestBody:
+        required: true
+        content: { application/yaml: { schema: { type: string } }, application/json: { schema: { type: object } } }
+      responses:
+        "200": { description: Applied, content: { application/json: { schema: { type: object, properties: { status: { type: string, example: applied }, screens: { type: integer } } } } } }
+        "401": { $ref: '#/components/responses/Unauthorized' }
+        "403": { $ref: '#/components/responses/Forbidden' }
+        "415": { description: "x-firmware: form-encoded body (send Content-Type application/yaml or application/json)" }
+        "422": { description: Invalid config, content: { application/json: { schema: { $ref: '#/components/schemas/ConfigError' }, example: { error: "line 14: Unknown entity “sensor.sola_power”", line: 14, message: "Unknown entity “sensor.sola_power”" } } } }
+        "429": { description: "x-firmware: too many failed auth attempts from this IP" }
+  /config/validate:
+    post:
+      summary: Check a config without applying it (read)
+      requestBody: { required: true, content: { application/yaml: { schema: { type: string } } } }
+      responses:
+        "200": { description: Valid, content: { application/json: { schema: { type: object, properties: { status: { type: string, example: valid }, screens: { type: integer }, widgets: { type: integer } } } } } }
+        "422": { description: Invalid, content: { application/json: { schema: { $ref: '#/components/schemas/ConfigError' } } } }
+  /screens/{id}/preview.png:
+    get:
+      summary: What the panel shows for a screen, 800 × 480 PNG (read)
+      description: |
+        The screen's first page as the panel would show it now (#168). The device answers the screen the panel shows
+        with the panel's own frame (header X-X4-Preview: current-panel); any other screen is drawn off-screen
+        (X-X4-Preview: rendered), without touching or refreshing the panel. One off-screen draw at a time: 503 with
+        Retry-After while another is in progress or the display loop is busy for 8 s.
+        x-sim DEVIATION: the simulator draws the layout (top bar rule and tile frames), not the content.
+        The web console's Values view (#189) asks for it every 15 s and shows each tile cut from it at the tile's
+        grid rectangle (Classic or Sleek grid per display style); after a 503 it waits Retry-After seconds.
+      parameters: [{ name: id, in: path, required: true, schema: { type: string } }]
+      responses:
+        "200": { description: PNG, content: { image/png: {} } }
+        "404": { description: Unknown screen }
+        "503":
+          description: Display busy; ask again after Retry-After seconds
+          headers: { Retry-After: { schema: { type: integer } } }
+  /screens/{id}/values:
+    get:
+      summary: Each tile's main value as the display formats it (read)
+      description: |
+        One string per widget of the screen, in config order: the big value the tile draws (number format, display_precision
+        and unit as on the panel; "—" when there is none; "Unavailable" / "Unknown" in the display language when Home
+        Assistant has no value for the tile's entity). A zoneList / lightList gives a count of what it shows ("3 of 9 heating",
+        "4 of 9 lights on", #161; "—" when it shows nothing). "" for tiles without a single value (charts, settings).
+        The web console's Values view polls this every 5 s with its session cookie and shows the value in place of the
+        tile name. The firmware formats on its main loop, about once a second while asked: the first call (or the first
+        after 30 s without one) answers ready: false with no values; ask again after a second.
+      parameters: [{ name: id, in: path, required: true, schema: { type: string } }]
+      responses:
+        "200":
+          description: Tile values
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  ready: { type: boolean }
+                  values: { type: array, items: { type: string }, example: ["14:05", "€ 0.23", "11.4 °C", "", "57%"] }
+        "401": { $ref: '#/components/responses/Unauthorized' }
+        "404": { description: Unknown screen }
+  /display/refresh:
+    post:
+      summary: "Force one full refresh (write): the multi-flash waveform (SSD1677 0x22=F7), the deepest clean; the display itself only uses the one-flash clean (#197)"
+      responses: { "204": { description: Done }, "403": { $ref: '#/components/responses/Forbidden' } }
+  /ota:
+    get:
+      x-console: true
+      summary: Update status, channel, available release (read)
+      responses:
+        "200": { description: OK, content: { application/json: { schema: { $ref: '#/components/schemas/OtaState' } } } }
+    post:
+      summary: Install the latest release on the configured channel now (write)
+      responses:
+        "202": { description: Update started }
+        "409": { description: "Update checks off in this build (no release repository; use POST /ota/upload), battery too low, no network, or already up to date" }
+
+  # ---------------------------------------------------------------------------------------------
+  # Web console endpoints (added for the on-device SPA; see the description at the top)
+  # ---------------------------------------------------------------------------------------------
+  /console/state:
+    get:
+      x-console: true
+      summary: Everything the web console shows (setup-open; full data with a session)
+      security: [{}, { session: [] }]
+      responses:
+        "200": { description: OK, content: { application/json: { schema: { $ref: '#/components/schemas/ConsoleState' } } } }
+  /auth/ha/start:
+    post:
+      x-console: true
+      summary: Start "Sign in with Home Assistant" (setup-open)
+      description: |
+        Device creates a random `state`, remembers `return_to`, and returns HA's authorize URL
+        (client_id http://<Host header>/, e.g. http://ha-paper-a1b2.local/; redirect_uri http://<Host>/auth/callback). The browser navigates there.
+        On /auth/callback the device exchanges the code: if not linked yet it stores the refresh token (display linked);
+        either way it creates the browser session (Set-Cookie x4_session, view-only unless the user is an HA admin) and 302s to return_to.
+        Not linked yet (#54): the device first checks the address (ha_url, else the remembered or discovered one) with
+        GET <address>/auth/providers, no redirects followed, and remembers it only when it answers as Home Assistant.
+        No scheme typed: http://, port 8123 when none is given; if only https answers (or http redirects there), https is used.
+        https typed but HA only answers on http: 422 (no silent downgrade). Rules and messages: spec/test-vectors/ha-address.json.
+        #75: loopback and link-local addresses are refused (LAN addresses are fine); only a redirect to the https upgrade of
+        the same host and port is followed; a typed port other than 8123 is not carried to the other scheme (its default port is
+        tried). One probe at a time, then a 1 s cooldown: 429. The probed response body is never echoed.
+      security: [{}, { session: [] }]
+      requestBody: { content: { application/json: { schema: { type: object, properties: { return_to: { type: string, example: / }, ha_url: { type: string, example: "homeassistant.local:8123", description: "HA address typed on the link page: https://…, host:port or host (ignored once linked)" } } } } } }
+      responses:
+        "200": { description: Redirect target, content: { application/json: { schema: { type: object, properties: { authorize_url: { type: string, example: "http://homeassistant.local:8123/auth/authorize?client_id=http%3A%2F%2Fha-paper-a1b2.local%2F&redirect_uri=http%3A%2F%2Fha-paper-a1b2.local%2Fauth%2Fcallback&state=9c1e…" } } } } } }
+        "409": { description: "x-firmware: reached through the SoftAP — join Wi-Fi first (HA is not reachable from 192.168.4.1)" }
+        "422": { description: "Not an address (also loopback / link-local), not Home Assistant, redirects to another host or port, or https typed where HA only answers on http (body also has need: ha_url)", content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } } }
+        "429": { description: "Another address check is running or just ended (1 s cooldown); Retry-After: 1", headers: { Retry-After: { schema: { type: integer, example: 1 } } }, content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } } }
+        "502": { description: "The device can't reach the address (body also has need: ha_url)", content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } } }
+        "503": { description: "No address: nothing typed, remembered or found by mDNS (body also has need: ha_url)", content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } } }
+  /session/logout:
+    post:
+      x-console: true
+      summary: End the browser session (clears x4_session)
+      security: [{ session: [] }]
+      responses: { "204": { description: Signed out } }
+  /wifi:
+    get:
+      x-console: true
+      summary: Wi-Fi state (setup-open). Poll after POST /wifi.
+      security: [{}, { session: [] }]
+      responses:
+        "200": { description: OK, content: { application/json: { schema: { $ref: '#/components/schemas/WifiState' } } } }
+    post:
+      x-console: true
+      summary: Join a network (setup-open; session otherwise). Saves credentials to encrypted NVS on success.
+      description: |
+        Returns immediately; the device tries to join (≈ 2 s). Poll GET /wifi until state is connected or failed.
+        The page may drop briefly while the device switches network (SoftAP → home Wi-Fi).
+      security: [{}, { session: [] }]
+      requestBody:
+        required: true
+        content: { application/json: { schema: { type: object, required: [ssid], properties: { ssid: { type: string }, password: { type: string, description: "8–63 chars for secured networks; omitted for open or saved networks" } } } } }
+      responses:
+        "202": { description: Connecting, content: { application/json: { schema: { $ref: '#/components/schemas/WifiState' } } } }
+        "400": { description: "Password too short (secured network, < 8 chars)", content: { application/json: { schema: { $ref: '#/components/schemas/Error' }, example: { error: "Wi-Fi passwords have at least 8 characters." } } } }
+        "401": { $ref: '#/components/responses/Unauthorized' }
+  /wifi/scan:
+    post:
+      x-console: true
+      summary: Scan 2.4 GHz networks (≈ 1.5 s; setup-open)
+      security: [{}, { session: [] }]
+      responses:
+        "200": { description: Networks, strongest first, content: { application/json: { schema: { type: array, items: { $ref: '#/components/schemas/Network' } } } } }
+  /ha:
+    delete:
+      x-console: true
+      summary: Unlink Home Assistant (POST /auth/revoke to HA, delete the key; ends all console sessions)
+      security: [{ session: [] }]
+      responses: { "204": { description: Unlinked }, "401": { $ref: '#/components/responses/Unauthorized' } }
+  /ha/entities:
+    get:
+      summary: "Home Assistant entities a stat / gauge / switch tile can show, plus climate entities for a zoneList (console entity and list pickers, #127). At most 800: each domain first gets a budget of pickable entities (climate 50, weather 10, light 100, switch 100, input_boolean 30, input_number 30, fan 20, binary_sensor 60, number 30, sensor 370, by id), then the rest of the room goes to pickable entities past their budget, then to unavailable / unknown ones and sensors without a unit or measuring signal strength (#150; emulator src/core/entityList.ts). Read once from HA and kept 5 min (device-sim: 60 s); the first call starts the read and answers ready: false"
+      responses:
+        "200":
+          description: Entity list
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  ready: { type: boolean }
+                  areas:
+                    type: array
+                    description: "HA's areas in registry order (config/area_registry/list), for the lightList picker (#127); absent from older firmware"
+                    items:
+                      type: object
+                      properties:
+                        id: { type: string, example: living_room }
+                        name: { type: string, example: Living room }
+                  lists:
+                    type: object
+                    description: "Climate and light entities in HA (total) and how many a zoneList / lightList with nothing picked shows (shown): the display subscribes to at most 80, climate first (#134). entities: entities HA has in the list's domains (total) and how many rows `entities` holds (shown, at most 800); shown < total = the list was cut (#150, absent from older firmware). Only with ready: true; absent from older firmware"
+                    properties:
+                      climate: { $ref: '#/components/schemas/ListCount' }
+                      lights: { $ref: '#/components/schemas/ListCount' }
+                      entities: { $ref: '#/components/schemas/ListCount' }
+                  entities:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        id: { type: string, example: sensor.outdoor_temperature }
+                        name: { type: string, example: Outdoor temperature }
+                        unit: { type: string, example: °C, description: "unit_of_measurement, empty when none; °C for a climate (weather: its temperature_unit) with a temperature (#161)" }
+                        state: { type: string, example: "11.4", description: "HA's state when the list was read (#84); a climate's current_temperature / a weather's temperature when it has one (#161); absent from older firmware" }
+                        area: { type: string, example: living_room, description: "HA area id (the entity's, else its device's, #127); absent when none"
+        "401": { $ref: '#/components/responses/Unauthorized' }
+        "409": { description: "Home Assistant is not linked (device-sim; the firmware answers 200 with ready: false)" }
+  /setup/finish:
+    post:
+      x-console: true
+      summary: Leave the setup wizard and redraw Home once
+      security: [{ session: [] }]
+      responses: { "204": { description: Done } }
+  /tokens:
+    get:
+      x-console: true
+      summary: List API tokens (session only; secrets are never returned)
+      security: [{ session: [] }]
+      responses:
+        "200": { description: OK, content: { application/json: { schema: { type: array, items: { $ref: '#/components/schemas/Token' } } } } }
+    post:
+      x-console: true
+      summary: Create an API token. The secret is returned ONCE; only its SHA-256 is stored.
+      security: [{ session: [] }]
+      requestBody:
+        required: true
+        content: { application/json: { schema: { type: object, required: [name, scope], properties: { name: { type: string, example: Laptop }, scope: { type: string, enum: [read, write] } } } } }
+      responses:
+        "201":
+          description: Created
+          content: { application/json: { schema: { allOf: [{ $ref: '#/components/schemas/Token' }, { type: object, properties: { token: { type: string, example: x4_k3m9q2… } } }] } } }
+  /tokens/{id}:
+    delete:
+      x-console: true
+      summary: Revoke a token (next use → 401 "invalid or revoked token")
+      security: [{ session: [] }]
+      parameters: [{ name: id, in: path, required: true, schema: { type: string } }]
+      responses: { "204": { description: Revoked }, "404": { description: Unknown token } }
+  /ota/check:
+    post:
+      x-console: true
+      summary: Check GitHub Releases now on the configured channel (write)
+      responses:
+        "202": { description: "Checking; read the result with GET /ota. With update checks off (repo empty) nothing is checked and GET /ota stays idle with the checks-off message" }
+        "409": { description: Offline, content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } } }
+
+  # ---------------------------------------------------------------------------------------------
+  # Firmware extensions (implemented in firmware/src/net/web_server.cpp; not used by the console yet)
+  # ---------------------------------------------------------------------------------------------
+  /settings:
+    get:
+      x-firmware: true
+      summary: Display settings (SPEC §8), OTA channel, time zone, device name (read)
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  display: { type: object, properties: { brightness: { type: integer }, warmth: { type: integer }, night: { type: string, example: "23-07" }, returnHome: { type: string, example: "5" }, standby: { type: string, example: never }, clock: { type: string, example: "24" }, intervalSec: { type: integer, example: 30 }, fullEvery: { type: integer, example: 8, description: "legacy (#26): stored and served, no effect" }, cleanEvery: { type: integer, enum: [30, 60, 120], example: 30, description: "minutes between scheduled clean (full) refreshes, at :00/:30; skipped at night (#26)" },
+                    otaAuto: { type: string, enum: [off, notify, night], description: "automatic updates (Settings › Updates); the web console edits it with ota_channel (#159)" },
+                    style: { type: string, enum: [classic, sleek], default: classic, description: "Display style (see docs/DISPLAY_STYLES_PLAN.md). A change is one full refresh. 422: style must be classic or sleek" },
+                    typeface: { type: string, enum: [archivo, bricolage, fraunces, geist], default: archivo, description: "Sleek typeface (ignored in classic). 422: typeface must be archivo, bricolage, fraunces or geist" },
+                    surface: { type: string, enum: [dither, dots], default: dither, description: "How the Sleek card gray is drawn on the panel (25 % level-2 dither, or 1-in-16 black dots that survive B/W partial refresh). Device only. 422: surface must be dither or dots" },
+                    haReport: { type: boolean, default: true, description: "Push device health to Home Assistant as entities (#32): POST /api/states/sensor.ha_paper_XXXX_battery, binary_sensor.…_charging, sensor.…_wifi_signal, …_last_full_refresh, …_last_boot, …_firmware, …_reset_reason (spec/test-vectors/ha-report.json). On connect, on a battery/charging change and every 10 min, never twice in 60 s. HA accepts it from admin users only. 422: haReport must be true or false" },
+                    powerSave: { type: string, enum: ["off", night, standby, glance], default: glance, description: "On battery (#10, #18): glance = deep sleep between timer wakes, redraw only when a visible value changed, a key press = live for liveMin minutes; night = deep sleep in the night window; standby = deep sleep while the standby face is on, plus night; off = always live. On USB always live. 422: display.powerSave must be off, night, standby or glance" },
+                    wakeEvery: { type: integer, enum: [15, 30, 60], default: 15, description: "minutes between glance / standby timer wakes; doubles per wake that could not reach HA (cap 2 h). 422: display.wakeEvery must be 15, 30 or 60" },
+                    liveMin: { type: integer, enum: [1, 3, 5, 10], default: 3, description: "glance: minutes of live mode (WebSocket + touch) after a key press. 422: display.liveMin must be 1, 3, 5 or 10" },
+                    debugInput: { type: boolean, default: false, description: "Allow POST /debug/input (#214, measuring on hardware). API only, no tile. 422: display.debugInput must be true or false" } } }
+                  ota_channel: { type: string, enum: [stable, beta] }
+                  tz: { type: string, maxLength: 64, default: "", example: "Europe/London", description: "Clock time zone override (#147). \"\" = follow Home Assistant (get_config `time_zone`); a zone name from spec/test-vectors/locale.json `zones` (Europe/*, US, UK, AU, …); or a POSIX TZ string, newlib grammar. Other IANA names are rejected: the device has no zone database. The web console edits it under Settings › Home Assistant. 422: tz must be \"\", a known zone like Europe/Amsterdam or a POSIX TZ string like CET-1CEST,M3.5.0,M10.5.0/3 (spec/test-vectors/settings-put.json)" }
+                  tz_ha: { type: string, readOnly: true, example: "Europe/Amsterdam", description: "Home Assistant's time_zone as last applied (#147); a zone the display does not know is ignored (logged once) and the clock keeps its zone. \"\" = not known yet" }
+                  tz_active: { type: string, readOnly: true, example: "CET-1CEST,M3.5.0,M10.5.0/3", description: "The POSIX TZ the clock uses: tz, else tz_ha, else Europe/Amsterdam (#147)" }
+                  name: { type: string, example: HA Paper }
+                  entities: { type: object, additionalProperties: { type: string }, example: { sensor.living_temperature: sensor.hall_temperature, sensor.battery_power: "-sensor.inverter_battery_power" }, description: "logical id (firmware/src/core/entities.h) → Home Assistant entity; a leading '-' negates. PUT merges; null or \"\" removes. Unknown logical id / malformed entity id → 422. Edited in the web console's Data sources page" }
+                  entity_sources: { type: object, additionalProperties: { type: string }, readOnly: true, example: { sensor.solar_power: "sensor.solaredge_current_power (energy)" }, description: "resolved mapping (override | energy | device | identity), firmware/src/core/entity_map.h" }
+    put:
+      x-firmware: true
+      summary: Partial update of the same object (write). display changes apply on the next loop; a change of display.style, typeface or surface is one full refresh.
+      requestBody: { required: true, content: { application/json: { schema: { type: object } } } }
+      description: "Keys are checked before any value is applied: an unknown top-level or display key is 422 `unknown key: <key>` / `unknown key: display.<key>` and nothing changes (entity_sources is read-only). Input only: stored files keep keys a build does not know (#12)."
+      responses: { "200": { description: New settings }, "422": { description: "Unknown key, invalid value or tz (message names it)" } }
+  /ha/token:
+    post:
+      x-firmware: true
+      summary: Link with a Home Assistant long-lived access token instead of OAuth (setup-open; session otherwise)
+      security: [{}, { session: [] }]
+      requestBody: { required: true, content: { application/json: { schema: { type: object, required: [token], properties: { url: { type: string }, token: { type: string } } } } } }
+      responses:
+        "200": { description: "Linked (Set-Cookie x4_session; view-only unless the token's user is an HA admin)" }
+        "401": { description: Home Assistant rejected the token }
+        "502": { description: Home Assistant not reachable }
+  /ha/url:
+    post:
+      x-firmware: true
+      summary: Set the Home Assistant address manually before linking (setup-open)
+      security: [{}, { session: [] }]
+      requestBody: { required: true, content: { application/json: { schema: { type: object, properties: { url: { type: string } } } } } }
+      responses: { "200": { description: Saved }, "409": { description: Already linked }, "422": { description: Not a URL } }
+  /ha/discover:
+    post:
+      x-firmware: true
+      summary: Browse mDNS _home-assistant._tcp again (results in console/state home_assistant.discovered)
+      security: [{}, { session: [] }]
+      responses: { "202": { description: Searching } }
+  /ota/upload:
+    post:
+      x-firmware: true
+      summary: Install a local firmware.bin (write). Raw body (application/octet-stream) or multipart file.
+      parameters: [{ name: sha256, in: query, required: false, schema: { type: string }, description: "optional; also accepted as X-SHA256 header" }]
+      requestBody: { required: true, content: { application/octet-stream: { schema: { type: string, format: binary } } } }
+      responses:
+        "202": { description: "Written and verified; the device restarts into it (confirmed after 60 s with network and a running UI loop; rolls back on a crash, no network within 10 min, or a hang). Body {status: rebooting, version?, sha256}. Multipart: field firmware (+ optional manifest.json {version, sha256, size})" }
+        "409": { description: Battery below 30 % / upload already running }
+        "422": { description: SHA-256 mismatch or invalid image — nothing changed }
+  /diagnostics:
+    get:
+      x-firmware: true
+      summary: Last boots, last crash (panic message, core dump summary), heap, panel detection (read)
+      responses:
+        "200": { description: OK, content: { application/json: { schema: { $ref: '#/components/schemas/Diagnostics' } } } }
+        "401": { $ref: '#/components/responses/Unauthorized' }
+    delete:
+      x-firmware: true
+      summary: Forget the boot ring (boots is [] until the next boot) and erase the stored core dump (write)
+      responses:
+        "204": { description: Cleared }
+        "401": { $ref: '#/components/responses/Unauthorized' }
+        "403": { $ref: '#/components/responses/Forbidden' }
+  /seed:
+    get:
+      x-firmware: true
+      summary: "What the first-link seed filled and why it dropped the other tiles (#89; the console's \"N of M tiles filled\") (read)"
+      responses:
+        "200": { description: OK, content: { application/json: { schema: { $ref: '#/components/schemas/SeedReport' } } } }
+        "401": { $ref: '#/components/responses/Unauthorized' }
+        "404": { description: "No seed ran on this display (screens were pushed, or saved before #89)" }
+    delete:
+      x-firmware: true
+      summary: Dismiss the report in the console (dismissed true; the report stays readable) (write)
+      responses:
+        "204": { description: Dismissed }
+        "401": { $ref: '#/components/responses/Unauthorized' }
+        "403": { $ref: '#/components/responses/Forbidden' }
+        "404": { description: No seed report }
+  /diagnostics/coredump:
+    get:
+      x-firmware: true
+      summary: The raw core dump image (ELF, from the coredump partition) for `esp-coredump info_corefile -c core.bin firmware.elf` (write — it holds RAM contents)
+      responses:
+        "200": { description: Core dump, content: { application/octet-stream: { schema: { type: string, format: binary } } } }
+        "403": { $ref: '#/components/responses/Forbidden' }
+        "404": { description: No core dump stored }
+  /logs:
+    get:
+      x-firmware: true
+      summary: The device log (read, #200)
+      description: |
+        Every `[I][TAG] message` line the firmware prints on Serial, from a 64 KB ring in PSRAM (~1000 lines; the oldest
+        go first), plus the previous boot's last 2 KB from RTC memory (survives restart, panic, watchdog reset and deep
+        sleep; lost on power off). Secret-looking values (password=…, token: …, Bearer …, JWTs, x4_ tokens, 32+ hex
+        digits) are replaced by *** before a line is printed or stored. Lines are cut at 239 bytes.
+        Poll: GET /logs, then GET /logs?since=<seq> with the previous answer's seq. Behaviour: emulator src/core/logs.ts,
+        vectors spec/test-vectors/logs.json.
+      parameters:
+        - { name: since, in: query, required: false, schema: { type: integer, minimum: 0 }, description: "only lines with a higher seq" }
+        - { name: level, in: query, required: false, schema: { type: string, enum: [E, W, I] }, description: "that level and worse (case-insensitive)" }
+        - { name: tag, in: query, required: false, schema: { type: string, example: "HEAP,EPD" }, description: "comma list, case-insensitive" }
+        - { name: limit, in: query, required: false, schema: { type: integer, minimum: 1, maximum: 1000, default: 300 } }
+        - { name: boot, in: query, required: false, schema: { type: string, enum: [current, previous], default: current } }
+      responses:
+        "200": { description: OK, content: { application/json: { schema: { $ref: '#/components/schemas/Logs' } } } }
+        "401": { $ref: '#/components/responses/Unauthorized' }
+        "422": { description: "bad parameter (since / level / limit / boot)", content: { application/json: { schema: { $ref: "#/components/schemas/Error" } } } }
+  /debug/input:
+    post:
+      x-firmware: true
+      summary: Remote touch / key input, for measuring on hardware (write, #214)
+      description: "One of tap=x,y | key=prev|next|home|power | swipe=-1|1 (-1 = left = next page). Goes into the same input queue as touch and the keys, so the display coalesces it like real input (last input wins, #212). Logged as `[I][INPUT] remote <spec>`. Off unless settings display.debugInput is true. x-sim: keys and swipes page within the app shown, Home goes to the first screen; taps and Power are only logged."
+      parameters:
+        - { name: tap, in: query, schema: { type: string, example: "400,240" } }
+        - { name: key, in: query, schema: { type: string, enum: [prev, next, home, power] } }
+        - { name: swipe, in: query, schema: { type: integer, enum: [-1, 1] } }
+      responses:
+        "204": { description: Queued }
+        "400": { description: "use ?tap=x,y | ?key=prev|next|home|power | ?swipe=-1|1" }
+        "403": { description: "remote input is off (settings display.debugInput), or a read token" }
+        "503": { description: "input queue full (firmware)" }
+  /debug/framebuffer.png:
+    get:
+      x-firmware: true
+      summary: The frame on the glass, 800 × 480 PNG (read, #214)
+      description: "The framebuffer last pushed to the panel (2-bit gray), whatever it shows: a screen, a menu, a setup or standby face. x-sim: the layout of the screen shown, like preview.png."
+      responses:
+        "200": { description: PNG, content: { image/png: {} } }
+        "503": { description: no frame yet }
+  /device/restart:
+    post:
+      x-firmware: true
+      summary: Restart the display (write)
+      responses: { "202": { description: Restarting } }
+  /device/sleep:
+    post:
+      x-firmware: true
+      summary: Deep sleep now, for power measurements (write, #178)
+      description: "Skips liveMin and the 2-min API quiet; wakes by timer after `seconds`, or by the Power / Right key or the charger as usual (a timer wake in powerSave glance is a glance wake). Answers first, sleeps about a second later. Not refused while first-boot safety is still counting or the battery is unknown. QEMU: simulated sleep of at most 8 s, then a reset with the wake cause. spec/test-vectors/sleep-now.json"
+      requestBody:
+        required: true
+        content: { application/json: { schema: { type: object, required: [seconds], properties: { seconds: { type: integer, minimum: 60, maximum: 86400 } } } } }
+      responses:
+        "202": { description: Sleeping, content: { application/json: { schema: { type: object, properties: { status: { type: string, enum: [sleeping] }, seconds: { type: integer } } } } } }
+        "409": { description: "Refused: stays awake: unconfirmed image | ota running | external power | setup mode (firmware also: starting up)", content: { application/json: { schema: { $ref: "#/components/schemas/Error" } } } }
+        "422": { description: "seconds must be an integer from 60 to 86400", content: { application/json: { schema: { $ref: "#/components/schemas/Error" } } } }
+  /device/factory-reset:
+    post:
+      x-firmware: true
+      summary: Erase Wi-Fi, HA key (revoked at HA), tokens, settings and screens.yaml, then restart (session only)
+      security: [{ session: [] }]
+      responses: { "202": { description: Resetting } }

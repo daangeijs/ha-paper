@@ -1,0 +1,53 @@
+{
+  "name": "70-labels-on-panel-tiles",
+  "description": "price, bars, the home battery gauge and thermo keep a label (#148): the panel draws it instead of the built-in title.",
+  "input": "# HA Paper display config\nversion: 1\nscreens:\n  - id: a\n    widgets:\n      - {type: price, label: Power}\n      - {type: bars, series: solar, label: Solar today, cs: 2}\n      - {type: gauge, label: Battery}\n      - {type: thermo, zone: living_room, label: Living room, rs: 2}\n",
+  "expect": {
+    "ok": true,
+    "apps": [
+      {
+        "id": "home",
+        "title": "Home"
+      },
+      {
+        "id": "house",
+        "title": "House"
+      },
+      {
+        "id": "travel",
+        "title": "Travel"
+      }
+    ],
+    "screens": [
+      {
+        "id": "a",
+        "app": "home",
+        "title": "a",
+        "cells": 6,
+        "widgets": [
+          {
+            "type": "price",
+            "label": "Power"
+          },
+          {
+            "type": "bars",
+            "series": "solar",
+            "label": "Solar today",
+            "cs": 2
+          },
+          {
+            "type": "gauge",
+            "label": "Battery"
+          },
+          {
+            "type": "thermo",
+            "zone": "living_room",
+            "label": "Living room",
+            "rs": 2
+          }
+        ]
+      }
+    ],
+    "yaml": "# HA Paper display config\nversion: 1\nscreens:\n  - id: a\n    app: home\n    title: a\n    widgets:\n      - {type: price, label: Power}\n      - {type: bars, series: solar, label: Solar today, cs: 2}\n      - {type: gauge, label: Battery}\n      - {type: thermo, zone: living_room, label: Living room, rs: 2}\n"
+  }
+}

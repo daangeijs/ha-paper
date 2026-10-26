@@ -1,0 +1,137 @@
+{
+  "name": "07-night-end",
+  "description": "Night (power saving At night or Standby + night): sleep until the night window ends, never longer than 8 h.",
+  "base": {
+    "nowEpoch": 1800000000,
+    "localSec": 43200,
+    "powerSave": "standby",
+    "wakeEvery": 15,
+    "night": "23-07",
+    "peeking": false,
+    "standby": true,
+    "charging": false,
+    "usb": false,
+    "chargedAgoMin": null,
+    "voltage": 3.9,
+    "battery": 60,
+    "otaPendingVerify": false,
+    "otaBusy": false,
+    "otaAuto": "notify",
+    "otaDue": false,
+    "setup": false,
+    "msSinceApi": null
+  },
+  "cases": [
+    {
+      "name": "23:30, 23-07: wake at 07:00",
+      "input": {
+        "powerSave": "night",
+        "standby": false,
+        "localSec": 84600
+      },
+      "expect": {
+        "deepSleepNow": true,
+        "wakeAtEpoch": 1800027000,
+        "buttonWakeOnly": false,
+        "reason": "night"
+      }
+    },
+    {
+      "name": "22:00, 22-06: exactly 8 h",
+      "input": {
+        "powerSave": "night",
+        "standby": false,
+        "night": "22-06",
+        "localSec": 79200
+      },
+      "expect": {
+        "deepSleepNow": true,
+        "wakeAtEpoch": 1800028800,
+        "buttonWakeOnly": false,
+        "reason": "night"
+      }
+    },
+    {
+      "name": "22:00, 22-07: capped at 8 h",
+      "input": {
+        "powerSave": "night",
+        "standby": false,
+        "night": "22-07",
+        "localSec": 79200
+      },
+      "expect": {
+        "deepSleepNow": true,
+        "wakeAtEpoch": 1800028800,
+        "buttonWakeOnly": false,
+        "reason": "night"
+      }
+    },
+    {
+      "name": "05:59:30, 00-06: 30 s",
+      "input": {
+        "powerSave": "night",
+        "standby": false,
+        "night": "00-06",
+        "localSec": 21570
+      },
+      "expect": {
+        "deepSleepNow": true,
+        "wakeAtEpoch": 1800000030,
+        "buttonWakeOnly": false,
+        "reason": "night"
+      }
+    },
+    {
+      "name": "peeking at the dashboard at night",
+      "input": {
+        "powerSave": "night",
+        "standby": false,
+        "peeking": true,
+        "localSec": 3600
+      },
+      "expect": {
+        "deepSleepNow": false,
+        "wakeAtEpoch": null,
+        "reason": "awake"
+      }
+    },
+    {
+      "name": "At night only: standby by day stays awake",
+      "input": {
+        "powerSave": "night"
+      },
+      "expect": {
+        "deepSleepNow": false,
+        "wakeAtEpoch": null,
+        "reason": "awake"
+      }
+    },
+    {
+      "name": "power saving off at night",
+      "input": {
+        "powerSave": "off",
+        "localSec": 3600
+      },
+      "expect": {
+        "deepSleepNow": false,
+        "wakeAtEpoch": null,
+        "reason": "power save off",
+        "cpuProfile": "auto",
+        "wifiPs": "min"
+      }
+    },
+    {
+      "name": "night window off",
+      "input": {
+        "powerSave": "night",
+        "night": "off",
+        "localSec": 3600
+      },
+      "expect": {
+        "deepSleepNow": false,
+        "wakeAtEpoch": null,
+        "reason": "awake"
+      }
+    }
+  ]
+}

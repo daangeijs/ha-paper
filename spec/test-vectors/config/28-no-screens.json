@@ -1,0 +1,10 @@
+{
+  "name": "28-no-screens",
+  "description": "Rule: at least one screen (reported on line 1).",
+  "input": "# empty\nversion: 1\n",
+  "expect": {
+    "ok": false,
+    "line": 1,
+    "message": "No screens found"
+  }
+}

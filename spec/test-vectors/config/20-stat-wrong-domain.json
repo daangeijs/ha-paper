@@ -1,0 +1,10 @@
+{
+  "name": "20-stat-wrong-domain",
+  "description": "Rule: stat entity must be an HA entity_id in sensor / binary_sensor / input_number / number / climate / weather.",
+  "input": "# HA Paper display config\nversion: 1\nscreens:\n  - id: a\n    widgets:\n      - {type: clock}\n      - {type: stat, entity: switch.coffee}\n",
+  "expect": {
+    "ok": false,
+    "line": 7,
+    "message": "stat: “switch.coffee” is not a sensor / binary_sensor / input_number / number / climate / weather entity"
+  }
+}

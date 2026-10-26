@@ -1,0 +1,36 @@
+{
+  "name": "01-minimal",
+  "description": "Smallest valid file: one screen, one widget.",
+  "input": "# HA Paper display config\nversion: 1\nscreens:\n  - id: a\n    app: home\n    title: A\n    widgets:\n      - {type: clock}\n",
+  "expect": {
+    "ok": true,
+    "apps": [
+      {
+        "id": "home",
+        "title": "Home"
+      },
+      {
+        "id": "house",
+        "title": "House"
+      },
+      {
+        "id": "travel",
+        "title": "Travel"
+      }
+    ],
+    "screens": [
+      {
+        "id": "a",
+        "app": "home",
+        "title": "A",
+        "cells": 1,
+        "widgets": [
+          {
+            "type": "clock"
+          }
+        ]
+      }
+    ],
+    "yaml": "# HA Paper display config\nversion: 1\nscreens:\n  - id: a\n    app: home\n    title: A\n    widgets:\n      - {type: clock}\n"
+  }
+}

@@ -1,0 +1,10 @@
+{
+  "name": "41-gauge-wrong-domain",
+  "description": "Rule: gauge entity must be sensor / input_number / number.",
+  "input": "# HA Paper display config\nversion: 1\nscreens:\n  - id: a\n    widgets:\n      - {type: gauge, entity: binary_sensor.door}\n",
+  "expect": {
+    "ok": false,
+    "line": 6,
+    "message": "gauge: “binary_sensor.door” is not a sensor / input_number / number entity"
+  }
+}

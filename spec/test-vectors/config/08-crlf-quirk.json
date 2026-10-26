@@ -1,0 +1,10 @@
+{
+  "name": "08-crlf-quirk",
+  "description": "Quirk kept for parity: with CRLF endings the app/title lines fail (JS \"(.+)$\" does not match the trailing \\r), so the first app/title line is unreadable. Other lines tolerate the \\r.",
+  "input": "# HA Paper display config\r\nversion: 1\r\nscreens:\r\n  - id: w\r\n    app: settings\r\n    title: Wi-Fi\r\n    widgets:\r\n      - {type: wifi, cs: 4, rs: 2}\r\n",
+  "expect": {
+    "ok": false,
+    "line": 5,
+    "message": "Can’t read this line"
+  }
+}

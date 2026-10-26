@@ -1,0 +1,10 @@
+{
+  "name": "12-screen-before-screens",
+  "description": "Rule: a \"- id:\" before \"screens:\".",
+  "input": "version: 1\n  - id: a\n    widgets:\n      - {type: clock}\n",
+  "expect": {
+    "ok": false,
+    "line": 2,
+    "message": "“screens:” must come first"
+  }
+}

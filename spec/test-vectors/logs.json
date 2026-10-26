@@ -1,0 +1,1167 @@
+{
+  "_doc": "Device log ring (GET /api/v1/logs, #200): emulator src/core/logs.ts = firmware core/log_ring.{h,cpp}. ops push lines in order into a ring of `cap` bytes (16 + tag + message bytes per line, oldest dropped; tag cut to 15 and message to 239 UTF-8 bytes after redaction; seq from 1; epoch 0 → null). queries: since / level (E|W|I and worse) / tags (case-insensitive) / limit → the response. tail: a ring of tail_cap bytes fed the same lines = the newest lines that fit (on the device the RTC copy is 2048 bytes, boot=previous). redact: in → out.",
+  "cases": [
+    {
+      "name": "fits: every line kept",
+      "cap": 4096,
+      "ops": [
+        {
+          "ms": 12,
+          "epoch": 0,
+          "level": "I",
+          "tag": "MAIN",
+          "msg": "HA Paper 0.3.0 · X4 Pro"
+        },
+        {
+          "ms": 40,
+          "epoch": 0,
+          "level": "I",
+          "tag": "EPD",
+          "msg": "controller UC8179 · profile default"
+        },
+        {
+          "ms": 900,
+          "epoch": 0,
+          "level": "W",
+          "tag": "NET",
+          "msg": "Wi-Fi join failed · retry in 5 s"
+        },
+        {
+          "ms": 5200,
+          "epoch": 1760000000,
+          "level": "I",
+          "tag": "HA",
+          "msg": "WebSocket connected"
+        },
+        {
+          "ms": 5300,
+          "epoch": 1760000001,
+          "level": "E",
+          "tag": "HEAP",
+          "msg": "alloc failed · 16384 B caps 0x1800"
+        },
+        {
+          "ms": 6100,
+          "epoch": 1760000002,
+          "level": "I",
+          "tag": "APP",
+          "msg": "EPD partial (HA update · 1 region) · 312 ms"
+        }
+      ],
+      "results": [
+        {
+          "query": {},
+          "response": {
+            "boot": "current",
+            "seq": 6,
+            "first": 1,
+            "dropped": false,
+            "more": false,
+            "lines": [
+              {
+                "seq": 1,
+                "ms": 12,
+                "epoch": null,
+                "level": "I",
+                "tag": "MAIN",
+                "msg": "HA Paper 0.3.0 · X4 Pro"
+              },
+              {
+                "seq": 2,
+                "ms": 40,
+                "epoch": null,
+                "level": "I",
+                "tag": "EPD",
+                "msg": "controller UC8179 · profile default"
+              },
+              {
+                "seq": 3,
+                "ms": 900,
+                "epoch": null,
+                "level": "W",
+                "tag": "NET",
+                "msg": "Wi-Fi join failed · retry in 5 s"
+              },
+              {
+                "seq": 4,
+                "ms": 5200,
+                "epoch": 1760000000,
+                "level": "I",
+                "tag": "HA",
+                "msg": "WebSocket connected"
+              },
+              {
+                "seq": 5,
+                "ms": 5300,
+                "epoch": 1760000001,
+                "level": "E",
+                "tag": "HEAP",
+                "msg": "alloc failed · 16384 B caps 0x1800"
+              },
+              {
+                "seq": 6,
+                "ms": 6100,
+                "epoch": 1760000002,
+                "level": "I",
+                "tag": "APP",
+                "msg": "EPD partial (HA update · 1 region) · 312 ms"
+              }
+            ]
+          }
+        },
+        {
+          "query": {
+            "since": 3
+          },
+          "response": {
+            "boot": "current",
+            "seq": 6,
+            "first": 1,
+            "dropped": false,
+            "more": false,
+            "lines": [
+              {
+                "seq": 4,
+                "ms": 5200,
+                "epoch": 1760000000,
+                "level": "I",
+                "tag": "HA",
+                "msg": "WebSocket connected"
+              },
+              {
+                "seq": 5,
+                "ms": 5300,
+                "epoch": 1760000001,
+                "level": "E",
+                "tag": "HEAP",
+                "msg": "alloc failed · 16384 B caps 0x1800"
+              },
+              {
+                "seq": 6,
+                "ms": 6100,
+                "epoch": 1760000002,
+                "level": "I",
+                "tag": "APP",
+                "msg": "EPD partial (HA update · 1 region) · 312 ms"
+              }
+            ]
+          }
+        },
+        {
+          "query": {
+            "level": "W"
+          },
+          "response": {
+            "boot": "current",
+            "seq": 6,
+            "first": 1,
+            "dropped": false,
+            "more": false,
+            "lines": [
+              {
+                "seq": 3,
+                "ms": 900,
+                "epoch": null,
+                "level": "W",
+                "tag": "NET",
+                "msg": "Wi-Fi join failed · retry in 5 s"
+              },
+              {
+                "seq": 5,
+                "ms": 5300,
+                "epoch": 1760000001,
+                "level": "E",
+                "tag": "HEAP",
+                "msg": "alloc failed · 16384 B caps 0x1800"
+              }
+            ]
+          }
+        },
+        {
+          "query": {
+            "level": "E"
+          },
+          "response": {
+            "boot": "current",
+            "seq": 6,
+            "first": 1,
+            "dropped": false,
+            "more": false,
+            "lines": [
+              {
+                "seq": 5,
+                "ms": 5300,
+                "epoch": 1760000001,
+                "level": "E",
+                "tag": "HEAP",
+                "msg": "alloc failed · 16384 B caps 0x1800"
+              }
+            ]
+          }
+        },
+        {
+          "query": {
+            "tags": [
+              "HA",
+              "EPD"
+            ]
+          },
+          "response": {
+            "boot": "current",
+            "seq": 6,
+            "first": 1,
+            "dropped": false,
+            "more": false,
+            "lines": [
+              {
+                "seq": 2,
+                "ms": 40,
+                "epoch": null,
+                "level": "I",
+                "tag": "EPD",
+                "msg": "controller UC8179 · profile default"
+              },
+              {
+                "seq": 4,
+                "ms": 5200,
+                "epoch": 1760000000,
+                "level": "I",
+                "tag": "HA",
+                "msg": "WebSocket connected"
+              }
+            ]
+          }
+        },
+        {
+          "query": {
+            "limit": 2
+          },
+          "response": {
+            "boot": "current",
+            "seq": 2,
+            "first": 1,
+            "dropped": false,
+            "more": true,
+            "lines": [
+              {
+                "seq": 1,
+                "ms": 12,
+                "epoch": null,
+                "level": "I",
+                "tag": "MAIN",
+                "msg": "HA Paper 0.3.0 · X4 Pro"
+              },
+              {
+                "seq": 2,
+                "ms": 40,
+                "epoch": null,
+                "level": "I",
+                "tag": "EPD",
+                "msg": "controller UC8179 · profile default"
+              }
+            ]
+          }
+        },
+        {
+          "query": {
+            "since": 2,
+            "limit": 2
+          },
+          "response": {
+            "boot": "current",
+            "seq": 4,
+            "first": 1,
+            "dropped": false,
+            "more": true,
+            "lines": [
+              {
+                "seq": 3,
+                "ms": 900,
+                "epoch": null,
+                "level": "W",
+                "tag": "NET",
+                "msg": "Wi-Fi join failed · retry in 5 s"
+              },
+              {
+                "seq": 4,
+                "ms": 5200,
+                "epoch": 1760000000,
+                "level": "I",
+                "tag": "HA",
+                "msg": "WebSocket connected"
+              }
+            ]
+          }
+        },
+        {
+          "query": {
+            "since": 6
+          },
+          "response": {
+            "boot": "current",
+            "seq": 6,
+            "first": 1,
+            "dropped": false,
+            "more": false,
+            "lines": []
+          }
+        },
+        {
+          "query": {
+            "since": 1,
+            "level": "I",
+            "tags": [
+              "app"
+            ]
+          },
+          "response": {
+            "boot": "current",
+            "seq": 6,
+            "first": 1,
+            "dropped": false,
+            "more": false,
+            "lines": [
+              {
+                "seq": 6,
+                "ms": 6100,
+                "epoch": 1760000002,
+                "level": "I",
+                "tag": "APP",
+                "msg": "EPD partial (HA update · 1 region) · 312 ms"
+              }
+            ]
+          }
+        }
+      ],
+      "tail_cap": 300,
+      "tail": {
+        "boot": "previous",
+        "seq": 6,
+        "first": 2,
+        "dropped": false,
+        "more": false,
+        "lines": [
+          {
+            "seq": 2,
+            "ms": 40,
+            "epoch": null,
+            "level": "I",
+            "tag": "EPD",
+            "msg": "controller UC8179 · profile default"
+          },
+          {
+            "seq": 3,
+            "ms": 900,
+            "epoch": null,
+            "level": "W",
+            "tag": "NET",
+            "msg": "Wi-Fi join failed · retry in 5 s"
+          },
+          {
+            "seq": 4,
+            "ms": 5200,
+            "epoch": 1760000000,
+            "level": "I",
+            "tag": "HA",
+            "msg": "WebSocket connected"
+          },
+          {
+            "seq": 5,
+            "ms": 5300,
+            "epoch": 1760000001,
+            "level": "E",
+            "tag": "HEAP",
+            "msg": "alloc failed · 16384 B caps 0x1800"
+          },
+          {
+            "seq": 6,
+            "ms": 6100,
+            "epoch": 1760000002,
+            "level": "I",
+            "tag": "APP",
+            "msg": "EPD partial (HA update · 1 region) · 312 ms"
+          }
+        ]
+      }
+    },
+    {
+      "name": "budget full: the oldest lines go; dropped when since fell out",
+      "cap": 180,
+      "ops": [
+        {
+          "ms": 12,
+          "epoch": 0,
+          "level": "I",
+          "tag": "MAIN",
+          "msg": "HA Paper 0.3.0 · X4 Pro"
+        },
+        {
+          "ms": 40,
+          "epoch": 0,
+          "level": "I",
+          "tag": "EPD",
+          "msg": "controller UC8179 · profile default"
+        },
+        {
+          "ms": 900,
+          "epoch": 0,
+          "level": "W",
+          "tag": "NET",
+          "msg": "Wi-Fi join failed · retry in 5 s"
+        },
+        {
+          "ms": 5200,
+          "epoch": 1760000000,
+          "level": "I",
+          "tag": "HA",
+          "msg": "WebSocket connected"
+        },
+        {
+          "ms": 5300,
+          "epoch": 1760000001,
+          "level": "E",
+          "tag": "HEAP",
+          "msg": "alloc failed · 16384 B caps 0x1800"
+        },
+        {
+          "ms": 6100,
+          "epoch": 1760000002,
+          "level": "I",
+          "tag": "APP",
+          "msg": "EPD partial (HA update · 1 region) · 312 ms"
+        }
+      ],
+      "results": [
+        {
+          "query": {
+            "since": 1
+          },
+          "response": {
+            "boot": "current",
+            "seq": 6,
+            "first": 4,
+            "dropped": true,
+            "more": false,
+            "lines": [
+              {
+                "seq": 4,
+                "ms": 5200,
+                "epoch": 1760000000,
+                "level": "I",
+                "tag": "HA",
+                "msg": "WebSocket connected"
+              },
+              {
+                "seq": 5,
+                "ms": 5300,
+                "epoch": 1760000001,
+                "level": "E",
+                "tag": "HEAP",
+                "msg": "alloc failed · 16384 B caps 0x1800"
+              },
+              {
+                "seq": 6,
+                "ms": 6100,
+                "epoch": 1760000002,
+                "level": "I",
+                "tag": "APP",
+                "msg": "EPD partial (HA update · 1 region) · 312 ms"
+              }
+            ]
+          }
+        }
+      ],
+      "tail_cap": 300,
+      "tail": {
+        "boot": "previous",
+        "seq": 6,
+        "first": 2,
+        "dropped": false,
+        "more": false,
+        "lines": [
+          {
+            "seq": 2,
+            "ms": 40,
+            "epoch": null,
+            "level": "I",
+            "tag": "EPD",
+            "msg": "controller UC8179 · profile default"
+          },
+          {
+            "seq": 3,
+            "ms": 900,
+            "epoch": null,
+            "level": "W",
+            "tag": "NET",
+            "msg": "Wi-Fi join failed · retry in 5 s"
+          },
+          {
+            "seq": 4,
+            "ms": 5200,
+            "epoch": 1760000000,
+            "level": "I",
+            "tag": "HA",
+            "msg": "WebSocket connected"
+          },
+          {
+            "seq": 5,
+            "ms": 5300,
+            "epoch": 1760000001,
+            "level": "E",
+            "tag": "HEAP",
+            "msg": "alloc failed · 16384 B caps 0x1800"
+          },
+          {
+            "seq": 6,
+            "ms": 6100,
+            "epoch": 1760000002,
+            "level": "I",
+            "tag": "APP",
+            "msg": "EPD partial (HA update · 1 region) · 312 ms"
+          }
+        ]
+      }
+    },
+    {
+      "name": "long tag and message are cut on a UTF-8 boundary",
+      "cap": 4096,
+      "ops": [
+        {
+          "ms": 1,
+          "epoch": 0,
+          "level": "I",
+          "tag": "AVERYLONGTAGNAME_X",
+          "msg": "ééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééend"
+        },
+        {
+          "ms": 2,
+          "epoch": 0,
+          "level": "W",
+          "tag": "T",
+          "msg": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+        }
+      ],
+      "results": [
+        {
+          "query": {},
+          "response": {
+            "boot": "current",
+            "seq": 2,
+            "first": 1,
+            "dropped": false,
+            "more": false,
+            "lines": [
+              {
+                "seq": 1,
+                "ms": 1,
+                "epoch": null,
+                "level": "I",
+                "tag": "AVERYLONGTAGNAM",
+                "msg": "ééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééé"
+              },
+              {
+                "seq": 2,
+                "ms": 2,
+                "epoch": null,
+                "level": "W",
+                "tag": "T",
+                "msg": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+              }
+            ]
+          }
+        },
+        {
+          "query": {
+            "since": 3
+          },
+          "response": {
+            "boot": "current",
+            "seq": 2,
+            "first": 1,
+            "dropped": false,
+            "more": false,
+            "lines": []
+          }
+        },
+        {
+          "query": {
+            "level": "W"
+          },
+          "response": {
+            "boot": "current",
+            "seq": 2,
+            "first": 1,
+            "dropped": false,
+            "more": false,
+            "lines": [
+              {
+                "seq": 2,
+                "ms": 2,
+                "epoch": null,
+                "level": "W",
+                "tag": "T",
+                "msg": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+              }
+            ]
+          }
+        },
+        {
+          "query": {
+            "level": "E"
+          },
+          "response": {
+            "boot": "current",
+            "seq": 2,
+            "first": 1,
+            "dropped": false,
+            "more": false,
+            "lines": []
+          }
+        },
+        {
+          "query": {
+            "tags": [
+              "HA",
+              "EPD"
+            ]
+          },
+          "response": {
+            "boot": "current",
+            "seq": 2,
+            "first": 1,
+            "dropped": false,
+            "more": false,
+            "lines": []
+          }
+        },
+        {
+          "query": {
+            "limit": 2
+          },
+          "response": {
+            "boot": "current",
+            "seq": 2,
+            "first": 1,
+            "dropped": false,
+            "more": false,
+            "lines": [
+              {
+                "seq": 1,
+                "ms": 1,
+                "epoch": null,
+                "level": "I",
+                "tag": "AVERYLONGTAGNAM",
+                "msg": "ééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééé"
+              },
+              {
+                "seq": 2,
+                "ms": 2,
+                "epoch": null,
+                "level": "W",
+                "tag": "T",
+                "msg": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+              }
+            ]
+          }
+        },
+        {
+          "query": {
+            "since": 2,
+            "limit": 2
+          },
+          "response": {
+            "boot": "current",
+            "seq": 2,
+            "first": 1,
+            "dropped": false,
+            "more": false,
+            "lines": []
+          }
+        },
+        {
+          "query": {
+            "since": 6
+          },
+          "response": {
+            "boot": "current",
+            "seq": 2,
+            "first": 1,
+            "dropped": false,
+            "more": false,
+            "lines": []
+          }
+        },
+        {
+          "query": {
+            "since": 1,
+            "level": "I",
+            "tags": [
+              "app"
+            ]
+          },
+          "response": {
+            "boot": "current",
+            "seq": 2,
+            "first": 1,
+            "dropped": false,
+            "more": false,
+            "lines": []
+          }
+        }
+      ],
+      "tail_cap": 300,
+      "tail": {
+        "boot": "previous",
+        "seq": 2,
+        "first": 2,
+        "dropped": false,
+        "more": false,
+        "lines": [
+          {
+            "seq": 2,
+            "ms": 2,
+            "epoch": null,
+            "level": "W",
+            "tag": "T",
+            "msg": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+          }
+        ]
+      }
+    },
+    {
+      "name": "secrets are masked before they are stored",
+      "cap": 4096,
+      "ops": [
+        {
+          "ms": 1,
+          "epoch": 0,
+          "level": "I",
+          "tag": "HA",
+          "msg": "POST /auth/token refresh_token=ab12ab12ab12ab12ab12ab12ab12ab12ab12ab12ab12ab12ab12ab12ab12ab12ab12ab12ab12ab12ab12ab12ab12ab12ab12ab12ab12ab12ab12ab12ab12ab12 ok"
+        },
+        {
+          "ms": 2,
+          "epoch": 0,
+          "level": "I",
+          "tag": "WEB",
+          "msg": "Authorization: Bearer eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiIxIn0.sig"
+        }
+      ],
+      "results": [
+        {
+          "query": {},
+          "response": {
+            "boot": "current",
+            "seq": 2,
+            "first": 1,
+            "dropped": false,
+            "more": false,
+            "lines": [
+              {
+                "seq": 1,
+                "ms": 1,
+                "epoch": null,
+                "level": "I",
+                "tag": "HA",
+                "msg": "POST /auth/token refresh_token=*** ok"
+              },
+              {
+                "seq": 2,
+                "ms": 2,
+                "epoch": null,
+                "level": "I",
+                "tag": "WEB",
+                "msg": "Authorization: Bearer ***"
+              }
+            ]
+          }
+        },
+        {
+          "query": {
+            "since": 3
+          },
+          "response": {
+            "boot": "current",
+            "seq": 2,
+            "first": 1,
+            "dropped": false,
+            "more": false,
+            "lines": []
+          }
+        },
+        {
+          "query": {
+            "level": "W"
+          },
+          "response": {
+            "boot": "current",
+            "seq": 2,
+            "first": 1,
+            "dropped": false,
+            "more": false,
+            "lines": []
+          }
+        },
+        {
+          "query": {
+            "level": "E"
+          },
+          "response": {
+            "boot": "current",
+            "seq": 2,
+            "first": 1,
+            "dropped": false,
+            "more": false,
+            "lines": []
+          }
+        },
+        {
+          "query": {
+            "tags": [
+              "HA",
+              "EPD"
+            ]
+          },
+          "response": {
+            "boot": "current",
+            "seq": 2,
+            "first": 1,
+            "dropped": false,
+            "more": false,
+            "lines": [
+              {
+                "seq": 1,
+                "ms": 1,
+                "epoch": null,
+                "level": "I",
+                "tag": "HA",
+                "msg": "POST /auth/token refresh_token=*** ok"
+              }
+            ]
+          }
+        },
+        {
+          "query": {
+            "limit": 2
+          },
+          "response": {
+            "boot": "current",
+            "seq": 2,
+            "first": 1,
+            "dropped": false,
+            "more": false,
+            "lines": [
+              {
+                "seq": 1,
+                "ms": 1,
+                "epoch": null,
+                "level": "I",
+                "tag": "HA",
+                "msg": "POST /auth/token refresh_token=*** ok"
+              },
+              {
+                "seq": 2,
+                "ms": 2,
+                "epoch": null,
+                "level": "I",
+                "tag": "WEB",
+                "msg": "Authorization: Bearer ***"
+              }
+            ]
+          }
+        },
+        {
+          "query": {
+            "since": 2,
+            "limit": 2
+          },
+          "response": {
+            "boot": "current",
+            "seq": 2,
+            "first": 1,
+            "dropped": false,
+            "more": false,
+            "lines": []
+          }
+        },
+        {
+          "query": {
+            "since": 6
+          },
+          "response": {
+            "boot": "current",
+            "seq": 2,
+            "first": 1,
+            "dropped": false,
+            "more": false,
+            "lines": []
+          }
+        },
+        {
+          "query": {
+            "since": 1,
+            "level": "I",
+            "tags": [
+              "app"
+            ]
+          },
+          "response": {
+            "boot": "current",
+            "seq": 2,
+            "first": 1,
+            "dropped": false,
+            "more": false,
+            "lines": []
+          }
+        }
+      ],
+      "tail_cap": 300,
+      "tail": {
+        "boot": "previous",
+        "seq": 2,
+        "first": 1,
+        "dropped": false,
+        "more": false,
+        "lines": [
+          {
+            "seq": 1,
+            "ms": 1,
+            "epoch": null,
+            "level": "I",
+            "tag": "HA",
+            "msg": "POST /auth/token refresh_token=*** ok"
+          },
+          {
+            "seq": 2,
+            "ms": 2,
+            "epoch": null,
+            "level": "I",
+            "tag": "WEB",
+            "msg": "Authorization: Bearer ***"
+          }
+        ]
+      }
+    },
+    {
+      "name": "empty ring",
+      "cap": 4096,
+      "ops": [],
+      "results": [
+        {
+          "query": {},
+          "response": {
+            "boot": "current",
+            "seq": 0,
+            "first": 1,
+            "dropped": false,
+            "more": false,
+            "lines": []
+          }
+        },
+        {
+          "query": {
+            "since": 3
+          },
+          "response": {
+            "boot": "current",
+            "seq": 0,
+            "first": 1,
+            "dropped": false,
+            "more": false,
+            "lines": []
+          }
+        },
+        {
+          "query": {
+            "level": "W"
+          },
+          "response": {
+            "boot": "current",
+            "seq": 0,
+            "first": 1,
+            "dropped": false,
+            "more": false,
+            "lines": []
+          }
+        },
+        {
+          "query": {
+            "level": "E"
+          },
+          "response": {
+            "boot": "current",
+            "seq": 0,
+            "first": 1,
+            "dropped": false,
+            "more": false,
+            "lines": []
+          }
+        },
+        {
+          "query": {
+            "tags": [
+              "HA",
+              "EPD"
+            ]
+          },
+          "response": {
+            "boot": "current",
+            "seq": 0,
+            "first": 1,
+            "dropped": false,
+            "more": false,
+            "lines": []
+          }
+        },
+        {
+          "query": {
+            "limit": 2
+          },
+          "response": {
+            "boot": "current",
+            "seq": 0,
+            "first": 1,
+            "dropped": false,
+            "more": false,
+            "lines": []
+          }
+        },
+        {
+          "query": {
+            "since": 2,
+            "limit": 2
+          },
+          "response": {
+            "boot": "current",
+            "seq": 0,
+            "first": 1,
+            "dropped": false,
+            "more": false,
+            "lines": []
+          }
+        },
+        {
+          "query": {
+            "since": 6
+          },
+          "response": {
+            "boot": "current",
+            "seq": 0,
+            "first": 1,
+            "dropped": false,
+            "more": false,
+            "lines": []
+          }
+        },
+        {
+          "query": {
+            "since": 1,
+            "level": "I",
+            "tags": [
+              "app"
+            ]
+          },
+          "response": {
+            "boot": "current",
+            "seq": 0,
+            "first": 1,
+            "dropped": false,
+            "more": false,
+            "lines": []
+          }
+        }
+      ],
+      "tail_cap": 300,
+      "tail": {
+        "boot": "previous",
+        "seq": 0,
+        "first": 1,
+        "dropped": false,
+        "more": false,
+        "lines": []
+      }
+    }
+  ],
+  "redact": [
+    {
+      "in": "Wi-Fi password: hunter2",
+      "out": "Wi-Fi password: ***"
+    },
+    {
+      "in": "password=hunter2&ssid=Home",
+      "out": "password=***&ssid=Home"
+    },
+    {
+      "in": "{\"refresh_token\":\"0123abcd\",\"expires_in\":1800}",
+      "out": "{\"refresh_token\":\"***\",\"expires_in\":1800}"
+    },
+    {
+      "in": "Authorization: Bearer abc.def",
+      "out": "Authorization: Bearer ***"
+    },
+    {
+      "in": "x4_session=Zm9vYmFy; Path=/",
+      "out": "x4_session=***; Path=/"
+    },
+    {
+      "in": "API token \"kitchen\" created (rw) · only its hash is stored",
+      "out": "API token \"kitchen\" created (rw) · only its hash is stored"
+    },
+    {
+      "in": "HA code → refresh token stored",
+      "out": "HA code → refresh token stored"
+    },
+    {
+      "in": "tokens: 3 · sessions 2",
+      "out": "tokens: 3 · sessions 2"
+    },
+    {
+      "in": "token fffffffffffffffffffffffffffffff",
+      "out": "token fffffffffffffffffffffffffffffff"
+    },
+    {
+      "in": "sha AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA.",
+      "out": "sha ***."
+    },
+    {
+      "in": "id gaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "out": "id gaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+    },
+    {
+      "in": "key x4_ABCDEFGHJKMNPQRSTVWXYZ23 end",
+      "out": "key x4_*** end"
+    },
+    {
+      "in": "short x4_ABC",
+      "out": "short x4_ABC"
+    },
+    {
+      "in": "jwt eyJhbGciOiJIUzI1NiJ9.e30.x",
+      "out": "jwt eyJ***"
+    },
+    {
+      "in": "no eyJ123",
+      "out": "no eyJ123"
+    },
+    {
+      "in": "PASSWORD:\"p w\"",
+      "out": "PASSWORD:\"*** w\""
+    },
+    {
+      "in": "secret:",
+      "out": "secret:"
+    },
+    {
+      "in": "TOKEN = abc,def",
+      "out": "TOKEN = ***,def"
+    },
+    {
+      "in": "cookie: a=b",
+      "out": "cookie: ***"
+    },
+    {
+      "in": "naïve token=é→x",
+      "out": "naïve token=***"
+    }
+  ]
+}

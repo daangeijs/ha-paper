@@ -1,0 +1,43 @@
+{
+  "name": "51-legacy-route",
+  "description": "Old catalog routes (`route: renkum_arn`, `route: car`, …, before #145) still parse: an empty user route without entity (the tile asks for a sensor; the console blocks saving until one is picked).",
+  "input": "# HA Paper display config\nversion: 1\nscreens:\n  - id: t\n    app: travel\n    widgets:\n      - {type: route, route: renkum_arn, cs: 2}\n      - {type: route, route: car, cs: 2}\n",
+  "expect": {
+    "ok": true,
+    "apps": [
+      {
+        "id": "home",
+        "title": "Home"
+      },
+      {
+        "id": "house",
+        "title": "House"
+      },
+      {
+        "id": "travel",
+        "title": "Travel"
+      }
+    ],
+    "screens": [
+      {
+        "id": "t",
+        "app": "travel",
+        "title": "t",
+        "cells": 4,
+        "widgets": [
+          {
+            "type": "route",
+            "route": "renkum_arn",
+            "cs": 2
+          },
+          {
+            "type": "route",
+            "route": "car",
+            "cs": 2
+          }
+        ]
+      }
+    ],
+    "yaml": "# HA Paper display config\nversion: 1\nscreens:\n  - id: t\n    app: travel\n    title: t\n    widgets:\n      - {type: route, route: renkum_arn, cs: 2}\n      - {type: route, route: car, cs: 2}\n"
+  }
+}

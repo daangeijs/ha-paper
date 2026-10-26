@@ -1,0 +1,10 @@
+{
+  "name": "14-widgets-without-screen",
+  "description": "Rule: \"widgets:\" outside a screen.",
+  "input": "# HA Paper display config\nversion: 1\nscreens:\n    widgets:\n",
+  "expect": {
+    "ok": false,
+    "line": 4,
+    "message": "Belongs to no screen"
+  }
+}

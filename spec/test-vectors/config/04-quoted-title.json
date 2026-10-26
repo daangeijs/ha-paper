@@ -1,0 +1,10 @@
+{
+  "name": "04-quoted-title",
+  "description": "Titles containing YAML specials are JSON-quoted by toYaml and unquoted on read.",
+  "input": "# HA Paper display config\nversion: 1\nscreens:\n  - id: q\n    app: settings\n    title: \"Energy: today, {all}\"\n    widgets:\n      - {type: clock}\n",
+  "expect": {
+    "ok": false,
+    "line": 1,
+    "message": "No screens found"
+  }
+}

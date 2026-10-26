@@ -1,0 +1,52 @@
+{
+  "name": "54-legacy-settings-app",
+  "description": "An apps: entry “settings” (with its title) is skipped and does not count towards the 7; a screen may still name it.",
+  "input": "version: 1\napps:\n  - id: home\n    title: Home\n  - id: settings\n    title: Instellingen\n  - id: a1\n  - id: a2\n  - id: a3\n  - id: a4\n  - id: a5\n  - id: a6\nscreens:\n  - id: h\n    widgets:\n      - {type: price}\n  - id: wifi\n    app: settings\n    widgets:\n      - {type: wifi, cs: 4, rs: 2}\n",
+  "expect": {
+    "ok": true,
+    "apps": [
+      {
+        "id": "home",
+        "title": "Home"
+      },
+      {
+        "id": "a1",
+        "title": "a1"
+      },
+      {
+        "id": "a2",
+        "title": "a2"
+      },
+      {
+        "id": "a3",
+        "title": "a3"
+      },
+      {
+        "id": "a4",
+        "title": "a4"
+      },
+      {
+        "id": "a5",
+        "title": "a5"
+      },
+      {
+        "id": "a6",
+        "title": "a6"
+      }
+    ],
+    "screens": [
+      {
+        "id": "h",
+        "app": "home",
+        "title": "h",
+        "cells": 1,
+        "widgets": [
+          {
+            "type": "price"
+          }
+        ]
+      }
+    ],
+    "yaml": "# HA Paper display config\nversion: 1\napps:\n  - id: home\n    title: Home\n  - id: a1\n    title: a1\n  - id: a2\n    title: a2\n  - id: a3\n    title: a3\n  - id: a4\n    title: a4\n  - id: a5\n    title: a5\n  - id: a6\n    title: a6\nscreens:\n  - id: h\n    app: home\n    title: h\n    widgets:\n      - {type: price}\n"
+  }
+}

@@ -1,0 +1,10 @@
+{
+  "name": "31-too-many-cells",
+  "description": "Rule: more than 8 cells (reported on the screen's id line, message uses the title).",
+  "input": "# HA Paper display config\nversion: 1\nscreens:\n  - id: busy\n    title: Busy\n    widgets:\n      - {type: bars, series: prices, cs: 4}\n      - {type: clock, cs: 2}\n      - {type: price}\n      - {type: gauge}\n      - {type: stat, entity: sensor.grid_power}\n",
+  "expect": {
+    "ok": false,
+    "line": 4,
+    "message": "“Busy” uses 9 of 8 cells"
+  }
+}

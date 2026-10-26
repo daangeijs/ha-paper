@@ -1,0 +1,8 @@
+/* Dashboard typefaces for the emulator (#42: no font CDN): the same TTFs the firmware rasterises from
+   (firmware/assets/fonts, SIL OFL 1.1, licences next to them). Emulator only; the device console ships plex.css. */
+@font-face{font-family:'Atkinson Hyperlegible';font-weight:400;src:url(../../../firmware/assets/fonts/AtkinsonHyperlegible-Regular.ttf) format('truetype')}
+@font-face{font-family:'Atkinson Hyperlegible';font-weight:700;src:url(../../../firmware/assets/fonts/AtkinsonHyperlegible-Bold.ttf) format('truetype')}
+@font-face{font-family:'Archivo';font-weight:100 900;font-stretch:62% 125%;src:url('../../../firmware/assets/fonts/Archivo[wdth,wght].ttf') format('truetype')}
+@font-face{font-family:'Bricolage Grotesque';font-weight:200 800;font-stretch:75% 100%;src:url('../../../firmware/assets/fonts/BricolageGrotesque[opsz,wdth,wght].ttf') format('truetype')}
+@font-face{font-family:'Fraunces';font-weight:100 900;src:url('../../../firmware/assets/fonts/Fraunces[SOFT,WONK,opsz,wght].ttf') format('truetype')}
+@font-face{font-family:'Geist';font-weight:100 900;src:url('../../../firmware/assets/fonts/Geist[wght].ttf') format('truetype')}

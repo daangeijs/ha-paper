@@ -1,0 +1,9 @@
+{
+  "name": "06-device-schema",
+  "description": "NVS x4dev/schema (one number for x4wifi, x4ha, x4tok, x4dev, x4ota; missing = 0). upgrade: run the device steps and write the new number; newer: touch nothing (OTA rollback).",
+  "cases": [
+    { "name": "no key: install from before #12 or a blank NVS", "op": "device", "stored": 0, "expect": { "status": "upgrade" } },
+    { "name": "current", "op": "device", "stored": 1, "expect": { "status": "current" } },
+    { "name": "written by newer firmware", "op": "device", "stored": 2, "expect": { "status": "newer" } }
+  ]
+}

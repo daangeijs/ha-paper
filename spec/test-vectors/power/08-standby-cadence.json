@@ -1,0 +1,101 @@
+{
+  "name": "08-standby-cadence",
+  "description": "Standby + night, standby face on by day: timer wake every 15/30/60 min. At night the night end wins.",
+  "base": {
+    "nowEpoch": 1800000000,
+    "localSec": 43200,
+    "powerSave": "standby",
+    "wakeEvery": 15,
+    "night": "23-07",
+    "peeking": false,
+    "standby": true,
+    "charging": false,
+    "usb": false,
+    "chargedAgoMin": null,
+    "voltage": 3.9,
+    "battery": 60,
+    "otaPendingVerify": false,
+    "otaBusy": false,
+    "otaAuto": "notify",
+    "otaDue": false,
+    "setup": false,
+    "msSinceApi": null
+  },
+  "cases": [
+    {
+      "name": "every 15 min",
+      "input": {
+        "wakeEvery": 15
+      },
+      "expect": {
+        "deepSleepNow": true,
+        "wakeAtEpoch": 1800000900,
+        "buttonWakeOnly": false,
+        "reason": "standby",
+        "cpuProfile": "auto",
+        "wifiPs": "min",
+        "external": false
+      }
+    },
+    {
+      "name": "every 30 min",
+      "input": {
+        "wakeEvery": 30
+      },
+      "expect": {
+        "deepSleepNow": true,
+        "wakeAtEpoch": 1800001800,
+        "buttonWakeOnly": false,
+        "reason": "standby"
+      }
+    },
+    {
+      "name": "every 60 min",
+      "input": {
+        "wakeEvery": 60
+      },
+      "expect": {
+        "deepSleepNow": true,
+        "wakeAtEpoch": 1800003600,
+        "buttonWakeOnly": false,
+        "reason": "standby"
+      }
+    },
+    {
+      "name": "22:50, every 60 min: 60 min (night starts before the wake)",
+      "input": {
+        "wakeEvery": 60,
+        "localSec": 82200
+      },
+      "expect": {
+        "deepSleepNow": true,
+        "wakeAtEpoch": 1800003600,
+        "buttonWakeOnly": false,
+        "reason": "standby"
+      }
+    },
+    {
+      "name": "standby at 02:00: night end, not the cadence",
+      "input": {
+        "localSec": 7200
+      },
+      "expect": {
+        "deepSleepNow": true,
+        "wakeAtEpoch": 1800018000,
+        "buttonWakeOnly": false,
+        "reason": "night"
+      }
+    },
+    {
+      "name": "dashboard on by day",
+      "input": {
+        "standby": false
+      },
+      "expect": {
+        "deepSleepNow": false,
+        "wakeAtEpoch": null,
+        "reason": "awake"
+      }
+    }
+  ]
+}

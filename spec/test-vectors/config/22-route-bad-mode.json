@@ -1,0 +1,10 @@
+{
+  "name": "22-route-bad-mode",
+  "description": "Rule: route mode must be train, bus or car (#145).",
+  "input": "# HA Paper display config\nversion: 1\nscreens:\n  - id: t\n    app: travel\n    widgets:\n      - {type: route, label: To work, mode: plane, entity: sensor.commute, cs: 2}\n",
+  "expect": {
+    "ok": false,
+    "line": 7,
+    "message": "route: mode must be train, bus or car"
+  }
+}

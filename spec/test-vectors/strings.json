@@ -1,0 +1,3086 @@
+{
+  "_doc": "UI strings (#98): emulator src/core/strings.ts = firmware core/strings.{h,cpp} + the generated core/strings_gen.h (npm run vectors writes both). langOf(code): HA get_config language or browser language → en | nl (any nl variant → nl, everything else → en). tr(lang, key, args): each {} takes the next arg. dateLine(lang, wday, mday, month): struct tm numbering.",
+  "langs": [
+    "en",
+    "nl"
+  ],
+  "strings": {
+    "day0": {
+      "en": "Sunday",
+      "nl": "Zondag"
+    },
+    "day1": {
+      "en": "Monday",
+      "nl": "Maandag"
+    },
+    "day2": {
+      "en": "Tuesday",
+      "nl": "Dinsdag"
+    },
+    "day3": {
+      "en": "Wednesday",
+      "nl": "Woensdag"
+    },
+    "day4": {
+      "en": "Thursday",
+      "nl": "Donderdag"
+    },
+    "day5": {
+      "en": "Friday",
+      "nl": "Vrijdag"
+    },
+    "day6": {
+      "en": "Saturday",
+      "nl": "Zaterdag"
+    },
+    "month0": {
+      "en": "January",
+      "nl": "januari"
+    },
+    "month1": {
+      "en": "February",
+      "nl": "februari"
+    },
+    "month2": {
+      "en": "March",
+      "nl": "maart"
+    },
+    "month3": {
+      "en": "April",
+      "nl": "april"
+    },
+    "month4": {
+      "en": "May",
+      "nl": "mei"
+    },
+    "month5": {
+      "en": "June",
+      "nl": "juni"
+    },
+    "month6": {
+      "en": "July",
+      "nl": "juli"
+    },
+    "month7": {
+      "en": "August",
+      "nl": "augustus"
+    },
+    "month8": {
+      "en": "September",
+      "nl": "september"
+    },
+    "month9": {
+      "en": "October",
+      "nl": "oktober"
+    },
+    "month10": {
+      "en": "November",
+      "nl": "november"
+    },
+    "month11": {
+      "en": "December",
+      "nl": "december"
+    },
+    "starting": {
+      "en": "Starting…",
+      "nl": "Opstarten…"
+    },
+    "connectingHa": {
+      "en": "Connecting to Home Assistant…",
+      "nl": "Verbinden met Home Assistant…"
+    },
+    "connected": {
+      "en": "Connected",
+      "nl": "Verbonden"
+    },
+    "notConnected": {
+      "en": "Not connected",
+      "nl": "Niet verbonden"
+    },
+    "offline": {
+      "en": "Offline",
+      "nl": "Offline"
+    },
+    "notLinked": {
+      "en": "Not linked",
+      "nl": "Niet gekoppeld"
+    },
+    "keyRevoked": {
+      "en": "Key revoked",
+      "nl": "Sleutel ingetrokken"
+    },
+    "haOffline": {
+      "en": "Home Assistant offline",
+      "nl": "Geen verbinding met Home Assistant"
+    },
+    "updated": {
+      "en": "Updated",
+      "nl": "Bijgewerkt"
+    },
+    "standbyFoot": {
+      "en": "Standby · updated {} · press power to wake",
+      "nl": "Stand-by · bijgewerkt {} · druk op aan/uit"
+    },
+    "asOf": {
+      "en": "as of {}",
+      "nl": "stand van {}"
+    },
+    "sigWeak": {
+      "en": "Weak",
+      "nl": "Zwak"
+    },
+    "sigFair": {
+      "en": "Fair",
+      "nl": "Redelijk"
+    },
+    "sigGood": {
+      "en": "Good",
+      "nl": "Goed"
+    },
+    "sigExcellent": {
+      "en": "Excellent",
+      "nl": "Uitstekend"
+    },
+    "setup": {
+      "en": "Setup",
+      "nl": "Instellen"
+    },
+    "apps": {
+      "en": "Apps",
+      "nl": "Apps"
+    },
+    "allApps": {
+      "en": "All apps",
+      "nl": "Alle apps"
+    },
+    "allPages": {
+      "en": "All pages",
+      "nl": "Alle pagina’s"
+    },
+    "inside": {
+      "en": "Inside",
+      "nl": "Binnen"
+    },
+    "battery": {
+      "en": "Battery",
+      "nl": "Batterij"
+    },
+    "homeBattery": {
+      "en": "Home battery",
+      "nl": "Thuisbatterij"
+    },
+    "solar": {
+      "en": "Solar",
+      "nl": "Zon"
+    },
+    "heating": {
+      "en": "Heating",
+      "nl": "Verwarming"
+    },
+    "price": {
+      "en": "Price",
+      "nl": "Prijs"
+    },
+    "priceNow": {
+      "en": "Price now",
+      "nl": "Prijs nu"
+    },
+    "powerPrice": {
+      "en": "Power price",
+      "nl": "Stroomprijs"
+    },
+    "cheapest": {
+      "en": "Cheapest",
+      "nl": "Goedkoopst"
+    },
+    "cheapestNow": {
+      "en": "Cheapest now",
+      "nl": "Nu het goedkoopst"
+    },
+    "cheapestAt": {
+      "en": "Cheapest {}",
+      "nl": "Goedkoopst {}"
+    },
+    "cheap": {
+      "en": "Cheap",
+      "nl": "Goedkoop"
+    },
+    "normal": {
+      "en": "Normal",
+      "nl": "Normaal"
+    },
+    "high": {
+      "en": "High",
+      "nl": "Hoog"
+    },
+    "charging": {
+      "en": "Charging {}",
+      "nl": "Laadt {}"
+    },
+    "discharging": {
+      "en": "Discharging {}",
+      "nl": "Ontlaadt {}"
+    },
+    "idle": {
+      "en": "Idle",
+      "nl": "Rust"
+    },
+    "now": {
+      "en": "Now",
+      "nl": "Nu"
+    },
+    "chartPrices": {
+      "en": "Price today · {}/kWh",
+      "nl": "Prijs vandaag · {}/kWh"
+    },
+    "chartSolar": {
+      "en": "Solar · kWh per hour",
+      "nl": "Zon · kWh per uur"
+    },
+    "chartUsage": {
+      "en": "Usage · kWh per hour",
+      "nl": "Verbruik · kWh per uur"
+    },
+    "noDataYet": {
+      "en": "No data yet",
+      "nl": "Nog geen gegevens"
+    },
+    "usually": {
+      "en": "Usually {}",
+      "nl": "Meestal {}"
+    },
+    "arriveIfLeave": {
+      "en": "arrive {} if you leave now",
+      "nl": "aankomst {} als je nu vertrekt"
+    },
+    "traffic": {
+      "en": "+{} min traffic",
+      "nl": "+{} min file"
+    },
+    "cancelled": {
+      "en": "Cancelled",
+      "nl": "Rijdt niet"
+    },
+    "routeNote1": {
+      "en": "All on time",
+      "nl": "Alles op tijd"
+    },
+    "routeNote2": {
+      "en": "Small delays, under 5 min",
+      "nl": "Kleine vertragingen, minder dan 5 min"
+    },
+    "routeNote3": {
+      "en": "Delays of 5 min or more",
+      "nl": "Vertragingen van 5 min of meer"
+    },
+    "routeNote4": {
+      "en": "Disruption: check before you go",
+      "nl": "Verstoring: kijk voor je vertrekt"
+    },
+    "carNote1": {
+      "en": "Traffic is normal",
+      "nl": "Normaal verkeer"
+    },
+    "carNote2": {
+      "en": "A bit busier than usual",
+      "nl": "Iets drukker dan normaal"
+    },
+    "carNote3": {
+      "en": "Slow traffic on the way",
+      "nl": "Langzaam verkeer onderweg"
+    },
+    "carNote4": {
+      "en": "Heavy congestion",
+      "nl": "Zware file"
+    },
+    "perHour": {
+      "en": "{} per hour",
+      "nl": "{} per uur"
+    },
+    "routePick": {
+      "en": "Pick a sensor for this route in the browser",
+      "nl": "Kies in de browser een sensor voor deze route"
+    },
+    "heatingTo": {
+      "en": "Heating to {}",
+      "nl": "Verwarmt naar {}"
+    },
+    "atSetTemp": {
+      "en": "At set temperature",
+      "nl": "Op temperatuur"
+    },
+    "room": {
+      "en": "Room",
+      "nl": "Kamer"
+    },
+    "setTemp": {
+      "en": "Set",
+      "nl": "Doel"
+    },
+    "on": {
+      "en": "On",
+      "nl": "Aan"
+    },
+    "off": {
+      "en": "Off",
+      "nl": "Uit"
+    },
+    "allOn": {
+      "en": "All on",
+      "nl": "Alles aan"
+    },
+    "allOff": {
+      "en": "All off",
+      "nl": "Alles uit"
+    },
+    "allLightsOff": {
+      "en": "All lights off",
+      "nl": "Alle lampen uit"
+    },
+    "scene": {
+      "en": "Scene",
+      "nl": "Scène"
+    },
+    "script": {
+      "en": "Script",
+      "nl": "Script"
+    },
+    "tapToRun": {
+      "en": "Tap to run",
+      "nl": "Tik om te starten"
+    },
+    "sceneBuiltIn": {
+      "en": "Built in",
+      "nl": "Ingebouwd"
+    },
+    "setHome": {
+      "en": "Set to Home",
+      "nl": "Zet op Thuis"
+    },
+    "setAway": {
+      "en": "Set to Away",
+      "nl": "Zet op Afwezig"
+    },
+    "pricesSummary": {
+      "en": "Now {} · cheapest {}",
+      "nl": "Nu {} · goedkoopst {}"
+    },
+    "soFar": {
+      "en": "{} kWh so far",
+      "nl": "{} kWh tot nu"
+    },
+    "nRooms": {
+      "en": "{} rooms",
+      "nl": "{} kamers"
+    },
+    "roomsRange": {
+      "en": "Rooms {} of {}",
+      "nl": "Kamers {} van {}"
+    },
+    "nHeating": {
+      "en": "{} heating",
+      "nl": "{} verwarmen"
+    },
+    "nOfHeating": {
+      "en": "{} of {} heating",
+      "nl": "{} van {} verwarmen"
+    },
+    "away": {
+      "en": "away",
+      "nl": "afwezig"
+    },
+    "lightsOnOf": {
+      "en": "{} of {} lights on",
+      "nl": "{} van {} lampen aan"
+    },
+    "onOf": {
+      "en": "{} of {} on",
+      "nl": "{} van {} aan"
+    },
+    "nPages": {
+      "en": "{} pages",
+      "nl": "{} pagina’s"
+    },
+    "needsHa": {
+      "en": "{} needs Home Assistant",
+      "nl": "{} heeft Home Assistant nodig"
+    },
+    "unknownWidget": {
+      "en": "Unknown widget type",
+      "nl": "Onbekend tegeltype"
+    },
+    "emptyScreen": {
+      "en": "Nothing on this screen yet",
+      "nl": "Nog niets op dit scherm"
+    },
+    "addWidgetsAt": {
+      "en": "Add tiles at {}",
+      "nl": "Voeg tegels toe op {}"
+    },
+    "gapUnavailable": {
+      "en": "Unavailable",
+      "nl": "Niet beschikbaar"
+    },
+    "gapUnknown": {
+      "en": "Unknown",
+      "nl": "Onbekend"
+    },
+    "since": {
+      "en": "since {}",
+      "nl": "sinds {}"
+    },
+    "hostOr": {
+      "en": "{} or {}",
+      "nl": "{} of {}"
+    },
+    "linkHa": {
+      "en": "Link Home Assistant",
+      "nl": "Koppel Home Assistant"
+    },
+    "linkHaTime": {
+      "en": "About a minute, with your phone",
+      "nl": "Een minuutje, met je telefoon"
+    },
+    "linkHaWhy": {
+      "en": "Then this display shows your energy, lights, heating and travel.",
+      "nl": "Daarna toont dit scherm je energie, lampen, verwarming en reizen."
+    },
+    "signIn": {
+      "en": "Sign in with Home Assistant",
+      "nl": "Inloggen met Home Assistant"
+    },
+    "signWaiting": {
+      "en": "Waiting for Home Assistant…",
+      "nl": "Wachten op Home Assistant…"
+    },
+    "signInFailed": {
+      "en": "Sign-in did not start. Try again.",
+      "nl": "Inloggen is niet gestart. Probeer het opnieuw."
+    },
+    "signInAdmin": {
+      "en": "Sign in as an admin",
+      "nl": "Inloggen als beheerder"
+    },
+    "signInTag": {
+      "en": "Your home, on paper.",
+      "nl": "Je huis, op papier."
+    },
+    "signInHint": {
+      "en": "You sign in on your own Home Assistant.",
+      "nl": "Je logt in op je eigen Home Assistant."
+    },
+    "signedInAs": {
+      "en": "Signed in as {}",
+      "nl": "Ingelogd als {}"
+    },
+    "signOut": {
+      "en": "Sign out",
+      "nl": "Uitloggen"
+    },
+    "finishSetup": {
+      "en": "Finish setting up",
+      "nl": "Installatie afronden"
+    },
+    "linkText": {
+      "en": "Sign in with Home Assistant to link this display.",
+      "nl": "Log in met Home Assistant om dit scherm te koppelen."
+    },
+    "linkTextSetup": {
+      "en": "Last step: sign in with Home Assistant to link your display.",
+      "nl": "Laatste stap: log in met Home Assistant om je scherm te koppelen."
+    },
+    "haFound": {
+      "en": "Found {} on your network",
+      "nl": "{} gevonden op je netwerk"
+    },
+    "haAt": {
+      "en": "Home Assistant at {}",
+      "nl": "Home Assistant op {}"
+    },
+    "haAddress": {
+      "en": "Home Assistant address",
+      "nl": "Adres van Home Assistant"
+    },
+    "haAddressHint": {
+      "en": "The address you open Home Assistant with, like homeassistant.local:8123",
+      "nl": "Het adres waarmee je Home Assistant opent, zoals homeassistant.local:8123"
+    },
+    "change": {
+      "en": "Change",
+      "nl": "Wijzig"
+    },
+    "keyTitle": {
+      "en": "What does the display store?",
+      "nl": "Wat bewaart het scherm?"
+    },
+    "keyText": {
+      "en": "Its own key for the Home Assistant account you sign in with, never your password. The key can do what that account can do, until you unlink here or remove it under Security in your Home Assistant profile.",
+      "nl": "Een eigen sleutel voor het Home Assistant-account waarmee je inlogt, nooit je wachtwoord. De sleutel mag wat dat account mag, tot je hier ontkoppelt of hem verwijdert onder Beveiliging in je Home Assistant-profiel."
+    },
+    "advancedTitle": {
+      "en": "Advanced: a separate Home Assistant user",
+      "nl": "Geavanceerd: een aparte Home Assistant-gebruiker"
+    },
+    "advancedText": {
+      "en": "For a key with fewer rights, sign in with a Home Assistant user that is not an administrator. This page is then view-only, and the display does not report its battery and firmware to Home Assistant.",
+      "nl": "Wil je een sleutel met minder rechten, log dan in met een Home Assistant-gebruiker die geen beheerder is. Deze pagina is dan alleen te bekijken, en het scherm meldt zijn batterij en firmware niet aan Home Assistant."
+    },
+    "viewOnlyText": {
+      "en": "Signed in as {}, who is not a Home Assistant administrator. You can look at screens, YAML and device status. Editing screens, settings, API tokens, updates and unlinking need an admin account.",
+      "nl": "Ingelogd als {}, geen beheerder in Home Assistant. Je kunt schermen, YAML en de status bekijken. Voor schermen aanpassen, instellingen, API-tokens, updates en ontkoppelen is een beheerder nodig."
+    },
+    "setupTitle": {
+      "en": "Set up your display",
+      "nl": "Stel je scherm in"
+    },
+    "chooseWifi": {
+      "en": "Choose your Wi-Fi",
+      "nl": "Kies je wifi"
+    },
+    "wifiHint": {
+      "en": "Networks the display can see (2.4 GHz only).",
+      "nl": "Netwerken die het scherm ziet (alleen 2,4 GHz)."
+    },
+    "wifiPwShort": {
+      "en": "Wi-Fi passwords have at least 8 characters.",
+      "nl": "Een wifi-wachtwoord heeft minstens 8 tekens."
+    },
+    "netSignal": {
+      "en": "{} signal",
+      "nl": "signaal {}"
+    },
+    "netPassword": {
+      "en": "password",
+      "nl": "wachtwoord"
+    },
+    "netOpen": {
+      "en": "open",
+      "nl": "open"
+    },
+    "netConnected": {
+      "en": "connected",
+      "nl": "verbonden"
+    },
+    "netSaved": {
+      "en": "saved",
+      "nl": "opgeslagen"
+    },
+    "wrongPassword": {
+      "en": "Wrong password. Try again.",
+      "nl": "Verkeerd wachtwoord. Probeer het opnieuw."
+    },
+    "connecting": {
+      "en": "Connecting…",
+      "nl": "Verbinden…"
+    },
+    "connectTo": {
+      "en": "Connect to {}",
+      "nl": "Verbind met {}"
+    },
+    "stepWifi": {
+      "en": "Wi-Fi",
+      "nl": "Wifi"
+    },
+    "stepDone": {
+      "en": "Done",
+      "nl": "Klaar"
+    },
+    "allSet": {
+      "en": "All set",
+      "nl": "Klaar"
+    },
+    "allSetText": {
+      "en": "The display is online and linked. It shows what it found in your Home Assistant. Change anything in the browser.",
+      "nl": "Het scherm is online en gekoppeld. Het toont wat het in je Home Assistant vond. Pas alles aan in de browser."
+    },
+    "setupStep": {
+      "en": "Step {} of {}",
+      "nl": "Stap {} van {}"
+    },
+    "swConnected": {
+      "en": "Connected to {}",
+      "nl": "Verbonden met {}"
+    },
+    "swTitle": {
+      "en": "Finish in your browser",
+      "nl": "Rond af in je browser"
+    },
+    "swYourWifi": {
+      "en": "your Wi-Fi",
+      "nl": "je wifi"
+    },
+    "swOr": {
+      "en": "or {}",
+      "nl": "of {}"
+    },
+    "swOpen": {
+      "en": "Open {}",
+      "nl": "Open {}"
+    },
+    "swOpenSub": {
+      "en": "On a phone or computer on {}.",
+      "nl": "Op een telefoon of computer op {}."
+    },
+    "swOpenSubIp": {
+      "en": "On a phone or computer on {}. If the name doesn’t open, use {}. The code opens that too.",
+      "nl": "Op een telefoon of computer op {}. Opent de naam niet, gebruik dan {}. De code opent dat ook."
+    },
+    "swSignInSub": {
+      "en": "The display gets its own key. Your password stays with Home Assistant.",
+      "nl": "Het scherm krijgt een eigen sleutel. Je wachtwoord blijft bij Home Assistant."
+    },
+    "swDoneSub": {
+      "en": "The display shows what it finds in your Home Assistant. Change anything in the browser.",
+      "nl": "Het scherm toont wat het in je Home Assistant vindt. Pas alles aan in de browser."
+    },
+    "swOtherWifi": {
+      "en": "Use a different Wi-Fi",
+      "nl": "Ander wifi-netwerk"
+    },
+    "swWaiting": {
+      "en": "Waiting for sign-in…",
+      "nl": "Wachten op inloggen…"
+    },
+    "openConfigurator": {
+      "en": "Open in the browser",
+      "nl": "Open in de browser"
+    },
+    "tabScreens": {
+      "en": "Screens",
+      "nl": "Schermen"
+    },
+    "tabAdvanced": {
+      "en": "Advanced",
+      "nl": "Geavanceerd"
+    },
+    "tabDevice": {
+      "en": "Device",
+      "nl": "Apparaat"
+    },
+    "tabDeviceSettings": {
+      "en": "Device settings",
+      "nl": "Apparaatinstellingen"
+    },
+    "viewNames": {
+      "en": "Names",
+      "nl": "Namen"
+    },
+    "viewValues": {
+      "en": "Values",
+      "nl": "Waarden"
+    },
+    "viewOnly": {
+      "en": "View only",
+      "nl": "Alleen bekijken"
+    },
+    "draft": {
+      "en": "Draft · not on the display yet",
+      "nl": "Concept · nog niet op het scherm"
+    },
+    "live": {
+      "en": "Live on the display",
+      "nl": "Live op het scherm"
+    },
+    "discard": {
+      "en": "Discard",
+      "nl": "Weggooien"
+    },
+    "push": {
+      "en": "Push to display",
+      "nl": "Naar scherm sturen"
+    },
+    "notPushed": {
+      "en": "Not pushed. {}",
+      "nl": "Niet verstuurd. {}"
+    },
+    "saved": {
+      "en": "Saved · the display updates by itself",
+      "nl": "Opgeslagen · het scherm werkt zichzelf bij"
+    },
+    "notSaved": {
+      "en": "Not saved. {}",
+      "nl": "Niet opgeslagen. {}"
+    },
+    "pvNotPushed": {
+      "en": "Not on the display yet. Push to see it with live values.",
+      "nl": "Nog niet op het scherm. Stuur het om het met echte waarden te zien."
+    },
+    "pvLive": {
+      "en": "Live · updated {}",
+      "nl": "Live · bijgewerkt {}"
+    },
+    "loading": {
+      "en": "Loading…",
+      "nl": "Laden…"
+    },
+    "haDown": {
+      "en": "The display can’t reach Home Assistant. It shows the last values it had and keeps trying.",
+      "nl": "Het scherm kan Home Assistant niet bereiken. Het toont de laatste waarden en blijft het proberen."
+    },
+    "haDownList": {
+      "en": "Can’t reach Home Assistant. The list loads when the display is back in touch · retrying…",
+      "nl": "Home Assistant is niet bereikbaar. De lijst laadt zodra het scherm weer verbinding heeft · opnieuw proberen…"
+    },
+    "haNoAnswer": {
+      "en": "Home Assistant didn’t answer within 20 seconds. Check the address, and that Home Assistant is running.",
+      "nl": "Home Assistant gaf binnen 20 seconden geen antwoord. Controleer het adres en of Home Assistant aan staat."
+    },
+    "gapUnavailableHa": {
+      "en": "Unavailable in Home Assistant",
+      "nl": "Niet beschikbaar in Home Assistant"
+    },
+    "gapUnknownHa": {
+      "en": "Unknown in Home Assistant",
+      "nl": "Onbekend in Home Assistant"
+    },
+    "gapNote": {
+      "en": "Home Assistant has no value for this entity right now ({}). The tile shows a ring until it has one.",
+      "nl": "Home Assistant heeft nu geen waarde voor deze entiteit ({}). De tegel toont een ring tot die er weer is."
+    },
+    "noMatch": {
+      "en": "Nothing matches “{}”.",
+      "nl": "Niets gevonden voor “{}”."
+    },
+    "noFit": {
+      "en": "Home Assistant has nothing that fits here.",
+      "nl": "Home Assistant heeft niets dat hier past."
+    },
+    "clTitle": {
+      "en": "Getting started",
+      "nl": "Aan de slag"
+    },
+    "clLinked": {
+      "en": "Linked to Home Assistant",
+      "nl": "Gekoppeld aan Home Assistant"
+    },
+    "clHaOffline": {
+      "en": "Linked, but Home Assistant can’t be reached",
+      "nl": "Gekoppeld, maar Home Assistant is niet bereikbaar"
+    },
+    "clFilled": {
+      "en": "{} of {} tiles filled",
+      "nl": "{} van {} tegels gevuld"
+    },
+    "clFilledAll": {
+      "en": "{} tiles filled",
+      "nl": "{} tegels gevuld"
+    },
+    "clFilled1": {
+      "en": "1 tile filled",
+      "nl": "1 tegel gevuld"
+    },
+    "clLeftOut": {
+      "en": "Not found in your Home Assistant, so left out: {}.",
+      "nl": "Niet gevonden in je Home Assistant, dus weggelaten: {}."
+    },
+    "optSolar": {
+      "en": "solar",
+      "nl": "zonnepanelen"
+    },
+    "optBattery": {
+      "en": "home battery",
+      "nl": "thuisbatterij"
+    },
+    "optPrice": {
+      "en": "energy prices",
+      "nl": "energieprijzen"
+    },
+    "optHistory": {
+      "en": "energy history",
+      "nl": "energiegeschiedenis"
+    },
+    "optLights": {
+      "en": "lights",
+      "nl": "lampen"
+    },
+    "optHeating": {
+      "en": "thermostats",
+      "nl": "thermostaten"
+    },
+    "optRooms": {
+      "en": "room sensors",
+      "nl": "kamersensoren"
+    },
+    "clPreview": {
+      "en": "Check your screens with live values",
+      "nl": "Bekijk je schermen met echte waarden"
+    },
+    "clPreviewed": {
+      "en": "Preview checked",
+      "nl": "Voorbeeld bekeken"
+    },
+    "clFixLink": {
+      "en": "Check the link",
+      "nl": "Koppeling bekijken"
+    },
+    "clFixMissing": {
+      "en": "See what’s missing",
+      "nl": "Bekijk wat ontbreekt"
+    },
+    "clFixPreview": {
+      "en": "Show values",
+      "nl": "Toon waarden"
+    },
+    "hide": {
+      "en": "Hide",
+      "nl": "Verbergen"
+    },
+    "pickLights": {
+      "en": "Lights to show",
+      "nl": "Te tonen lampen"
+    },
+    "pickRooms": {
+      "en": "Rooms to show",
+      "nl": "Te tonen kamers"
+    },
+    "pickAllLights": {
+      "en": "Nothing picked: every light, grouped by area.",
+      "nl": "Niets gekozen: alle lampen, per ruimte."
+    },
+    "pickAllRooms": {
+      "en": "Nothing picked: every climate entity.",
+      "nl": "Niets gekozen: alle klimaatentiteiten."
+    },
+    "pickCount": {
+      "en": "{} picked, shown in this order",
+      "nl": "{} gekozen, in deze volgorde"
+    },
+    "pickShowAll": {
+      "en": "Show all",
+      "nl": "Alles tonen"
+    },
+    "pickSearch": {
+      "en": "Search by name, area or entity id",
+      "nl": "Zoek op naam, ruimte of entiteit-id"
+    },
+    "pickArea": {
+      "en": "Whole area",
+      "nl": "Hele ruimte"
+    },
+    "pickNoArea": {
+      "en": "No area",
+      "nl": "Geen ruimte"
+    },
+    "page1": {
+      "en": "1 page",
+      "nl": "1 pagina"
+    },
+    "widget1": {
+      "en": "1 widget",
+      "nl": "1 tegel"
+    },
+    "nWidgets": {
+      "en": "{} widgets",
+      "nl": "{} tegels"
+    },
+    "partOf": {
+      "en": "part {} of {}",
+      "nl": "deel {} van {}"
+    },
+    "ofN": {
+      "en": "{} of {}",
+      "nl": "{} van {}"
+    },
+    "noScreensYet": {
+      "en": "No screens yet",
+      "nl": "Nog geen schermen"
+    },
+    "appDescHome": {
+      "en": "Overview, prices, energy, solar",
+      "nl": "Overzicht, prijzen, energie, zon"
+    },
+    "appDescHouse": {
+      "en": "Lights and heating",
+      "nl": "Lampen en verwarming"
+    },
+    "appDescTravel": {
+      "en": "Trains, bus and car",
+      "nl": "Trein, bus en auto"
+    },
+    "appDescSettings": {
+      "en": "Display, updates, Wi-Fi, HA",
+      "nl": "Scherm, updates, wifi, HA"
+    },
+    "homeUse": {
+      "en": "Home use",
+      "nl": "Verbruik"
+    },
+    "grid": {
+      "en": "Grid",
+      "nl": "Net"
+    },
+    "batteryFlow": {
+      "en": "Battery flow",
+      "nl": "Batterijstroom"
+    },
+    "usedToday": {
+      "en": "Used today",
+      "nl": "Verbruikt vandaag"
+    },
+    "solarToday": {
+      "en": "Solar today",
+      "nl": "Zon vandaag"
+    },
+    "imported": {
+      "en": "Imported",
+      "nl": "Afgenomen"
+    },
+    "exported": {
+      "en": "Exported",
+      "nl": "Teruggeleverd"
+    },
+    "lowest": {
+      "en": "Lowest",
+      "nl": "Laagste"
+    },
+    "highest": {
+      "en": "Highest",
+      "nl": "Hoogste"
+    },
+    "cheapest3h": {
+      "en": "Cheapest 3h",
+      "nl": "Goedkoopste 3 u"
+    },
+    "kwhToday": {
+      "en": "{} kWh today",
+      "nl": "{} kWh vandaag"
+    },
+    "noSun": {
+      "en": "No sun",
+      "nl": "Geen zon"
+    },
+    "gridIn": {
+      "en": "In",
+      "nl": "Afname"
+    },
+    "gridOut": {
+      "en": "Out",
+      "nl": "Terug"
+    },
+    "balanced": {
+      "en": "Balanced",
+      "nl": "In balans"
+    },
+    "batCharging": {
+      "en": "Charging",
+      "nl": "Laadt"
+    },
+    "batDischarging": {
+      "en": "Discharging",
+      "nl": "Ontlaadt"
+    },
+    "solarForecast": {
+      "en": "Of {} kWh forecast",
+      "nl": "Van {} kWh verwacht"
+    },
+    "atHour": {
+      "en": "At {}",
+      "nl": "Om {}"
+    },
+    "avgPrice": {
+      "en": "Avg {}",
+      "nl": "Gem. {}"
+    },
+    "roomHeating1": {
+      "en": "1 room heating",
+      "nl": "1 kamer verwarmt"
+    },
+    "roomsHeating": {
+      "en": "{} rooms heating",
+      "nl": "{} kamers verwarmen"
+    },
+    "todayPerHour": {
+      "en": "Today, per hour",
+      "nl": "Vandaag, per uur"
+    },
+    "rooms": {
+      "en": "Rooms",
+      "nl": "Kamers"
+    },
+    "lights": {
+      "en": "Lights",
+      "nl": "Lampen"
+    },
+    "data": {
+      "en": "Data",
+      "nl": "Gegevens"
+    },
+    "onOffOnly": {
+      "en": "on / off only",
+      "nl": "alleen aan / uit"
+    },
+    "noHaPrices": {
+      "en": "Link it once to see today’s prices and the cheapest hours to use power.",
+      "nl": "Koppel het één keer om de prijzen van vandaag en de goedkoopste uren te zien."
+    },
+    "noHaEnergy": {
+      "en": "Link it once to see what your home used today, hour by hour.",
+      "nl": "Koppel het één keer om te zien wat je huis vandaag per uur verbruikte."
+    },
+    "noHaSolar": {
+      "en": "Link it once to see your solar production and home battery.",
+      "nl": "Koppel het één keer om je zonne-opbrengst en thuisbatterij te zien."
+    },
+    "noHaLights": {
+      "en": "Link it once to switch every light, grouped by room.",
+      "nl": "Koppel het één keer om elke lamp te schakelen, per kamer."
+    },
+    "noHaClimate": {
+      "en": "Link it once to see and set every heated room.",
+      "nl": "Koppel het één keer om elke verwarmde kamer te zien en in te stellen."
+    },
+    "noHaTravel": {
+      "en": "Link it once to see your routes with live delays.",
+      "nl": "Koppel het één keer om je routes met actuele vertragingen te zien."
+    },
+    "noHaOther": {
+      "en": "Link it once to show live data from your home here.",
+      "nl": "Koppel het één keer om hier live gegevens uit je huis te zien."
+    },
+    "setBrightness": {
+      "en": "Front light",
+      "nl": "Verlichting"
+    },
+    "setWarmth": {
+      "en": "Warmth",
+      "nl": "Warmte"
+    },
+    "setNight": {
+      "en": "Night mode",
+      "nl": "Nachtstand"
+    },
+    "setReturnHome": {
+      "en": "Back to Home",
+      "nl": "Terug naar start"
+    },
+    "setStandby": {
+      "en": "Standby",
+      "nl": "Stand-by"
+    },
+    "setClock": {
+      "en": "Clock",
+      "nl": "Klok"
+    },
+    "setInterval": {
+      "en": "Live data",
+      "nl": "Live gegevens"
+    },
+    "setCleanEvery": {
+      "en": "Clean screen",
+      "nl": "Scherm verversen"
+    },
+    "setStyle": {
+      "en": "Style",
+      "nl": "Stijl"
+    },
+    "setTypeface": {
+      "en": "Typeface",
+      "nl": "Lettertype"
+    },
+    "setSurface": {
+      "en": "Card surface",
+      "nl": "Kaartvlak"
+    },
+    "setHaReport": {
+      "en": "Report to Home Assistant",
+      "nl": "Melden aan Home Assistant"
+    },
+    "timeZone": {
+      "en": "Time zone",
+      "nl": "Tijdzone"
+    },
+    "tzFromHa": {
+      "en": "From Home Assistant",
+      "nl": "Van Home Assistant"
+    },
+    "setPowerSave": {
+      "en": "On battery",
+      "nl": "Op batterij"
+    },
+    "setWakeEvery": {
+      "en": "Check every",
+      "nl": "Kijk elke"
+    },
+    "setLiveMin": {
+      "en": "Live after a press",
+      "nl": "Live na een druk"
+    },
+    "infoCleanEvery": {
+      "en": "E-paper leaves faint traces of old images. Every so often the display flashes black and white once to clear them.",
+      "nl": "E-paper houdt vage resten van oude beelden vast. Af en toe knippert het scherm één keer zwart en wit om ze weg te halen."
+    },
+    "infoPowerSave": {
+      "en": "How the display saves battery when not on USB. Always live stays connected and updates within seconds (days of battery). Sleep at night rests during night hours. Standby + night also rests after a while without a press. Glance sleeps, wakes on its own to update, and stays live for a few minutes after you press a button (weeks of battery).",
+      "nl": "Hoe het scherm batterij spaart als het niet aan USB hangt. Altijd live blijft verbonden en werkt binnen seconden bij (dagen batterij). Nachtrust rust ’s nachts. Stand-by + nacht rust ook na een tijdje zonder knopdruk. Oogopslag slaapt, wordt vanzelf wakker om bij te werken en blijft een paar minuten live nadat je op een knop drukt (weken batterij)."
+    },
+    "infoWakeEvery": {
+      "en": "In Glance and Standby: how often the display wakes on its own to update the screen.",
+      "nl": "In Oogopslag en Stand-by: hoe vaak het scherm vanzelf wakker wordt om het beeld bij te werken."
+    },
+    "infoLiveMin": {
+      "en": "In Glance: how long the display stays live after you press a button.",
+      "nl": "In Oogopslag: hoe lang het scherm live blijft nadat je op een knop drukt."
+    },
+    "infoInterval": {
+      "en": "How often the screen updates while the display is live.",
+      "nl": "Hoe vaak het beeld wordt bijgewerkt terwijl het scherm live is."
+    },
+    "infoStandby": {
+      "en": "After this long without a press, the display shows a quiet standby face.",
+      "nl": "Na zo lang zonder knopdruk toont het scherm een rustig stand-by-beeld."
+    },
+    "infoHaReport": {
+      "en": "Shows this display’s battery, Wi-Fi signal and firmware as sensors in Home Assistant.",
+      "nl": "Toont de batterij, het wifisignaal en de firmware van dit scherm als sensoren in Home Assistant."
+    },
+    "never": {
+      "en": "Never",
+      "nl": "Nooit"
+    },
+    "afterMin": {
+      "en": "after {} min",
+      "nl": "na {} min"
+    },
+    "hour12": {
+      "en": "12-hour",
+      "nl": "12-uurs"
+    },
+    "hour24": {
+      "en": "24-hour",
+      "nl": "24-uurs"
+    },
+    "everySec": {
+      "en": "every {} s",
+      "nl": "elke {} s"
+    },
+    "everyMin": {
+      "en": "every {} min",
+      "nl": "elke {} min"
+    },
+    "hourly": {
+      "en": "hourly",
+      "nl": "elk uur"
+    },
+    "every2h": {
+      "en": "every 2 h",
+      "nl": "elke 2 u"
+    },
+    "styleClassic": {
+      "en": "Classic",
+      "nl": "Klassiek"
+    },
+    "styleSleek": {
+      "en": "Sleek",
+      "nl": "Strak"
+    },
+    "surfDots": {
+      "en": "Dots",
+      "nl": "Stippen"
+    },
+    "surfDither": {
+      "en": "Dither",
+      "nl": "Raster"
+    },
+    "psOff": {
+      "en": "Always live",
+      "nl": "Altijd live"
+    },
+    "psNight": {
+      "en": "Sleep at night",
+      "nl": "Nachtrust"
+    },
+    "psStandby": {
+      "en": "Standby + night",
+      "nl": "Stand-by + nacht"
+    },
+    "psGlance": {
+      "en": "Glance",
+      "nl": "Oogopslag"
+    },
+    "firmware": {
+      "en": "Firmware",
+      "nl": "Firmware"
+    },
+    "installed": {
+      "en": "installed",
+      "nl": "geïnstalleerd"
+    },
+    "chanStableLong": {
+      "en": "stable channel",
+      "nl": "stabiel kanaal"
+    },
+    "chanBetaLong": {
+      "en": "beta channel",
+      "nl": "bètakanaal"
+    },
+    "otaChecksOff": {
+      "en": "Update checks off",
+      "nl": "Zoeken naar updates uit"
+    },
+    "otaChecksOffText": {
+      "en": "This build doesn’t check for updates. Install new firmware by uploading it from a computer.",
+      "nl": "Deze versie zoekt niet naar updates. Installeer nieuwe firmware door hem vanaf een computer te uploaden."
+    },
+    "otaLowBattery": {
+      "en": "Not enough battery",
+      "nl": "Batterij te leeg"
+    },
+    "otaFailed": {
+      "en": "Update didn’t finish",
+      "nl": "Update niet afgerond"
+    },
+    "otaUpToDate": {
+      "en": "Up to date",
+      "nl": "Up-to-date"
+    },
+    "otaAvailable": {
+      "en": "v{} available",
+      "nl": "v{} beschikbaar"
+    },
+    "otaInstalling": {
+      "en": "Installing…",
+      "nl": "Installeren…"
+    },
+    "otaNothingChanged": {
+      "en": "Nothing changed. Try again.",
+      "nl": "Er is niets veranderd. Probeer het opnieuw."
+    },
+    "otaWhatsNew": {
+      "en": "What’s new",
+      "nl": "Wat is nieuw"
+    },
+    "otaChannel": {
+      "en": "Channel",
+      "nl": "Kanaal"
+    },
+    "otaAutomatic": {
+      "en": "Automatic",
+      "nl": "Automatisch"
+    },
+    "chanStable": {
+      "en": "Stable",
+      "nl": "Stabiel"
+    },
+    "chanBeta": {
+      "en": "Beta",
+      "nl": "Bèta"
+    },
+    "autoNotify": {
+      "en": "Notify",
+      "nl": "Melden"
+    },
+    "autoNight": {
+      "en": "Night",
+      "nl": "Nacht"
+    },
+    "otaHintOff": {
+      "en": "Off in this build",
+      "nl": "Uit in deze versie"
+    },
+    "otaHintNight": {
+      "en": "Installs at 03:00 when battery > 50%",
+      "nl": "Installeert om 03:00 bij batterij > 50%"
+    },
+    "otaHintNotify": {
+      "en": "Checks daily, shows an icon in the top bar",
+      "nl": "Kijkt dagelijks, icoon in de bovenbalk"
+    },
+    "otaHintManual": {
+      "en": "Only when you check",
+      "nl": "Alleen als je zelf kijkt"
+    },
+    "otaInstallV": {
+      "en": "Install v{}",
+      "nl": "Installeer v{}"
+    },
+    "otaCheck": {
+      "en": "Check for updates",
+      "nl": "Zoek naar updates"
+    },
+    "aboutAMinute": {
+      "en": "About a minute",
+      "nl": "Ongeveer een minuut"
+    },
+    "otaChecked": {
+      "en": "Checked {}",
+      "nl": "Gekeken om {}"
+    },
+    "otaNotChecked": {
+      "en": "Not checked yet",
+      "nl": "Nog niet gekeken"
+    },
+    "otaCheckingGh": {
+      "en": "Checking GitHub…",
+      "nl": "GitHub bekijken…"
+    },
+    "otaUpdatedTo": {
+      "en": "Updated to v{}",
+      "nl": "Bijgewerkt naar v{}"
+    },
+    "otaPrevKept": {
+      "en": "Previous v{} kept as fallback",
+      "nl": "Vorige v{} bewaard als reserve"
+    },
+    "otaVerifying": {
+      "en": "Verifying…",
+      "nl": "Controleren…"
+    },
+    "otaStartingNew": {
+      "en": "Starting new version",
+      "nl": "Nieuwe versie start"
+    },
+    "checking": {
+      "en": "Checking…",
+      "nl": "Zoeken…"
+    },
+    "otaLowBatteryMsg": {
+      "en": "Battery at {}% — charge to 30% first",
+      "nl": "Batterij op {}% — laad eerst op tot 30%"
+    },
+    "noNetwork": {
+      "en": "No network",
+      "nl": "Geen netwerk"
+    },
+    "noNetworkLater": {
+      "en": "No network — try again later",
+      "nl": "Geen netwerk — probeer het later opnieuw"
+    },
+    "otaCorrupt": {
+      "en": "Download was corrupted — nothing changed. Try again.",
+      "nl": "Download was beschadigd — er is niets veranderd. Probeer het opnieuw."
+    },
+    "otaRolledBack": {
+      "en": "v{} did not start — restored v{} automatically",
+      "nl": "v{} startte niet — v{} automatisch teruggezet"
+    },
+    "bootRestarting": {
+      "en": "Restarting…",
+      "nl": "Herstarten…"
+    },
+    "bootStartingV": {
+      "en": "Starting v{}…",
+      "nl": "v{} start…"
+    },
+    "bootUpdateFailed": {
+      "en": "Update failed — back on v{}",
+      "nl": "Update mislukt — terug op v{}"
+    },
+    "updatingTo": {
+      "en": "Updating to",
+      "nl": "Bijwerken naar"
+    },
+    "updVersion": {
+      "en": "v{}",
+      "nl": "v{}"
+    },
+    "updDownloading": {
+      "en": "Downloading firmware.bin",
+      "nl": "firmware.bin downloaden"
+    },
+    "updChecking": {
+      "en": "Checking SHA-256",
+      "nl": "SHA-256 controleren"
+    },
+    "updWriting": {
+      "en": "Writing & setting boot partition",
+      "nl": "Schrijven en opstartpartitie kiezen"
+    },
+    "updRestarting": {
+      "en": "Restarting",
+      "nl": "Herstarten"
+    },
+    "updKeepOn": {
+      "en": "Keep the device on. The current version stays installed until the new one starts cleanly.",
+      "nl": "Laat het apparaat aan. De huidige versie blijft staan tot de nieuwe goed opstart."
+    },
+    "recCrashTitle": {
+      "en": "HA Paper keeps crashing",
+      "nl": "HA Paper blijft vastlopen"
+    },
+    "recTitle": {
+      "en": "Factory reset?",
+      "nl": "Fabrieksreset?"
+    },
+    "recCrashLine": {
+      "en": "It restarted after a crash 3 times in a row.",
+      "nl": "Het herstartte 3 keer achter elkaar na een crash."
+    },
+    "recErasesCrash": {
+      "en": "A factory reset erases Wi-Fi, the Home Assistant link and all settings.",
+      "nl": "Een fabrieksreset wist wifi, Home Assistant-koppeling en alle instellingen."
+    },
+    "recErases": {
+      "en": "Erases Wi-Fi, the Home Assistant link and all settings.",
+      "nl": "Wist wifi, Home Assistant-koppeling en alle instellingen."
+    },
+    "recPress": {
+      "en": "Press Right to erase · any other key cancels",
+      "nl": "Druk op Rechts om te wissen · een andere knop annuleert"
+    },
+    "recAuto": {
+      "en": "Cancels by itself after 10 seconds",
+      "nl": "Annuleert vanzelf na 10 seconden"
+    },
+    "pickNetwork": {
+      "en": "Pick a network",
+      "nl": "Kies een netwerk"
+    },
+    "kvSignal": {
+      "en": "Signal",
+      "nl": "Signaal"
+    },
+    "kvIp": {
+      "en": "IP address",
+      "nl": "IP-adres"
+    },
+    "kvStatus": {
+      "en": "Status",
+      "nl": "Status"
+    },
+    "kvSavedNets": {
+      "en": "Saved networks",
+      "nl": "Opgeslagen netwerken"
+    },
+    "reachable": {
+      "en": "Reachable",
+      "nl": "Bereikbaar"
+    },
+    "disconnect": {
+      "en": "Disconnect",
+      "nl": "Verbreken"
+    },
+    "setupFromPhone": {
+      "en": "Set up from phone",
+      "nl": "Instellen met telefoon"
+    },
+    "wifiNetworks": {
+      "en": "Networks · 2.4 GHz",
+      "nl": "Netwerken · 2,4 GHz"
+    },
+    "scan": {
+      "en": "Scan",
+      "nl": "Zoeken"
+    },
+    "scanning": {
+      "en": "Scanning…",
+      "nl": "Zoeken…"
+    },
+    "savedTag": {
+      "en": "Saved",
+      "nl": "Opgeslagen"
+    },
+    "wifiLooking": {
+      "en": "Looking for networks…",
+      "nl": "Netwerken zoeken…"
+    },
+    "wifiNone": {
+      "en": "No networks found. Tap Scan.",
+      "nl": "Geen netwerken gevonden. Tik op Zoeken."
+    },
+    "wifi5g": {
+      "en": "5 GHz networks are hidden: this device only has 2.4 GHz Wi-Fi.",
+      "nl": "5 GHz-netwerken zijn verborgen: dit apparaat heeft alleen 2,4 GHz-wifi."
+    },
+    "show": {
+      "en": "Show",
+      "nl": "Toon"
+    },
+    "pwFor": {
+      "en": "Password for {}",
+      "nl": "Wachtwoord voor {}"
+    },
+    "typePw": {
+      "en": "Type the password",
+      "nl": "Typ het wachtwoord"
+    },
+    "nChars": {
+      "en": "{} characters",
+      "nl": "{} tekens"
+    },
+    "keySpace": {
+      "en": "space",
+      "nl": "spatie"
+    },
+    "keyConnect": {
+      "en": "Connect",
+      "nl": "Verbind"
+    },
+    "pwWrong": {
+      "en": "Wrong password",
+      "nl": "Verkeerd wachtwoord"
+    },
+    "pwMin8": {
+      "en": "At least 8 characters",
+      "nl": "Minstens 8 tekens"
+    },
+    "connectingTo": {
+      "en": "Connecting to {}…",
+      "nl": "Verbinden met {}…"
+    },
+    "connectingNote": {
+      "en": "This takes a few seconds. The screen updates when it’s done.",
+      "nl": "Dit duurt een paar seconden. Het scherm werkt zich bij als het klaar is."
+    },
+    "phoneTitle": {
+      "en": "Set up from your phone",
+      "nl": "Instellen met je telefoon"
+    },
+    "phoneStep1": {
+      "en": "Scan the code, or join the Wi-Fi “HA-Paper-Setup” on your phone.",
+      "nl": "Scan de code, of kies op je telefoon de wifi “HA-Paper-Setup”."
+    },
+    "phoneStep2": {
+      "en": "The setup page opens. If not, go to 192.168.4.1.",
+      "nl": "De instelpagina opent. Zo niet, ga naar 192.168.4.1."
+    },
+    "phoneStep3": {
+      "en": "Pick your network and type the password there.",
+      "nl": "Kies daar je netwerk en typ het wachtwoord."
+    },
+    "cancel": {
+      "en": "Cancel",
+      "nl": "Annuleren"
+    },
+    "pairingCode": {
+      "en": "Pairing code",
+      "nl": "Koppelcode"
+    },
+    "linkScanNote": {
+      "en": "Scan with your phone on the same Wi-Fi. Check the pairing code matches.",
+      "nl": "Scan met je telefoon op dezelfde wifi. Controleer of de koppelcode klopt."
+    },
+    "scanWithPhone": {
+      "en": "Scan with your phone",
+      "nl": "Scan met je telefoon"
+    },
+    "showBigCode": {
+      "en": "Show the big code",
+      "nl": "Toon de grote code"
+    },
+    "lnkScan": {
+      "en": "Scan the code",
+      "nl": "Scan de code"
+    },
+    "lnkScanWait": {
+      "en": "Waiting for your phone…",
+      "nl": "Wachten op je telefoon…"
+    },
+    "lnkScanDone": {
+      "en": "Phone connected · pairing code matched",
+      "nl": "Telefoon verbonden · koppelcode klopt"
+    },
+    "lnkFind": {
+      "en": "Find Home Assistant",
+      "nl": "Home Assistant zoeken"
+    },
+    "lnkFindWait": {
+      "en": "Looked up on your network",
+      "nl": "Gezocht op je netwerk"
+    },
+    "lnkFindDone": {
+      "en": "Found Home Assistant",
+      "nl": "Home Assistant gevonden"
+    },
+    "lnkFoundAt": {
+      "en": "Found {}",
+      "nl": "{} gevonden"
+    },
+    "lnkSignIn": {
+      "en": "Sign in on your phone",
+      "nl": "Log in op je telefoon"
+    },
+    "lnkSignInWait": {
+      "en": "On Home Assistant’s own login page",
+      "nl": "Op de eigen inlogpagina van Home Assistant"
+    },
+    "lnkSignInDone": {
+      "en": "Signed in",
+      "nl": "Ingelogd"
+    },
+    "lnkKey": {
+      "en": "Get this display’s key",
+      "nl": "Sleutel voor dit scherm ophalen"
+    },
+    "lnkKeyWait": {
+      "en": "One-time code is swapped for a key",
+      "nl": "Eenmalige code wordt omgeruild voor een sleutel"
+    },
+    "lnkKeyDone": {
+      "en": "Key stored on this display",
+      "nl": "Sleutel staat op dit scherm"
+    },
+    "back": {
+      "en": "Back",
+      "nl": "Terug"
+    },
+    "kvServer": {
+      "en": "Server",
+      "nl": "Server"
+    },
+    "kvKey": {
+      "en": "Key",
+      "nl": "Sleutel"
+    },
+    "kvConnection": {
+      "en": "Connection",
+      "nl": "Verbinding"
+    },
+    "kvLastData": {
+      "en": "Last data",
+      "nl": "Laatste gegevens"
+    },
+    "kvWhy": {
+      "en": "Why",
+      "nl": "Waarom"
+    },
+    "kvData": {
+      "en": "Data",
+      "nl": "Gegevens"
+    },
+    "kvFix": {
+      "en": "Fix",
+      "nl": "Oplossing"
+    },
+    "kvSignedInAs": {
+      "en": "Signed in as",
+      "nl": "Ingelogd als"
+    },
+    "renewsItself": {
+      "en": "Renews itself",
+      "nl": "Vernieuwt zichzelf"
+    },
+    "connLive": {
+      "en": "Live",
+      "nl": "Live"
+    },
+    "removedInHa": {
+      "en": "Removed in Home Assistant",
+      "nl": "Verwijderd in Home Assistant"
+    },
+    "lastKnownOnly": {
+      "en": "Last known values only",
+      "nl": "Alleen laatst bekende waarden"
+    },
+    "linkPhoneBelow": {
+      "en": "Link with phone below",
+      "nl": "Koppel hieronder met telefoon"
+    },
+    "notSet": {
+      "en": "Not set",
+      "nl": "Niet ingesteld"
+    },
+    "noLiveData": {
+      "en": "Showing no live data",
+      "nl": "Geen live gegevens"
+    },
+    "revokedHint": {
+      "en": "Or open {} and sign in with Home Assistant again.",
+      "nl": "Of open {} en log opnieuw in met Home Assistant."
+    },
+    "reconnect": {
+      "en": "Reconnect",
+      "nl": "Herverbinden"
+    },
+    "unlink": {
+      "en": "Unlink",
+      "nl": "Ontkoppelen"
+    },
+    "relinkPhone": {
+      "en": "Re-link with phone",
+      "nl": "Opnieuw koppelen"
+    },
+    "linkPhone": {
+      "en": "Link with phone",
+      "nl": "Koppel met telefoon"
+    },
+    "whatReads": {
+      "en": "What this display reads",
+      "nl": "Wat dit scherm leest"
+    },
+    "energy": {
+      "en": "Energy",
+      "nl": "Energie"
+    },
+    "useEnergySrc": {
+      "en": "From your Energy dashboard: solar, battery, grid, prices",
+      "nl": "Uit je Energie-dashboard: zon, batterij, net, prijzen"
+    },
+    "useLightsSrc": {
+      "en": "Grouped by Home Assistant area",
+      "nl": "Per ruimte in Home Assistant"
+    },
+    "useHeatSrc": {
+      "en": "Climate entities in Home Assistant",
+      "nl": "Klimaat-entiteiten in Home Assistant"
+    },
+    "travel": {
+      "en": "Travel",
+      "nl": "Reizen"
+    },
+    "useTravelSrc": {
+      "en": "The sensors you picked for your routes",
+      "nl": "De sensoren die je voor je routes koos"
+    },
+    "nSensors": {
+      "en": "{} sensors",
+      "nl": "{} sensoren"
+    },
+    "nLights": {
+      "en": "{} lights",
+      "nl": "{} lampen"
+    },
+    "nRoutes": {
+      "en": "{} routes",
+      "nl": "{} routes"
+    },
+    "changeShownAt": {
+      "en": "Change what’s shown at {}",
+      "nl": "Pas aan wat er staat op {}"
+    },
+    "kvRunningFor": {
+      "en": "Running for",
+      "nl": "Draait al"
+    },
+    "kvStorage": {
+      "en": "Storage",
+      "nl": "Opslag"
+    },
+    "kvScreen": {
+      "en": "Screen",
+      "nl": "Scherm"
+    },
+    "kvHardware": {
+      "en": "Hardware",
+      "nl": "Hardware"
+    },
+    "redraws": {
+      "en": "{} full · {} partial redraws",
+      "nl": "{} volledig · {} deels ververst"
+    },
+    "restart": {
+      "en": "Restart",
+      "nl": "Herstarten"
+    },
+    "restartNote": {
+      "en": "Keeps all settings. Takes about 10 seconds.",
+      "nl": "Bewaart alle instellingen. Duurt ongeveer 10 seconden."
+    },
+    "resetErases": {
+      "en": "Erases Wi-Fi, Home Assistant link and all settings.",
+      "nl": "Wist wifi, Home Assistant-koppeling en alle instellingen."
+    },
+    "resetStartsSetup": {
+      "en": "Starts setup again from your phone.",
+      "nl": "Start de installatie opnieuw vanaf je telefoon."
+    },
+    "tapAgain": {
+      "en": "Tap again to erase",
+      "nl": "Tik nog eens: wissen"
+    },
+    "factoryReset": {
+      "en": "Factory reset",
+      "nl": "Fabrieksreset"
+    },
+    "searchScreens": {
+      "en": "Search screens",
+      "nl": "Zoek schermen"
+    },
+    "noScreenMatch": {
+      "en": "No screen matches.",
+      "nl": "Geen scherm gevonden."
+    },
+    "dragScreensHere": {
+      "en": "Drag screens here · drag to reorder categories",
+      "nl": "Sleep schermen hierheen · sleep om categorieën te ordenen"
+    },
+    "categoryName": {
+      "en": "Category name",
+      "nl": "Naam van de categorie"
+    },
+    "renameCategory": {
+      "en": "Rename category",
+      "nl": "Categorie hernoemen"
+    },
+    "deleteCategory": {
+      "en": "Delete empty category",
+      "nl": "Lege categorie verwijderen"
+    },
+    "deleteCategoryAria": {
+      "en": "Delete category {}",
+      "nl": "Categorie {} verwijderen"
+    },
+    "newScreenIn": {
+      "en": "New screen in this category",
+      "nl": "Nieuw scherm in deze categorie"
+    },
+    "newScreenInAria": {
+      "en": "New screen in {}",
+      "nl": "Nieuw scherm in {}"
+    },
+    "emptyDrop": {
+      "en": "Empty · drop a screen here",
+      "nl": "Leeg · sleep hier een scherm heen"
+    },
+    "newCategoryName": {
+      "en": "New category name",
+      "nl": "Naam van de nieuwe categorie"
+    },
+    "newCategory": {
+      "en": "New category",
+      "nl": "Nieuwe categorie"
+    },
+    "addBtn": {
+      "en": "+ Add",
+      "nl": "+ Toevoegen"
+    },
+    "categoriesNote": {
+      "en": "Categories are the apps on the display. Drag screens between them; click a name to rename.",
+      "nl": "Categorieën zijn de apps op het scherm. Sleep schermen ertussen; klik op een naam om hem te hernoemen."
+    },
+    "screenTitle": {
+      "en": "Screen title",
+      "nl": "Schermtitel"
+    },
+    "addTile": {
+      "en": "Add a tile",
+      "nl": "Tegel toevoegen"
+    },
+    "addTileDots": {
+      "en": "+ Add tile…",
+      "nl": "+ Tegel toevoegen…"
+    },
+    "addTileFirst": {
+      "en": "Add a tile at the first free spot",
+      "nl": "Tegel toevoegen op de eerste vrije plek"
+    },
+    "screenFull": {
+      "en": "Screen is full (8 of 8 cells)",
+      "nl": "Scherm is vol (8 van 8 vakken)"
+    },
+    "deleteScreen": {
+      "en": "Delete screen",
+      "nl": "Scherm verwijderen"
+    },
+    "needsEntity": {
+      "en": "Needs an entity",
+      "nl": "Kies een entiteit"
+    },
+    "dismiss": {
+      "en": "Dismiss",
+      "nl": "Sluiten"
+    },
+    "noRoom1": {
+      "en": "1 tile has no room and won’t show on the display.",
+      "nl": "1 tegel past niet en komt niet op het scherm."
+    },
+    "noRoomN": {
+      "en": "{} tiles have no room and won’t show on the display.",
+      "nl": "{} tegels passen niet en komen niet op het scherm."
+    },
+    "editorHelp": {
+      "en": "Add a tile above or drag one from the widget list onto a cell. Drag a tile to another cell, or onto a tile to swap; with the keyboard, focus a tile and use the arrow keys. Click a tile to edit it. Pushing redraws the display once.",
+      "nl": "Voeg hierboven een tegel toe of sleep er een uit de lijst naar een vak. Sleep een tegel naar een ander vak, of op een tegel om ze te wisselen; met het toetsenbord: focus een tegel en gebruik de pijltjes. Klik op een tegel om hem aan te passen. Versturen tekent het scherm één keer opnieuw."
+    },
+    "widgetName": {
+      "en": "Widget name",
+      "nl": "Naam van de tegel"
+    },
+    "widgetNameTitle": {
+      "en": "Name shown on the tile. Empty = the Home Assistant name.",
+      "nl": "Naam op de tegel. Leeg = de naam uit Home Assistant."
+    },
+    "deleteTile": {
+      "en": "Delete tile",
+      "nl": "Tegel verwijderen"
+    },
+    "moveTile": {
+      "en": "Move tile",
+      "nl": "Tegel verplaatsen"
+    },
+    "move": {
+      "en": "Move",
+      "nl": "Verplaats"
+    },
+    "moveLeft": {
+      "en": "Move tile left",
+      "nl": "Tegel naar links"
+    },
+    "moveRight": {
+      "en": "Move tile right",
+      "nl": "Tegel naar rechts"
+    },
+    "moveUp": {
+      "en": "Move tile up",
+      "nl": "Tegel omhoog"
+    },
+    "moveDown": {
+      "en": "Move tile down",
+      "nl": "Tegel omlaag"
+    },
+    "width": {
+      "en": "Width",
+      "nl": "Breedte"
+    },
+    "height": {
+      "en": "Height",
+      "nl": "Hoogte"
+    },
+    "widthN": {
+      "en": "Width {}",
+      "nl": "Breedte {}"
+    },
+    "heightN": {
+      "en": "Height {}",
+      "nl": "Hoogte {}"
+    },
+    "entity": {
+      "en": "Entity",
+      "nl": "Entiteit"
+    },
+    "searchEntities": {
+      "en": "Search entities",
+      "nl": "Zoek entiteiten"
+    },
+    "searchByName": {
+      "en": "Search by name or entity id",
+      "nl": "Zoek op naam of entiteit-id"
+    },
+    "haEntities": {
+      "en": "Home Assistant entities",
+      "nl": "Home Assistant-entiteiten"
+    },
+    "widgets": {
+      "en": "Widgets",
+      "nl": "Tegels"
+    },
+    "searchWidgets": {
+      "en": "Search widgets",
+      "nl": "Zoek tegels"
+    },
+    "noWidgetMatch": {
+      "en": "No widget matches.",
+      "nl": "Geen tegel gevonden."
+    },
+    "addNamed": {
+      "en": "Add {}",
+      "nl": "{} toevoegen"
+    },
+    "screenView": {
+      "en": "Screen view",
+      "nl": "Schermweergave"
+    },
+    "noAnswer": {
+      "en": "The display did not answer",
+      "nl": "Het scherm gaf geen antwoord"
+    },
+    "pvNoValues": {
+      "en": "No values: {}",
+      "nl": "Geen waarden: {}"
+    },
+    "pvPushedVersion": {
+      "en": "values show the pushed version",
+      "nl": "de waarden horen bij de verstuurde versie"
+    },
+    "screen1": {
+      "en": "1 screen",
+      "nl": "1 scherm"
+    },
+    "nScreens": {
+      "en": "{} screens",
+      "nl": "{} schermen"
+    },
+    "newScreen": {
+      "en": "New screen",
+      "nl": "Nieuw scherm"
+    },
+    "appLimit": {
+      "en": "At most {} categories on the display, Settings included",
+      "nl": "Hoogstens {} categorieën op het scherm, Instellingen meegeteld"
+    },
+    "cellsUsed": {
+      "en": "{} / 8 cells",
+      "nl": "{} / 8 vakken"
+    },
+    "pickerHint": {
+      "en": "Home Assistant {} entities",
+      "nl": "Home Assistant-entiteiten: {}"
+    },
+    "retrying": {
+      "en": "{} · retrying…",
+      "nl": "{} · opnieuw proberen…"
+    },
+    "notLinkedNoList": {
+      "en": "The display is not linked to Home Assistant yet, so there is no entity list.",
+      "nl": "Het scherm is nog niet gekoppeld aan Home Assistant, dus er is nog geen lijst met entiteiten."
+    },
+    "loadingHa": {
+      "en": "Loading from Home Assistant…",
+      "nl": "Laden uit Home Assistant…"
+    },
+    "other": {
+      "en": "Other",
+      "nl": "Overig"
+    },
+    "palSensor": {
+      "en": "Sensor value",
+      "nl": "Sensorwaarde"
+    },
+    "palGauge": {
+      "en": "Gauge (percentage)",
+      "nl": "Meter (percentage)"
+    },
+    "palSwitch": {
+      "en": "Switch",
+      "nl": "Schakelaar"
+    },
+    "palLight": {
+      "en": "Light",
+      "nl": "Lamp"
+    },
+    "palRoute": {
+      "en": "Route",
+      "nl": "Route"
+    },
+    "palScene": {
+      "en": "Scene or script",
+      "nl": "Scène of script"
+    },
+    "routeMode": {
+      "en": "Kind",
+      "nl": "Soort"
+    },
+    "modeTrain": {
+      "en": "Train",
+      "nl": "Trein"
+    },
+    "modeBus": {
+      "en": "Bus",
+      "nl": "Bus"
+    },
+    "modeCar": {
+      "en": "Car",
+      "nl": "Auto"
+    },
+    "barsSeries": {
+      "en": "Shows",
+      "nl": "Toont"
+    },
+    "seriesPrices": {
+      "en": "Prices",
+      "nl": "Prijzen"
+    },
+    "seriesUsage": {
+      "en": "Usage",
+      "nl": "Verbruik"
+    },
+    "seriesSolar": {
+      "en": "Solar",
+      "nl": "Zon"
+    },
+    "palThermo": {
+      "en": "Room thermostat (tall)",
+      "nl": "Kamerthermostaat (hoog)"
+    },
+    "palSolarNow": {
+      "en": "Solar now",
+      "nl": "Zon nu"
+    },
+    "palInsideTemp": {
+      "en": "Inside temp",
+      "nl": "Binnentemperatuur"
+    },
+    "palClock": {
+      "en": "Clock (2 wide)",
+      "nl": "Klok (2 breed)"
+    },
+    "palPrices": {
+      "en": "Prices (4 wide)",
+      "nl": "Prijzen (4 breed)"
+    },
+    "palUsage": {
+      "en": "Usage (2 wide)",
+      "nl": "Verbruik (2 breed)"
+    },
+    "palSolar": {
+      "en": "Solar (2 wide)",
+      "nl": "Zon (2 breed)"
+    },
+    "palAllRooms": {
+      "en": "All rooms (full)",
+      "nl": "Alle kamers (vol)"
+    },
+    "palAllLights": {
+      "en": "All lights (full)",
+      "nl": "Alle lampen (vol)"
+    },
+    "palUpdates": {
+      "en": "Updates (full)",
+      "nl": "Updates (vol)"
+    },
+    "palWifi": {
+      "en": "Wi-Fi (full)",
+      "nl": "Wifi (vol)"
+    },
+    "grpEnergyNumbers": {
+      "en": "Energy numbers",
+      "nl": "Energiecijfers"
+    },
+    "grpCharts": {
+      "en": "Charts",
+      "nl": "Grafieken"
+    },
+    "grpBasics": {
+      "en": "Basics",
+      "nl": "Basis"
+    },
+    "grpSettings": {
+      "en": "Settings",
+      "nl": "Instellingen"
+    },
+    "chartPricesName": {
+      "en": "Prices chart",
+      "nl": "Prijsgrafiek"
+    },
+    "chartUsageName": {
+      "en": "Usage chart",
+      "nl": "Verbruiksgrafiek"
+    },
+    "chartSolarName": {
+      "en": "Solar chart",
+      "nl": "Zongrafiek"
+    },
+    "chart": {
+      "en": "Chart",
+      "nl": "Grafiek"
+    },
+    "allLights": {
+      "en": "All lights",
+      "nl": "Alle lampen"
+    },
+    "allRooms": {
+      "en": "All rooms",
+      "nl": "Alle kamers"
+    },
+    "updates": {
+      "en": "Updates",
+      "nl": "Updates"
+    },
+    "about": {
+      "en": "About",
+      "nl": "Over"
+    },
+    "source": {
+      "en": "Source",
+      "nl": "Bron"
+    },
+    "srcFromEnergy": {
+      "en": "from Energy dashboard",
+      "nl": "uit het Energie-dashboard"
+    },
+    "srcByYou": {
+      "en": "picked by you",
+      "nl": "door jou gekozen"
+    },
+    "srcSameId": {
+      "en": "same id in HA",
+      "nl": "zelfde id in HA"
+    },
+    "srcFromNone": {
+      "en": "none",
+      "nl": "geen"
+    },
+    "srcNowVal": {
+      "en": "Now {}",
+      "nl": "Nu {}"
+    },
+    "srcShared1": {
+      "en": "Also used by 1 other tile: {}. A change here changes it too.",
+      "nl": "Ook gebruikt door 1 andere tegel: {}. Een wijziging hier verandert die ook."
+    },
+    "srcSharedN": {
+      "en": "Also used by {} other tiles: {}. A change here changes them too.",
+      "nl": "Ook gebruikt door {} andere tegels: {}. Een wijziging hier verandert die ook."
+    },
+    "listAnd": {
+      "en": "{} and {}",
+      "nl": "{} en {}"
+    },
+    "srcDone": {
+      "en": "Done",
+      "nl": "Klaar"
+    },
+    "useAuto": {
+      "en": "Use automatic",
+      "nl": "Automatisch gebruiken"
+    },
+    "sign": {
+      "en": "Sign",
+      "nl": "Teken"
+    },
+    "haEntity": {
+      "en": "Home Assistant entity",
+      "nl": "Home Assistant-entiteit"
+    },
+    "srcDomains": {
+      "en": "sensor, input_number, number · or type an entity id",
+      "nl": "sensor, input_number, number · of typ een entiteit-id"
+    },
+    "useTyped": {
+      "en": "Use",
+      "nl": "Gebruik"
+    },
+    "grpEnergyNow": {
+      "en": "Energy now",
+      "nl": "Energie nu"
+    },
+    "grpEnergyToday": {
+      "en": "Energy today",
+      "nl": "Energie vandaag"
+    },
+    "grpHouse": {
+      "en": "House",
+      "nl": "Huis"
+    },
+    "lgSolarPower": {
+      "en": "Solar power",
+      "nl": "Zonnevermogen"
+    },
+    "lgGridPower": {
+      "en": "Grid power",
+      "nl": "Netvermogen"
+    },
+    "lgBatteryPower": {
+      "en": "Battery power",
+      "nl": "Batterijvermogen"
+    },
+    "lgBatteryCharge": {
+      "en": "Home battery charge",
+      "nl": "Lading thuisbatterij"
+    },
+    "lgPrices": {
+      "en": "Electricity prices",
+      "nl": "Stroomprijzen"
+    },
+    "lgImportedToday": {
+      "en": "Imported today",
+      "nl": "Vandaag afgenomen"
+    },
+    "lgExportedToday": {
+      "en": "Exported today",
+      "nl": "Vandaag teruggeleverd"
+    },
+    "lgHourlyUse": {
+      "en": "Hourly use",
+      "nl": "Verbruik per uur"
+    },
+    "lgHourlySolar": {
+      "en": "Hourly solar",
+      "nl": "Zon per uur"
+    },
+    "lgInsideTemp": {
+      "en": "Inside temperature",
+      "nl": "Binnentemperatuur"
+    },
+    "hintProducing": {
+      "en": "+ = producing",
+      "nl": "+ = opwekken"
+    },
+    "hintGrid": {
+      "en": "+ = importing, − = exporting",
+      "nl": "+ = afnemen, − = terugleveren"
+    },
+    "hintBattery": {
+      "en": "+ = charging, − = discharging (HA’s Energy dashboard uses the opposite)",
+      "nl": "+ = laden, − = ontladen (het Energie-dashboard van HA doet het andersom)"
+    },
+    "hintUsing": {
+      "en": "+ = using",
+      "nl": "+ = verbruiken"
+    },
+    "hintPrices": {
+      "en": "Needs hourly prices in its attributes (Nord Pool, Tibber, EnergyZero, ENTSO-e …)",
+      "nl": "Heeft uurprijzen in de attributen nodig (Nord Pool, Tibber, EnergyZero, ENTSO-e …)"
+    },
+    "hintHourly": {
+      "en": "attribute today = 24 hourly values",
+      "nl": "attribuut today = 24 uurwaarden"
+    },
+    "hintInside": {
+      "en": "No Home Assistant convention: map it to a room sensor",
+      "nl": "Geen vaste naam in Home Assistant: kies een sensor in een kamer"
+    },
+    "kindNone": {
+      "en": "None",
+      "nl": "Geen"
+    },
+    "kindManual": {
+      "en": "Manual",
+      "nl": "Handmatig"
+    },
+    "kindEnergy": {
+      "en": "Energy dashboard",
+      "nl": "Energie-dashboard"
+    },
+    "kindDevice": {
+      "en": "Energy dashboard device",
+      "nl": "Apparaat in Energie-dashboard"
+    },
+    "kindIdentity": {
+      "en": "Same id in HA",
+      "nl": "Zelfde id in HA"
+    },
+    "srcNothing": {
+      "en": "Nothing: the display shows “—”",
+      "nl": "Niets: het scherm toont “—”"
+    },
+    "srcPick": {
+      "en": "Pick a Home Assistant entity.",
+      "nl": "Kies een entiteit uit Home Assistant."
+    },
+    "srcManualNote": {
+      "en": "Picked by you here or through the API.",
+      "nl": "Door jou gekozen, hier of via de API."
+    },
+    "srcIdentityNote": {
+      "en": "Home Assistant has an entity with this exact id.",
+      "nl": "Home Assistant heeft een entiteit met precies dit id."
+    },
+    "srcEnergyNote": {
+      "en": "Found automatically in Home Assistant’s Energy dashboard. Picking an entity replaces it.",
+      "nl": "Automatisch gevonden in het Energie-dashboard van Home Assistant. Kies je een entiteit, dan vervangt die het."
+    },
+    "unlisted": {
+      "en": "Home Assistant’s entity list does not have it: check the id. The display shows “—” until Home Assistant reports it.",
+      "nl": "Home Assistant heeft hem niet in de lijst met entiteiten: controleer het id. Het scherm toont “—” tot Home Assistant hem meldt."
+    },
+    "savedReads": {
+      "en": "Saved · {} now reads {}",
+      "nl": "Opgeslagen · {} leest nu {}"
+    },
+    "savedAuto": {
+      "en": "Saved · {} is automatic again",
+      "nl": "Opgeslagen · {} is weer automatisch"
+    },
+    "flippedNote": {
+      "en": "Flipped: Home Assistant’s value is negated",
+      "nl": "Omgedraaid: de waarde van Home Assistant krijgt het andere teken"
+    },
+    "asReported": {
+      "en": "As Home Assistant reports it",
+      "nl": "Zoals Home Assistant het meldt"
+    },
+    "flipSign": {
+      "en": "Flip sign",
+      "nl": "Teken omdraaien"
+    },
+    "asIs": {
+      "en": "As is",
+      "nl": "Zoals het is"
+    },
+    "savedFlipped": {
+      "en": "Saved · sign flipped",
+      "nl": "Opgeslagen · teken omgedraaid"
+    },
+    "savedAsReported": {
+      "en": "Saved · sign as Home Assistant reports it",
+      "nl": "Opgeslagen · teken zoals Home Assistant het meldt"
+    },
+    "notInList": {
+      "en": "Not in Home Assistant’s entity list",
+      "nl": "Niet in de lijst met entiteiten van Home Assistant"
+    },
+    "yamlEdited": {
+      "en": "Edited · not checked yet",
+      "nl": "Aangepast · nog niet gecontroleerd"
+    },
+    "yamlDraft": {
+      "en": "Your draft",
+      "nl": "Je concept"
+    },
+    "yamlLive": {
+      "en": "What the display shows now",
+      "nl": "Wat het scherm nu toont"
+    },
+    "yamlOptional": {
+      "en": "· Optional: the Screens tab does the same without YAML.",
+      "nl": "· Optioneel: het tabblad Schermen doet hetzelfde zonder YAML."
+    },
+    "yamlAria": {
+      "en": "Display configuration YAML",
+      "nl": "Schermconfiguratie in YAML"
+    },
+    "validate": {
+      "en": "Validate",
+      "nl": "Controleren"
+    },
+    "yamlOk": {
+      "en": "Looks good · {} categories, {} screens, {} widgets",
+      "nl": "Ziet er goed uit · {} categorieën, {} schermen, {} tegels"
+    },
+    "yamlLine": {
+      "en": "Line {}: {}",
+      "nl": "Regel {}: {}"
+    },
+    "yamlPushed": {
+      "en": "Pushed · the display redrew once",
+      "nl": "Verstuurd · het scherm is één keer opnieuw getekend"
+    },
+    "advYaml": {
+      "en": "Screens as YAML",
+      "nl": "Schermen als YAML"
+    },
+    "advApi": {
+      "en": "API",
+      "nl": "API"
+    },
+    "advPages": {
+      "en": "Advanced pages",
+      "nl": "Geavanceerde pagina’s"
+    },
+    "advLogs": {
+      "en": "Device log",
+      "nl": "Apparaatlog"
+    },
+    "logsNote": {
+      "en": "What the display writes to its serial port: the last ~1000 lines of this boot, newest at the bottom. Passwords and tokens are masked.",
+      "nl": "Wat het scherm naar zijn seriële poort schrijft: de laatste ~1000 regels van deze start, nieuwste onderaan. Wachtwoorden en tokens zijn gemaskeerd."
+    },
+    "logsPrevNote": {
+      "en": "The last 2 KB before the display restarted. Kept across a restart, crash or sleep; gone after a power cut.",
+      "nl": "De laatste 2 KB voordat het scherm opnieuw startte. Blijft bewaard na een herstart, crash of slaap; weg na stroomuitval."
+    },
+    "logsAll": {
+      "en": "All",
+      "nl": "Alles"
+    },
+    "logsWarn": {
+      "en": "Warnings",
+      "nl": "Waarschuwingen"
+    },
+    "logsErr": {
+      "en": "Errors",
+      "nl": "Fouten"
+    },
+    "logsThisBoot": {
+      "en": "This boot",
+      "nl": "Deze start"
+    },
+    "logsPrevBoot": {
+      "en": "Previous boot",
+      "nl": "Vorige start"
+    },
+    "logsPause": {
+      "en": "Pause",
+      "nl": "Pauzeren"
+    },
+    "logsResume": {
+      "en": "Resume",
+      "nl": "Hervatten"
+    },
+    "logsDownload": {
+      "en": "Download",
+      "nl": "Downloaden"
+    },
+    "logsTag": {
+      "en": "Tags, e.g. HEAP,EPD",
+      "nl": "Tags, bv. HEAP,EPD"
+    },
+    "logsLive": {
+      "en": "Live · every 2 s",
+      "nl": "Live · elke 2 s"
+    },
+    "logsPaused": {
+      "en": "Paused",
+      "nl": "Gepauzeerd"
+    },
+    "logsEmpty": {
+      "en": "No lines yet.",
+      "nl": "Nog geen regels."
+    },
+    "logsDropped": {
+      "en": "Some lines were overwritten before they could be shown.",
+      "nl": "Sommige regels zijn overschreven voordat ze getoond konden worden."
+    },
+    "advHint": {
+      "en": "For scripts and power users. Everything here is optional: the Screens and Device settings tabs do the same without it.",
+      "nl": "Voor scripts en gevorderden. Alles hier is optioneel: de tabbladen Schermen en Apparaatinstellingen doen hetzelfde zonder."
+    },
+    "apiReference": {
+      "en": "API reference",
+      "nl": "API-naslag"
+    },
+    "apiTokens": {
+      "en": "API tokens",
+      "nl": "API-tokens"
+    },
+    "apiTokensNote": {
+      "en": "For scripts and your laptop’s command line. Tokens are issued by this display (not by Home Assistant) and only work on your local network.",
+      "nl": "Voor scripts en de opdrachtregel op je laptop. Dit scherm geeft de tokens uit (niet Home Assistant) en ze werken alleen in je eigen netwerk."
+    },
+    "tokenName": {
+      "en": "Token name",
+      "nl": "Naam van het token"
+    },
+    "readOnly": {
+      "en": "Read only",
+      "nl": "Alleen lezen"
+    },
+    "readWrite": {
+      "en": "Read & write",
+      "nl": "Lezen en schrijven"
+    },
+    "createToken": {
+      "en": "Create token",
+      "nl": "Token maken"
+    },
+    "copyToken": {
+      "en": "Copy this token now. It won’t be shown again.",
+      "nl": "Kopieer dit token nu. Je ziet het niet nog een keer."
+    },
+    "noTokens": {
+      "en": "No tokens yet.",
+      "nl": "Nog geen tokens."
+    },
+    "tokenMeta": {
+      "en": "{} · created {} · last used {}",
+      "nl": "{} · gemaakt {} · laatst gebruikt {}"
+    },
+    "revoke": {
+      "en": "Revoke",
+      "nl": "Intrekken"
+    },
+    "openApi": {
+      "en": "API description (OpenAPI)",
+      "nl": "API-beschrijving (OpenAPI)"
+    },
+    "openApiNote": {
+      "en": "Served by this display, no token needed. Load it in Swagger UI, Postman or a code generator.",
+      "nl": "Komt van dit scherm, zonder token. Open hem in Swagger UI, Postman of een codegenerator."
+    },
+    "endpoints": {
+      "en": "Endpoints",
+      "nl": "Endpoints"
+    },
+    "nowColon": {
+      "en": "Now:",
+      "nl": "Nu:"
+    },
+    "wifiChangeAria": {
+      "en": "Change Wi-Fi network",
+      "nl": "Wifi-netwerk wijzigen"
+    },
+    "aboutSetting": {
+      "en": "About {}",
+      "nl": "Over {}"
+    },
+    "password": {
+      "en": "Password",
+      "nl": "Wachtwoord"
+    },
+    "switchNote": {
+      "en": "Switching networks drops this page for a moment; it comes back at {} (or the IP address shown on the display) on the new network.",
+      "nl": "Bij een ander netwerk valt deze pagina even weg; hij komt terug op {} (of het IP-adres op het scherm) in het nieuwe netwerk."
+    },
+    "display": {
+      "en": "Display",
+      "nl": "Scherm"
+    },
+    "displayNote": {
+      "en": "The same settings as the Settings menu on the device. Changes apply right away.",
+      "nl": "Dezelfde instellingen als het menu Instellingen op het apparaat. Wijzigingen gelden meteen."
+    },
+    "menuStyle": {
+      "en": "Display style",
+      "nl": "Weergave"
+    },
+    "menuPower": {
+      "en": "Power saving",
+      "nl": "Energiebesparing"
+    },
+    "menuUpdates": {
+      "en": "Updates",
+      "nl": "Updates"
+    },
+    "menuHa": {
+      "en": "Home Assistant",
+      "nl": "Home Assistant"
+    },
+    "relink": {
+      "en": "Re-link",
+      "nl": "Opnieuw koppelen"
+    },
+    "thisDisplay": {
+      "en": "This display",
+      "nl": "Dit scherm"
+    },
+    "diagnostics": {
+      "en": "Diagnostics",
+      "nl": "Diagnose"
+    },
+    "clear": {
+      "en": "Clear",
+      "nl": "Wissen"
+    },
+    "keyStored": {
+      "en": "Stored on the display, renews itself",
+      "nl": "Staat op het scherm, vernieuwt zichzelf"
+    },
+    "kvReporting": {
+      "en": "Reporting to Home Assistant",
+      "nl": "Melden aan Home Assistant"
+    },
+    "repNotAdmin": {
+      "en": "Off — the linked Home Assistant user is not an administrator. Make it one in Home Assistant (Settings → People) and restart the display, or turn this off.",
+      "nl": "Uit — de gekoppelde Home Assistant-gebruiker is geen beheerder. Maak hem beheerder in Home Assistant (Instellingen → Personen) en herstart het scherm, of zet dit uit."
+    },
+    "repLast": {
+      "en": " · last {}",
+      "nl": " · laatst {}"
+    },
+    "repFailed": {
+      "en": "On · last push failed, retrying",
+      "nl": "Aan · laatste melding mislukt, opnieuw proberen"
+    },
+    "repWaiting": {
+      "en": "On · waiting for Home Assistant",
+      "nl": "Aan · wacht op Home Assistant"
+    },
+    "whyMissing1": {
+      "en": "Why one is missing",
+      "nl": "Waarom er één ontbreekt"
+    },
+    "whyMissingN": {
+      "en": "Why {} are missing",
+      "nl": "Waarom er {} ontbreken"
+    },
+    "pickOne": {
+      "en": "Pick one",
+      "nl": "Kies er een"
+    },
+    "seedPrice": {
+      "en": "Energy price",
+      "nl": "Stroomprijs"
+    },
+    "seedInside": {
+      "en": "Inside temperature",
+      "nl": "Binnentemperatuur"
+    },
+    "seedOutside": {
+      "en": "Outside temperature",
+      "nl": "Buitentemperatuur"
+    },
+    "seedSolarPower": {
+      "en": "Solar power",
+      "nl": "Zonnevermogen"
+    },
+    "seedGridPower": {
+      "en": "Grid power",
+      "nl": "Netvermogen"
+    },
+    "seedBatteryPower": {
+      "en": "Battery power",
+      "nl": "Batterijvermogen"
+    },
+    "seedSolarChart": {
+      "en": "Solar chart",
+      "nl": "Zongrafiek"
+    },
+    "seedImportedToday": {
+      "en": "Imported today",
+      "nl": "Vandaag afgenomen"
+    },
+    "seedExportedToday": {
+      "en": "Exported today",
+      "nl": "Vandaag teruggeleverd"
+    },
+    "seedUsageChart": {
+      "en": "Usage chart",
+      "nl": "Verbruiksgrafiek"
+    },
+    "whyNoEnergy": {
+      "en": "no Energy dashboard set up in HA",
+      "nl": "geen Energie-dashboard ingesteld in HA"
+    },
+    "whyNoMeter": {
+      "en": "{} in the Energy dashboard",
+      "nl": "{} in het Energie-dashboard"
+    },
+    "meterNone": {
+      "en": "no meter",
+      "nl": "geen meter"
+    },
+    "meterPrice": {
+      "en": "no price",
+      "nl": "geen prijs"
+    },
+    "meterSolar": {
+      "en": "no solar meter",
+      "nl": "geen zonnemeter"
+    },
+    "meterGridSolar": {
+      "en": "no grid or solar meter",
+      "nl": "geen net- of zonnemeter"
+    },
+    "whyNoSensor": {
+      "en": "no {} found",
+      "nl": "geen {} gevonden"
+    },
+    "snsDefault": {
+      "en": "sensor",
+      "nl": "sensor"
+    },
+    "snsInside": {
+      "en": "thermometer in a room",
+      "nl": "thermometer in een kamer"
+    },
+    "snsOutside": {
+      "en": "outdoor thermometer",
+      "nl": "buitenthermometer"
+    },
+    "snsSolarPower": {
+      "en": "solar power sensor",
+      "nl": "sensor voor zonnevermogen"
+    },
+    "snsHomePower": {
+      "en": "home use sensor",
+      "nl": "sensor voor verbruik"
+    },
+    "snsGridPower": {
+      "en": "grid power sensor",
+      "nl": "sensor voor netvermogen"
+    },
+    "snsBatterySoc": {
+      "en": "battery charge sensor",
+      "nl": "sensor voor batterijlading"
+    },
+    "snsBatteryPower": {
+      "en": "battery power sensor",
+      "nl": "sensor voor batterijvermogen"
+    },
+    "snsSolarToday": {
+      "en": "daily solar sensor",
+      "nl": "sensor voor zon per dag"
+    },
+    "snsEnergyToday": {
+      "en": "daily usage sensor",
+      "nl": "sensor voor verbruik per dag"
+    },
+    "snsImportToday": {
+      "en": "daily import sensor",
+      "nl": "sensor voor afname per dag"
+    },
+    "snsExportToday": {
+      "en": "daily export sensor",
+      "nl": "sensor voor teruglevering per dag"
+    },
+    "whyNoLights": {
+      "en": "no lights in HA",
+      "nl": "geen lampen in HA"
+    },
+    "whyNoThermostat": {
+      "en": "no thermostat in HA",
+      "nl": "geen thermostaat in HA"
+    },
+    "whyFewRooms": {
+      "en": "fewer than two rooms have a thermometer",
+      "nl": "minder dan twee kamers hebben een thermometer"
+    },
+    "whyOverviewFull": {
+      "en": "the Home screen was full",
+      "nl": "het startscherm was vol"
+    },
+    "errSignInFirst": {
+      "en": "sign in with Home Assistant first",
+      "nl": "log eerst in met Home Assistant"
+    },
+    "errAdmin": {
+      "en": "Home Assistant admin required",
+      "nl": "Hiervoor ben je beheerder in Home Assistant nodig"
+    },
+    "errNetNotFound": {
+      "en": "Network not found. Move closer or pick another one.",
+      "nl": "Netwerk niet gevonden. Kom dichterbij of kies een ander."
+    },
+    "errHaNoAnswer": {
+      "en": "Home Assistant did not answer",
+      "nl": "Home Assistant gaf geen antwoord"
+    },
+    "errPwMax": {
+      "en": "Wi-Fi passwords have at most 63 characters.",
+      "nl": "Een wifi-wachtwoord heeft hoogstens 63 tekens."
+    },
+    "errWifiFirst": {
+      "en": "Connect the display to your Wi-Fi first, then continue at {}",
+      "nl": "Verbind het scherm eerst met je wifi en ga dan verder op {}"
+    },
+    "errEnterHa": {
+      "en": "Enter the Home Assistant address",
+      "nl": "Vul het adres van Home Assistant in"
+    },
+    "errEnterHaDot": {
+      "en": "Enter the Home Assistant address.",
+      "nl": "Vul het adres van Home Assistant in."
+    },
+    "errHaRejected": {
+      "en": "Home Assistant rejected the token",
+      "nl": "Home Assistant weigerde het token"
+    },
+    "errTooManyTokens": {
+      "en": "too many tokens (max 20) — revoke one first",
+      "nl": "te veel tokens (hoogstens 20) — trek er eerst een in"
+    },
+    "errUpToDate": {
+      "en": "Already up to date ({})",
+      "nl": "Al up-to-date ({})"
+    },
+    "errUnlinkFirst": {
+      "en": "unlink first to change the Home Assistant server",
+      "nl": "ontkoppel eerst om een andere Home Assistant-server te kiezen"
+    },
+    "errNotUrl": {
+      "en": "not a valid URL",
+      "nl": "geen geldig adres"
+    },
+    "errProbeBusy": {
+      "en": "The display is still checking an address. Try again in a moment.",
+      "nl": "Het scherm controleert nog een adres. Probeer het zo opnieuw."
+    },
+    "errNotAddress": {
+      "en": "That is not an address. Try homeassistant.local:8123.",
+      "nl": "Dat is geen adres. Probeer homeassistant.local:8123."
+    },
+    "errNotHere": {
+      "en": "Home Assistant can’t be at that address (loopback or link-local). Try homeassistant.local:8123.",
+      "nl": "Home Assistant kan niet op dat adres staan (loopback of link-local). Probeer homeassistant.local:8123."
+    },
+    "errScheme": {
+      "en": "Use an http or https address, like homeassistant.local:8123.",
+      "nl": "Gebruik een http- of https-adres, zoals homeassistant.local:8123."
+    },
+    "errHttpOnly": {
+      "en": "Home Assistant answers at {}, not over https. Use that address.",
+      "nl": "Home Assistant antwoordt op {}, niet via https. Gebruik dat adres."
+    },
+    "errCantReach": {
+      "en": "The display can’t reach {}. Check the address and that Home Assistant is running.",
+      "nl": "Het scherm kan {} niet bereiken. Controleer het adres en of Home Assistant aan staat."
+    },
+    "errRedirects": {
+      "en": "{} redirects to another address. Enter the Home Assistant address itself.",
+      "nl": "{} verwijst door naar een ander adres. Vul het adres van Home Assistant zelf in."
+    },
+    "errNotHa": {
+      "en": "{} answers, but it is not Home Assistant.",
+      "nl": "{} antwoordt, maar het is geen Home Assistant."
+    },
+    "errCatName": {
+      "en": "Give the category a name.",
+      "nl": "Geef de categorie een naam."
+    },
+    "errMaxCats": {
+      "en": "The display shows at most {} categories.",
+      "nl": "Het scherm toont hoogstens {} categorieën."
+    },
+    "errMoveScreens": {
+      "en": "Move or delete its screens first.",
+      "nl": "Verplaats of verwijder eerst de schermen erin."
+    },
+    "errKeepOneCat": {
+      "en": "Keep at least one category.",
+      "nl": "Houd minstens één categorie."
+    },
+    "errScreenFull": {
+      "en": "Screen is full ({} of 8 cells used). Remove a tile to add {}.",
+      "nl": "Scherm is vol ({} van 8 vakken gebruikt). Haal een tegel weg om {} toe te voegen."
+    },
+    "errNoRoomAt": {
+      "en": "No room for {} at that spot.",
+      "nl": "Geen ruimte voor {} op die plek."
+    },
+    "errNoFreeSpot": {
+      "en": "No free spot for {}. Make room or drop it on an empty cell.",
+      "nl": "Geen vrije plek voor {}. Maak ruimte of sleep hem naar een leeg vak."
+    },
+    "errTileNoRoom": {
+      "en": "This tile has no room on the screen.",
+      "nl": "Deze tegel past niet op het scherm."
+    },
+    "errNoRoomSize": {
+      "en": "No room to make this tile {}. Move or remove another tile first.",
+      "nl": "Geen ruimte om deze tegel {} te maken. Verplaats of verwijder eerst een andere tegel."
+    },
+    "errScreenName": {
+      "en": "Give the screen a name.",
+      "nl": "Geef het scherm een naam."
+    },
+    "errPickEntity": {
+      "en": "Pick an entity below.",
+      "nl": "Kies hieronder een entiteit."
+    },
+    "errWrongDomain": {
+      "en": "“{}” is not a {} entity.",
+      "nl": "“{}” is geen {}-entiteit."
+    },
+    "errNotListed": {
+      "en": "Home Assistant’s entity list does not have “{}”. The tile shows “—” until Home Assistant reports it.",
+      "nl": "Home Assistant heeft “{}” niet in de lijst met entiteiten. De tegel toont “—” tot Home Assistant hem meldt."
+    },
+    "errGaugeUnit": {
+      "en": "A gauge fills from 0 to 100 %; this entity reports {}. A sensor value tile fits better.",
+      "nl": "Een meter loopt van 0 tot 100 %; deze entiteit meldt {}. Een tegel met de sensorwaarde past beter."
+    },
+    "asleepWakes": {
+      "en": "Asleep · wakes {} · press power",
+      "nl": "Slaapt · wakker om {} · druk op aan/uit"
+    },
+    "asleepLow": {
+      "en": "Asleep · battery low · charge or press power",
+      "nl": "Slaapt · batterij leeg · laad op of druk op aan/uit"
+    },
+    "capLights": {
+      "en": "Showing {} of {} lights — pick rooms to choose which",
+      "nl": "Toont {} van {} lampen — kies ruimtes om te bepalen welke"
+    },
+    "capRooms": {
+      "en": "Showing {} of {} rooms — pick rooms to choose which",
+      "nl": "Toont {} van {} kamers — kies kamers om te bepalen welke"
+    },
+    "capEntities": {
+      "en": "Showing {} of {} Home Assistant entities, the most useful first",
+      "nl": "Toont {} van {} Home Assistant-entiteiten, de nuttigste eerst"
+    }
+  },
+  "langOf": [
+    {
+      "input": "nl",
+      "lang": "nl"
+    },
+    {
+      "input": "nl-NL",
+      "lang": "nl"
+    },
+    {
+      "input": "nl_BE",
+      "lang": "nl"
+    },
+    {
+      "input": "NL",
+      "lang": "nl"
+    },
+    {
+      "input": " nl ",
+      "lang": "nl"
+    },
+    {
+      "input": "en",
+      "lang": "en"
+    },
+    {
+      "input": "en-GB",
+      "lang": "en"
+    },
+    {
+      "input": "de",
+      "lang": "en"
+    },
+    {
+      "input": "fr-BE",
+      "lang": "en"
+    },
+    {
+      "input": "nld",
+      "lang": "en"
+    },
+    {
+      "input": "",
+      "lang": "en"
+    },
+    {
+      "input": null,
+      "lang": "en"
+    }
+  ],
+  "tr": [
+    {
+      "lang": "en",
+      "key": "charging",
+      "args": [
+        "2.1 kW"
+      ],
+      "out": "Charging 2.1 kW"
+    },
+    {
+      "lang": "nl",
+      "key": "charging",
+      "args": [
+        "2.1 kW"
+      ],
+      "out": "Laadt 2.1 kW"
+    },
+    {
+      "lang": "nl",
+      "key": "standbyFoot",
+      "args": [
+        "07:45"
+      ],
+      "out": "Stand-by · bijgewerkt 07:45 · druk op aan/uit"
+    },
+    {
+      "lang": "en",
+      "key": "cheapestAt",
+      "args": [],
+      "out": "Cheapest {}"
+    },
+    {
+      "lang": "nl",
+      "key": "off",
+      "args": [
+        "x"
+      ],
+      "out": "Uit"
+    },
+    {
+      "lang": "nl",
+      "key": "haOffline",
+      "args": [],
+      "out": "Geen verbinding met Home Assistant"
+    }
+  ],
+  "dateLine": [
+    {
+      "lang": "en",
+      "wday": 2,
+      "mday": 13,
+      "month": 9,
+      "out": "Tuesday 13 October"
+    },
+    {
+      "lang": "nl",
+      "wday": 2,
+      "mday": 13,
+      "month": 9,
+      "out": "Dinsdag 13 oktober"
+    },
+    {
+      "lang": "nl",
+      "wday": 0,
+      "mday": 1,
+      "month": 0,
+      "out": "Zondag 1 januari"
+    },
+    {
+      "lang": "en",
+      "wday": 6,
+      "mday": 31,
+      "month": 11,
+      "out": "Saturday 31 December"
+    },
+    {
+      "lang": "nl",
+      "wday": 4,
+      "mday": 7,
+      "month": 4,
+      "out": "Donderdag 7 mei"
+    }
+  ]
+}

@@ -1,0 +1,10 @@
+{
+  "name": "35-duplicate-app",
+  "description": "Rule: duplicate app id (reported on the second one).",
+  "input": "version: 1\napps:\n  - id: a\n  - id: a\nscreens:\n  - id: x\n    widgets:\n      - {type: clock}\n",
+  "expect": {
+    "ok": false,
+    "line": 4,
+    "message": "Duplicate app id “a”"
+  }
+}

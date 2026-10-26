@@ -1,0 +1,51 @@
+{
+  "name": "63-scene-entity",
+  "description": "A scene tile takes a scene.* or script.* entity and an optional label (#146); without entity, or with the older `scene: all_off`, it is all lights off.",
+  "input": "# HA Paper display config\nversion: 1\nscreens:\n  - id: a\n    widgets:\n      - {type: scene, entity: scene.movie_night, cs: 2}\n      - {type: scene, entity: script.good_night, label: Bedtime}\n      - {type: scene, scene: all_off, label: Lights out}\n      - {type: scene}\n",
+  "expect": {
+    "ok": true,
+    "apps": [
+      {
+        "id": "home",
+        "title": "Home"
+      },
+      {
+        "id": "house",
+        "title": "House"
+      },
+      {
+        "id": "travel",
+        "title": "Travel"
+      }
+    ],
+    "screens": [
+      {
+        "id": "a",
+        "app": "home",
+        "title": "a",
+        "cells": 5,
+        "widgets": [
+          {
+            "type": "scene",
+            "entity": "scene.movie_night",
+            "cs": 2
+          },
+          {
+            "type": "scene",
+            "entity": "script.good_night",
+            "label": "Bedtime"
+          },
+          {
+            "type": "scene",
+            "scene": "all_off",
+            "label": "Lights out"
+          },
+          {
+            "type": "scene"
+          }
+        ]
+      }
+    ],
+    "yaml": "# HA Paper display config\nversion: 1\nscreens:\n  - id: a\n    app: home\n    title: a\n    widgets:\n      - {type: scene, entity: scene.movie_night, cs: 2}\n      - {type: scene, entity: script.good_night, label: Bedtime}\n      - {type: scene, scene: all_off, label: Lights out}\n      - {type: scene}\n"
+  }
+}

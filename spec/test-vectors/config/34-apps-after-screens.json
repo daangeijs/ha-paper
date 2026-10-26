@@ -1,0 +1,10 @@
+{
+  "name": "34-apps-after-screens",
+  "description": "Rule: apps: must come before screens:.",
+  "input": "# HA Paper display config\nversion: 1\nscreens:\n  - id: a\n    widgets:\n      - {type: clock}\napps:\n",
+  "expect": {
+    "ok": false,
+    "line": 7,
+    "message": "“apps:” must come before “screens:”"
+  }
+}

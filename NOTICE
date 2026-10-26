@@ -1,0 +1,71 @@
+HA Paper
+Copyright (c) 2026 Daan Geijs
+Licensed under the MIT License (see LICENSE).
+
+This repository and the firmware built from it include or link the third-party components below. Each keeps its
+own licence; the licence texts are in the component's source (path or upstream repository given).
+
+-------------------------------------------------------------------------------------------------------------------
+Firmware (firmware/, linked into firmware.bin)
+-------------------------------------------------------------------------------------------------------------------
+
+FreeInk SDK                         MIT
+  Git submodule firmware/vendor/freeink-sdk -> https://github.com/Free-Ink/freeink-sdk
+  Display, input, battery, power, RTC and board libraries. Its own LICENSE and NOTICE (attribution to the OpenX4
+  E-Paper Community SDK) are in the submodule.
+
+ESPAsyncWebServer 3.12.1            LGPL-3.0
+AsyncTCP 3.5.0                      LGPL-3.0
+  https://github.com/ESP32Async/ESPAsyncWebServer, https://github.com/ESP32Async/AsyncTCP
+  Fetched by PlatformIO (firmware/platformio.ini, lib_deps) and statically linked into firmware.bin.
+  LGPL-3.0 section 4: the complete source of HA Paper is in this repository, and `cd firmware && pio run -e x4pro`
+  rebuilds firmware.bin from it. To use a modified version of either library, change or replace the lib_deps entry
+  (or put your copy in firmware/lib/) and rebuild; the result can be flashed with the steps in docs/FLASHING.md.
+
+ArduinoJson 7.4.3                   MIT    https://github.com/bblanchon/ArduinoJson
+QRCode 0.0.1 (ricmoo)               MIT    https://github.com/ricmoo/QRCode
+  Fetched by PlatformIO (lib_deps).
+
+Arduino core for ESP32 / ESP-IDF    Apache-2.0 (ESP-IDF), LGPL-2.1 (arduino-esp32 core), plus the licences of
+  their bundled components (FreeRTOS: MIT, lwIP: BSD-3-Clause, mbedTLS: Apache-2.0, LittleFS: BSD-3-Clause, ...).
+  Fetched by PlatformIO through the pioarduino platform-espressif32 package named in firmware/platformio.ini.
+  https://github.com/espressif/arduino-esp32, https://github.com/espressif/esp-idf
+  The bootloader.bin in a release is built from ESP-IDF.
+
+Fonts                               SIL Open Font License 1.1
+  Archivo, Atkinson Hyperlegible, Bricolage Grotesque, Fraunces, Geist, IBM Plex Mono.
+  Sources and licence texts: firmware/assets/fonts/*.ttf and firmware/assets/fonts/OFL-*.txt.
+  The bitmap tables in firmware/src/app/gen/fonts*.cpp are rendered from these fonts by firmware/tools/fontgen.py
+  and carry the font name and licence in their header. The fonts are not sold on their own.
+
+Icons
+  firmware/assets/icons.json and the sk_* icons in firmware/tools/icongen.py (24-unit SVG paths, rasterised to
+  firmware/src/app/gen/icons.cpp) were drawn for this project in its original design handoff (Claude Design, 2026)
+  and are released under the MIT licence above. The sun, power, plug, Wi-Fi and thermometer icons closely follow
+  Lucide (https://lucide.dev), ISC License, Copyright (c) Lucide Contributors 2022; portions Copyright (c) Cole Bemis
+  2013-2022 (Feather, MIT License). No icon is a byte-for-byte copy of any set; we compared against 17 open icon
+  sets (53,286 SVGs).
+
+-------------------------------------------------------------------------------------------------------------------
+QEMU test harness (sim/qemu/, not in release firmware)
+-------------------------------------------------------------------------------------------------------------------
+
+Espressif OpenCores Ethernet driver Apache-2.0
+  sim/qemu/lib/qemu_openeth/src/esp_eth_mac_openeth.c, esp_eth_phy_generic.c, esp_openeth.h, openeth.h
+  Copied from ESP-IDF; Copyright Espressif Systems (Shanghai) CO LTD, SPDX headers kept in each file.
+  Linked only into the x4qemu test builds.
+
+-------------------------------------------------------------------------------------------------------------------
+Emulator and web console (emulator/), browser flasher (flasher/)
+-------------------------------------------------------------------------------------------------------------------
+
+npm dependencies, listed in emulator/package.json and flasher/package.json (exact versions in package-lock.json).
+  Shipped in the built pages:
+    emulator: react, react-dom, scheduler (MIT)
+    flasher:  esptool-js (Apache-2.0, https://github.com/espressif/esptool-js), pako (MIT AND Zlib),
+              atob-lite (MIT)
+  Build and test tools only (not shipped): Vite, Vitest, TypeScript, Biome and their dependencies, mostly MIT,
+  with some Apache-2.0, ISC, BSD-3-Clause and MPL-2.0 packages.
+
+IBM Plex Sans / IBM Plex Mono       SIL Open Font License 1.1
+  emulator/src/fonts/*.woff2 (Latin-1 subsets), licence text emulator/src/fonts/OFL-IBMPlex.txt.

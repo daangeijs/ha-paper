@@ -1,0 +1,32 @@
+{
+  "name": "05-empty-widgets",
+  "description": "\"widgets: []\" is an empty screen (valid).",
+  "input": "# HA Paper display config\nversion: 1\nscreens:\n  - id: empty\n    app: house\n    title: Empty\n    widgets: []\n",
+  "expect": {
+    "ok": true,
+    "apps": [
+      {
+        "id": "home",
+        "title": "Home"
+      },
+      {
+        "id": "house",
+        "title": "House"
+      },
+      {
+        "id": "travel",
+        "title": "Travel"
+      }
+    ],
+    "screens": [
+      {
+        "id": "empty",
+        "app": "house",
+        "title": "Empty",
+        "cells": 0,
+        "widgets": []
+      }
+    ],
+    "yaml": "# HA Paper display config\nversion: 1\nscreens:\n  - id: empty\n    app: house\n    title: Empty\n    widgets: []\n"
+  }
+}

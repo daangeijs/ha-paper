@@ -1,0 +1,36 @@
+{
+  "name": "03-defaults",
+  "description": "Missing app defaults to \"home\", missing title defaults to the id; cs/rs default to 1.",
+  "input": "# HA Paper display config\nversion: 1\nscreens:\n  - id: just_id\n    widgets:\n      - {type: price}\n",
+  "expect": {
+    "ok": true,
+    "apps": [
+      {
+        "id": "home",
+        "title": "Home"
+      },
+      {
+        "id": "house",
+        "title": "House"
+      },
+      {
+        "id": "travel",
+        "title": "Travel"
+      }
+    ],
+    "screens": [
+      {
+        "id": "just_id",
+        "app": "home",
+        "title": "just_id",
+        "cells": 1,
+        "widgets": [
+          {
+            "type": "price"
+          }
+        ]
+      }
+    ],
+    "yaml": "# HA Paper display config\nversion: 1\nscreens:\n  - id: just_id\n    app: home\n    title: just_id\n    widgets:\n      - {type: price}\n"
+  }
+}

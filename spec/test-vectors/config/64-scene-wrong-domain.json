@@ -1,0 +1,10 @@
+{
+  "name": "64-scene-wrong-domain",
+  "description": "Rule: a scene entity must be a scene.* or script.* id.",
+  "input": "# HA Paper display config\nversion: 1\nscreens:\n  - id: a\n    widgets:\n      - {type: clock}\n      - {type: scene, entity: light.kitchen, cs: 2}\n",
+  "expect": {
+    "ok": false,
+    "line": 7,
+    "message": "scene: “light.kitchen” is not a scene / script entity"
+  }
+}

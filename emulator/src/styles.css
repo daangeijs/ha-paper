@@ -1,0 +1,27 @@
+/* Global styles from Main.dc.html <helmet>. */
+body{margin:0}
+a{color:#3a3a3a}a:hover{color:#000}
+button{font:inherit;color:inherit;cursor:pointer}
+.dev-btn:hover{background:#e6e3dc}
+.dev-btn:active{background:#d6d2c9}
+.ink-btn:active{background:#111 !important;color:#ECEBE5 !important}
+.hw:hover span{background:#555}
+.dirty{position:absolute;inset:0;pointer-events:none;background:repeating-linear-gradient(135deg,rgba(17,17,17,.22) 0 5px,transparent 5px 10px);outline:2px dashed #111;outline-offset:-2px}
+/* markers stay in the DOM when hidden: panel preview measures them (Emulator.dirtyRects) */
+.regions-hidden .dirty{visibility:hidden}
+/* emulator-only view switcher (Emulator / Top bar / HA link artboards) */
+.views{position:fixed;top:8px;right:12px;z-index:10;display:flex;gap:4px;font:500 12px 'IBM Plex Mono',monospace}
+.views a{padding:4px 8px;border-radius:6px;background:#F6F5F2;border:1px solid #C4C0B7;text-decoration:none;color:#1d1d1f}
+.views a.on{background:#1d1d1f;color:#F6F5F2;border-color:#1d1d1f}
+/* Display style Sleek: screens that keep the Classic layout (travel, updates, Wi-Fi, HA, about, setup, link card, ghosts).
+   From the package's reference/sleek-fallback.css, with class names instead of inline-style attribute selectors
+   (React writes styles through the CSSOM, so `[style*="border: 2px solid #111"]` would not match). */
+.look-sleek .lbl{text-transform:none!important;letter-spacing:0!important;font-weight:600!important}
+.look-sleek .num{font-family:var(--fd);font-stretch:var(--fs);letter-spacing:-0.02em!important}
+.look-sleek .tile .ob{border-color:transparent!important;border-radius:22px!important}
+.look-sleek .tile .rt{border-top:1px dotted #111!important}
+.look-sleek .tile .rr{border-right:1px dotted #111!important}
+.look-sleek .tile .rl{border-left:1px dotted #111!important}
+.look-sleek .tile .rbt{border-bottom:1px dotted #111!important}
+.look-sleek .tile .hl{border-color:#111!important;border-style:dotted!important}
+.look-sleek .tile .pb{background-color:transparent!important}

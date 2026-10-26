@@ -1,0 +1,26 @@
+{
+  "name": "05-settings-persist",
+  "description": "Every settings save goes through persist: the stored object (upgraded first when older), known keys replaced in place, new known keys appended, unknown keys kept.",
+  "cases": [
+    {
+      "name": "first save, no file",
+      "op": "persist", "known": { "brightness": 0, "style": "classic" },
+      "expect": { "output": { "schema": 1, "brightness": 0, "style": "classic" } }
+    },
+    {
+      "name": "save over an unversioned file: upgraded, then merged",
+      "op": "persist", "stored": { "brightness": 10, "legacy": "x" }, "known": { "brightness": 20, "surface": "dots" },
+      "expect": { "output": { "schema": 1, "brightness": 20, "legacy": "x", "surface": "dots" } }
+    },
+    {
+      "name": "save over a current file keeps key order",
+      "op": "persist", "stored": { "schema": 1, "warmth": 40, "brightness": 10 }, "known": { "brightness": 20, "warmth": 50 },
+      "expect": { "output": { "schema": 1, "warmth": 50, "brightness": 20 } }
+    },
+    {
+      "name": "a key added later (#32 haReport) is appended without a schema bump",
+      "op": "persist", "stored": { "schema": 1, "brightness": 10, "surface": "dots" }, "known": { "brightness": 10, "surface": "dots", "haReport": false },
+      "expect": { "output": { "schema": 1, "brightness": 10, "surface": "dots", "haReport": false } }
+    }
+  ]
+}

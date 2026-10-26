@@ -1,0 +1,46 @@
+{
+  "name": "55-legacy-settings-tiles",
+  "description": "Settings tiles (setting, ota, wifi, ha, about) on your own screens parse and are dropped (they only live on the fixed Settings pages).",
+  "input": "# HA Paper display config\nversion: 1\nscreens:\n  - id: a\n    app: home\n    widgets:\n      - {type: clock}\n      - {type: setting, key: night}\n      - {type: price}\n      - {type: wifi}\n      - {type: about}\n  - id: b\n    app: house\n    widgets:\n      - {type: ha, cs: 4, rs: 2}\n",
+  "expect": {
+    "ok": true,
+    "apps": [
+      {
+        "id": "home",
+        "title": "Home"
+      },
+      {
+        "id": "house",
+        "title": "House"
+      },
+      {
+        "id": "travel",
+        "title": "Travel"
+      }
+    ],
+    "screens": [
+      {
+        "id": "a",
+        "app": "home",
+        "title": "a",
+        "cells": 2,
+        "widgets": [
+          {
+            "type": "clock"
+          },
+          {
+            "type": "price"
+          }
+        ]
+      },
+      {
+        "id": "b",
+        "app": "house",
+        "title": "b",
+        "cells": 0,
+        "widgets": []
+      }
+    ],
+    "yaml": "# HA Paper display config\nversion: 1\nscreens:\n  - id: a\n    app: home\n    title: a\n    widgets:\n      - {type: clock}\n      - {type: price}\n  - id: b\n    app: house\n    title: b\n    widgets: []\n"
+  }
+}

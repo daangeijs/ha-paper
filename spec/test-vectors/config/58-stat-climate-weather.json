@@ -1,0 +1,42 @@
+{
+  "name": "58-stat-climate-weather",
+  "description": "A stat tile takes a climate or weather entity (#161): it shows the temperature (stat-raw.json).",
+  "input": "# HA Paper display config\nversion: 1\nscreens:\n  - id: a\n    widgets:\n      - {type: stat, entity: climate.living_room}\n      - {type: stat, entity: weather.forecast_home, label: Outside}\n",
+  "expect": {
+    "ok": true,
+    "apps": [
+      {
+        "id": "home",
+        "title": "Home"
+      },
+      {
+        "id": "house",
+        "title": "House"
+      },
+      {
+        "id": "travel",
+        "title": "Travel"
+      }
+    ],
+    "screens": [
+      {
+        "id": "a",
+        "app": "home",
+        "title": "a",
+        "cells": 2,
+        "widgets": [
+          {
+            "type": "stat",
+            "entity": "climate.living_room"
+          },
+          {
+            "type": "stat",
+            "entity": "weather.forecast_home",
+            "label": "Outside"
+          }
+        ]
+      }
+    ],
+    "yaml": "# HA Paper display config\nversion: 1\nscreens:\n  - id: a\n    app: home\n    title: a\n    widgets:\n      - {type: stat, entity: climate.living_room}\n      - {type: stat, entity: weather.forecast_home, label: Outside}\n"
+  }
+}

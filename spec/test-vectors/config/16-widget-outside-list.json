@@ -1,0 +1,10 @@
+{
+  "name": "16-widget-outside-list",
+  "description": "Rule: a widget line before that screen's \"widgets:\".",
+  "input": "# HA Paper display config\nversion: 1\nscreens:\n  - id: a\n      - {type: clock}\n",
+  "expect": {
+    "ok": false,
+    "line": 5,
+    "message": "Widget outside a “widgets:” list"
+  }
+}

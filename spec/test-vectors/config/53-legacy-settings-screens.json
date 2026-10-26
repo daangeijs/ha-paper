@@ -1,0 +1,36 @@
+{
+  "name": "53-legacy-settings-screens",
+  "description": "Settings screens (app: settings) from older files parse and are dropped; the display adds its fixed Settings pages.",
+  "input": "# HA Paper display config\nversion: 1\nscreens:\n  - id: a\n    app: home\n    widgets:\n      - {type: clock}\n  - id: display\n    app: settings\n    widgets:\n      - {type: setting, key: brightness}\n      - {type: setting, key: night}\n  - id: updates\n    app: settings\n    widgets:\n      - {type: ota, cs: 4, rs: 2}\n",
+  "expect": {
+    "ok": true,
+    "apps": [
+      {
+        "id": "home",
+        "title": "Home"
+      },
+      {
+        "id": "house",
+        "title": "House"
+      },
+      {
+        "id": "travel",
+        "title": "Travel"
+      }
+    ],
+    "screens": [
+      {
+        "id": "a",
+        "app": "home",
+        "title": "a",
+        "cells": 1,
+        "widgets": [
+          {
+            "type": "clock"
+          }
+        ]
+      }
+    ],
+    "yaml": "# HA Paper display config\nversion: 1\nscreens:\n  - id: a\n    app: home\n    title: a\n    widgets:\n      - {type: clock}\n"
+  }
+}

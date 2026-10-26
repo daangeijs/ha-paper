@@ -1,0 +1,10 @@
+{
+  "description": "Charging honesty (issue #11, emulator src/core/power.ts powerSource/batteryLabel, firmware core/power.h). charging = charger STAT pin; usb = a USB host is seen (HWCDC SOF). A full battery on USB drops STAT, so it reads 'on USB', never 'charging'. A full battery on a charger without data lines reads 'battery' (no VBUS pin confirmed on the X4 Pro). source = GET /status power.source; label = the About screen Battery row.",
+  "cases": [
+    { "name": "charging from a computer", "pct": 64, "charging": true, "usb": true, "source": "usb", "label": "64% · charging" },
+    { "name": "charging from a wall charger", "pct": 64, "charging": true, "usb": false, "source": "usb", "label": "64% · charging" },
+    { "name": "full on a computer: STAT dropped", "pct": 100, "charging": false, "usb": true, "source": "usb", "label": "100% · on USB" },
+    { "name": "full on a wall charger: indistinguishable", "pct": 100, "charging": false, "usb": false, "source": "battery", "label": "100%" },
+    { "name": "on battery", "pct": 42, "charging": false, "usb": false, "source": "battery", "label": "42%" }
+  ]
+}

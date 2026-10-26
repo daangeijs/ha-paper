@@ -1,0 +1,600 @@
+{
+  "_doc": "Home Assistant address on the link page (#54). parseHaAddress(input) and resolveHaAddress(input, probe): emulator src/core/haAddress.ts = firmware core/ha_address.cpp. probe(url) is one GET url + /auth/providers without following redirects; only a redirect to the https upgrade of the same host and port is probed next (#75). Loopback and link-local hosts are refused, LAN addresses kept. A url missing from answers has no answer (status -1). probed = the urls in probe order.",
+  "parse": [
+    {
+      "input": "",
+      "error": "Enter the Home Assistant address."
+    },
+    {
+      "input": "  homeassistant.local:8123 ",
+      "url": "http://homeassistant.local:8123",
+      "alt": "https://homeassistant.local:8123",
+      "typed": false
+    },
+    {
+      "input": "homeassistant.local",
+      "url": "http://homeassistant.local:8123",
+      "alt": "https://homeassistant.local",
+      "typed": false
+    },
+    {
+      "input": "192.168.1.5",
+      "url": "http://192.168.1.5:8123",
+      "alt": "https://192.168.1.5",
+      "typed": false
+    },
+    {
+      "input": "HTTPS://HA.Example.com/lovelace/0",
+      "url": "https://ha.example.com",
+      "alt": "http://ha.example.com",
+      "typed": true
+    },
+    {
+      "input": "http://ha.local:8123/",
+      "url": "http://ha.local:8123",
+      "alt": "https://ha.local:8123",
+      "typed": true
+    },
+    {
+      "input": "https://ha.example.com:443",
+      "url": "https://ha.example.com",
+      "alt": "http://ha.example.com",
+      "typed": true
+    },
+    {
+      "input": "http://ha.local:80",
+      "url": "http://ha.local",
+      "alt": "https://ha.local",
+      "typed": true
+    },
+    {
+      "input": "[fd00::1]:8123",
+      "url": "http://[fd00::1]:8123",
+      "alt": "https://[fd00::1]:8123",
+      "typed": false
+    },
+    {
+      "input": "ha.local?x=1",
+      "url": "http://ha.local:8123",
+      "alt": "https://ha.local",
+      "typed": false
+    },
+    {
+      "input": "ftp://ha.local",
+      "error": "Use an http or https address, like homeassistant.local:8123."
+    },
+    {
+      "input": "ws://ha.local:8123",
+      "error": "Use an http or https address, like homeassistant.local:8123."
+    },
+    {
+      "input": "ha local",
+      "error": "That is not an address. Try homeassistant.local:8123."
+    },
+    {
+      "input": "user@ha.local",
+      "error": "That is not an address. Try homeassistant.local:8123."
+    },
+    {
+      "input": "ha.local:99999",
+      "error": "That is not an address. Try homeassistant.local:8123."
+    },
+    {
+      "input": "ha.local:0",
+      "error": "That is not an address. Try homeassistant.local:8123."
+    },
+    {
+      "input": "http://",
+      "error": "That is not an address. Try homeassistant.local:8123."
+    },
+    {
+      "input": "localhost:8123",
+      "error": "Home Assistant can’t be at that address (loopback or link-local). Try homeassistant.local:8123."
+    },
+    {
+      "input": "LOCALHOST.",
+      "error": "Home Assistant can’t be at that address (loopback or link-local). Try homeassistant.local:8123."
+    },
+    {
+      "input": "x.localhost",
+      "error": "Home Assistant can’t be at that address (loopback or link-local). Try homeassistant.local:8123."
+    },
+    {
+      "input": "127.0.0.1:8080",
+      "error": "Home Assistant can’t be at that address (loopback or link-local). Try homeassistant.local:8123."
+    },
+    {
+      "input": "http://127.1",
+      "error": "Home Assistant can’t be at that address (loopback or link-local). Try homeassistant.local:8123."
+    },
+    {
+      "input": "2130706433",
+      "error": "Home Assistant can’t be at that address (loopback or link-local). Try homeassistant.local:8123."
+    },
+    {
+      "input": "0x7f.0.0.1",
+      "error": "Home Assistant can’t be at that address (loopback or link-local). Try homeassistant.local:8123."
+    },
+    {
+      "input": "0177.0.0.1",
+      "error": "Home Assistant can’t be at that address (loopback or link-local). Try homeassistant.local:8123."
+    },
+    {
+      "input": "0.0.0.0",
+      "error": "Home Assistant can’t be at that address (loopback or link-local). Try homeassistant.local:8123."
+    },
+    {
+      "input": "169.254.1.1",
+      "error": "Home Assistant can’t be at that address (loopback or link-local). Try homeassistant.local:8123."
+    },
+    {
+      "input": "169.254",
+      "url": "http://169.254:8123",
+      "alt": "https://169.254",
+      "typed": false
+    },
+    {
+      "input": "[::1]:8123",
+      "error": "Home Assistant can’t be at that address (loopback or link-local). Try homeassistant.local:8123."
+    },
+    {
+      "input": "[::]",
+      "error": "Home Assistant can’t be at that address (loopback or link-local). Try homeassistant.local:8123."
+    },
+    {
+      "input": "[0:0:0:0:0:0:0:1]",
+      "error": "Home Assistant can’t be at that address (loopback or link-local). Try homeassistant.local:8123."
+    },
+    {
+      "input": "[fe80::1]",
+      "error": "Home Assistant can’t be at that address (loopback or link-local). Try homeassistant.local:8123."
+    },
+    {
+      "input": "[FEBF::1]",
+      "error": "Home Assistant can’t be at that address (loopback or link-local). Try homeassistant.local:8123."
+    },
+    {
+      "input": "[::ffff:127.0.0.1]",
+      "error": "Home Assistant can’t be at that address (loopback or link-local). Try homeassistant.local:8123."
+    },
+    {
+      "input": "[::ffff:169.254.0.1]",
+      "error": "Home Assistant can’t be at that address (loopback or link-local). Try homeassistant.local:8123."
+    },
+    {
+      "input": "10.0.0.2",
+      "url": "http://10.0.0.2:8123",
+      "alt": "https://10.0.0.2",
+      "typed": false
+    },
+    {
+      "input": "172.16.0.1",
+      "url": "http://172.16.0.1:8123",
+      "alt": "https://172.16.0.1",
+      "typed": false
+    },
+    {
+      "input": "[fd00::1]",
+      "url": "http://[fd00::1]:8123",
+      "alt": "https://[fd00::1]",
+      "typed": false
+    },
+    {
+      "input": "[fec0::1]",
+      "url": "http://[fec0::1]:8123",
+      "alt": "https://[fec0::1]",
+      "typed": false
+    },
+    {
+      "input": "128.0.0.1",
+      "url": "http://128.0.0.1:8123",
+      "alt": "https://128.0.0.1",
+      "typed": false
+    },
+    {
+      "input": "1.2.3.4.5",
+      "url": "http://1.2.3.4.5:8123",
+      "alt": "https://1.2.3.4.5",
+      "typed": false
+    },
+    {
+      "input": "127.256",
+      "error": "Home Assistant can’t be at that address (loopback or link-local). Try homeassistant.local:8123."
+    },
+    {
+      "input": "localhost.example.com",
+      "url": "http://localhost.example.com:8123",
+      "alt": "https://localhost.example.com",
+      "typed": false
+    },
+    {
+      "input": "http://ha.local:8080",
+      "url": "http://ha.local:8080",
+      "alt": "https://ha.local",
+      "typed": true
+    },
+    {
+      "input": "https://ha.local:8443",
+      "url": "https://ha.local:8443",
+      "alt": "http://ha.local",
+      "typed": true
+    }
+  ],
+  "resolve": [
+    {
+      "name": "found",
+      "input": "homeassistant.local:8123",
+      "answers": {
+        "http://homeassistant.local:8123": {
+          "status": 200,
+          "body": "{\"providers\":[{\"name\":\"Home Assistant Local\",\"id\":null,\"type\":\"homeassistant\"}],\"preselect_remember_me\":true}"
+        }
+      },
+      "probed": [
+        "http://homeassistant.local:8123"
+      ],
+      "result": {
+        "url": "http://homeassistant.local:8123"
+      }
+    },
+    {
+      "name": "older HA: bare provider list",
+      "input": "http://ha.local:8123",
+      "answers": {
+        "http://ha.local:8123": {
+          "status": 200,
+          "body": "[{\"name\":\"Home Assistant Local\",\"id\":null,\"type\":\"homeassistant\"}]"
+        }
+      },
+      "probed": [
+        "http://ha.local:8123"
+      ],
+      "result": {
+        "url": "http://ha.local:8123"
+      }
+    },
+    {
+      "name": "no scheme, only https answers",
+      "input": "ha.example.com",
+      "answers": {
+        "https://ha.example.com": {
+          "status": 200,
+          "body": "{\"providers\":[{\"name\":\"Home Assistant Local\",\"id\":null,\"type\":\"homeassistant\"}],\"preselect_remember_me\":true}"
+        }
+      },
+      "probed": [
+        "http://ha.example.com:8123",
+        "https://ha.example.com"
+      ],
+      "result": {
+        "url": "https://ha.example.com"
+      }
+    },
+    {
+      "name": "http typed, redirected to https",
+      "input": "http://ha.example.com",
+      "answers": {
+        "http://ha.example.com": {
+          "status": 301,
+          "location": "https://ha.example.com/auth/providers"
+        },
+        "https://ha.example.com": {
+          "status": 200,
+          "body": "{\"providers\":[{\"name\":\"Home Assistant Local\",\"id\":null,\"type\":\"homeassistant\"}],\"preselect_remember_me\":true}"
+        }
+      },
+      "probed": [
+        "http://ha.example.com",
+        "https://ha.example.com"
+      ],
+      "result": {
+        "url": "https://ha.example.com"
+      }
+    },
+    {
+      "name": "https typed, HA only on http: wrong scheme",
+      "input": "https://ha.local:8123",
+      "answers": {
+        "http://ha.local:8123": {
+          "status": 200,
+          "body": "{\"providers\":[{\"name\":\"Home Assistant Local\",\"id\":null,\"type\":\"homeassistant\"}],\"preselect_remember_me\":true}"
+        }
+      },
+      "probed": [
+        "https://ha.local:8123",
+        "http://ha.local:8123"
+      ],
+      "result": {
+        "status": 422,
+        "error": "Home Assistant answers at http://ha.local:8123, not over https. Use that address."
+      }
+    },
+    {
+      "name": "nothing answers",
+      "input": "http://10.0.0.9:8123",
+      "answers": {},
+      "probed": [
+        "http://10.0.0.9:8123",
+        "https://10.0.0.9:8123"
+      ],
+      "result": {
+        "status": 502,
+        "error": "The display can’t reach http://10.0.0.9:8123. Check the address and that Home Assistant is running."
+      }
+    },
+    {
+      "name": "a web page, not HA",
+      "input": "192.168.1.1",
+      "answers": {
+        "http://192.168.1.1:8123": {
+          "status": 200,
+          "body": "<!doctype html><title>Router</title>"
+        }
+      },
+      "probed": [
+        "http://192.168.1.1:8123",
+        "https://192.168.1.1"
+      ],
+      "result": {
+        "status": 422,
+        "error": "http://192.168.1.1:8123 answers, but it is not Home Assistant."
+      }
+    },
+    {
+      "name": "404",
+      "input": "http://ha.local:8123",
+      "answers": {
+        "http://ha.local:8123": {
+          "status": 404,
+          "body": "404: Not Found"
+        }
+      },
+      "probed": [
+        "http://ha.local:8123",
+        "https://ha.local:8123"
+      ],
+      "result": {
+        "status": 422,
+        "error": "http://ha.local:8123 answers, but it is not Home Assistant."
+      }
+    },
+    {
+      "name": "providers not a list",
+      "input": "http://ha.local:8123",
+      "answers": {
+        "http://ha.local:8123": {
+          "status": 200,
+          "body": "{\"providers\":\"x\"}"
+        }
+      },
+      "probed": [
+        "http://ha.local:8123",
+        "https://ha.local:8123"
+      ],
+      "result": {
+        "status": 422,
+        "error": "http://ha.local:8123 answers, but it is not Home Assistant."
+      }
+    },
+    {
+      "name": "empty provider list",
+      "input": "http://ha.local:8123",
+      "answers": {
+        "http://ha.local:8123": {
+          "status": 200,
+          "body": "[]"
+        }
+      },
+      "probed": [
+        "http://ha.local:8123",
+        "https://ha.local:8123"
+      ],
+      "result": {
+        "status": 422,
+        "error": "http://ha.local:8123 answers, but it is not Home Assistant."
+      }
+    },
+    {
+      "name": "empty JSON object",
+      "input": "http://ha.local:8123",
+      "answers": {
+        "http://ha.local:8123": {
+          "status": 200,
+          "body": "{}"
+        }
+      },
+      "probed": [
+        "http://ha.local:8123",
+        "https://ha.local:8123"
+      ],
+      "result": {
+        "status": 422,
+        "error": "http://ha.local:8123 answers, but it is not Home Assistant."
+      }
+    },
+    {
+      "name": "wrong scheme typed",
+      "input": "ftp://ha.local",
+      "answers": {},
+      "probed": [],
+      "result": {
+        "status": 422,
+        "error": "Use an http or https address, like homeassistant.local:8123."
+      }
+    },
+    {
+      "name": "loopback refused, nothing probed",
+      "input": "127.0.0.1:8080",
+      "answers": {},
+      "probed": [],
+      "result": {
+        "status": 422,
+        "error": "Home Assistant can’t be at that address (loopback or link-local). Try homeassistant.local:8123."
+      }
+    },
+    {
+      "name": "http→https upgrade on the same port",
+      "input": "http://ha.local:8123",
+      "answers": {
+        "http://ha.local:8123": {
+          "status": 302,
+          "location": "https://ha.local:8123/auth/providers"
+        },
+        "https://ha.local:8123": {
+          "status": 200,
+          "body": "{\"providers\":[{\"name\":\"Home Assistant Local\",\"id\":null,\"type\":\"homeassistant\"}],\"preselect_remember_me\":true}"
+        }
+      },
+      "probed": [
+        "http://ha.local:8123",
+        "https://ha.local:8123"
+      ],
+      "result": {
+        "url": "https://ha.local:8123"
+      }
+    },
+    {
+      "name": "https upgrade with the default port spelled out",
+      "input": "http://ha.example.com",
+      "answers": {
+        "http://ha.example.com": {
+          "status": 301,
+          "location": "HTTPS://HA.example.com:443/"
+        },
+        "https://ha.example.com": {
+          "status": 200,
+          "body": "{\"providers\":[{\"name\":\"Home Assistant Local\",\"id\":null,\"type\":\"homeassistant\"}],\"preselect_remember_me\":true}"
+        }
+      },
+      "probed": [
+        "http://ha.example.com",
+        "https://ha.example.com"
+      ],
+      "result": {
+        "url": "https://ha.example.com"
+      }
+    },
+    {
+      "name": "redirect to another host refused",
+      "input": "http://ha.example.com",
+      "answers": {
+        "http://ha.example.com": {
+          "status": 302,
+          "location": "http://127.0.0.1:8080/"
+        },
+        "http://127.0.0.1:8080": {
+          "status": 200,
+          "body": "{\"providers\":[{\"name\":\"Home Assistant Local\",\"id\":null,\"type\":\"homeassistant\"}],\"preselect_remember_me\":true}"
+        }
+      },
+      "probed": [
+        "http://ha.example.com",
+        "https://ha.example.com"
+      ],
+      "result": {
+        "status": 422,
+        "error": "http://ha.example.com redirects to another address. Enter the Home Assistant address itself."
+      }
+    },
+    {
+      "name": "redirect to another port refused",
+      "input": "http://ha.local:8123",
+      "answers": {
+        "http://ha.local:8123": {
+          "status": 307,
+          "location": "https://ha.local:9999/"
+        },
+        "https://ha.local:9999": {
+          "status": 200,
+          "body": "{\"providers\":[{\"name\":\"Home Assistant Local\",\"id\":null,\"type\":\"homeassistant\"}],\"preselect_remember_me\":true}"
+        }
+      },
+      "probed": [
+        "http://ha.local:8123",
+        "https://ha.local:8123"
+      ],
+      "result": {
+        "status": 422,
+        "error": "http://ha.local:8123 redirects to another address. Enter the Home Assistant address itself."
+      }
+    },
+    {
+      "name": "redirect to plain http of another port refused",
+      "input": "ha.local",
+      "answers": {
+        "http://ha.local:8123": {
+          "status": 302,
+          "location": "http://ha.local:80/"
+        },
+        "http://ha.local": {
+          "status": 200,
+          "body": "{\"providers\":[{\"name\":\"Home Assistant Local\",\"id\":null,\"type\":\"homeassistant\"}],\"preselect_remember_me\":true}"
+        }
+      },
+      "probed": [
+        "http://ha.local:8123",
+        "https://ha.local"
+      ],
+      "result": {
+        "status": 422,
+        "error": "http://ha.local:8123 redirects to another address. Enter the Home Assistant address itself."
+      }
+    },
+    {
+      "name": "refused redirect, HA on the other scheme",
+      "input": "http://ha.local:8123",
+      "answers": {
+        "http://ha.local:8123": {
+          "status": 302,
+          "location": "https://evil.example/"
+        },
+        "https://ha.local:8123": {
+          "status": 200,
+          "body": "{\"providers\":[{\"name\":\"Home Assistant Local\",\"id\":null,\"type\":\"homeassistant\"}],\"preselect_remember_me\":true}"
+        }
+      },
+      "probed": [
+        "http://ha.local:8123",
+        "https://ha.local:8123"
+      ],
+      "result": {
+        "url": "https://ha.local:8123"
+      }
+    },
+    {
+      "name": "relative redirect: not HA",
+      "input": "http://ha.local:8123",
+      "answers": {
+        "http://ha.local:8123": {
+          "status": 302,
+          "location": "/login"
+        }
+      },
+      "probed": [
+        "http://ha.local:8123",
+        "https://ha.local:8123"
+      ],
+      "result": {
+        "status": 422,
+        "error": "http://ha.local:8123 answers, but it is not Home Assistant."
+      }
+    },
+    {
+      "name": "typed http port, HA on https default port",
+      "input": "http://ha.local:8080",
+      "answers": {
+        "https://ha.local": {
+          "status": 200,
+          "body": "{\"providers\":[{\"name\":\"Home Assistant Local\",\"id\":null,\"type\":\"homeassistant\"}],\"preselect_remember_me\":true}"
+        }
+      },
+      "probed": [
+        "http://ha.local:8080",
+        "https://ha.local"
+      ],
+      "result": {
+        "url": "https://ha.local"
+      }
+    }
+  ]
+}

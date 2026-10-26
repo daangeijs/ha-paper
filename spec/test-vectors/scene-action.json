@@ -1,0 +1,67 @@
+{
+  "description": "Scene tile tap (#146, spec/SCHEMA.md scene): the widget and the HA service call it makes.",
+  "cases": [
+    {
+      "name": "scene entity → scene.turn_on",
+      "widget": {
+        "type": "scene",
+        "entity": "scene.movie_night",
+        "cs": 2
+      },
+      "domain": "scene",
+      "service": "turn_on",
+      "data": {
+        "entity_id": "scene.movie_night"
+      }
+    },
+    {
+      "name": "script entity → script.turn_on; the label changes nothing",
+      "widget": {
+        "type": "scene",
+        "entity": "script.good_night",
+        "label": "Bedtime"
+      },
+      "domain": "script",
+      "service": "turn_on",
+      "data": {
+        "entity_id": "script.good_night"
+      }
+    },
+    {
+      "name": "no entity → all lights off",
+      "widget": {
+        "type": "scene"
+      },
+      "domain": "light",
+      "service": "turn_off",
+      "data": {
+        "entity_id": "all"
+      }
+    },
+    {
+      "name": "older scene: all_off → all lights off",
+      "widget": {
+        "type": "scene",
+        "scene": "all_off"
+      },
+      "domain": "light",
+      "service": "turn_off",
+      "data": {
+        "entity_id": "all"
+      }
+    },
+    {
+      "name": "an entity wins over scene: all_off",
+      "widget": {
+        "type": "scene",
+        "scene": "all_off",
+        "entity": "scene.movie_night"
+      },
+      "domain": "scene",
+      "service": "turn_on",
+      "data": {
+        "entity_id": "scene.movie_night"
+      }
+    }
+  ]
+}

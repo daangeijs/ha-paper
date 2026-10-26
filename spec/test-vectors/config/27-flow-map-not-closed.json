@@ -1,0 +1,10 @@
+{
+  "name": "27-flow-map-not-closed",
+  "description": "Rule: a widget must be a one-line {…} flow map.",
+  "input": "# HA Paper display config\nversion: 1\nscreens:\n  - id: a\n    widgets:\n      - {type: clock\n",
+  "expect": {
+    "ok": false,
+    "line": 6,
+    "message": "Can’t read this line"
+  }
+}

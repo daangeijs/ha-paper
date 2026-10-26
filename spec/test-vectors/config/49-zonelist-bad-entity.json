@@ -1,0 +1,10 @@
+{
+  "name": "49-zonelist-bad-entity",
+  "description": "Rule: zoneList entities are climate.* ids (any integration).",
+  "input": "# HA Paper display config\nversion: 1\nscreens:\n  - id: a\n    widgets:\n      - {type: zoneList, entities: sensor.living_temperature}\n",
+  "expect": {
+    "ok": false,
+    "line": 6,
+    "message": "zoneList: “sensor.living_temperature” is not a climate entity"
+  }
+}

@@ -1,0 +1,163 @@
+# Release on tag vX.Y.Z (stable) or vX.Y.Z-<pre>.N (any '-' → GitHub pre-release → device "beta" channel).
+# Publishes: firmware.bin + manifest.json (device OTA), www.bin (web console), bootloader/partitions/boot_app0,
+# x4flash.py (USB flasher, keeps NVS), ha-paper-flasher-<version>.zip (browser flasher site), build provenance.
+# Runner: GitHub-hosted ubuntu-24.04 unless the repo variable CI_RUNNER names another (see ci.yml).
+name: release
+on:
+  push:
+    tags: ['v[0-9]+.[0-9]+.[0-9]+*']
+permissions:
+  contents: write
+  id-token: write      # artifact attestation (Sigstore OIDC)
+  attestations: write
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+jobs:
+  release:
+    runs-on: ${{ vars.CI_RUNNER || 'ubuntu-24.04' }}
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with: { submodules: recursive, fetch-depth: 0 }
+      - uses: ./.github/actions/host-deps
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with: { python-version: '3.12' }
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version-file: .node-version
+          cache: npm
+          cache-dependency-path: |
+            emulator/package-lock.json
+            flasher/package-lock.json
+      - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ~/.platformio
+          key: pio-${{ runner.os }}-${{ hashFiles('firmware/platformio.ini') }}
+          restore-keys: pio-${{ runner.os }}-
+      - run: pip install -r firmware/requirements.txt
+      - run: cd emulator && npm ci
+      - run: cd flasher && npm ci
+      - name: Tests (native core + emulator + flasher + tools)
+        run: make test PIO=pio ESPTOOL=esptool
+      - name: Browser flasher lint
+        run: cd flasher && npm run lint
+      - name: Release notes (commit subjects since the previous tag → manifest.json notes)
+        run: |
+          prev=$(git describe --tags --abbrev=0 --match 'v[0-9]*' "${GITHUB_REF_NAME}^" 2>/dev/null || true)
+          range=${prev:+$prev..}${GITHUB_REF_NAME}
+          { git log --no-merges --pretty='%s' "$range" | grep -v '^Merge' | head -20; } > notes.txt || true
+          cat notes.txt
+      - name: Build release artifacts
+        run: |
+          make dist PIO=pio ESPTOOL=esptool VERSION="${GITHUB_REF_NAME#v}" NOTES=notes.txt
+      - name: Check version stamped into the image and manifests
+        run: |
+          v="${GITHUB_REF_NAME#v}"
+          grep -a -q -F "$v" dist/firmware.bin
+          python3 - "$v" <<'PY'
+          import json, sys
+          v = sys.argv[1]
+          for f in ("dist/manifest.json",):
+              assert json.load(open(f))["version"] == v, f"{f}: version != {v}"
+          PY
+          (cd dist && sha256sum -- *.bin) | tee dist/SHA256SUMS
+      # Static site for any HTTPS web host: page + the same five parts + manifest.json + SHA256SUMS in firmware/.
+      - name: Browser flasher zip
+        run: |
+          v="${GITHUB_REF_NAME#v}"
+          make flasher-site PIO=pio ESPTOOL=esptool VERSION="$v"
+          (cd dist/flasher/firmware && sha256sum -c SHA256SUMS)
+          (cd dist/flasher && zip -r -X "../ha-paper-flasher-$v.zip" .)
+          unzip -l "dist/ha-paper-flasher-$v.zip"
+      # Build provenance (SLSA) for every binary + the OTA manifest; verify with `gh attestation verify <file> -R <repo>`.
+      # Attestation needs a public repo (or GitHub Enterprise Cloud); the step must never block the release.
+      - name: Attest build provenance
+        continue-on-error: true
+        uses: actions/attest-build-provenance@4d101475d8b20a2381f78447822ac1eab6504dd8 # v4.2.2
+        with:
+          subject-path: |
+            dist/*.bin
+            dist/manifest.json
+      - name: Release file list
+        id: files
+        run: |
+          {
+            echo 'list<<EOF'
+            printf '%s\n' dist/firmware.bin dist/manifest.json dist/www.bin dist/bootloader.bin dist/partitions.bin \
+              dist/boot_app0.bin dist/x4flash.py dist/SHA256SUMS "dist/ha-paper-flasher-${GITHUB_REF_NAME#v}.zip"
+            echo EOF
+          } >> "$GITHUB_OUTPUT"
+      - name: Release body
+        env:
+          PRERELEASE: ${{ contains(github.ref_name, '-') }}
+        run: |
+          v="${GITHUB_REF_NAME#v}"
+          {
+            if [[ "$GITHUB_REF_NAME" == *alpha* ]]; then
+              cat <<EOF
+          > [!WARNING]
+          > **ALPHA — not tested on real hardware.** This build has only run in the emulator and in Espressif QEMU.
+          > It may not boot on an Xteink X4 Pro. Only flash it if you have a USB cable, a full backup of the stock
+          > firmware, and are prepared to restore it.
+
+          Official builds check \`daangeijs/ha-paper\` for updates. A display still on an alpha from before the rename
+          (X4 Home) has update checks off: install this \`firmware.bin\` over the LAN with \`POST /api/v1/ota/upload\`
+          (docs/FLASHING.md §6), or over USB.
+
+          EOF
+            elif [[ "$PRERELEASE" == true ]]; then
+              printf '> [!NOTE]\n> Pre-release (device "beta" channel).\n\n'
+            fi
+            cat <<EOF
+          ## Install (USB, see [docs/FLASHING.md](https://github.com/${GITHUB_REPOSITORY}/blob/${GITHUB_REF_NAME}/docs/FLASHING.md))
+
+          EOF
+            cat <<EOF
+          Needs Python 3 and \`esptool\` (\`pip install esptool\`); a repo checkout is not needed. Put all assets in one
+          folder, connect the display in download mode (hold Left, press Reset) and run \`python3 x4flash.py\` there
+          (Windows: \`py x4flash.py\`). It checks the files, refuses locked chips, backs up the stock firmware the first
+          time, then flashes and keeps NVS and userdata (screens, settings). Manual steps, if you prefer
+          (\`PORT\` is e.g. \`/dev/cu.usbmodem1101\` (macOS), \`/dev/ttyACM0\` (Linux) or \`COM3\` (Windows)):
+
+          1. **Chip check** — \`esptool --chip esp32s3 -p PORT get-security-info\`. If secure boot or flash encryption is
+             enabled, stop: this unit cannot run HA Paper.
+          2. **Back up the stock firmware** — \`esptool --chip esp32s3 -p PORT read-flash 0x0 0x1000000 x4pro_stock.bin\`
+             (full 16 MB, keep it safe). With a repo checkout: \`make backup PORT=…\`.
+          3. **Flash** (keeps NVS: Wi-Fi, HA key and the OEM \`hw_calib\` panel id; and userdata at 0xFD0000: screens and settings):
+
+             \`\`\`
+             esptool --chip esp32s3 -p PORT write-flash 0x0 bootloader.bin 0x8000 partitions.bin 0xe000 boot_app0.bin 0x10000 firmware.bin 0xc90000 www.bin
+             \`\`\`
+
+             With a repo checkout of this tag: \`make flash PORT=…\`.
+
+          Never run \`esptool erase-flash\` or write a full-flash image except your own backup: it wipes the OEM panel id.
+
+          **Restore the stock firmware:** \`python3 x4flash.py restore x4pro_stock.bin\`, or \`esptool --chip esp32s3 -p PORT write-flash 0x0 x4pro_stock.bin\`
+          (or \`make restore PORT=… FILE=backups/x4pro_stock_YYYYMMDD.bin\`).
+
+          ## Files
+
+          | File | Offset | Use |
+          |---|---|---|
+          | \`bootloader.bin\` / \`partitions.bin\` / \`boot_app0.bin\` | \`0x0\` / \`0x8000\` / \`0xE000\` | separate parts |
+          | \`firmware.bin\` | \`0x10000\` | app; also the OTA / LAN-upload image (\`manifest.json\` = version, SHA-256, size) |
+          | \`www.bin\` | \`0xC90000\` | web console (LittleFS, partition \`www\`); userdata at 0xFD0000 is never written |
+          | \`x4flash.py\` | | USB flasher: chip check, backup, flash, \`restore\` (keeps NVS) |
+          | \`ha-paper-flasher-${v}.zip\` | | browser flasher (Chrome/Edge, Web Serial) with these files; unzip onto any HTTPS host |
+          | \`SHA256SUMS\` | | checksums |
+
+          ## Changes in ${v}
+
+          EOF
+            sed 's/^/- /' notes.txt
+          } > body.md
+          cat body.md
+      - uses: softprops/action-gh-release@efb35369e0ad2afab669f228072c1b0d510eae64 # v3.0.3
+        with:
+          name: HA Paper ${{ github.ref_name }}
+          files: ${{ steps.files.outputs.list }}
+          prerelease: ${{ contains(github.ref_name, '-') }}
+          body_path: body.md
+          fail_on_unmatched_files: true

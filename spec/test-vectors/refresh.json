@@ -1,0 +1,54 @@
+{
+  "description": "E-ink clean-up policy (SPEC §7, issues #26, #197, #212). Times are epoch minutes; 29864940 = Tue 13 Oct 2026 13:00 UTC. Kinds: partial (window), fast (whole frame, no flash, B/W only since #212 with grays thresholded like a partial: navigation), clean (one short flash), full (multi-flash, manual only). A partial never forces a clean while the clock is known; without a clock, 30 partials or fast refreshes do ('ghosting limit'). A navigation is fast; the 10th since the last clean is a clean ('nav clean'), and a clean resets both counters. The scheduled clean runs at the first :00/:30 at least everyMin (display.cleanEvery: 30, 60, 120) after the last clean, only with partial or fast refreshes (data, clock, tap feedback, navigation) since, and never while night mode is active (standby keeps it). Standby/night skips of non-clock redraws live in firmware App::commit. input (#212): of the events polled in one loop pass (all queued while the last refresh ran) only the last is handled; expect = its index, -1 for none.",
+  "partial": [
+    { "name": "clock known: no cap", "input": { "reason": "HA update", "sleeping": false, "night": false, "sinceFull": 100, "clockKnown": true }, "expect": { "kind": "partial", "sinceFull": 101 } },
+    { "name": "clock unset: below cap", "input": { "reason": "HA update", "sleeping": false, "night": false, "sinceFull": 28, "clockKnown": false }, "expect": { "kind": "partial", "sinceFull": 29 } },
+    { "name": "clock unset: 30th partial is a full", "input": { "reason": "HA update", "sleeping": false, "night": false, "sinceFull": 29, "clockKnown": false }, "expect": { "kind": "clean", "reason": "ghosting limit" } },
+    { "name": "standby: data skipped", "input": { "reason": "HA update", "sleeping": true, "night": false, "sinceFull": 0, "clockKnown": true }, "expect": { "kind": "skip", "why": "standby" } },
+    { "name": "night: data skipped", "input": { "reason": "HA update", "sleeping": false, "night": true, "sinceFull": 0, "clockKnown": true }, "expect": { "kind": "skip", "why": "night" } },
+    { "name": "night: clock still drawn", "input": { "reason": "clock", "sleeping": false, "night": true, "sinceFull": 3, "clockKnown": true }, "expect": { "kind": "partial", "sinceFull": 4 } }
+  ],
+  "navigation": [
+    { "name": "first navigation after a clean: fast", "input": { "navSinceClean": 0, "sinceFull": 0, "clockKnown": true }, "expect": { "kind": "fast", "navSinceClean": 1, "sinceFull": 1 } },
+    { "name": "partials since the clean count toward the scheduled clean, not the nav clean", "input": { "navSinceClean": 2, "sinceFull": 40, "clockKnown": true }, "expect": { "kind": "fast", "navSinceClean": 3, "sinceFull": 41 } },
+    { "name": "9th navigation: still fast", "input": { "navSinceClean": 8, "sinceFull": 8, "clockKnown": true }, "expect": { "kind": "fast", "navSinceClean": 9, "sinceFull": 9 } },
+    { "name": "10th navigation: clean", "input": { "navSinceClean": 9, "sinceFull": 9, "clockKnown": true }, "expect": { "kind": "clean", "reason": "nav clean" } },
+    { "name": "after the clean the count starts over", "input": { "navSinceClean": 0, "sinceFull": 0, "clockKnown": true }, "expect": { "kind": "fast", "navSinceClean": 1, "sinceFull": 1 } },
+    { "name": "clock unset: below cap", "input": { "navSinceClean": 3, "sinceFull": 28, "clockKnown": false }, "expect": { "kind": "fast", "navSinceClean": 4, "sinceFull": 29 } },
+    { "name": "clock unset: 30th refresh is a clean", "input": { "navSinceClean": 3, "sinceFull": 29, "clockKnown": false }, "expect": { "kind": "clean", "reason": "ghosting limit" } },
+    { "name": "clock known: no cap", "input": { "navSinceClean": 3, "sinceFull": 29, "clockKnown": true }, "expect": { "kind": "fast", "navSinceClean": 4, "sinceFull": 30 } }
+  ],
+  "nextClean": [
+    { "lastFullMin": 29864940, "everyMin": 30, "expect": 29864970 },
+    { "lastFullMin": 29864941, "everyMin": 30, "expect": 29865000 },
+    { "lastFullMin": 29864969, "everyMin": 30, "expect": 29865000 },
+    { "lastFullMin": 29864970, "everyMin": 30, "expect": 29865000 },
+    { "lastFullMin": 29864940, "everyMin": 60, "expect": 29865000 },
+    { "lastFullMin": 29864941, "everyMin": 60, "expect": 29865030 },
+    { "lastFullMin": 29864940, "everyMin": 120, "expect": 29865060 },
+    { "lastFullMin": 29864955, "everyMin": 120, "expect": 29865090 }
+  ],
+  "cleanDue": [
+    { "name": "no partials since the 13:00 full: no clean at 14:00", "sinceFull": 0, "lastFullMin": 29864940, "nowMin": 29865000, "everyMin": 30, "night": false, "expect": false },
+    { "name": "full 13:00, partials: not yet at 13:29", "sinceFull": 5, "lastFullMin": 29864940, "nowMin": 29864969, "everyMin": 30, "night": false, "expect": false },
+    { "name": "full 13:00, partials: clean at 13:30", "sinceFull": 5, "lastFullMin": 29864940, "nowMin": 29864970, "everyMin": 30, "night": false, "expect": true },
+    { "name": "full 13:29: skip 13:30 (1 min later)", "sinceFull": 1, "lastFullMin": 29864969, "nowMin": 29864970, "everyMin": 30, "night": false, "expect": false },
+    { "name": "full 13:29: not at 13:59", "sinceFull": 1, "lastFullMin": 29864969, "nowMin": 29864999, "everyMin": 30, "night": false, "expect": false },
+    { "name": "full 13:29: clean at 14:00", "sinceFull": 1, "lastFullMin": 29864969, "nowMin": 29865000, "everyMin": 30, "night": false, "expect": true },
+    { "name": "full 13:01: not at 13:31", "sinceFull": 1, "lastFullMin": 29864941, "nowMin": 29864971, "everyMin": 30, "night": false, "expect": false },
+    { "name": "missed slots (asleep): catch up at 15:17", "sinceFull": 3, "lastFullMin": 29864940, "nowMin": 29865077, "everyMin": 30, "night": false, "expect": true },
+    { "name": "hourly: not at 13:30", "sinceFull": 9, "lastFullMin": 29864940, "nowMin": 29864970, "everyMin": 60, "night": false, "expect": false },
+    { "name": "hourly: clean at 14:00", "sinceFull": 9, "lastFullMin": 29864940, "nowMin": 29865000, "everyMin": 60, "night": false, "expect": true },
+    { "name": "every 2 h: not at 14:30", "sinceFull": 9, "lastFullMin": 29864940, "nowMin": 29865030, "everyMin": 120, "night": false, "expect": false },
+    { "name": "every 2 h: clean at 15:00", "sinceFull": 9, "lastFullMin": 29864940, "nowMin": 29865060, "everyMin": 120, "night": false, "expect": true },
+    { "name": "night mode: no clean (night end flashes anyway)", "sinceFull": 40, "lastFullMin": 29864940, "nowMin": 29865077, "everyMin": 30, "night": true, "expect": false }
+  ],
+  "input": [
+    { "name": "no input: nothing handled", "events": [], "expect": -1 },
+    { "name": "one tap: handled", "events": ["tap"], "expect": 0 },
+    { "name": "five taps during a refresh: only the last", "events": ["tap", "tap", "tap", "tap", "tap"], "expect": 4 },
+    { "name": "key then tap: the tap wins", "events": ["next", "tap"], "expect": 1 },
+    { "name": "taps then a swipe: the swipe wins", "events": ["tap", "tap", "swipe"], "expect": 2 },
+    { "name": "taps then power: power wins", "events": ["tap", "next", "power"], "expect": 2 }
+  ]
+}

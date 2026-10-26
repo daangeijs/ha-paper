@@ -1,0 +1,10 @@
+{
+  "name": "29-empty-screens-list",
+  "description": "Rule: \"screens:\" with no screens (reported on line 1).",
+  "input": "# HA Paper display config\nversion: 1\nscreens:\n",
+  "expect": {
+    "ok": false,
+    "line": 1,
+    "message": "No screens found"
+  }
+}

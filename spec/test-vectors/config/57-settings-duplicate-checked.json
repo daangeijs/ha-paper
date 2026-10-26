@@ -1,0 +1,10 @@
+{
+  "name": "57-settings-duplicate-checked",
+  "description": "Rule: settings screens are checked before they are dropped (duplicate id, cells), so an old file fails the same way it always did.",
+  "input": "# HA Paper display config\nversion: 1\nscreens:\n  - id: wifi\n    app: home\n    widgets:\n      - {type: clock}\n  - id: wifi\n    app: settings\n    widgets:\n      - {type: wifi, cs: 4, rs: 2}\n",
+  "expect": {
+    "ok": false,
+    "line": 8,
+    "message": "Duplicate screen id “wifi”"
+  }
+}

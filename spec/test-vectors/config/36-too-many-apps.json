@@ -1,0 +1,10 @@
+{
+  "name": "36-too-many-apps",
+  "description": "Rule: at most 7 apps of your own (reported on the 8th); the 8th slot is the built-in Settings app (#159).",
+  "input": "version: 1\napps:\n  - id: a1\n  - id: a2\n  - id: a3\n  - id: a4\n  - id: a5\n  - id: a6\n  - id: a7\n  - id: a8\nscreens:\n  - id: x\n    widgets:\n      - {type: clock}\n",
+  "expect": {
+    "ok": false,
+    "line": 10,
+    "message": "At most 7 apps"
+  }
+}

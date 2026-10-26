@@ -1,0 +1,4 @@
+# Generated deviation indexes (make deviations, #117): two PRs adding a file both add a line; keep both, the
+# tools test then says whether the order needs a `make deviations`.
+firmware/DEVIATIONS.md merge=union
+emulator/DEVIATIONS.md merge=union

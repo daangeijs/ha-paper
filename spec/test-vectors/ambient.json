@@ -1,0 +1,31 @@
+{
+  "description": "Ambient idle mode and night face (issue #27). ambientDue(idleMs, menu, setup): no menu, no setup, idle >= 60 s. chromeFor(ambient, battery, clockTile): what the top bar keeps. nightStale(nowSec, lastDataSec): 'as of HH:MM' only when data is older than 30 min; 0 = unknown. Emulator src/core/ambient.ts, firmware src/core/logic.h.",
+  "ambient_ms": 60000,
+  "batt_low": 20,
+  "stale_s": 1800,
+  "due": [
+    { "idleMs": 0, "menu": false, "setup": false, "expect": false },
+    { "idleMs": 59999, "menu": false, "setup": false, "expect": false },
+    { "idleMs": 60000, "menu": false, "setup": false, "expect": true },
+    { "idleMs": 600000, "menu": false, "setup": false, "expect": true },
+    { "idleMs": 600000, "menu": true, "setup": false, "expect": false },
+    { "idleMs": 600000, "menu": false, "setup": true, "expect": false }
+  ],
+  "chrome": [
+    { "ambient": false, "battery": 5, "clockTile": true, "expect": { "app": true, "pager": true, "battery": true, "clock": true } },
+    { "ambient": false, "battery": 76, "clockTile": false, "expect": { "app": true, "pager": true, "battery": true, "clock": true } },
+    { "ambient": true, "battery": 76, "clockTile": true, "expect": { "app": false, "pager": false, "battery": false, "clock": false } },
+    { "ambient": true, "battery": 76, "clockTile": false, "expect": { "app": false, "pager": false, "battery": false, "clock": true } },
+    { "ambient": true, "battery": 20, "clockTile": true, "expect": { "app": false, "pager": false, "battery": false, "clock": false } },
+    { "ambient": true, "battery": 19, "clockTile": false, "expect": { "app": false, "pager": false, "battery": true, "clock": true } },
+    { "ambient": true, "battery": 3, "clockTile": true, "expect": { "app": false, "pager": false, "battery": true, "clock": false } }
+  ],
+  "stale": [
+    { "nowSec": 1791896400, "lastDataSec": 0, "expect": false },
+    { "nowSec": 0, "lastDataSec": 1791896400, "expect": false },
+    { "nowSec": 1791896400, "lastDataSec": 1791896400, "expect": false },
+    { "nowSec": 1791896400, "lastDataSec": 1791894600, "expect": false },
+    { "nowSec": 1791896400, "lastDataSec": 1791894599, "expect": true },
+    { "nowSec": 1791896400, "lastDataSec": 1791810000, "expect": true }
+  ]
+}

@@ -1,0 +1,38 @@
+{
+  "name": "09-exactly-8-cells",
+  "description": "Exactly 8 cells is allowed.",
+  "input": "# HA Paper display config\nversion: 1\nscreens:\n  - id: full\n    widgets:\n      - {type: lightList, cs: 4, rs: 2}\n",
+  "expect": {
+    "ok": true,
+    "apps": [
+      {
+        "id": "home",
+        "title": "Home"
+      },
+      {
+        "id": "house",
+        "title": "House"
+      },
+      {
+        "id": "travel",
+        "title": "Travel"
+      }
+    ],
+    "screens": [
+      {
+        "id": "full",
+        "app": "home",
+        "title": "full",
+        "cells": 8,
+        "widgets": [
+          {
+            "type": "lightList",
+            "cs": 4,
+            "rs": 2
+          }
+        ]
+      }
+    ],
+    "yaml": "# HA Paper display config\nversion: 1\nscreens:\n  - id: full\n    app: home\n    title: full\n    widgets:\n      - {type: lightList, cs: 4, rs: 2}\n"
+  }
+}

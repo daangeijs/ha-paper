@@ -1,0 +1,57 @@
+{
+  "name": "46-list-picks",
+  "description": "lightList areas / entities and zoneList entities are space-separated lists (#127); kept as one string value, written back as is.",
+  "input": "# HA Paper display config\nversion: 1\nscreens:\n  - id: a\n    widgets:\n      - {type: lightList, areas: kitchen living_room, entities: light.porch light.hall_2, cs: 4}\n  - id: b\n    widgets:\n      - {type: zoneList, entities: climate.living climate.office, cs: 4}\n      - {type: lightList, areas: , cs: 4}\n",
+  "expect": {
+    "ok": true,
+    "apps": [
+      {
+        "id": "home",
+        "title": "Home"
+      },
+      {
+        "id": "house",
+        "title": "House"
+      },
+      {
+        "id": "travel",
+        "title": "Travel"
+      }
+    ],
+    "screens": [
+      {
+        "id": "a",
+        "app": "home",
+        "title": "a",
+        "cells": 4,
+        "widgets": [
+          {
+            "type": "lightList",
+            "areas": "kitchen living_room",
+            "entities": "light.porch light.hall_2",
+            "cs": 4
+          }
+        ]
+      },
+      {
+        "id": "b",
+        "app": "home",
+        "title": "b",
+        "cells": 8,
+        "widgets": [
+          {
+            "type": "zoneList",
+            "entities": "climate.living climate.office",
+            "cs": 4
+          },
+          {
+            "type": "lightList",
+            "areas": "",
+            "cs": 4
+          }
+        ]
+      }
+    ],
+    "yaml": "# HA Paper display config\nversion: 1\nscreens:\n  - id: a\n    app: home\n    title: a\n    widgets:\n      - {type: lightList, areas: kitchen living_room, entities: light.porch light.hall_2, cs: 4}\n  - id: b\n    app: home\n    title: b\n    widgets:\n      - {type: zoneList, entities: climate.living climate.office, cs: 4}\n      - {type: lightList, areas: , cs: 4}\n"
+  }
+}

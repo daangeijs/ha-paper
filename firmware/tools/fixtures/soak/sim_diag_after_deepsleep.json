@@ -1,0 +1,64 @@
+{
+  "firmware": "0.3.0",
+  "uptime_s": 3,
+  "reset_reason": "DEEPSLEEP",
+  "boots": [
+    {
+      "reason": "DEEPSLEEP",
+      "crash": false,
+      "version": "0.3.0",
+      "uptime_s": 3,
+      "min_free_heap": 141020,
+      "panic": null,
+      "last_seen": 1792149875
+    },
+    {
+      "reason": "PANIC",
+      "crash": true,
+      "version": "0.3.0",
+      "uptime_s": 15,
+      "min_free_heap": 141020,
+      "panic": "assert failed: xQueueSemaphoreTake queue.c:1709 (pxQueue->uxItemSize == 0)",
+      "last_seen": 1792149871
+    }
+  ],
+  "last_crash": {
+    "reason": "PANIC",
+    "panic": "assert failed: xQueueSemaphoreTake queue.c:1709 (pxQueue->uxItemSize == 0)",
+    "version": "0.3.0",
+    "uptime_s": null,
+    "last_seen": null
+  },
+  "heap": {
+    "free_internal": 182344,
+    "min_free_internal": 141020,
+    "largest_free_internal": 110592,
+    "free_psram": 7864320
+  },
+  "panel": {
+    "controller": "UC8179",
+    "source": "probe",
+    "verdict": "ultrachip",
+    "promoted": true,
+    "ver": "00 00 01 FF FF",
+    "flg": 0,
+    "nvs_screen_type": 1
+  },
+  "coredump": {
+    "task": "loopTask",
+    "pc": "0x4201a3c4",
+    "backtrace": [
+      "0x4201a3c4",
+      "0x42009f10",
+      "0x4200b7e2",
+      "0x40381a5d"
+    ],
+    "backtrace_corrupted": false,
+    "exc_cause": 0,
+    "exc_vaddr": "0x00000000",
+    "panic": "assert failed: xQueueSemaphoreTake queue.c:1709 (pxQueue->uxItemSize == 0)",
+    "elf_sha256": "a3f1c2d4e5b60718",
+    "size": 9472
+  },
+  "touch_recoveries": 0
+}

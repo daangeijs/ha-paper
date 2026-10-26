@@ -1,0 +1,119 @@
+{
+  "name": "06-ota-0300",
+  "description": "An install (auto: night) or daily check due: wake at 03:00 and stay awake 03:00-04:00 so the install path runs.",
+  "base": {
+    "nowEpoch": 1800000000,
+    "localSec": 43200,
+    "powerSave": "standby",
+    "wakeEvery": 15,
+    "night": "23-07",
+    "peeking": false,
+    "standby": true,
+    "charging": false,
+    "usb": false,
+    "chargedAgoMin": null,
+    "voltage": 3.9,
+    "battery": 60,
+    "otaPendingVerify": false,
+    "otaBusy": false,
+    "otaAuto": "notify",
+    "otaDue": false,
+    "setup": false,
+    "msSinceApi": null
+  },
+  "cases": [
+    {
+      "name": "night, install due: wake at 03:00, not 07:00",
+      "input": {
+        "localSec": 3600,
+        "otaAuto": "night",
+        "otaDue": true
+      },
+      "expect": {
+        "deepSleepNow": true,
+        "wakeAtEpoch": 1800007200,
+        "buttonWakeOnly": false,
+        "reason": "night"
+      }
+    },
+    {
+      "name": "03:10, install due: stay awake",
+      "input": {
+        "localSec": 11400,
+        "otaAuto": "night",
+        "otaDue": true
+      },
+      "expect": {
+        "deepSleepNow": false,
+        "wakeAtEpoch": null,
+        "reason": "ota window"
+      }
+    },
+    {
+      "name": "03:10, nothing due: sleep to 07:00",
+      "input": {
+        "localSec": 11400,
+        "otaAuto": "night"
+      },
+      "expect": {
+        "deepSleepNow": true,
+        "wakeAtEpoch": 1800013800,
+        "buttonWakeOnly": false,
+        "reason": "night"
+      }
+    },
+    {
+      "name": "auto off: due is ignored",
+      "input": {
+        "localSec": 3600,
+        "otaAuto": "off",
+        "otaDue": true
+      },
+      "expect": {
+        "deepSleepNow": true,
+        "wakeAtEpoch": 1800021600,
+        "buttonWakeOnly": false,
+        "reason": "night"
+      }
+    },
+    {
+      "name": "daily check due by day: standby cadence is sooner",
+      "input": {
+        "otaDue": true
+      },
+      "expect": {
+        "deepSleepNow": true,
+        "wakeAtEpoch": 1800000900,
+        "buttonWakeOnly": false,
+        "reason": "standby"
+      }
+    },
+    {
+      "name": "02:59, check due: wake in 60 s",
+      "input": {
+        "localSec": 10740,
+        "otaDue": true
+      },
+      "expect": {
+        "deepSleepNow": true,
+        "wakeAtEpoch": 1800000060,
+        "buttonWakeOnly": false,
+        "reason": "night"
+      }
+    },
+    {
+      "name": "04:00, still due: next 03:00 is 23 h away, night end first",
+      "input": {
+        "localSec": 14400,
+        "otaAuto": "night",
+        "otaDue": true
+      },
+      "expect": {
+        "deepSleepNow": true,
+        "wakeAtEpoch": 1800010800,
+        "buttonWakeOnly": false,
+        "reason": "night"
+      }
+    }
+  ]
+}

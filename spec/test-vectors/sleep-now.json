@@ -1,0 +1,215 @@
+{
+  "description": "POST /api/v1/device/sleep {\"seconds\": N} (#178; emulator src/core/power.ts sleepNowCheck, firmware core/power.cpp). seconds: the JSON value (null = missing); integers 60..86400. input: overrides of base (power/09-glance.json base). status 202 = deep sleep now (timer N s, button / charger as usual), 422 bad seconds, 409 refused with the powerDecision word.",
+  "base": {
+    "nowEpoch": 1800000000,
+    "localSec": 43200,
+    "powerSave": "glance",
+    "wakeEvery": 15,
+    "night": "23-07",
+    "peeking": false,
+    "standby": false,
+    "charging": false,
+    "usb": false,
+    "chargedAgoMin": null,
+    "voltage": 3.9,
+    "battery": 60,
+    "otaPendingVerify": false,
+    "otaBusy": false,
+    "otaAuto": "notify",
+    "otaDue": false,
+    "setup": false,
+    "msSinceApi": null,
+    "live": false,
+    "glanceFails": 0,
+    "armBootsLeft": 0
+  },
+  "cases": [
+    {
+      "name": "60 s on battery: sleeps",
+      "seconds": 60,
+      "input": {},
+      "expect": {
+        "status": 202,
+        "error": ""
+      }
+    },
+    {
+      "name": "a day on battery: sleeps",
+      "seconds": 86400,
+      "input": {},
+      "expect": {
+        "status": 202,
+        "error": ""
+      }
+    },
+    {
+      "name": "59 s: too short",
+      "seconds": 59,
+      "input": {},
+      "expect": {
+        "status": 422,
+        "error": "seconds must be an integer from 60 to 86400"
+      }
+    },
+    {
+      "name": "86401 s: too long",
+      "seconds": 86401,
+      "input": {},
+      "expect": {
+        "status": 422,
+        "error": "seconds must be an integer from 60 to 86400"
+      }
+    },
+    {
+      "name": "not an integer",
+      "seconds": 60.5,
+      "input": {},
+      "expect": {
+        "status": 422,
+        "error": "seconds must be an integer from 60 to 86400"
+      }
+    },
+    {
+      "name": "a string",
+      "seconds": "600",
+      "input": {},
+      "expect": {
+        "status": 422,
+        "error": "seconds must be an integer from 60 to 86400"
+      }
+    },
+    {
+      "name": "missing",
+      "seconds": null,
+      "input": {},
+      "expect": {
+        "status": 422,
+        "error": "seconds must be an integer from 60 to 86400"
+      }
+    },
+    {
+      "name": "bad seconds win over every refusal",
+      "seconds": 10,
+      "input": {
+        "usb": true,
+        "setup": true
+      },
+      "expect": {
+        "status": 422,
+        "error": "seconds must be an integer from 60 to 86400"
+      }
+    },
+    {
+      "name": "unconfirmed image",
+      "seconds": 600,
+      "input": {
+        "otaPendingVerify": true,
+        "usb": true
+      },
+      "expect": {
+        "status": 409,
+        "error": "stays awake: unconfirmed image"
+      }
+    },
+    {
+      "name": "OTA running",
+      "seconds": 600,
+      "input": {
+        "otaBusy": true
+      },
+      "expect": {
+        "status": 409,
+        "error": "stays awake: ota running"
+      }
+    },
+    {
+      "name": "USB host",
+      "seconds": 600,
+      "input": {
+        "usb": true
+      },
+      "expect": {
+        "status": 409,
+        "error": "stays awake: external power"
+      }
+    },
+    {
+      "name": "charging",
+      "seconds": 600,
+      "input": {
+        "charging": true
+      },
+      "expect": {
+        "status": 409,
+        "error": "stays awake: external power"
+      }
+    },
+    {
+      "name": "charged 10 min ago at 4.18 V counts as external power",
+      "seconds": 600,
+      "input": {
+        "chargedAgoMin": 10,
+        "voltage": 4.18
+      },
+      "expect": {
+        "status": 409,
+        "error": "stays awake: external power"
+      }
+    },
+    {
+      "name": "setup",
+      "seconds": 600,
+      "input": {
+        "setup": true
+      },
+      "expect": {
+        "status": 409,
+        "error": "stays awake: setup mode"
+      }
+    },
+    {
+      "name": "a recent API request does not block it (it is one)",
+      "seconds": 600,
+      "input": {
+        "msSinceApi": 100
+      },
+      "expect": {
+        "status": 202,
+        "error": ""
+      }
+    },
+    {
+      "name": "first-boot safety not armed: allowed (explicit request)",
+      "seconds": 600,
+      "input": {
+        "armBootsLeft": 2
+      },
+      "expect": {
+        "status": 202,
+        "error": ""
+      }
+    },
+    {
+      "name": "battery unknown: allowed",
+      "seconds": 600,
+      "input": {
+        "battery": null
+      },
+      "expect": {
+        "status": 202,
+        "error": ""
+      }
+    },
+    {
+      "name": "live (key press within liveMin): allowed",
+      "seconds": 600,
+      "input": {
+        "live": true
+      },
+      "expect": {
+        "status": 202,
+        "error": ""
+      }
+    }
+  ]
+}

@@ -1,0 +1,4569 @@
+{
+  "description": "First-run screens from the user's HA (#23): seedConfig(snapshot, tail = []) → toYaml. Reference: emulator/src/core/seed.ts; firmware core/seed.cpp. snapshot = energy/get_prefs (energy) + logical ids with a source (live) + the SEED_TEMPLATE answer (present, areas, climate, lights, sensors). report = the seed report (#89; firmware seedReportJson, compact JSON in this key order).",
+  "cases": [
+    {
+      "name": "empty",
+      "description": "An HA with nothing the display knows: only the clock (no \"—\" tiles, no Travel / House apps).",
+      "snapshot": {},
+      "yaml": "# HA Paper display config\nversion: 1\napps:\n  - id: home\n    title: Home\nscreens:\n  - id: overview\n    app: home\n    title: Home\n    widgets:\n      - {type: clock, cs: 2}\n",
+      "report": {
+        "filled": 0,
+        "total": 17,
+        "tiles": [
+          {
+            "tile": "price",
+            "screen": "overview",
+            "why": "no_energy"
+          },
+          {
+            "tile": "inside",
+            "screen": "overview",
+            "why": "no_sensor"
+          },
+          {
+            "tile": "outside",
+            "screen": "overview",
+            "why": "no_sensor"
+          },
+          {
+            "tile": "solar_power",
+            "screen": "overview",
+            "why": "no_sensor"
+          },
+          {
+            "tile": "home_power",
+            "screen": "overview",
+            "why": "no_sensor"
+          },
+          {
+            "tile": "grid_power",
+            "screen": "overview",
+            "why": "no_sensor"
+          },
+          {
+            "tile": "battery_soc",
+            "screen": "overview",
+            "why": "no_sensor"
+          },
+          {
+            "tile": "battery_power",
+            "screen": "solar",
+            "why": "no_sensor"
+          },
+          {
+            "tile": "solar_today",
+            "screen": "solar",
+            "why": "no_sensor"
+          },
+          {
+            "tile": "solar_chart",
+            "screen": "solar",
+            "why": "no_energy"
+          },
+          {
+            "tile": "energy_today",
+            "screen": "energy",
+            "why": "no_sensor"
+          },
+          {
+            "tile": "grid_import_today",
+            "screen": "energy",
+            "why": "no_sensor"
+          },
+          {
+            "tile": "grid_export_today",
+            "screen": "energy",
+            "why": "no_sensor"
+          },
+          {
+            "tile": "usage_chart",
+            "screen": "energy",
+            "why": "no_energy"
+          },
+          {
+            "tile": "lights",
+            "screen": "lights",
+            "why": "none"
+          },
+          {
+            "tile": "heating",
+            "screen": "climate",
+            "why": "none"
+          },
+          {
+            "tile": "rooms",
+            "screen": "rooms",
+            "why": "few_rooms"
+          }
+        ]
+      }
+    },
+    {
+      "name": "stranger-house",
+      "description": "Fake HA --house stranger: P1 meter (grid only: stat_rate sensor.p1_meter_power becomes the home use tile), Nest thermostat, lights, room thermometers. NAS and phone temperatures are not rooms; \"Office: upstairs\" loses its colon in the label. Clutter of a real install (#58): sensors without device_class / unit / area, an unavailable hallway thermometer (no Hallway room), text states.",
+      "snapshot": {
+        "energy": {
+          "energy_sources": [
+            {
+              "type": "grid",
+              "flow_from": [
+                {
+                  "stat_energy_from": "sensor.p1_meter_energy_import",
+                  "entity_energy_price": null
+                }
+              ],
+              "flow_to": [],
+              "stat_rate": "sensor.p1_meter_power",
+              "cost_adjustment_day": 0
+            }
+          ],
+          "device_consumption": []
+        },
+        "live": [
+          "sensor.grid_power"
+        ],
+        "areas": [
+          [
+            "lounge",
+            "Lounge"
+          ],
+          [
+            "kitchen",
+            "Kitchen"
+          ],
+          [
+            "bedroom",
+            "Bedroom"
+          ],
+          [
+            "office",
+            "Office: upstairs"
+          ],
+          [
+            "hallway",
+            "Hallway"
+          ]
+        ],
+        "climate": [
+          [
+            "climate.thermostat",
+            "Thermostat",
+            "lounge",
+            "heat"
+          ]
+        ],
+        "vehicles": [],
+        "lights": [
+          [
+            "light.bedside",
+            "bedroom",
+            ""
+          ],
+          [
+            "light.hue_go",
+            "",
+            ""
+          ],
+          [
+            "light.kitchen_ceiling",
+            "kitchen",
+            ""
+          ],
+          [
+            "light.lounge_lamp",
+            "lounge",
+            ""
+          ],
+          [
+            "light.porch",
+            "",
+            ""
+          ]
+        ],
+        "sensors": [
+          [
+            "sensor.bedroom_temperature",
+            "temperature",
+            "bedroom",
+            "Bedroom temperature",
+            "°C"
+          ],
+          [
+            "sensor.garden_station_outside_temperature",
+            "temperature",
+            "",
+            "Garden station outside temperature",
+            "°C"
+          ],
+          [
+            "sensor.kitchen_thermometer_temperature",
+            "temperature",
+            "kitchen",
+            "Kitchen thermometer",
+            "°C"
+          ],
+          [
+            "sensor.lounge_temperature",
+            "temperature",
+            "lounge",
+            "Lounge temperature",
+            "°C"
+          ],
+          [
+            "sensor.nas_temperature",
+            "temperature",
+            "office",
+            "NAS temperature",
+            "°C"
+          ],
+          [
+            "sensor.office_temperature",
+            "temperature",
+            "office",
+            "Office temperature",
+            "°C"
+          ],
+          [
+            "sensor.p1_meter_power",
+            "power",
+            "",
+            "P1 meter power",
+            "W"
+          ],
+          [
+            "sensor.pixel_battery_temperature",
+            "temperature",
+            "",
+            "Pixel battery temperature",
+            "°C"
+          ]
+        ],
+        "weather": [
+          "weather.forecast_home"
+        ]
+      },
+      "yaml": "# HA Paper display config\nversion: 1\napps:\n  - id: home\n    title: Home\n  - id: house\n    title: House\nscreens:\n  - id: overview\n    app: home\n    title: Home\n    widgets:\n      - {type: clock, cs: 2}\n      - {type: stat, entity: sensor.lounge_temperature, label: Inside}\n      - {type: stat, entity: sensor.p1_meter_power, label: Home use}\n      - {type: stat, entity: sensor.garden_station_outside_temperature, label: Outside}\n  - id: energy\n    app: home\n    title: Energy\n    widgets:\n      - {type: stat, entity: sensor.p1_meter_power, label: Home use}\n      - {type: bars, series: usage, cs: 4}\n  - id: lights\n    app: house\n    title: Lights\n    widgets:\n      - {type: lightList, areas: lounge kitchen bedroom, cs: 4, rs: 2}\n  - id: climate\n    app: house\n    title: Heating\n    widgets:\n      - {type: zoneList, cs: 4, rs: 2}\n  - id: rooms\n    app: house\n    title: Rooms\n    widgets:\n      - {type: stat, entity: sensor.lounge_temperature, label: Lounge}\n      - {type: stat, entity: sensor.kitchen_thermometer_temperature, label: Kitchen}\n      - {type: stat, entity: sensor.bedroom_temperature, label: Bedroom}\n      - {type: stat, entity: sensor.office_temperature, label: Office upstairs}\n",
+      "report": {
+        "filled": 7,
+        "total": 16,
+        "tiles": [
+          {
+            "tile": "price",
+            "screen": "overview",
+            "why": "no_meter"
+          },
+          {
+            "tile": "inside",
+            "screen": "overview",
+            "entity": "sensor.lounge_temperature",
+            "rule": "area"
+          },
+          {
+            "tile": "outside",
+            "screen": "overview",
+            "entity": "sensor.garden_station_outside_temperature",
+            "rule": "name"
+          },
+          {
+            "tile": "solar_power",
+            "screen": "overview",
+            "why": "no_sensor"
+          },
+          {
+            "tile": "home_power",
+            "screen": "overview",
+            "entity": "sensor.p1_meter_power",
+            "rule": "grid"
+          },
+          {
+            "tile": "battery_soc",
+            "screen": "overview",
+            "why": "no_sensor"
+          },
+          {
+            "tile": "battery_power",
+            "screen": "solar",
+            "why": "no_sensor"
+          },
+          {
+            "tile": "solar_today",
+            "screen": "solar",
+            "why": "no_sensor"
+          },
+          {
+            "tile": "solar_chart",
+            "screen": "solar",
+            "why": "no_meter"
+          },
+          {
+            "tile": "energy_today",
+            "screen": "energy",
+            "why": "no_sensor"
+          },
+          {
+            "tile": "grid_import_today",
+            "screen": "energy",
+            "why": "no_sensor"
+          },
+          {
+            "tile": "grid_export_today",
+            "screen": "energy",
+            "why": "no_sensor"
+          },
+          {
+            "tile": "usage_chart",
+            "screen": "energy",
+            "rule": "energy"
+          },
+          {
+            "tile": "lights",
+            "screen": "lights",
+            "rule": "found"
+          },
+          {
+            "tile": "heating",
+            "screen": "climate",
+            "rule": "found"
+          },
+          {
+            "tile": "rooms",
+            "screen": "rooms",
+            "rule": "area"
+          }
+        ]
+      }
+    },
+    {
+      "name": "demo-house",
+      "description": "Fake HA --house demo (the emulator data): HA has the logical ids themselves (no labels: the catalog tiles), Energy dashboard price entity, tado zones, lights. No sensor.x4_route_* → no Travel app (the demo's routes are emulator mock data); one room thermometer → no Rooms screen.",
+      "snapshot": {
+        "energy": {
+          "energy_sources": [
+            {
+              "type": "grid",
+              "flow_from": [
+                {
+                  "stat_energy_from": "sensor.grid_import_today",
+                  "entity_energy_price": "sensor.electricity_price"
+                }
+              ],
+              "flow_to": [
+                {
+                  "stat_energy_to": "sensor.grid_export_today"
+                }
+              ],
+              "cost_adjustment_day": 0
+            },
+            {
+              "type": "solar",
+              "stat_energy_from": "sensor.solar_today",
+              "config_entry_solar_forecast": null
+            },
+            {
+              "type": "battery",
+              "stat_energy_from": "sensor.battery_discharge_today",
+              "stat_energy_to": "sensor.battery_charge_today"
+            }
+          ],
+          "device_consumption": []
+        },
+        "live": [
+          "sensor.energy_prices"
+        ],
+        "areas": [
+          [
+            "living",
+            "Living room"
+          ],
+          [
+            "kitchen",
+            "Kitchen"
+          ],
+          [
+            "dining",
+            "Dining"
+          ],
+          [
+            "hall",
+            "Hallway"
+          ],
+          [
+            "bedroom",
+            "Bedroom"
+          ],
+          [
+            "office",
+            "Office"
+          ],
+          [
+            "garden",
+            "Garden"
+          ]
+        ],
+        "climate": [
+          [
+            "climate.attic",
+            "Attic",
+            "",
+            "heat"
+          ],
+          [
+            "climate.bathroom",
+            "Bathroom",
+            "",
+            "heat"
+          ],
+          [
+            "climate.bedroom",
+            "Bedroom",
+            "bedroom",
+            "heat"
+          ],
+          [
+            "climate.dining",
+            "Dining room",
+            "dining",
+            "heat"
+          ],
+          [
+            "climate.garage",
+            "Garage",
+            "",
+            "heat"
+          ],
+          [
+            "climate.guest",
+            "Guest room",
+            "",
+            "heat"
+          ],
+          [
+            "climate.hall",
+            "Hallway",
+            "hall",
+            "heat"
+          ],
+          [
+            "climate.kids",
+            "Kids room",
+            "",
+            "heat"
+          ],
+          [
+            "climate.kitchen",
+            "Kitchen",
+            "kitchen",
+            "heat"
+          ],
+          [
+            "climate.laundry",
+            "Laundry",
+            "",
+            "heat"
+          ],
+          [
+            "climate.living",
+            "Living room",
+            "living",
+            "heat"
+          ],
+          [
+            "climate.office",
+            "Office",
+            "office",
+            "heat"
+          ],
+          [
+            "climate.studio",
+            "Studio",
+            "",
+            "heat"
+          ],
+          [
+            "climate.toilet",
+            "Toilet",
+            "",
+            "heat"
+          ]
+        ],
+        "vehicles": [],
+        "lights": [
+          [
+            "light.bedroom_ceiling",
+            "bedroom",
+            ""
+          ],
+          [
+            "light.bedroom_left",
+            "bedroom",
+            ""
+          ],
+          [
+            "light.bedroom_right",
+            "bedroom",
+            ""
+          ],
+          [
+            "light.dining_pendant",
+            "dining",
+            ""
+          ],
+          [
+            "light.garden_path",
+            "garden",
+            ""
+          ],
+          [
+            "light.garden_terrace",
+            "garden",
+            ""
+          ],
+          [
+            "light.hall_ceiling",
+            "hall",
+            ""
+          ],
+          [
+            "light.hall_stairs",
+            "hall",
+            ""
+          ],
+          [
+            "light.kitchen_cabinet",
+            "kitchen",
+            ""
+          ],
+          [
+            "light.kitchen_island",
+            "kitchen",
+            ""
+          ],
+          [
+            "light.kitchen_spots",
+            "kitchen",
+            ""
+          ],
+          [
+            "light.living_ceiling",
+            "living",
+            ""
+          ],
+          [
+            "light.living_floor",
+            "living",
+            ""
+          ],
+          [
+            "light.living_reading",
+            "living",
+            ""
+          ],
+          [
+            "light.living_tv",
+            "living",
+            ""
+          ],
+          [
+            "light.office_desk",
+            "office",
+            ""
+          ]
+        ],
+        "sensors": [
+          [
+            "sensor.battery_power",
+            "",
+            "",
+            "Battery flow",
+            "W"
+          ],
+          [
+            "sensor.car_battery",
+            "",
+            "",
+            "Car battery",
+            "%"
+          ],
+          [
+            "sensor.energy_today",
+            "",
+            "",
+            "Used today",
+            "kWh"
+          ],
+          [
+            "sensor.grid_export_today",
+            "",
+            "",
+            "Exported",
+            "kWh"
+          ],
+          [
+            "sensor.grid_import_today",
+            "",
+            "",
+            "Imported",
+            "kWh"
+          ],
+          [
+            "sensor.grid_power",
+            "",
+            "",
+            "Grid",
+            "W"
+          ],
+          [
+            "sensor.home_battery_soc",
+            "",
+            "",
+            "sensor.home_battery_soc",
+            "%"
+          ],
+          [
+            "sensor.home_power",
+            "",
+            "",
+            "Home use",
+            "W"
+          ],
+          [
+            "sensor.living_temperature",
+            "temperature",
+            "living",
+            "Inside",
+            "°C"
+          ],
+          [
+            "sensor.outdoor_temperature",
+            "temperature",
+            "",
+            "Outdoor temperature",
+            "°C"
+          ],
+          [
+            "sensor.phone_battery",
+            "",
+            "",
+            "Phone battery",
+            "%"
+          ],
+          [
+            "sensor.solar_power",
+            "",
+            "",
+            "Solar",
+            "W"
+          ],
+          [
+            "sensor.solar_today",
+            "",
+            "",
+            "Solar today",
+            "kWh"
+          ]
+        ],
+        "weather": []
+      },
+      "yaml": "# HA Paper display config\nversion: 1\napps:\n  - id: home\n    title: Home\n  - id: house\n    title: House\nscreens:\n  - id: overview\n    app: home\n    title: Home\n    widgets:\n      - {type: clock, cs: 2}\n      - {type: price}\n      - {type: stat, entity: sensor.living_temperature, label: Inside}\n      - {type: stat, entity: sensor.solar_power}\n      - {type: stat, entity: sensor.home_power}\n      - {type: gauge}\n      - {type: stat, entity: sensor.grid_power}\n  - id: prices\n    app: home\n    title: Energy prices\n    widgets:\n      - {type: price}\n      - {type: bars, series: prices, cs: 4}\n  - id: energy\n    app: home\n    title: Energy\n    widgets:\n      - {type: stat, entity: sensor.energy_today}\n      - {type: stat, entity: sensor.grid_import_today}\n      - {type: stat, entity: sensor.grid_export_today}\n      - {type: stat, entity: sensor.home_power}\n      - {type: bars, series: usage, cs: 4}\n  - id: solar\n    app: home\n    title: Solar & battery\n    widgets:\n      - {type: stat, entity: sensor.solar_power}\n      - {type: stat, entity: sensor.solar_today}\n      - {type: gauge}\n      - {type: stat, entity: sensor.battery_power}\n      - {type: bars, series: solar, cs: 4}\n  - id: lights\n    app: house\n    title: Lights\n    widgets:\n      - {type: lightList, cs: 4, rs: 2}\n  - id: climate\n    app: house\n    title: Heating\n    widgets:\n      - {type: zoneList, cs: 4, rs: 2}\n",
+      "report": {
+        "filled": 15,
+        "total": 17,
+        "tiles": [
+          {
+            "tile": "price",
+            "screen": "overview",
+            "entity": "sensor.electricity_price",
+            "rule": "energy"
+          },
+          {
+            "tile": "inside",
+            "screen": "overview",
+            "entity": "sensor.living_temperature",
+            "rule": "area"
+          },
+          {
+            "tile": "outside",
+            "screen": "overview",
+            "why": "overview_full"
+          },
+          {
+            "tile": "solar_power",
+            "screen": "overview",
+            "entity": "sensor.solar_power",
+            "rule": "id"
+          },
+          {
+            "tile": "home_power",
+            "screen": "overview",
+            "entity": "sensor.home_power",
+            "rule": "id"
+          },
+          {
+            "tile": "grid_power",
+            "screen": "overview",
+            "entity": "sensor.grid_power",
+            "rule": "id"
+          },
+          {
+            "tile": "battery_soc",
+            "screen": "overview",
+            "entity": "sensor.home_battery_soc",
+            "rule": "id"
+          },
+          {
+            "tile": "battery_power",
+            "screen": "solar",
+            "entity": "sensor.battery_power",
+            "rule": "id"
+          },
+          {
+            "tile": "solar_today",
+            "screen": "solar",
+            "entity": "sensor.solar_today",
+            "rule": "id"
+          },
+          {
+            "tile": "solar_chart",
+            "screen": "solar",
+            "rule": "energy"
+          },
+          {
+            "tile": "energy_today",
+            "screen": "energy",
+            "entity": "sensor.energy_today",
+            "rule": "id"
+          },
+          {
+            "tile": "grid_import_today",
+            "screen": "energy",
+            "entity": "sensor.grid_import_today",
+            "rule": "id"
+          },
+          {
+            "tile": "grid_export_today",
+            "screen": "energy",
+            "entity": "sensor.grid_export_today",
+            "rule": "id"
+          },
+          {
+            "tile": "usage_chart",
+            "screen": "energy",
+            "rule": "energy"
+          },
+          {
+            "tile": "lights",
+            "screen": "lights",
+            "rule": "found"
+          },
+          {
+            "tile": "heating",
+            "screen": "climate",
+            "rule": "found"
+          },
+          {
+            "tile": "rooms",
+            "screen": "rooms",
+            "why": "few_rooms"
+          }
+        ]
+      }
+    },
+    {
+      "name": "dutch-house",
+      "description": "Fake HA --house dutch (#82, shaped like the first real HA): no Energy dashboard. Names and units find SolarEdge (Zonproductie, not the Anker PV input), the P1 net power (not phase 1), Anker home load (Huisverbruik), Anker battery power and SOC % (not the kWh capacity, the phone, iPad, Zigbee, P1 Wi-Fi or tado heating %), Zon vandaag, Buienradar outside, tado rooms. No meters → no Energy screen, no charts.",
+      "snapshot": {
+        "energy": null,
+        "live": [],
+        "areas": [
+          [
+            "woonkamer",
+            "Woonkamer"
+          ],
+          [
+            "keuken",
+            "Keuken"
+          ],
+          [
+            "slaapkamer",
+            "Slaapkamer"
+          ],
+          [
+            "badkamer",
+            "Badkamer"
+          ],
+          [
+            "zolder",
+            "Zolder"
+          ],
+          [
+            "meterkast",
+            "Meterkast"
+          ],
+          [
+            "tuin",
+            "Tuin"
+          ]
+        ],
+        "climate": [
+          [
+            "climate.badkamer",
+            "Badkamer",
+            "badkamer",
+            "heat"
+          ],
+          [
+            "climate.slaapkamer",
+            "Slaapkamer",
+            "slaapkamer",
+            "auto"
+          ],
+          [
+            "climate.woonkamer",
+            "Woonkamer",
+            "woonkamer",
+            "heat"
+          ]
+        ],
+        "vehicles": [],
+        "lights": [
+          [
+            "light.keuken_spots",
+            "keuken",
+            ""
+          ],
+          [
+            "light.tuin",
+            "tuin",
+            ""
+          ],
+          [
+            "light.woonkamer_plafond",
+            "woonkamer",
+            ""
+          ]
+        ],
+        "sensors": [
+          [
+            "sensor.anker_solix_battery_power",
+            "power",
+            "",
+            "Batterijvermogen",
+            "W"
+          ],
+          [
+            "sensor.anker_solix_home_load",
+            "power",
+            "",
+            "Huisverbruik",
+            "W"
+          ],
+          [
+            "sensor.anker_solix_soc",
+            "battery",
+            "",
+            "Batterij laadniveau",
+            "%"
+          ],
+          [
+            "sensor.anker_solix_solar_power",
+            "power",
+            "",
+            "Anker zonne-energie",
+            "W"
+          ],
+          [
+            "sensor.badkamer_temperature",
+            "temperature",
+            "badkamer",
+            "Badkamer Temperatuur",
+            "°C"
+          ],
+          [
+            "sensor.beweging_gang_battery",
+            "battery",
+            "",
+            "Bewegingssensor gang batterij",
+            "%"
+          ],
+          [
+            "sensor.buienradar_temperature",
+            "temperature",
+            "",
+            "Buienradar Temperatuur",
+            "°C"
+          ],
+          [
+            "sensor.ipad_battery_level",
+            "battery",
+            "",
+            "iPad Battery Level",
+            "%"
+          ],
+          [
+            "sensor.keuken_temperatuur",
+            "temperature",
+            "keuken",
+            "Keuken temperatuur",
+            "°C"
+          ],
+          [
+            "sensor.nas_cpu_temperature",
+            "temperature",
+            "meterkast",
+            "NAS CPU temperatuur",
+            "°C"
+          ],
+          [
+            "sensor.p1_meter_power",
+            "power",
+            "",
+            "P1 vermogen",
+            "W"
+          ],
+          [
+            "sensor.p1_meter_wifi_strength",
+            "",
+            "",
+            "P1 wifi-sterkte",
+            "%"
+          ],
+          [
+            "sensor.pixel_8_battery_level",
+            "battery",
+            "",
+            "Pixel 8 Batterijniveau",
+            "%"
+          ],
+          [
+            "sensor.slaapkamer_temperature",
+            "temperature",
+            "slaapkamer",
+            "Slaapkamer Temperatuur",
+            "°C"
+          ],
+          [
+            "sensor.solaredge_i1_ac_power",
+            "power",
+            "",
+            "Zonproductie",
+            "W"
+          ],
+          [
+            "sensor.solaredge_i1_dc_power",
+            "power",
+            "",
+            "SolarEdge DC vermogen",
+            "W"
+          ],
+          [
+            "sensor.solaredge_i1_temperature",
+            "temperature",
+            "",
+            "SolarEdge temperatuur",
+            "°C"
+          ],
+          [
+            "sensor.solaredge_i1_zon_vandaag",
+            "energy",
+            "",
+            "Zon vandaag",
+            "kWh"
+          ],
+          [
+            "sensor.vaatwasser_power",
+            "power",
+            "",
+            "Vaatwasser vermogen",
+            "W"
+          ],
+          [
+            "sensor.wasmachine_power",
+            "power",
+            "",
+            "Wasmachine vermogen",
+            "W"
+          ],
+          [
+            "sensor.woonkamer_heating",
+            "",
+            "",
+            "Woonkamer Verwarming",
+            "%"
+          ],
+          [
+            "sensor.woonkamer_temperature",
+            "temperature",
+            "woonkamer",
+            "Woonkamer Temperatuur",
+            "°C"
+          ]
+        ],
+        "weather": [
+          "weather.forecast_thuis"
+        ]
+      },
+      "yaml": "# HA Paper display config\nversion: 1\napps:\n  - id: home\n    title: Home\n  - id: house\n    title: House\nscreens:\n  - id: overview\n    app: home\n    title: Home\n    widgets:\n      - {type: clock, cs: 2}\n      - {type: stat, entity: sensor.woonkamer_temperature, label: Inside}\n      - {type: stat, entity: sensor.solaredge_i1_ac_power, label: Solar}\n      - {type: stat, entity: sensor.anker_solix_home_load, label: Home use}\n      - {type: gauge, entity: sensor.anker_solix_soc, label: Home battery}\n      - {type: stat, entity: sensor.p1_meter_power, label: Grid}\n      - {type: stat, entity: sensor.buienradar_temperature, label: Outside}\n  - id: solar\n    app: home\n    title: Solar & battery\n    widgets:\n      - {type: stat, entity: sensor.solaredge_i1_ac_power, label: Solar}\n      - {type: stat, entity: sensor.solaredge_i1_zon_vandaag, label: Solar today}\n      - {type: gauge, entity: sensor.anker_solix_soc, label: Home battery}\n      - {type: stat, entity: sensor.anker_solix_battery_power, label: Battery}\n  - id: lights\n    app: house\n    title: Lights\n    widgets:\n      - {type: lightList, cs: 4, rs: 2}\n  - id: climate\n    app: house\n    title: Heating\n    widgets:\n      - {type: zoneList, cs: 4, rs: 2}\n  - id: rooms\n    app: house\n    title: Rooms\n    widgets:\n      - {type: stat, entity: sensor.woonkamer_temperature, label: Woonkamer}\n      - {type: stat, entity: sensor.keuken_temperatuur, label: Keuken}\n      - {type: stat, entity: sensor.slaapkamer_temperature, label: Slaapkamer}\n      - {type: stat, entity: sensor.badkamer_temperature, label: Badkamer}\n",
+      "report": {
+        "filled": 11,
+        "total": 17,
+        "tiles": [
+          {
+            "tile": "price",
+            "screen": "overview",
+            "why": "no_energy"
+          },
+          {
+            "tile": "inside",
+            "screen": "overview",
+            "entity": "sensor.woonkamer_temperature",
+            "rule": "area"
+          },
+          {
+            "tile": "outside",
+            "screen": "overview",
+            "entity": "sensor.buienradar_temperature",
+            "rule": "name"
+          },
+          {
+            "tile": "solar_power",
+            "screen": "overview",
+            "entity": "sensor.solaredge_i1_ac_power",
+            "rule": "name"
+          },
+          {
+            "tile": "home_power",
+            "screen": "overview",
+            "entity": "sensor.anker_solix_home_load",
+            "rule": "name"
+          },
+          {
+            "tile": "grid_power",
+            "screen": "overview",
+            "entity": "sensor.p1_meter_power",
+            "rule": "name"
+          },
+          {
+            "tile": "battery_soc",
+            "screen": "overview",
+            "entity": "sensor.anker_solix_soc",
+            "rule": "name"
+          },
+          {
+            "tile": "battery_power",
+            "screen": "solar",
+            "entity": "sensor.anker_solix_battery_power",
+            "rule": "name"
+          },
+          {
+            "tile": "solar_today",
+            "screen": "solar",
+            "entity": "sensor.solaredge_i1_zon_vandaag",
+            "rule": "name"
+          },
+          {
+            "tile": "solar_chart",
+            "screen": "solar",
+            "why": "no_energy"
+          },
+          {
+            "tile": "energy_today",
+            "screen": "energy",
+            "why": "no_sensor"
+          },
+          {
+            "tile": "grid_import_today",
+            "screen": "energy",
+            "why": "no_sensor"
+          },
+          {
+            "tile": "grid_export_today",
+            "screen": "energy",
+            "why": "no_sensor"
+          },
+          {
+            "tile": "usage_chart",
+            "screen": "energy",
+            "why": "no_energy"
+          },
+          {
+            "tile": "lights",
+            "screen": "lights",
+            "rule": "found"
+          },
+          {
+            "tile": "heating",
+            "screen": "climate",
+            "rule": "found"
+          },
+          {
+            "tile": "rooms",
+            "screen": "rooms",
+            "rule": "area"
+          }
+        ]
+      }
+    },
+    {
+      "name": "dutch-house-energy",
+      "description": "Fake HA --house dutch-energy: the same house with an Energy dashboard of meters only (HA < 2025.12, no stat_rate). Power sensors come from the meters' entity-id prefix (solaredge_i1_ac → ac_power, p1_meter, anker_solix); charts appear.",
+      "snapshot": {
+        "energy": {
+          "energy_sources": [
+            {
+              "type": "grid",
+              "flow_from": [
+                {
+                  "stat_energy_from": "sensor.p1_meter_energy_import",
+                  "stat_cost": null,
+                  "entity_energy_price": null,
+                  "number_energy_price": null
+                }
+              ],
+              "flow_to": [
+                {
+                  "stat_energy_to": "sensor.p1_meter_energy_export",
+                  "stat_compensation": null,
+                  "entity_energy_price": null,
+                  "number_energy_price": null
+                }
+              ],
+              "cost_adjustment_day": 0
+            },
+            {
+              "type": "solar",
+              "stat_energy_from": "sensor.solaredge_i1_ac_energy_kwh",
+              "config_entry_solar_forecast": null
+            },
+            {
+              "type": "battery",
+              "stat_energy_from": "sensor.anker_solix_discharged_energy",
+              "stat_energy_to": "sensor.anker_solix_charged_energy"
+            }
+          ],
+          "device_consumption": []
+        },
+        "live": [],
+        "areas": [
+          [
+            "woonkamer",
+            "Woonkamer"
+          ],
+          [
+            "keuken",
+            "Keuken"
+          ],
+          [
+            "slaapkamer",
+            "Slaapkamer"
+          ],
+          [
+            "badkamer",
+            "Badkamer"
+          ],
+          [
+            "zolder",
+            "Zolder"
+          ],
+          [
+            "meterkast",
+            "Meterkast"
+          ],
+          [
+            "tuin",
+            "Tuin"
+          ]
+        ],
+        "climate": [
+          [
+            "climate.badkamer",
+            "Badkamer",
+            "badkamer",
+            "heat"
+          ],
+          [
+            "climate.slaapkamer",
+            "Slaapkamer",
+            "slaapkamer",
+            "auto"
+          ],
+          [
+            "climate.woonkamer",
+            "Woonkamer",
+            "woonkamer",
+            "heat"
+          ]
+        ],
+        "vehicles": [],
+        "lights": [
+          [
+            "light.keuken_spots",
+            "keuken",
+            ""
+          ],
+          [
+            "light.tuin",
+            "tuin",
+            ""
+          ],
+          [
+            "light.woonkamer_plafond",
+            "woonkamer",
+            ""
+          ]
+        ],
+        "sensors": [
+          [
+            "sensor.anker_solix_battery_power",
+            "power",
+            "",
+            "Batterijvermogen",
+            "W"
+          ],
+          [
+            "sensor.anker_solix_home_load",
+            "power",
+            "",
+            "Huisverbruik",
+            "W"
+          ],
+          [
+            "sensor.anker_solix_soc",
+            "battery",
+            "",
+            "Batterij laadniveau",
+            "%"
+          ],
+          [
+            "sensor.anker_solix_solar_power",
+            "power",
+            "",
+            "Anker zonne-energie",
+            "W"
+          ],
+          [
+            "sensor.badkamer_temperature",
+            "temperature",
+            "badkamer",
+            "Badkamer Temperatuur",
+            "°C"
+          ],
+          [
+            "sensor.beweging_gang_battery",
+            "battery",
+            "",
+            "Bewegingssensor gang batterij",
+            "%"
+          ],
+          [
+            "sensor.buienradar_temperature",
+            "temperature",
+            "",
+            "Buienradar Temperatuur",
+            "°C"
+          ],
+          [
+            "sensor.ipad_battery_level",
+            "battery",
+            "",
+            "iPad Battery Level",
+            "%"
+          ],
+          [
+            "sensor.keuken_temperatuur",
+            "temperature",
+            "keuken",
+            "Keuken temperatuur",
+            "°C"
+          ],
+          [
+            "sensor.nas_cpu_temperature",
+            "temperature",
+            "meterkast",
+            "NAS CPU temperatuur",
+            "°C"
+          ],
+          [
+            "sensor.p1_meter_power",
+            "power",
+            "",
+            "P1 vermogen",
+            "W"
+          ],
+          [
+            "sensor.p1_meter_wifi_strength",
+            "",
+            "",
+            "P1 wifi-sterkte",
+            "%"
+          ],
+          [
+            "sensor.pixel_8_battery_level",
+            "battery",
+            "",
+            "Pixel 8 Batterijniveau",
+            "%"
+          ],
+          [
+            "sensor.slaapkamer_temperature",
+            "temperature",
+            "slaapkamer",
+            "Slaapkamer Temperatuur",
+            "°C"
+          ],
+          [
+            "sensor.solaredge_i1_ac_power",
+            "power",
+            "",
+            "Zonproductie",
+            "W"
+          ],
+          [
+            "sensor.solaredge_i1_dc_power",
+            "power",
+            "",
+            "SolarEdge DC vermogen",
+            "W"
+          ],
+          [
+            "sensor.solaredge_i1_temperature",
+            "temperature",
+            "",
+            "SolarEdge temperatuur",
+            "°C"
+          ],
+          [
+            "sensor.solaredge_i1_zon_vandaag",
+            "energy",
+            "",
+            "Zon vandaag",
+            "kWh"
+          ],
+          [
+            "sensor.vaatwasser_power",
+            "power",
+            "",
+            "Vaatwasser vermogen",
+            "W"
+          ],
+          [
+            "sensor.wasmachine_power",
+            "power",
+            "",
+            "Wasmachine vermogen",
+            "W"
+          ],
+          [
+            "sensor.woonkamer_heating",
+            "",
+            "",
+            "Woonkamer Verwarming",
+            "%"
+          ],
+          [
+            "sensor.woonkamer_temperature",
+            "temperature",
+            "woonkamer",
+            "Woonkamer Temperatuur",
+            "°C"
+          ]
+        ],
+        "weather": [
+          "weather.forecast_thuis"
+        ]
+      },
+      "yaml": "# HA Paper display config\nversion: 1\napps:\n  - id: home\n    title: Home\n  - id: house\n    title: House\nscreens:\n  - id: overview\n    app: home\n    title: Home\n    widgets:\n      - {type: clock, cs: 2}\n      - {type: stat, entity: sensor.woonkamer_temperature, label: Inside}\n      - {type: stat, entity: sensor.solaredge_i1_ac_power, label: Solar}\n      - {type: stat, entity: sensor.anker_solix_home_load, label: Home use}\n      - {type: gauge, entity: sensor.anker_solix_soc, label: Home battery}\n      - {type: stat, entity: sensor.p1_meter_power, label: Grid}\n      - {type: stat, entity: sensor.buienradar_temperature, label: Outside}\n  - id: energy\n    app: home\n    title: Energy\n    widgets:\n      - {type: stat, entity: sensor.anker_solix_home_load, label: Home use}\n      - {type: bars, series: usage, cs: 4}\n  - id: solar\n    app: home\n    title: Solar & battery\n    widgets:\n      - {type: stat, entity: sensor.solaredge_i1_ac_power, label: Solar}\n      - {type: stat, entity: sensor.solaredge_i1_zon_vandaag, label: Solar today}\n      - {type: gauge, entity: sensor.anker_solix_soc, label: Home battery}\n      - {type: stat, entity: sensor.anker_solix_battery_power, label: Battery}\n      - {type: bars, series: solar, cs: 4}\n  - id: lights\n    app: house\n    title: Lights\n    widgets:\n      - {type: lightList, cs: 4, rs: 2}\n  - id: climate\n    app: house\n    title: Heating\n    widgets:\n      - {type: zoneList, cs: 4, rs: 2}\n  - id: rooms\n    app: house\n    title: Rooms\n    widgets:\n      - {type: stat, entity: sensor.woonkamer_temperature, label: Woonkamer}\n      - {type: stat, entity: sensor.keuken_temperatuur, label: Keuken}\n      - {type: stat, entity: sensor.slaapkamer_temperature, label: Slaapkamer}\n      - {type: stat, entity: sensor.badkamer_temperature, label: Badkamer}\n",
+      "report": {
+        "filled": 13,
+        "total": 17,
+        "tiles": [
+          {
+            "tile": "price",
+            "screen": "overview",
+            "why": "no_meter"
+          },
+          {
+            "tile": "inside",
+            "screen": "overview",
+            "entity": "sensor.woonkamer_temperature",
+            "rule": "area"
+          },
+          {
+            "tile": "outside",
+            "screen": "overview",
+            "entity": "sensor.buienradar_temperature",
+            "rule": "name"
+          },
+          {
+            "tile": "solar_power",
+            "screen": "overview",
+            "entity": "sensor.solaredge_i1_ac_power",
+            "rule": "device"
+          },
+          {
+            "tile": "home_power",
+            "screen": "overview",
+            "entity": "sensor.anker_solix_home_load",
+            "rule": "name"
+          },
+          {
+            "tile": "grid_power",
+            "screen": "overview",
+            "entity": "sensor.p1_meter_power",
+            "rule": "device"
+          },
+          {
+            "tile": "battery_soc",
+            "screen": "overview",
+            "entity": "sensor.anker_solix_soc",
+            "rule": "device"
+          },
+          {
+            "tile": "battery_power",
+            "screen": "solar",
+            "entity": "sensor.anker_solix_battery_power",
+            "rule": "device"
+          },
+          {
+            "tile": "solar_today",
+            "screen": "solar",
+            "entity": "sensor.solaredge_i1_zon_vandaag",
+            "rule": "name"
+          },
+          {
+            "tile": "solar_chart",
+            "screen": "solar",
+            "rule": "energy"
+          },
+          {
+            "tile": "energy_today",
+            "screen": "energy",
+            "why": "no_sensor"
+          },
+          {
+            "tile": "grid_import_today",
+            "screen": "energy",
+            "why": "no_sensor"
+          },
+          {
+            "tile": "grid_export_today",
+            "screen": "energy",
+            "why": "no_sensor"
+          },
+          {
+            "tile": "usage_chart",
+            "screen": "energy",
+            "rule": "energy"
+          },
+          {
+            "tile": "lights",
+            "screen": "lights",
+            "rule": "found"
+          },
+          {
+            "tile": "heating",
+            "screen": "climate",
+            "rule": "found"
+          },
+          {
+            "tile": "rooms",
+            "screen": "rooms",
+            "rule": "area"
+          }
+        ]
+      }
+    },
+    {
+      "name": "real-house",
+      "description": "Fake HA --house real, the large example house (#88, #136): ~1100 entities. Zigbee chip temperatures (`…_device_temperature`) and one-phase power sensors are not in the answer; rooms and inside are real thermometers, outside the Shelly H&T \"Outdoor\". Envoy: stat_rate production = solar, current_power_consumption = home use, energy_production_today = solar today (`…_last_seven_days` has no day token). Energy dashboard grid flows have no today sensor and Envoy consumption is no grid import → no imported / exported tiles. The Tesla climate (its device has a device_tracker) is a vehicle: the zoneList names the 6 tado zones. #152 traps: a \"Forecast Max temperature today\" is no Outside; the dryer plug's \"Today consumption\" is no Imported / Used today (Used today = the \"Home energy usage today\" helper); the Better-Thermostat-style wrapper (same room and name, off) is no zone; lights: per room the Hue group (not the second HA group of the living room), bulbs where a room has no group, the two lights without an area left out.",
+      "snapshot": {
+        "energy": {
+          "energy_sources": [
+            {
+              "type": "grid",
+              "flow_from": [
+                {
+                  "stat_energy_from": "sensor.electricity_meter_energy_consumption_tarif_1",
+                  "stat_cost": null,
+                  "entity_energy_price": "sensor.nordpool_kwh_nl_eur_3_10_021",
+                  "number_energy_price": null
+                },
+                {
+                  "stat_energy_from": "sensor.electricity_meter_energy_consumption_tarif_2",
+                  "stat_cost": null,
+                  "entity_energy_price": "sensor.nordpool_kwh_nl_eur_3_10_021",
+                  "number_energy_price": null
+                }
+              ],
+              "flow_to": [
+                {
+                  "stat_energy_to": "sensor.electricity_meter_energy_production_tarif_1",
+                  "stat_compensation": null,
+                  "entity_energy_price": "sensor.nordpool_kwh_nl_eur_3_10_021",
+                  "number_energy_price": null
+                },
+                {
+                  "stat_energy_to": "sensor.electricity_meter_energy_production_tarif_2",
+                  "stat_compensation": null,
+                  "entity_energy_price": "sensor.nordpool_kwh_nl_eur_3_10_021",
+                  "number_energy_price": null
+                }
+              ],
+              "cost_adjustment_day": 0
+            },
+            {
+              "type": "solar",
+              "stat_energy_from": "sensor.envoy_482100000000_lifetime_energy_production",
+              "stat_rate": "sensor.envoy_482100000000_current_power_production",
+              "config_entry_solar_forecast": [
+                "01JINVENTEDFORECAST0000000"
+              ]
+            },
+            {
+              "type": "gas",
+              "stat_energy_from": "sensor.gas_meter_gas_consumption",
+              "stat_cost": null,
+              "entity_energy_price": null,
+              "number_energy_price": 1.42
+            }
+          ],
+          "device_consumption": [
+            {
+              "stat_consumption": "sensor.washing_machine_energy"
+            },
+            {
+              "stat_consumption": "sensor.tumble_dryer_energy"
+            },
+            {
+              "stat_consumption": "sensor.dishwasher_energy"
+            },
+            {
+              "stat_consumption": "sensor.coffee_maker_energy"
+            },
+            {
+              "stat_consumption": "sensor.car_charge_energy_added"
+            },
+            {
+              "stat_consumption": "sensor.shelly_boiler_switch_0_energy"
+            }
+          ]
+        },
+        "live": [],
+        "areas": [
+          [
+            "living_room",
+            "Living room"
+          ],
+          [
+            "kitchen",
+            "Kitchen"
+          ],
+          [
+            "hallway",
+            "Hallway"
+          ],
+          [
+            "toilet",
+            "Toilet"
+          ],
+          [
+            "bedroom",
+            "Bedroom"
+          ],
+          [
+            "kids_room",
+            "Playroom & Study"
+          ],
+          [
+            "guest_room",
+            "Guest room"
+          ],
+          [
+            "bathroom",
+            "Bathroom"
+          ],
+          [
+            "office",
+            "Office 🖥️"
+          ],
+          [
+            "attic",
+            "Attic"
+          ],
+          [
+            "utility",
+            "Meter cupboard"
+          ],
+          [
+            "garage",
+            "Garage"
+          ],
+          [
+            "garden",
+            "Garden 🌷"
+          ],
+          [
+            "driveway",
+            "Driveway"
+          ],
+          [
+            "basement",
+            "Basement"
+          ],
+          [
+            "bike_shed",
+            "Bike shed (empty)"
+          ]
+        ],
+        "climate": [
+          [
+            "climate.attic",
+            "Attic",
+            "attic",
+            "unavailable"
+          ],
+          [
+            "climate.bathroom",
+            "Bathroom",
+            "bathroom",
+            "heat"
+          ],
+          [
+            "climate.bedroom",
+            "Bedroom",
+            "bedroom",
+            "auto"
+          ],
+          [
+            "climate.kitchen",
+            "Kitchen",
+            "kitchen",
+            "auto"
+          ],
+          [
+            "climate.living_room",
+            "Living room",
+            "living_room",
+            "auto"
+          ],
+          [
+            "climate.living_room_better_thermostat",
+            "Living room",
+            "living_room",
+            "off"
+          ],
+          [
+            "climate.playroom",
+            "Playroom & Study",
+            "kids_room",
+            "off"
+          ]
+        ],
+        "vehicles": [
+          "climate.car_climate"
+        ],
+        "lights": [
+          [
+            "light.attic_tube_light",
+            "attic",
+            ""
+          ],
+          [
+            "light.basement_lamp",
+            "",
+            ""
+          ],
+          [
+            "light.bathroom_mirror",
+            "bathroom",
+            ""
+          ],
+          [
+            "light.bedroom",
+            "bedroom",
+            "g"
+          ],
+          [
+            "light.bedroom_ceiling",
+            "bedroom",
+            ""
+          ],
+          [
+            "light.bedside_lamp_left",
+            "bedroom",
+            ""
+          ],
+          [
+            "light.bedside_lamp_right",
+            "bedroom",
+            ""
+          ],
+          [
+            "light.desk_lamp_playroom",
+            "kids_room",
+            ""
+          ],
+          [
+            "light.dining_table",
+            "kitchen",
+            ""
+          ],
+          [
+            "light.driveway_spot",
+            "driveway",
+            ""
+          ],
+          [
+            "light.garage_lamp",
+            "garage",
+            ""
+          ],
+          [
+            "light.garden_wall_lamp",
+            "garden",
+            ""
+          ],
+          [
+            "light.guest_room_lamp",
+            "guest_room",
+            ""
+          ],
+          [
+            "light.hallway",
+            "hallway",
+            ""
+          ],
+          [
+            "light.hue_color_lamp_3",
+            "",
+            ""
+          ],
+          [
+            "light.kitchen",
+            "kitchen",
+            "g"
+          ],
+          [
+            "light.kitchen_spot_1",
+            "kitchen",
+            ""
+          ],
+          [
+            "light.kitchen_spot_2",
+            "kitchen",
+            ""
+          ],
+          [
+            "light.kitchen_spot_3",
+            "kitchen",
+            ""
+          ],
+          [
+            "light.living_room",
+            "living_room",
+            "g"
+          ],
+          [
+            "light.living_room_ceiling",
+            "living_room",
+            ""
+          ],
+          [
+            "light.living_room_floor_lamp",
+            "living_room",
+            ""
+          ],
+          [
+            "light.living_room_lamps",
+            "living_room",
+            "g"
+          ],
+          [
+            "light.living_room_reading_lamp",
+            "living_room",
+            ""
+          ],
+          [
+            "light.office_desk",
+            "office",
+            ""
+          ],
+          [
+            "light.outdoor",
+            "garden",
+            "g"
+          ],
+          [
+            "light.playroom",
+            "kids_room",
+            ""
+          ],
+          [
+            "light.shed_lamp",
+            "garden",
+            ""
+          ],
+          [
+            "light.toilet",
+            "toilet",
+            ""
+          ],
+          [
+            "light.tv_lightstrip",
+            "living_room",
+            ""
+          ]
+        ],
+        "sensors": [
+          [
+            "sensor.air_purifier_power",
+            "power",
+            "",
+            "Air purifier Power",
+            "W"
+          ],
+          [
+            "sensor.aquarium_power",
+            "power",
+            "",
+            "Aquarium Power",
+            "W"
+          ],
+          [
+            "sensor.attic_heating",
+            "",
+            "",
+            "Attic Heating",
+            "%"
+          ],
+          [
+            "sensor.attic_ventilation_fan_speed",
+            "",
+            "",
+            "Attic ventilation Fan speed",
+            "%"
+          ],
+          [
+            "sensor.back_door_battery",
+            "battery",
+            "",
+            "Back door Battery",
+            "%"
+          ],
+          [
+            "sensor.bathroom_heating",
+            "",
+            "",
+            "Bathroom Heating",
+            "%"
+          ],
+          [
+            "sensor.bathroom_temperature",
+            "temperature",
+            "bathroom",
+            "Bathroom Temperature",
+            "°C"
+          ],
+          [
+            "sensor.bedroom_heating",
+            "",
+            "",
+            "Bedroom Heating",
+            "%"
+          ],
+          [
+            "sensor.bedroom_temperature",
+            "temperature",
+            "bedroom",
+            "Bedroom Temperature",
+            "°C"
+          ],
+          [
+            "sensor.bedside_table_playroom_power",
+            "power",
+            "",
+            "Bedside table playroom Power",
+            "W"
+          ],
+          [
+            "sensor.button_bed_left_battery",
+            "battery",
+            "",
+            "Button bed left Battery",
+            "%"
+          ],
+          [
+            "sensor.button_bed_right_battery",
+            "battery",
+            "",
+            "Button bed right Battery",
+            "%"
+          ],
+          [
+            "sensor.button_front_door_battery",
+            "battery",
+            "",
+            "Button front door Battery",
+            "%"
+          ],
+          [
+            "sensor.car_battery_level",
+            "battery",
+            "",
+            "Car Battery level",
+            "%"
+          ],
+          [
+            "sensor.car_charger_power",
+            "power",
+            "",
+            "Car Charger power",
+            "kW"
+          ],
+          [
+            "sensor.christmas_lights_outdoor_power",
+            "power",
+            "",
+            "Christmas lights outdoor Power",
+            "W"
+          ],
+          [
+            "sensor.christmas_tree_power",
+            "power",
+            "",
+            "Christmas tree 🎄 Power",
+            "W"
+          ],
+          [
+            "sensor.co2_bedroom_temperature",
+            "temperature",
+            "bedroom",
+            "CO2 bedroom Temperature",
+            "°C"
+          ],
+          [
+            "sensor.co2_living_room_temperature",
+            "temperature",
+            "living_room",
+            "CO2 living room Temperature",
+            "°C"
+          ],
+          [
+            "sensor.coffee_maker_power",
+            "power",
+            "",
+            "Coffee maker ☕ Power",
+            "W"
+          ],
+          [
+            "sensor.crawl_space_battery",
+            "battery",
+            "",
+            "Crawl space Battery",
+            "%"
+          ],
+          [
+            "sensor.crawl_space_temperature",
+            "temperature",
+            "",
+            "Crawl space Temperature",
+            "°C"
+          ],
+          [
+            "sensor.desk_100_power_strip_power",
+            "power",
+            "",
+            "Desk 100% power strip Power",
+            "W"
+          ],
+          [
+            "sensor.dishwasher_power",
+            "power",
+            "",
+            "Dishwasher Power",
+            "W"
+          ],
+          [
+            "sensor.disk_use_percent",
+            "",
+            "",
+            "Disk use %",
+            "%"
+          ],
+          [
+            "sensor.dryer_current_consumption",
+            "power",
+            "",
+            "Dryer Current consumption",
+            "W"
+          ],
+          [
+            "sensor.dryer_today_consumption",
+            "energy",
+            "",
+            "Dryer Today consumption",
+            "kWh"
+          ],
+          [
+            "sensor.electric_blanket_power",
+            "power",
+            "",
+            "Electric blanket Power",
+            "W"
+          ],
+          [
+            "sensor.electricity_meter_power_consumption",
+            "power",
+            "",
+            "Electricity Meter Power consumption",
+            "kW"
+          ],
+          [
+            "sensor.electricity_meter_power_production",
+            "power",
+            "",
+            "Electricity Meter Power production",
+            "kW"
+          ],
+          [
+            "sensor.energymonitor_circuit_12_heat_pump_power",
+            "power",
+            "",
+            "Circuit 12 heat pump power",
+            "W"
+          ],
+          [
+            "sensor.energymonitor_circuit_13_dishwasher_power",
+            "power",
+            "",
+            "Circuit 13 dishwasher power",
+            "W"
+          ],
+          [
+            "sensor.energymonitor_circuit_14_oven_power",
+            "power",
+            "",
+            "Circuit 14 oven power",
+            "W"
+          ],
+          [
+            "sensor.energymonitor_circuit_15_attic_power",
+            "power",
+            "",
+            "Circuit 15 attic power",
+            "W"
+          ],
+          [
+            "sensor.energymonitor_circuit_16_spare_power",
+            "power",
+            "",
+            "Circuit 16 spare power",
+            "W"
+          ],
+          [
+            "sensor.energymonitor_circuit_1_kitchen_power",
+            "power",
+            "",
+            "Circuit 1 kitchen power",
+            "W"
+          ],
+          [
+            "sensor.energymonitor_circuit_4_washing_machine_power",
+            "power",
+            "",
+            "Circuit 4 washing machine power",
+            "W"
+          ],
+          [
+            "sensor.energymonitor_circuit_5_dryer_power",
+            "power",
+            "",
+            "Circuit 5 dryer power",
+            "W"
+          ],
+          [
+            "sensor.energymonitor_circuit_6_upstairs_power",
+            "power",
+            "",
+            "Circuit 6 upstairs power",
+            "W"
+          ],
+          [
+            "sensor.energymonitor_circuit_7_downstairs_power",
+            "power",
+            "",
+            "Circuit 7 downstairs power",
+            "W"
+          ],
+          [
+            "sensor.energymonitor_circuit_8_garden_power",
+            "power",
+            "",
+            "Circuit 8 garden power",
+            "W"
+          ],
+          [
+            "sensor.envoy_482100000000_current_power_consumption",
+            "power",
+            "",
+            "Envoy 482100000000 Current power consumption",
+            "W"
+          ],
+          [
+            "sensor.envoy_482100000000_current_power_production",
+            "power",
+            "",
+            "Envoy 482100000000 Current power production",
+            "W"
+          ],
+          [
+            "sensor.envoy_482100000000_energy_consumption_today",
+            "energy",
+            "",
+            "Envoy 482100000000 Energy consumption today",
+            "kWh"
+          ],
+          [
+            "sensor.envoy_482100000000_energy_production_today",
+            "energy",
+            "",
+            "Envoy 482100000000 Energy production today",
+            "kWh"
+          ],
+          [
+            "sensor.forecast_max_temperature_today",
+            "temperature",
+            "",
+            "Forecast Max temperature today",
+            "°C"
+          ],
+          [
+            "sensor.freezer_temp_battery",
+            "battery",
+            "",
+            "Freezer temp Battery",
+            "%"
+          ],
+          [
+            "sensor.freezer_temp_temperature",
+            "temperature",
+            "garage",
+            "Freezer temp Temperature",
+            "°C"
+          ],
+          [
+            "sensor.fridge_door_battery",
+            "battery",
+            "",
+            "Fridge door Battery",
+            "%"
+          ],
+          [
+            "sensor.fridge_temp_battery",
+            "battery",
+            "",
+            "Fridge temp Battery",
+            "%"
+          ],
+          [
+            "sensor.fridge_temp_temperature",
+            "temperature",
+            "kitchen",
+            "Fridge temp Temperature",
+            "°C"
+          ],
+          [
+            "sensor.front_door_battery",
+            "battery",
+            "",
+            "Front door Battery",
+            "%"
+          ],
+          [
+            "sensor.garage_battery",
+            "battery",
+            "",
+            "Motion sensor garage Battery",
+            "%"
+          ],
+          [
+            "sensor.garage_door_battery",
+            "battery",
+            "",
+            "Garage door Battery",
+            "%"
+          ],
+          [
+            "sensor.hallway_battery",
+            "battery",
+            "",
+            "Motion sensor hallway Battery",
+            "%"
+          ],
+          [
+            "sensor.hallway_temperature",
+            "temperature",
+            "hallway",
+            "Motion sensor hallway Temperature",
+            "°C"
+          ],
+          [
+            "sensor.home_energy_usage_today",
+            "energy",
+            "",
+            "Home energy usage today",
+            "kWh"
+          ],
+          [
+            "sensor.home_rain_radar_temperature",
+            "temperature",
+            "",
+            "Rain radar temperature",
+            "°C"
+          ],
+          [
+            "sensor.inverter_122100010000",
+            "power",
+            "",
+            "Inverter 122100010000",
+            "W"
+          ],
+          [
+            "sensor.inverter_122100010371",
+            "power",
+            "",
+            "Inverter 122100010371",
+            "W"
+          ],
+          [
+            "sensor.inverter_122100010742",
+            "power",
+            "",
+            "Inverter 122100010742",
+            "W"
+          ],
+          [
+            "sensor.inverter_122100011113",
+            "power",
+            "",
+            "Inverter 122100011113",
+            "W"
+          ],
+          [
+            "sensor.inverter_122100011484",
+            "power",
+            "",
+            "Inverter 122100011484",
+            "W"
+          ],
+          [
+            "sensor.inverter_122100011855",
+            "power",
+            "",
+            "Inverter 122100011855",
+            "W"
+          ],
+          [
+            "sensor.inverter_122100012226",
+            "power",
+            "",
+            "Inverter 122100012226",
+            "W"
+          ],
+          [
+            "sensor.inverter_122100012597",
+            "power",
+            "",
+            "Inverter 122100012597",
+            "W"
+          ],
+          [
+            "sensor.inverter_122100012968",
+            "power",
+            "",
+            "Inverter 122100012968",
+            "W"
+          ],
+          [
+            "sensor.inverter_122100013339",
+            "power",
+            "",
+            "Inverter 122100013339",
+            "W"
+          ],
+          [
+            "sensor.inverter_122100013710",
+            "power",
+            "",
+            "Inverter 122100013710",
+            "W"
+          ],
+          [
+            "sensor.inverter_122100014081",
+            "power",
+            "",
+            "Inverter 122100014081",
+            "W"
+          ],
+          [
+            "sensor.inverter_122100014452",
+            "power",
+            "",
+            "Inverter 122100014452",
+            "W"
+          ],
+          [
+            "sensor.inverter_122100014823",
+            "power",
+            "",
+            "Inverter 122100014823",
+            "W"
+          ],
+          [
+            "sensor.inverter_122100015194",
+            "power",
+            "",
+            "Inverter 122100015194",
+            "W"
+          ],
+          [
+            "sensor.inverter_122100015565",
+            "power",
+            "",
+            "Inverter 122100015565",
+            "W"
+          ],
+          [
+            "sensor.iphone_15_battery_level",
+            "battery",
+            "",
+            "iPhone 15 Battery Level",
+            "%"
+          ],
+          [
+            "sensor.iphone_15_storage",
+            "",
+            "",
+            "iPhone 15 Storage",
+            "%"
+          ],
+          [
+            "sensor.kitchen_heating",
+            "",
+            "",
+            "Kitchen Heating",
+            "%"
+          ],
+          [
+            "sensor.kitchen_temperature",
+            "temperature",
+            "kitchen",
+            "Kitchen Temperature",
+            "°C"
+          ],
+          [
+            "sensor.landing_battery",
+            "battery",
+            "",
+            "Motion sensor landing Battery",
+            "%"
+          ],
+          [
+            "sensor.landing_temperature",
+            "temperature",
+            "attic",
+            "Motion sensor landing Temperature",
+            "°C"
+          ],
+          [
+            "sensor.leak_central_heating_battery",
+            "battery",
+            "",
+            "Leak central heating Battery",
+            "%"
+          ],
+          [
+            "sensor.leak_dishwasher_battery",
+            "battery",
+            "",
+            "Leak dishwasher Battery",
+            "%"
+          ],
+          [
+            "sensor.leak_washing_machine_battery",
+            "battery",
+            "",
+            "Leak washing machine Battery",
+            "%"
+          ],
+          [
+            "sensor.living_room_heating",
+            "",
+            "",
+            "Living room Heating",
+            "%"
+          ],
+          [
+            "sensor.living_room_temperature",
+            "temperature",
+            "living_room",
+            "Living room Temperature",
+            "°C"
+          ],
+          [
+            "sensor.mailbox_battery",
+            "battery",
+            "",
+            "Mailbox Battery",
+            "%"
+          ],
+          [
+            "sensor.memory_use_percent",
+            "",
+            "",
+            "Memory use (percent)",
+            "%"
+          ],
+          [
+            "sensor.monitor_2_power",
+            "power",
+            "",
+            "Monitor 2 Power",
+            "W"
+          ],
+          [
+            "sensor.office_climate_battery",
+            "battery",
+            "",
+            "Office climate Battery",
+            "%"
+          ],
+          [
+            "sensor.office_climate_temperature",
+            "temperature",
+            "office",
+            "Office climate Temperature",
+            "°C"
+          ],
+          [
+            "sensor.pixel_9_battery_level",
+            "battery",
+            "",
+            "Pixel 9 Battery Level",
+            "%"
+          ],
+          [
+            "sensor.pixel_9_storage",
+            "",
+            "",
+            "Pixel 9 Storage",
+            "%"
+          ],
+          [
+            "sensor.plantsensor_ficus_battery_level",
+            "battery",
+            "",
+            "Ficus 🌿 Battery level",
+            "%"
+          ],
+          [
+            "sensor.playroom_heating",
+            "",
+            "",
+            "Playroom & Study Heating",
+            "%"
+          ],
+          [
+            "sensor.playroom_temperature",
+            "temperature",
+            "kids_room",
+            "Playroom & Study Temperature",
+            "°C"
+          ],
+          [
+            "sensor.plug_0x7a3f_power",
+            "power",
+            "",
+            "Plug 0x7a3f Power",
+            "W"
+          ],
+          [
+            "sensor.pond_pump_power",
+            "power",
+            "",
+            "Pond pump Power",
+            "W"
+          ],
+          [
+            "sensor.processor_temperature",
+            "temperature",
+            "utility",
+            "Processor temperature",
+            "°C"
+          ],
+          [
+            "sensor.processor_use",
+            "",
+            "",
+            "Processor use",
+            "%"
+          ],
+          [
+            "sensor.rain_gauge_battery",
+            "battery",
+            "",
+            "Rain gauge Battery",
+            "%"
+          ],
+          [
+            "sensor.rodret_living_room_battery",
+            "battery",
+            "",
+            "Rodret living room Battery",
+            "%"
+          ],
+          [
+            "sensor.roof_window_attic_battery",
+            "battery",
+            "",
+            "Roof window attic Battery",
+            "%"
+          ],
+          [
+            "sensor.server_rack_power",
+            "power",
+            "",
+            "Server rack Power",
+            "W"
+          ],
+          [
+            "sensor.shed_door_battery",
+            "battery",
+            "",
+            "Shed door Battery",
+            "%"
+          ],
+          [
+            "sensor.shed_temp_battery",
+            "battery",
+            "",
+            "Shed temp Battery",
+            "%"
+          ],
+          [
+            "sensor.shed_temp_temperature",
+            "temperature",
+            "garden",
+            "Shed temp Temperature",
+            "°C"
+          ],
+          [
+            "sensor.shelly_boiler_switch_0_power",
+            "power",
+            "",
+            "Boiler Switch 0 power",
+            "W"
+          ],
+          [
+            "sensor.shelly_boiler_temperature",
+            "temperature",
+            "attic",
+            "Boiler Temperature",
+            "°C"
+          ],
+          [
+            "sensor.shelly_floor_heating_switch_0_power",
+            "power",
+            "",
+            "Floor heating pump Switch 0 power",
+            "W"
+          ],
+          [
+            "sensor.shelly_floor_heating_temperature",
+            "temperature",
+            "utility",
+            "Floor heating pump Temperature",
+            "°C"
+          ],
+          [
+            "sensor.shelly_garden_lights_switch_0_power",
+            "power",
+            "",
+            "Garden lights Switch 0 power",
+            "W"
+          ],
+          [
+            "sensor.shelly_ht_outdoor_battery",
+            "battery",
+            "",
+            "Outdoor (H&T) Battery",
+            "%"
+          ],
+          [
+            "sensor.shelly_ht_outdoor_temperature",
+            "temperature",
+            "garden",
+            "Outdoor (H&T) Temperature",
+            "°C"
+          ],
+          [
+            "sensor.shelly_ht_shed_battery",
+            "battery",
+            "",
+            "Shed Battery",
+            "%"
+          ],
+          [
+            "sensor.shelly_ht_shed_temperature",
+            "temperature",
+            "garden",
+            "Shed Temperature",
+            "°C"
+          ],
+          [
+            "sensor.soldering_station_power",
+            "power",
+            "",
+            "Soldering station Power",
+            "W"
+          ],
+          [
+            "sensor.styrbar_kitchen_battery",
+            "battery",
+            "",
+            "Styrbar kitchen Battery",
+            "%"
+          ],
+          [
+            "sensor.synology_nas_cpu_utilization_total",
+            "",
+            "",
+            "Synology NAS CPU utilization (total)",
+            "%"
+          ],
+          [
+            "sensor.synology_nas_drive_1_temperature",
+            "temperature",
+            "utility",
+            "Synology NAS (Drive 1) Temperature",
+            "°C"
+          ],
+          [
+            "sensor.synology_nas_drive_2_temperature",
+            "temperature",
+            "utility",
+            "Synology NAS (Drive 2) Temperature",
+            "°C"
+          ],
+          [
+            "sensor.synology_nas_memory_usage_real",
+            "",
+            "",
+            "Synology NAS Memory usage (real)",
+            "%"
+          ],
+          [
+            "sensor.synology_nas_temperature",
+            "temperature",
+            "utility",
+            "Synology NAS Temperature",
+            "°C"
+          ],
+          [
+            "sensor.synology_nas_volume_1_volume_used",
+            "",
+            "",
+            "Synology NAS (Volume 1) Volume used",
+            "%"
+          ],
+          [
+            "sensor.tado_outdoor_temperature",
+            "temperature",
+            "",
+            "Outdoor temperature",
+            "°C"
+          ],
+          [
+            "sensor.tado_solar_percentage",
+            "",
+            "",
+            "Solar percentage",
+            "%"
+          ],
+          [
+            "sensor.thermometer_attic_battery",
+            "battery",
+            "",
+            "Thermometer attic Battery",
+            "%"
+          ],
+          [
+            "sensor.thermometer_attic_temperature",
+            "temperature",
+            "attic",
+            "Thermometer attic Temperature",
+            "°C"
+          ],
+          [
+            "sensor.thermometer_basement_battery",
+            "battery",
+            "",
+            "Thermometer basement Battery",
+            "%"
+          ],
+          [
+            "sensor.thermometer_bathroom_battery",
+            "battery",
+            "",
+            "Thermometer bathroom Battery",
+            "%"
+          ],
+          [
+            "sensor.thermometer_bathroom_temperature",
+            "temperature",
+            "bathroom",
+            "Thermometer bathroom Temperature",
+            "°C"
+          ],
+          [
+            "sensor.thermometer_bedroom_battery",
+            "battery",
+            "",
+            "Thermometer bedroom Battery",
+            "%"
+          ],
+          [
+            "sensor.thermometer_bedroom_temperature",
+            "temperature",
+            "bedroom",
+            "Thermometer bedroom Temperature",
+            "°C"
+          ],
+          [
+            "sensor.thermometer_garage_battery",
+            "battery",
+            "",
+            "Thermometer garage Battery",
+            "%"
+          ],
+          [
+            "sensor.thermometer_garage_temperature",
+            "temperature",
+            "garage",
+            "Thermometer garage Temperature",
+            "°C"
+          ],
+          [
+            "sensor.thermometer_guest_room_battery",
+            "battery",
+            "",
+            "Thermometer guest room Battery",
+            "%"
+          ],
+          [
+            "sensor.thermometer_guest_room_temperature",
+            "temperature",
+            "guest_room",
+            "Thermometer guest room Temperature",
+            "°C"
+          ],
+          [
+            "sensor.thermometer_kitchen_battery",
+            "battery",
+            "",
+            "Thermometer kitchen Battery",
+            "%"
+          ],
+          [
+            "sensor.thermometer_kitchen_temperature",
+            "temperature",
+            "kitchen",
+            "Thermometer kitchen Temperature",
+            "°C"
+          ],
+          [
+            "sensor.thermometer_living_room_battery",
+            "battery",
+            "",
+            "Thermometer living room Battery",
+            "%"
+          ],
+          [
+            "sensor.thermometer_living_room_temperature",
+            "temperature",
+            "living_room",
+            "Thermometer living room Temperature",
+            "°C"
+          ],
+          [
+            "sensor.thermometer_playroom_battery",
+            "battery",
+            "",
+            "Thermometer playroom Battery",
+            "%"
+          ],
+          [
+            "sensor.thermometer_playroom_temperature",
+            "temperature",
+            "kids_room",
+            "Thermometer playroom Temperature",
+            "°C"
+          ],
+          [
+            "sensor.thermometer_toilet_battery",
+            "battery",
+            "",
+            "Thermometer toilet Battery",
+            "%"
+          ],
+          [
+            "sensor.thermometer_toilet_temperature",
+            "temperature",
+            "toilet",
+            "Thermometer toilet Temperature",
+            "°C"
+          ],
+          [
+            "sensor.toilet_battery",
+            "battery",
+            "",
+            "Motion sensor toilet Battery",
+            "%"
+          ],
+          [
+            "sensor.toilet_temperature",
+            "temperature",
+            "toilet",
+            "Motion sensor toilet Temperature",
+            "°C"
+          ],
+          [
+            "sensor.tumble_dryer_power",
+            "power",
+            "",
+            "Tumble dryer Power",
+            "W"
+          ],
+          [
+            "sensor.tumble_dryer_vibration_battery",
+            "battery",
+            "",
+            "Tumble dryer vibration Battery",
+            "%"
+          ],
+          [
+            "sensor.tv_cabinet_power",
+            "power",
+            "",
+            "TV cabinet Power",
+            "W"
+          ],
+          [
+            "sensor.washing_machine_power",
+            "power",
+            "",
+            "Washing machine Power",
+            "W"
+          ],
+          [
+            "sensor.washing_machine_vibration_battery",
+            "battery",
+            "",
+            "Washing machine vibration Battery",
+            "%"
+          ],
+          [
+            "sensor.weather_station_outdoor_battery",
+            "battery",
+            "",
+            "Weather station outdoor Battery",
+            "%"
+          ],
+          [
+            "sensor.weather_station_outdoor_temperature",
+            "temperature",
+            "garden",
+            "Weather station outdoor Temperature",
+            "°C"
+          ],
+          [
+            "sensor.weather_station_temperature",
+            "temperature",
+            "living_room",
+            "Weather station Temperature",
+            "°C"
+          ],
+          [
+            "sensor.wine_cabinet_temperature",
+            "temperature",
+            "basement",
+            "Wine cabinet Temperature",
+            "°C"
+          ]
+        ],
+        "weather": [
+          "weather.forecast_home"
+        ]
+      },
+      "yaml": "# HA Paper display config\nversion: 1\napps:\n  - id: home\n    title: Home\n  - id: house\n    title: House\nscreens:\n  - id: overview\n    app: home\n    title: Home\n    widgets:\n      - {type: clock, cs: 2}\n      - {type: price}\n      - {type: stat, entity: sensor.co2_living_room_temperature, label: Inside}\n      - {type: stat, entity: sensor.envoy_482100000000_current_power_production, label: Solar}\n      - {type: stat, entity: sensor.envoy_482100000000_current_power_consumption, label: Home use}\n      - {type: stat, entity: sensor.electricity_meter_power_consumption, label: Grid}\n      - {type: stat, entity: sensor.shelly_ht_outdoor_temperature, label: Outside}\n  - id: prices\n    app: home\n    title: Energy prices\n    widgets:\n      - {type: price}\n      - {type: bars, series: prices, cs: 4}\n  - id: energy\n    app: home\n    title: Energy\n    widgets:\n      - {type: stat, entity: sensor.home_energy_usage_today, label: Used today}\n      - {type: stat, entity: sensor.envoy_482100000000_current_power_consumption, label: Home use}\n      - {type: bars, series: usage, cs: 4}\n  - id: solar\n    app: home\n    title: Solar\n    widgets:\n      - {type: stat, entity: sensor.envoy_482100000000_current_power_production, label: Solar}\n      - {type: stat, entity: sensor.envoy_482100000000_energy_production_today, label: Solar today}\n      - {type: bars, series: solar, cs: 4}\n  - id: lights\n    app: house\n    title: Lights\n    widgets:\n      - {type: lightList, entities: light.living_room light.kitchen light.hallway light.toilet light.bedroom light.desk_lamp_playroom light.playroom light.guest_room_lamp light.bathroom_mirror light.office_desk light.attic_tube_light light.garage_lamp light.outdoor light.driveway_spot, cs: 4, rs: 2}\n  - id: climate\n    app: house\n    title: Heating\n    widgets:\n      - {type: zoneList, entities: climate.attic climate.bathroom climate.bedroom climate.kitchen climate.living_room climate.playroom, cs: 4, rs: 2}\n  - id: rooms\n    app: house\n    title: Rooms\n    widgets:\n      - {type: stat, entity: sensor.co2_living_room_temperature, label: Living room}\n      - {type: stat, entity: sensor.kitchen_temperature, label: Kitchen}\n      - {type: stat, entity: sensor.hallway_temperature, label: Hallway}\n      - {type: stat, entity: sensor.thermometer_toilet_temperature, label: Toilet}\n      - {type: stat, entity: sensor.bedroom_temperature, label: Bedroom}\n      - {type: stat, entity: sensor.playroom_temperature, label: Playroom & Study}\n      - {type: stat, entity: sensor.thermometer_guest_room_temperature, label: Guest room}\n      - {type: stat, entity: sensor.bathroom_temperature, label: Bathroom}\n",
+      "report": {
+        "filled": 13,
+        "total": 17,
+        "tiles": [
+          {
+            "tile": "price",
+            "screen": "overview",
+            "entity": "sensor.nordpool_kwh_nl_eur_3_10_021",
+            "rule": "energy"
+          },
+          {
+            "tile": "inside",
+            "screen": "overview",
+            "entity": "sensor.co2_living_room_temperature",
+            "rule": "area"
+          },
+          {
+            "tile": "outside",
+            "screen": "overview",
+            "entity": "sensor.shelly_ht_outdoor_temperature",
+            "rule": "name"
+          },
+          {
+            "tile": "solar_power",
+            "screen": "overview",
+            "entity": "sensor.envoy_482100000000_current_power_production",
+            "rule": "energy"
+          },
+          {
+            "tile": "home_power",
+            "screen": "overview",
+            "entity": "sensor.envoy_482100000000_current_power_consumption",
+            "rule": "name"
+          },
+          {
+            "tile": "grid_power",
+            "screen": "overview",
+            "entity": "sensor.electricity_meter_power_consumption",
+            "rule": "device"
+          },
+          {
+            "tile": "battery_soc",
+            "screen": "overview",
+            "why": "no_sensor"
+          },
+          {
+            "tile": "battery_power",
+            "screen": "solar",
+            "why": "no_sensor"
+          },
+          {
+            "tile": "solar_today",
+            "screen": "solar",
+            "entity": "sensor.envoy_482100000000_energy_production_today",
+            "rule": "name"
+          },
+          {
+            "tile": "solar_chart",
+            "screen": "solar",
+            "rule": "energy"
+          },
+          {
+            "tile": "energy_today",
+            "screen": "energy",
+            "entity": "sensor.home_energy_usage_today",
+            "rule": "name"
+          },
+          {
+            "tile": "grid_import_today",
+            "screen": "energy",
+            "why": "no_sensor"
+          },
+          {
+            "tile": "grid_export_today",
+            "screen": "energy",
+            "why": "no_sensor"
+          },
+          {
+            "tile": "usage_chart",
+            "screen": "energy",
+            "rule": "energy"
+          },
+          {
+            "tile": "lights",
+            "screen": "lights",
+            "rule": "found"
+          },
+          {
+            "tile": "heating",
+            "screen": "climate",
+            "rule": "found"
+          },
+          {
+            "tile": "rooms",
+            "screen": "rooms",
+            "rule": "area"
+          }
+        ]
+      }
+    },
+    {
+      "name": "seed-lessons",
+      "description": "#152: no outdoor thermometer but forecast-like ones (max, min, feels, Today tokens) → Outside is the first weather entity with a temperature (rule found), the forecast sensors are no room either; an appliance's day counter is no Imported (needs a grid word) and no Used today (needs a house / total word); a grid-named one is; zones: duplicates by area (the one not off wins, in the first one's place) and by friendly name (case-insensitive), a lone off zone stays; lights: only area-less ones left out → `areas`.",
+      "snapshot": {
+        "areas": [
+          [
+            "lr",
+            "Living room"
+          ],
+          [
+            "kit",
+            "Kitchen"
+          ]
+        ],
+        "climate": [
+          [
+            "climate.lr_bt",
+            "Living room",
+            "lr",
+            "off"
+          ],
+          [
+            "climate.lr_trv",
+            "Living room TRV",
+            "lr",
+            "heat"
+          ],
+          [
+            "climate.kitchen",
+            "Kitchen",
+            "kit",
+            "off"
+          ],
+          [
+            "climate.k2",
+            " kitchen ",
+            "",
+            "heat"
+          ],
+          [
+            "climate.attic",
+            "Attic",
+            "",
+            "off"
+          ]
+        ],
+        "lights": [
+          [
+            "light.lr_1",
+            "lr",
+            ""
+          ],
+          [
+            "light.lr_2",
+            "lr",
+            ""
+          ],
+          [
+            "light.kit",
+            "kit"
+          ],
+          [
+            "light.lost",
+            ""
+          ]
+        ],
+        "weather": [
+          "weather.home",
+          "sensor.not_weather"
+        ],
+        "sensors": [
+          [
+            "sensor.owm_forecast_temperature",
+            "temperature",
+            "",
+            "OpenWeatherMap Forecast Temperature",
+            "°C"
+          ],
+          [
+            "sensor.buiten_max_today",
+            "temperature",
+            "",
+            "Buiten max vandaag",
+            "°C"
+          ],
+          [
+            "sensor.outdoor_feels_like",
+            "temperature",
+            "lr",
+            "Outdoor feels like",
+            "°C"
+          ],
+          [
+            "sensor.lr_min",
+            "temperature",
+            "lr",
+            "Living room min",
+            "°C"
+          ],
+          [
+            "sensor.lr_temp",
+            "temperature",
+            "lr",
+            "Living room",
+            "°C"
+          ],
+          [
+            "sensor.kit_temp",
+            "temperature",
+            "kit",
+            "Kitchen",
+            "°C"
+          ],
+          [
+            "sensor.dryer_today_consumption",
+            "energy",
+            "",
+            "Dryer Today consumption",
+            "kWh"
+          ],
+          [
+            "sensor.dryer_energy_daily",
+            "energy",
+            "",
+            "Dryer verbruik daily",
+            "kWh"
+          ],
+          [
+            "sensor.p1_energy_consumption_today",
+            "energy",
+            "",
+            "P1 Energy consumption today",
+            "kWh"
+          ],
+          [
+            "sensor.house_energy_today",
+            "energy",
+            "",
+            "House energy today",
+            "kWh"
+          ]
+        ]
+      },
+      "yaml": "# HA Paper display config\nversion: 1\napps:\n  - id: home\n    title: Home\n  - id: house\n    title: House\nscreens:\n  - id: overview\n    app: home\n    title: Home\n    widgets:\n      - {type: clock, cs: 2}\n      - {type: stat, entity: sensor.lr_temp, label: Inside}\n      - {type: stat, entity: weather.home, label: Outside}\n  - id: energy\n    app: home\n    title: Energy\n    widgets:\n      - {type: stat, entity: sensor.house_energy_today, label: Used today}\n      - {type: stat, entity: sensor.p1_energy_consumption_today, label: Imported}\n  - id: lights\n    app: house\n    title: Lights\n    widgets:\n      - {type: lightList, areas: lr kit, cs: 4, rs: 2}\n  - id: climate\n    app: house\n    title: Heating\n    widgets:\n      - {type: zoneList, entities: climate.lr_trv climate.k2 climate.attic, cs: 4, rs: 2}\n  - id: rooms\n    app: house\n    title: Rooms\n    widgets:\n      - {type: stat, entity: sensor.lr_temp, label: Living room}\n      - {type: stat, entity: sensor.kit_temp, label: Kitchen}\n",
+      "report": {
+        "filled": 7,
+        "total": 17,
+        "tiles": [
+          {
+            "tile": "price",
+            "screen": "overview",
+            "why": "no_energy"
+          },
+          {
+            "tile": "inside",
+            "screen": "overview",
+            "entity": "sensor.lr_temp",
+            "rule": "area"
+          },
+          {
+            "tile": "outside",
+            "screen": "overview",
+            "entity": "weather.home",
+            "rule": "found"
+          },
+          {
+            "tile": "solar_power",
+            "screen": "overview",
+            "why": "no_sensor"
+          },
+          {
+            "tile": "home_power",
+            "screen": "overview",
+            "why": "no_sensor"
+          },
+          {
+            "tile": "grid_power",
+            "screen": "overview",
+            "why": "no_sensor"
+          },
+          {
+            "tile": "battery_soc",
+            "screen": "overview",
+            "why": "no_sensor"
+          },
+          {
+            "tile": "battery_power",
+            "screen": "solar",
+            "why": "no_sensor"
+          },
+          {
+            "tile": "solar_today",
+            "screen": "solar",
+            "why": "no_sensor"
+          },
+          {
+            "tile": "solar_chart",
+            "screen": "solar",
+            "why": "no_energy"
+          },
+          {
+            "tile": "energy_today",
+            "screen": "energy",
+            "entity": "sensor.house_energy_today",
+            "rule": "name"
+          },
+          {
+            "tile": "grid_import_today",
+            "screen": "energy",
+            "entity": "sensor.p1_energy_consumption_today",
+            "rule": "name"
+          },
+          {
+            "tile": "grid_export_today",
+            "screen": "energy",
+            "why": "no_sensor"
+          },
+          {
+            "tile": "usage_chart",
+            "screen": "energy",
+            "why": "no_energy"
+          },
+          {
+            "tile": "lights",
+            "screen": "lights",
+            "rule": "found"
+          },
+          {
+            "tile": "heating",
+            "screen": "climate",
+            "rule": "found"
+          },
+          {
+            "tile": "rooms",
+            "screen": "rooms",
+            "rule": "area"
+          }
+        ]
+      }
+    },
+    {
+      "name": "light-groups",
+      "description": "#152: a group per area wins over its bulbs (the first group by order; a second group of the room is a duplicate), a room without a group keeps its bulbs in area order, a group without an area is left out; no light with an area at all → every light (no picks).",
+      "snapshot": {
+        "areas": [
+          [
+            "a",
+            "A"
+          ],
+          [
+            "b",
+            "B"
+          ],
+          [
+            "c",
+            "C"
+          ]
+        ],
+        "lights": [
+          [
+            "light.c_bulb",
+            "c",
+            ""
+          ],
+          [
+            "light.a_bulb",
+            "a",
+            ""
+          ],
+          [
+            "light.a_group",
+            "a",
+            "g"
+          ],
+          [
+            "light.a_group_2",
+            "a",
+            "g"
+          ],
+          [
+            "light.b1",
+            "b",
+            ""
+          ],
+          [
+            "light.b2",
+            "b",
+            ""
+          ],
+          [
+            "light.all",
+            "",
+            "g"
+          ]
+        ]
+      },
+      "yaml": "# HA Paper display config\nversion: 1\napps:\n  - id: home\n    title: Home\n  - id: house\n    title: House\nscreens:\n  - id: overview\n    app: home\n    title: Home\n    widgets:\n      - {type: clock, cs: 2}\n  - id: lights\n    app: house\n    title: Lights\n    widgets:\n      - {type: lightList, entities: light.a_group light.b1 light.b2 light.c_bulb, cs: 4, rs: 2}\n",
+      "report": {
+        "filled": 1,
+        "total": 17,
+        "tiles": [
+          {
+            "tile": "price",
+            "screen": "overview",
+            "why": "no_energy"
+          },
+          {
+            "tile": "inside",
+            "screen": "overview",
+            "why": "no_sensor"
+          },
+          {
+            "tile": "outside",
+            "screen": "overview",
+            "why": "no_sensor"
+          },
+          {
+            "tile": "solar_power",
+            "screen": "overview",
+            "why": "no_sensor"
+          },
+          {
+            "tile": "home_power",
+            "screen": "overview",
+            "why": "no_sensor"
+          },
+          {
+            "tile": "grid_power",
+            "screen": "overview",
+            "why": "no_sensor"
+          },
+          {
+            "tile": "battery_soc",
+            "screen": "overview",
+            "why": "no_sensor"
+          },
+          {
+            "tile": "battery_power",
+            "screen": "solar",
+            "why": "no_sensor"
+          },
+          {
+            "tile": "solar_today",
+            "screen": "solar",
+            "why": "no_sensor"
+          },
+          {
+            "tile": "solar_chart",
+            "screen": "solar",
+            "why": "no_energy"
+          },
+          {
+            "tile": "energy_today",
+            "screen": "energy",
+            "why": "no_sensor"
+          },
+          {
+            "tile": "grid_import_today",
+            "screen": "energy",
+            "why": "no_sensor"
+          },
+          {
+            "tile": "grid_export_today",
+            "screen": "energy",
+            "why": "no_sensor"
+          },
+          {
+            "tile": "usage_chart",
+            "screen": "energy",
+            "why": "no_energy"
+          },
+          {
+            "tile": "lights",
+            "screen": "lights",
+            "rule": "found"
+          },
+          {
+            "tile": "heating",
+            "screen": "climate",
+            "why": "none"
+          },
+          {
+            "tile": "rooms",
+            "screen": "rooms",
+            "why": "few_rooms"
+          }
+        ]
+      }
+    },
+    {
+      "name": "lights-no-areas",
+      "description": "#152: no light has an area → every light (the lightList default), not an empty pick.",
+      "snapshot": {
+        "lights": [
+          [
+            "light.x",
+            ""
+          ],
+          [
+            "light.y",
+            "",
+            "g"
+          ]
+        ]
+      },
+      "yaml": "# HA Paper display config\nversion: 1\napps:\n  - id: home\n    title: Home\n  - id: house\n    title: House\nscreens:\n  - id: overview\n    app: home\n    title: Home\n    widgets:\n      - {type: clock, cs: 2}\n  - id: lights\n    app: house\n    title: Lights\n    widgets:\n      - {type: lightList, cs: 4, rs: 2}\n",
+      "report": {
+        "filled": 1,
+        "total": 17,
+        "tiles": [
+          {
+            "tile": "price",
+            "screen": "overview",
+            "why": "no_energy"
+          },
+          {
+            "tile": "inside",
+            "screen": "overview",
+            "why": "no_sensor"
+          },
+          {
+            "tile": "outside",
+            "screen": "overview",
+            "why": "no_sensor"
+          },
+          {
+            "tile": "solar_power",
+            "screen": "overview",
+            "why": "no_sensor"
+          },
+          {
+            "tile": "home_power",
+            "screen": "overview",
+            "why": "no_sensor"
+          },
+          {
+            "tile": "grid_power",
+            "screen": "overview",
+            "why": "no_sensor"
+          },
+          {
+            "tile": "battery_soc",
+            "screen": "overview",
+            "why": "no_sensor"
+          },
+          {
+            "tile": "battery_power",
+            "screen": "solar",
+            "why": "no_sensor"
+          },
+          {
+            "tile": "solar_today",
+            "screen": "solar",
+            "why": "no_sensor"
+          },
+          {
+            "tile": "solar_chart",
+            "screen": "solar",
+            "why": "no_energy"
+          },
+          {
+            "tile": "energy_today",
+            "screen": "energy",
+            "why": "no_sensor"
+          },
+          {
+            "tile": "grid_import_today",
+            "screen": "energy",
+            "why": "no_sensor"
+          },
+          {
+            "tile": "grid_export_today",
+            "screen": "energy",
+            "why": "no_sensor"
+          },
+          {
+            "tile": "usage_chart",
+            "screen": "energy",
+            "why": "no_energy"
+          },
+          {
+            "tile": "lights",
+            "screen": "lights",
+            "rule": "found"
+          },
+          {
+            "tile": "heating",
+            "screen": "climate",
+            "why": "none"
+          },
+          {
+            "tile": "rooms",
+            "screen": "rooms",
+            "why": "few_rooms"
+          }
+        ]
+      }
+    },
+    {
+      "name": "day-tokens-vehicle",
+      "description": "#136: day words as whole tokens (_day, Daily and vandaag count; _days, dagelijks and \"monday\" do not); a grid flow meter's today sensor (same 2-word prefix) beats an import-named one; a vehicle climate (`vehicles`) makes the zoneList name the others; only vehicles → no Heating screen.",
+      "snapshot": {
+        "energy": {
+          "energy_sources": [
+            {
+              "type": "grid",
+              "flow_from": [
+                {
+                  "stat_energy_from": "sensor.p1_meter_energy_import_total"
+                }
+              ],
+              "flow_to": [
+                {
+                  "stat_energy_to": "sensor.p1_meter_energy_export_total"
+                }
+              ]
+            }
+          ]
+        },
+        "climate": [
+          "climate.hall",
+          "climate.bad id"
+        ],
+        "vehicles": [
+          "climate.model_3"
+        ],
+        "sensors": [
+          [
+            "sensor.solar_energy_day",
+            "energy",
+            "",
+            "Solar energy day",
+            "kWh"
+          ],
+          [
+            "sensor.solar_energy_days",
+            "energy",
+            "",
+            "Solar 7 days",
+            "kWh"
+          ],
+          [
+            "sensor.import_monday",
+            "energy",
+            "",
+            "Import monday",
+            "kWh"
+          ],
+          [
+            "sensor.grid_import_dagelijks",
+            "energy",
+            "",
+            "Afname dagelijks",
+            "kWh"
+          ],
+          [
+            "sensor.zz_import_today",
+            "energy",
+            "",
+            "Import today",
+            "kWh"
+          ],
+          [
+            "sensor.p1_meter_energy_import_today",
+            "energy",
+            "",
+            "P1 Daily",
+            "kWh"
+          ],
+          [
+            "sensor.p1_meter_export_x",
+            "energy",
+            "",
+            "P1 export vandaag",
+            "kWh"
+          ],
+          [
+            "sensor.p1_meter_power_phase_l1",
+            "power",
+            "",
+            "P1 power phase 1",
+            "W"
+          ],
+          [
+            "sensor.hall_device_temperature",
+            "temperature",
+            "",
+            "Hall chip",
+            "°C"
+          ]
+        ]
+      },
+      "yaml": "# HA Paper display config\nversion: 1\napps:\n  - id: home\n    title: Home\n  - id: house\n    title: House\nscreens:\n  - id: overview\n    app: home\n    title: Home\n    widgets:\n      - {type: clock, cs: 2}\n  - id: energy\n    app: home\n    title: Energy\n    widgets:\n      - {type: stat, entity: sensor.p1_meter_energy_import_today, label: Imported}\n      - {type: stat, entity: sensor.p1_meter_export_x, label: Exported}\n      - {type: bars, series: usage, cs: 4}\n  - id: solar\n    app: home\n    title: Solar\n    widgets:\n      - {type: stat, entity: sensor.solar_energy_day, label: Solar today}\n  - id: climate\n    app: house\n    title: Heating\n    widgets:\n      - {type: zoneList, entities: climate.hall, cs: 4, rs: 2}\n",
+      "report": {
+        "filled": 5,
+        "total": 17,
+        "tiles": [
+          {
+            "tile": "price",
+            "screen": "overview",
+            "why": "no_meter"
+          },
+          {
+            "tile": "inside",
+            "screen": "overview",
+            "why": "no_sensor"
+          },
+          {
+            "tile": "outside",
+            "screen": "overview",
+            "why": "no_sensor"
+          },
+          {
+            "tile": "solar_power",
+            "screen": "overview",
+            "why": "no_sensor"
+          },
+          {
+            "tile": "home_power",
+            "screen": "overview",
+            "why": "no_sensor"
+          },
+          {
+            "tile": "grid_power",
+            "screen": "overview",
+            "why": "no_sensor"
+          },
+          {
+            "tile": "battery_soc",
+            "screen": "overview",
+            "why": "no_sensor"
+          },
+          {
+            "tile": "battery_power",
+            "screen": "solar",
+            "why": "no_sensor"
+          },
+          {
+            "tile": "solar_today",
+            "screen": "solar",
+            "entity": "sensor.solar_energy_day",
+            "rule": "name"
+          },
+          {
+            "tile": "solar_chart",
+            "screen": "solar",
+            "why": "no_meter"
+          },
+          {
+            "tile": "energy_today",
+            "screen": "energy",
+            "why": "no_sensor"
+          },
+          {
+            "tile": "grid_import_today",
+            "screen": "energy",
+            "entity": "sensor.p1_meter_energy_import_today",
+            "rule": "device"
+          },
+          {
+            "tile": "grid_export_today",
+            "screen": "energy",
+            "entity": "sensor.p1_meter_export_x",
+            "rule": "device"
+          },
+          {
+            "tile": "usage_chart",
+            "screen": "energy",
+            "rule": "energy"
+          },
+          {
+            "tile": "lights",
+            "screen": "lights",
+            "why": "none"
+          },
+          {
+            "tile": "heating",
+            "screen": "climate",
+            "rule": "found"
+          },
+          {
+            "tile": "rooms",
+            "screen": "rooms",
+            "why": "few_rooms"
+          }
+        ]
+      }
+    },
+    {
+      "name": "vehicle-only",
+      "description": "#136: the only climate is a car's → no Heating screen, report heating: none.",
+      "snapshot": {
+        "vehicles": [
+          "climate.tesla"
+        ]
+      },
+      "yaml": "# HA Paper display config\nversion: 1\napps:\n  - id: home\n    title: Home\nscreens:\n  - id: overview\n    app: home\n    title: Home\n    widgets:\n      - {type: clock, cs: 2}\n",
+      "report": {
+        "filled": 0,
+        "total": 17,
+        "tiles": [
+          {
+            "tile": "price",
+            "screen": "overview",
+            "why": "no_energy"
+          },
+          {
+            "tile": "inside",
+            "screen": "overview",
+            "why": "no_sensor"
+          },
+          {
+            "tile": "outside",
+            "screen": "overview",
+            "why": "no_sensor"
+          },
+          {
+            "tile": "solar_power",
+            "screen": "overview",
+            "why": "no_sensor"
+          },
+          {
+            "tile": "home_power",
+            "screen": "overview",
+            "why": "no_sensor"
+          },
+          {
+            "tile": "grid_power",
+            "screen": "overview",
+            "why": "no_sensor"
+          },
+          {
+            "tile": "battery_soc",
+            "screen": "overview",
+            "why": "no_sensor"
+          },
+          {
+            "tile": "battery_power",
+            "screen": "solar",
+            "why": "no_sensor"
+          },
+          {
+            "tile": "solar_today",
+            "screen": "solar",
+            "why": "no_sensor"
+          },
+          {
+            "tile": "solar_chart",
+            "screen": "solar",
+            "why": "no_energy"
+          },
+          {
+            "tile": "energy_today",
+            "screen": "energy",
+            "why": "no_sensor"
+          },
+          {
+            "tile": "grid_import_today",
+            "screen": "energy",
+            "why": "no_sensor"
+          },
+          {
+            "tile": "grid_export_today",
+            "screen": "energy",
+            "why": "no_sensor"
+          },
+          {
+            "tile": "usage_chart",
+            "screen": "energy",
+            "why": "no_energy"
+          },
+          {
+            "tile": "lights",
+            "screen": "lights",
+            "why": "none"
+          },
+          {
+            "tile": "heating",
+            "screen": "climate",
+            "why": "none"
+          },
+          {
+            "tile": "rooms",
+            "screen": "rooms",
+            "why": "few_rooms"
+          }
+        ]
+      }
+    },
+    {
+      "name": "stale-logical",
+      "description": "#82: logical ids with a source (`live`) but no such sensor in HA's answer → no tile (the demo ids on a real house showed \"—\"). Price still comes from live.",
+      "snapshot": {
+        "energy": {
+          "energy_sources": [
+            {
+              "type": "solar",
+              "stat_energy_from": "sensor.pv_kwh"
+            }
+          ]
+        },
+        "live": [
+          "sensor.solar_power",
+          "sensor.grid_power",
+          "sensor.home_power",
+          "sensor.home_battery_soc",
+          "sensor.energy_prices"
+        ]
+      },
+      "yaml": "# HA Paper display config\nversion: 1\napps:\n  - id: home\n    title: Home\nscreens:\n  - id: overview\n    app: home\n    title: Home\n    widgets:\n      - {type: clock, cs: 2}\n      - {type: price}\n  - id: prices\n    app: home\n    title: Energy prices\n    widgets:\n      - {type: price}\n      - {type: bars, series: prices, cs: 4}\n  - id: energy\n    app: home\n    title: Energy\n    widgets:\n      - {type: bars, series: usage, cs: 4}\n  - id: solar\n    app: home\n    title: Solar\n    widgets:\n      - {type: bars, series: solar, cs: 4}\n",
+      "report": {
+        "filled": 3,
+        "total": 17,
+        "tiles": [
+          {
+            "tile": "price",
+            "screen": "overview",
+            "entity": "sensor.energy_prices",
+            "rule": "id"
+          },
+          {
+            "tile": "inside",
+            "screen": "overview",
+            "why": "no_sensor"
+          },
+          {
+            "tile": "outside",
+            "screen": "overview",
+            "why": "no_sensor"
+          },
+          {
+            "tile": "solar_power",
+            "screen": "overview",
+            "why": "no_sensor"
+          },
+          {
+            "tile": "home_power",
+            "screen": "overview",
+            "why": "no_sensor"
+          },
+          {
+            "tile": "grid_power",
+            "screen": "overview",
+            "why": "no_sensor"
+          },
+          {
+            "tile": "battery_soc",
+            "screen": "overview",
+            "why": "no_sensor"
+          },
+          {
+            "tile": "battery_power",
+            "screen": "solar",
+            "why": "no_sensor"
+          },
+          {
+            "tile": "solar_today",
+            "screen": "solar",
+            "why": "no_sensor"
+          },
+          {
+            "tile": "solar_chart",
+            "screen": "solar",
+            "rule": "energy"
+          },
+          {
+            "tile": "energy_today",
+            "screen": "energy",
+            "why": "no_sensor"
+          },
+          {
+            "tile": "grid_import_today",
+            "screen": "energy",
+            "why": "no_sensor"
+          },
+          {
+            "tile": "grid_export_today",
+            "screen": "energy",
+            "why": "no_sensor"
+          },
+          {
+            "tile": "usage_chart",
+            "screen": "energy",
+            "rule": "energy"
+          },
+          {
+            "tile": "lights",
+            "screen": "lights",
+            "why": "none"
+          },
+          {
+            "tile": "heating",
+            "screen": "climate",
+            "why": "none"
+          },
+          {
+            "tile": "rooms",
+            "screen": "rooms",
+            "why": "few_rooms"
+          }
+        ]
+      }
+    },
+    {
+      "name": "solar-battery-routes",
+      "description": "Solar + battery: solar power from stat_rate (a name without solar words), battery power and SOC from the meters' prefix; a kW grid sensor by name; price via live; routes (#145) from every sensor.x4_route_* in the answer or mapped (live: car), sorted by id, at most 4, mode car when the sensor reports min; bad entity ids are skipped; rooms capped at 8.",
+      "snapshot": {
+        "energy": {
+          "energy_sources": [
+            {
+              "type": "solar",
+              "stat_energy_from": "sensor.pv_kwh",
+              "stat_rate": "sensor.roof_output"
+            },
+            {
+              "type": "battery",
+              "stat_energy_from": "sensor.powerwall_battery_energy_out",
+              "stat_energy_to": "sensor.powerwall_battery_energy_in"
+            },
+            {
+              "type": "grid",
+              "flow_from": [
+                {
+                  "stat_energy_from": "sensor.import_kwh",
+                  "entity_energy_price": null
+                }
+              ],
+              "flow_to": [
+                {
+                  "stat_energy_to": "sensor.export_kwh"
+                }
+              ]
+            }
+          ]
+        },
+        "live": [
+          "sensor.energy_prices",
+          "sensor.x4_route_car"
+        ],
+        "areas": [
+          [
+            "a1",
+            "Hall"
+          ],
+          [
+            "a2",
+            "Living room"
+          ],
+          [
+            "a3",
+            "Kids {1}"
+          ],
+          [
+            "a4",
+            "Bath"
+          ],
+          [
+            "a5",
+            "Study"
+          ],
+          [
+            "a6",
+            "Attic"
+          ],
+          [
+            "a7",
+            "Cellar"
+          ],
+          [
+            "a8",
+            "Guest"
+          ],
+          [
+            "a9",
+            "Gym"
+          ],
+          [
+            "a10",
+            "Shed"
+          ]
+        ],
+        "climate": [],
+        "lights": [
+          [
+            "light.x",
+            ""
+          ]
+        ],
+        "sensors": [
+          [
+            "sensor.t1",
+            "temperature",
+            "a10",
+            "T1"
+          ],
+          [
+            "sensor.t2",
+            "temperature",
+            "a9",
+            "T2"
+          ],
+          [
+            "sensor.t3",
+            "temperature",
+            "a8",
+            "T3"
+          ],
+          [
+            "sensor.t4",
+            "temperature",
+            "a7",
+            "T4"
+          ],
+          [
+            "sensor.t5",
+            "temperature",
+            "a6",
+            "T5"
+          ],
+          [
+            "sensor.t6",
+            "temperature",
+            "a5",
+            "T6"
+          ],
+          [
+            "sensor.t7",
+            "temperature",
+            "a4",
+            "T7"
+          ],
+          [
+            "sensor.t8",
+            "temperature",
+            "a3",
+            "T8"
+          ],
+          [
+            "sensor.t9",
+            "temperature",
+            "a2",
+            "T9"
+          ],
+          [
+            "sensor.t10",
+            "temperature",
+            "a1",
+            "T10"
+          ],
+          [
+            "sensor.Bad_ID",
+            "temperature",
+            "a1",
+            "Upper case"
+          ],
+          [
+            "sensor.x4_route_work",
+            "",
+            "",
+            "Train to work"
+          ],
+          [
+            "sensor.x4_route_school",
+            "",
+            "",
+            "Bus to school"
+          ],
+          [
+            "sensor.x4_route_drive",
+            "",
+            "",
+            "Drive",
+            "min"
+          ],
+          [
+            "sensor.x4_route_zoo",
+            "",
+            "",
+            "Fifth: over the cap"
+          ],
+          [
+            "sensor.porch_temp",
+            "temperature",
+            "a1",
+            "Buiten temperatuur"
+          ],
+          [
+            "sensor.roof_output",
+            "power",
+            "",
+            "Roof",
+            "W"
+          ],
+          [
+            "sensor.powerwall_energy_level",
+            "energy_storage",
+            "",
+            "Powerwall energy",
+            "kWh"
+          ],
+          [
+            "sensor.powerwall_battery_charge",
+            "battery",
+            "",
+            "Powerwall charge",
+            "%"
+          ],
+          [
+            "sensor.powerwall_battery_power",
+            "power",
+            "",
+            "Powerwall battery power",
+            "kW"
+          ],
+          [
+            "sensor.powerwall_load_power",
+            "power",
+            "",
+            "Powerwall load power",
+            "kW"
+          ],
+          [
+            "sensor.site_grid_power",
+            "power",
+            "",
+            "Grid power",
+            "kW"
+          ]
+        ]
+      },
+      "yaml": "# HA Paper display config\nversion: 1\nscreens:\n  - id: overview\n    app: home\n    title: Home\n    widgets:\n      - {type: clock, cs: 2}\n      - {type: price}\n      - {type: stat, entity: sensor.t9, label: Inside}\n      - {type: stat, entity: sensor.roof_output, label: Solar}\n      - {type: stat, entity: sensor.powerwall_load_power, label: Home use}\n      - {type: gauge, entity: sensor.powerwall_battery_charge, label: Home battery}\n      - {type: stat, entity: sensor.site_grid_power, label: Grid}\n  - id: prices\n    app: home\n    title: Energy prices\n    widgets:\n      - {type: price}\n      - {type: bars, series: prices, cs: 4}\n  - id: energy\n    app: home\n    title: Energy\n    widgets:\n      - {type: stat, entity: sensor.powerwall_load_power, label: Home use}\n      - {type: bars, series: usage, cs: 4}\n  - id: solar\n    app: home\n    title: Solar & battery\n    widgets:\n      - {type: stat, entity: sensor.roof_output, label: Solar}\n      - {type: gauge, entity: sensor.powerwall_battery_charge, label: Home battery}\n      - {type: stat, entity: sensor.powerwall_battery_power, label: Battery}\n      - {type: bars, series: solar, cs: 4}\n  - id: lights\n    app: house\n    title: Lights\n    widgets:\n      - {type: lightList, cs: 4, rs: 2}\n  - id: rooms\n    app: house\n    title: Rooms\n    widgets:\n      - {type: stat, entity: sensor.t10, label: Hall}\n      - {type: stat, entity: sensor.t9, label: Living room}\n      - {type: stat, entity: sensor.t8, label: Kids 1}\n      - {type: stat, entity: sensor.t7, label: Bath}\n      - {type: stat, entity: sensor.t6, label: Study}\n      - {type: stat, entity: sensor.t5, label: Attic}\n      - {type: stat, entity: sensor.t4, label: Cellar}\n      - {type: stat, entity: sensor.t3, label: Guest}\n  - id: travel\n    app: travel\n    title: Travel\n    widgets:\n      - {type: route, entity: sensor.x4_route_car, cs: 2}\n      - {type: route, entity: sensor.x4_route_drive, mode: car, cs: 2}\n      - {type: route, entity: sensor.x4_route_school, cs: 2}\n      - {type: route, entity: sensor.x4_route_work, cs: 2}\n",
+      "report": {
+        "filled": 11,
+        "total": 17,
+        "tiles": [
+          {
+            "tile": "price",
+            "screen": "overview",
+            "entity": "sensor.energy_prices",
+            "rule": "id"
+          },
+          {
+            "tile": "inside",
+            "screen": "overview",
+            "entity": "sensor.t9",
+            "rule": "area"
+          },
+          {
+            "tile": "outside",
+            "screen": "overview",
+            "why": "overview_full"
+          },
+          {
+            "tile": "solar_power",
+            "screen": "overview",
+            "entity": "sensor.roof_output",
+            "rule": "energy"
+          },
+          {
+            "tile": "home_power",
+            "screen": "overview",
+            "entity": "sensor.powerwall_load_power",
+            "rule": "name"
+          },
+          {
+            "tile": "grid_power",
+            "screen": "overview",
+            "entity": "sensor.site_grid_power",
+            "rule": "name"
+          },
+          {
+            "tile": "battery_soc",
+            "screen": "overview",
+            "entity": "sensor.powerwall_battery_charge",
+            "rule": "device"
+          },
+          {
+            "tile": "battery_power",
+            "screen": "solar",
+            "entity": "sensor.powerwall_battery_power",
+            "rule": "device"
+          },
+          {
+            "tile": "solar_today",
+            "screen": "solar",
+            "why": "no_sensor"
+          },
+          {
+            "tile": "solar_chart",
+            "screen": "solar",
+            "rule": "energy"
+          },
+          {
+            "tile": "energy_today",
+            "screen": "energy",
+            "why": "no_sensor"
+          },
+          {
+            "tile": "grid_import_today",
+            "screen": "energy",
+            "why": "no_sensor"
+          },
+          {
+            "tile": "grid_export_today",
+            "screen": "energy",
+            "why": "no_sensor"
+          },
+          {
+            "tile": "usage_chart",
+            "screen": "energy",
+            "rule": "energy"
+          },
+          {
+            "tile": "lights",
+            "screen": "lights",
+            "rule": "found"
+          },
+          {
+            "tile": "heating",
+            "screen": "climate",
+            "why": "none"
+          },
+          {
+            "tile": "rooms",
+            "screen": "rooms",
+            "rule": "area"
+          }
+        ]
+      }
+    },
+    {
+      "name": "battery-only",
+      "description": "Battery without solar: screen title \"Battery\"; SOC by name (device_class battery beats none on a tie); no meters → no Energy screen; no home sensor → no home tile.",
+      "snapshot": {
+        "energy": {
+          "energy_sources": [
+            {
+              "type": "battery",
+              "stat_energy_from": "sensor.b_out",
+              "stat_energy_to": "sensor.b_in"
+            }
+          ]
+        },
+        "live": [
+          "sensor.battery_power",
+          "sensor.home_battery_soc"
+        ],
+        "climate": [
+          "climate.hall"
+        ],
+        "sensors": [
+          [
+            "sensor.thuisaccu_soc",
+            "",
+            "",
+            "Thuisaccu SOC",
+            "%"
+          ],
+          [
+            "sensor.thuisaccu_level",
+            "battery",
+            "",
+            "Thuisaccu",
+            "%"
+          ]
+        ]
+      },
+      "yaml": "# HA Paper display config\nversion: 1\napps:\n  - id: home\n    title: Home\n  - id: house\n    title: House\nscreens:\n  - id: overview\n    app: home\n    title: Home\n    widgets:\n      - {type: clock, cs: 2}\n      - {type: gauge, entity: sensor.thuisaccu_soc, label: Home battery}\n  - id: solar\n    app: home\n    title: Battery\n    widgets:\n      - {type: gauge, entity: sensor.thuisaccu_soc, label: Home battery}\n  - id: climate\n    app: house\n    title: Heating\n    widgets:\n      - {type: zoneList, cs: 4, rs: 2}\n",
+      "report": {
+        "filled": 2,
+        "total": 17,
+        "tiles": [
+          {
+            "tile": "price",
+            "screen": "overview",
+            "why": "no_meter"
+          },
+          {
+            "tile": "inside",
+            "screen": "overview",
+            "why": "no_sensor"
+          },
+          {
+            "tile": "outside",
+            "screen": "overview",
+            "why": "no_sensor"
+          },
+          {
+            "tile": "solar_power",
+            "screen": "overview",
+            "why": "no_sensor"
+          },
+          {
+            "tile": "home_power",
+            "screen": "overview",
+            "why": "no_sensor"
+          },
+          {
+            "tile": "grid_power",
+            "screen": "overview",
+            "why": "no_sensor"
+          },
+          {
+            "tile": "battery_soc",
+            "screen": "overview",
+            "entity": "sensor.thuisaccu_soc",
+            "rule": "name"
+          },
+          {
+            "tile": "battery_power",
+            "screen": "solar",
+            "why": "no_sensor"
+          },
+          {
+            "tile": "solar_today",
+            "screen": "solar",
+            "why": "no_sensor"
+          },
+          {
+            "tile": "solar_chart",
+            "screen": "solar",
+            "why": "no_meter"
+          },
+          {
+            "tile": "energy_today",
+            "screen": "energy",
+            "why": "no_sensor"
+          },
+          {
+            "tile": "grid_import_today",
+            "screen": "energy",
+            "why": "no_sensor"
+          },
+          {
+            "tile": "grid_export_today",
+            "screen": "energy",
+            "why": "no_sensor"
+          },
+          {
+            "tile": "usage_chart",
+            "screen": "energy",
+            "why": "no_meter"
+          },
+          {
+            "tile": "lights",
+            "screen": "lights",
+            "why": "none"
+          },
+          {
+            "tile": "heating",
+            "screen": "climate",
+            "rule": "found"
+          },
+          {
+            "tile": "rooms",
+            "screen": "rooms",
+            "why": "few_rooms"
+          }
+        ]
+      }
+    },
+    {
+      "name": "grid-meter-no-power",
+      "description": "Grid meter without a power sensor: no grid tile; HA has its own sensor.home_power → home tile (catalog label); import meter → Energy screen with the usage chart.",
+      "snapshot": {
+        "energy": {
+          "energy_sources": [
+            {
+              "type": "grid",
+              "flow_from": [
+                {
+                  "stat_energy_from": "sensor.import_kwh",
+                  "entity_energy_price": null
+                }
+              ],
+              "flow_to": []
+            }
+          ]
+        },
+        "areas": [
+          [
+            "k",
+            "Kitchen"
+          ]
+        ],
+        "sensors": [
+          [
+            "sensor.k_temp",
+            "temperature",
+            "k",
+            "Kitchen"
+          ],
+          [
+            "sensor.home_power",
+            "",
+            "",
+            "Home power",
+            "W"
+          ]
+        ]
+      },
+      "yaml": "# HA Paper display config\nversion: 1\napps:\n  - id: home\n    title: Home\nscreens:\n  - id: overview\n    app: home\n    title: Home\n    widgets:\n      - {type: clock, cs: 2}\n      - {type: stat, entity: sensor.k_temp, label: Inside}\n      - {type: stat, entity: sensor.home_power}\n  - id: energy\n    app: home\n    title: Energy\n    widgets:\n      - {type: stat, entity: sensor.home_power}\n      - {type: bars, series: usage, cs: 4}\n",
+      "report": {
+        "filled": 3,
+        "total": 17,
+        "tiles": [
+          {
+            "tile": "price",
+            "screen": "overview",
+            "why": "no_meter"
+          },
+          {
+            "tile": "inside",
+            "screen": "overview",
+            "entity": "sensor.k_temp",
+            "rule": "area"
+          },
+          {
+            "tile": "outside",
+            "screen": "overview",
+            "why": "no_sensor"
+          },
+          {
+            "tile": "solar_power",
+            "screen": "overview",
+            "why": "no_sensor"
+          },
+          {
+            "tile": "home_power",
+            "screen": "overview",
+            "entity": "sensor.home_power",
+            "rule": "id"
+          },
+          {
+            "tile": "grid_power",
+            "screen": "overview",
+            "why": "no_sensor"
+          },
+          {
+            "tile": "battery_soc",
+            "screen": "overview",
+            "why": "no_sensor"
+          },
+          {
+            "tile": "battery_power",
+            "screen": "solar",
+            "why": "no_sensor"
+          },
+          {
+            "tile": "solar_today",
+            "screen": "solar",
+            "why": "no_sensor"
+          },
+          {
+            "tile": "solar_chart",
+            "screen": "solar",
+            "why": "no_meter"
+          },
+          {
+            "tile": "energy_today",
+            "screen": "energy",
+            "why": "no_sensor"
+          },
+          {
+            "tile": "grid_import_today",
+            "screen": "energy",
+            "why": "no_sensor"
+          },
+          {
+            "tile": "grid_export_today",
+            "screen": "energy",
+            "why": "no_sensor"
+          },
+          {
+            "tile": "usage_chart",
+            "screen": "energy",
+            "rule": "energy"
+          },
+          {
+            "tile": "lights",
+            "screen": "lights",
+            "why": "none"
+          },
+          {
+            "tile": "heating",
+            "screen": "climate",
+            "why": "none"
+          },
+          {
+            "tile": "rooms",
+            "screen": "rooms",
+            "why": "few_rooms"
+          }
+        ]
+      }
+    }
+  ],
+  "template": "{# x4_seed #}{% set ns = namespace(a=[], l=[], s=[], c=[], v=[], w=[], t=0, p=0, e=0, b=0) %}{% for a in areas() %}{% set ns.a = ns.a + [[a, area_name(a) or a]] %}{% endfor %}{% for s in states.light %}{% if ns.l | length < 150 %}{% set ns.l = ns.l + [[s.entity_id, area_id(s.entity_id) or '', 'g' if s.attributes.get('entity_id') or s.attributes.get('is_hue_group') or s.attributes.get('is_deconz_group') or s.attributes.get('lights') else '']] %}{% endif %}{% endfor %}{% for s in states.sensor %}{% set dc = s.attributes.get('device_class') or '' %}{% set u = s.attributes.get('unit_of_measurement') or '' %}{% set n = (s.entity_id ~ ' ' ~ (s.name | string)) | lower %}{% set k = 't' if dc == 'temperature' and not ('device_temperature' in n or 'device temperature' in n) else '' if dc == 'temperature' else 'p' if (dc == 'power' or u in ['W', 'kW']) and not ('phase' in n or 'fase' in n or '_l1' in n or '_l2' in n or '_l3' in n) else '' if dc == 'power' or u in ['W', 'kW'] else 'e' if (dc == 'energy' or u in ['kWh', 'Wh']) and n | regex_search('(^|[^a-z0-9])(today|vandaag|daily|dag|day)([^a-z0-9]|$)') else 'b' if u == '%' and dc in ['battery', ''] else 'r' if s.entity_id.startswith('sensor.x4_route_') else '' %}{% if k == 't' and (s.state in ['unknown', 'unavailable'] or ns.t >= 60) %}{% set k = '' %}{% endif %}{% if k == 't' %}{% set ns.t = ns.t + 1 %}{% elif k == 'p' %}{% if ns.p < 100 %}{% set ns.p = ns.p + 1 %}{% else %}{% set k = '' %}{% endif %}{% elif k == 'e' %}{% if ns.e < 40 %}{% set ns.e = ns.e + 1 %}{% else %}{% set k = '' %}{% endif %}{% elif k == 'b' %}{% if ns.b < 60 %}{% set ns.b = ns.b + 1 %}{% else %}{% set k = '' %}{% endif %}{% endif %}{% if k %}{% set ns.s = ns.s + [[s.entity_id, dc | string, (area_id(s.entity_id) or '') if k == 't' else '', s.name | string, u | string]] %}{% endif %}{% endfor %}{% for s in states.climate %}{% set d = device_id(s.entity_id) %}{% if d and device_entities(d) | select('match', 'device_tracker') | list %}{% set ns.v = ns.v + [s.entity_id] %}{% else %}{% set ns.c = ns.c + [[s.entity_id, s.name | string, area_id(s.entity_id) or '', s.state]] %}{% endif %}{% endfor %}{% for s in states.weather %}{% if s.attributes.get('temperature') is number %}{% set ns.w = ns.w + [s.entity_id] %}{% endif %}{% endfor %}{{ {'areas': ns.a, 'climate': ns.c, 'vehicles': ns.v, 'lights': ns.l, 'sensors': ns.s, 'weather': ns.w} | tojson }}",
+  "answers_description": "seedAnswerOk(text): only a JSON object is a seed answer; anything else saves nothing and retries on the next link (#58).",
+  "answers": [
+    {
+      "text": "{\"areas\":[],\"sensors\":[]}",
+      "ok": true
+    },
+    {
+      "text": "{}",
+      "ok": true
+    },
+    {
+      "text": "",
+      "ok": false
+    },
+    {
+      "text": "None",
+      "ok": false
+    },
+    {
+      "text": "[]",
+      "ok": false
+    },
+    {
+      "text": "null",
+      "ok": false
+    },
+    {
+      "text": "\"x\"",
+      "ok": false
+    },
+    {
+      "text": "{\"areas\":",
+      "ok": false
+    }
+  ],
+  "events_description": "templateEventFinal(has_result, level): render_template with report_errors; a WARNING event (undefined attribute) is followed by the result (#58). level null = absent.",
+  "events": [
+    {
+      "has_result": false,
+      "level": "WARNING",
+      "final": false
+    },
+    {
+      "has_result": false,
+      "level": "ERROR",
+      "final": true
+    },
+    {
+      "has_result": false,
+      "level": null,
+      "final": true
+    },
+    {
+      "has_result": true,
+      "level": null,
+      "final": true
+    },
+    {
+      "has_result": true,
+      "level": "WARNING",
+      "final": true
+    }
+  ]
+}
