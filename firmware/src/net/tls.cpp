@@ -35,8 +35,8 @@ int tlsConnect(NetworkClientSecure& c, const char* host, uint16_t port, uint32_t
   const unsigned ms = millis() - t0;
   heapCheckpoint("tls handshake");
   if (ok) {
-    LOG_INF("TLS", "handshake %s:%u %u ms · internal free %u B, largest %u B, reserve %u/%u before", host, port, ms,
-            unsigned(freeB), unsigned(largest), slots, kTlsPoolSlots);
+    LOG_INF("TLS", "handshake %s:%u %u ms · internal free %u B, largest %u B, reserve %u/%u before · free %u B after",
+            host, port, ms, unsigned(freeB), unsigned(largest), slots, kTlsPoolSlots, unsigned(heapFreeInternal()));
     return 0;
   }
   const int err = c.lastError(nullptr, 0);

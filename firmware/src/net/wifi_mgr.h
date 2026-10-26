@@ -45,7 +45,7 @@ class WifiMgr {
 
  private:
   void onConnected();
-  void startMdns();
+  void startMdns(const char* reason);   // "connect" | "got_ip" | "bssid" | "idle" (#227 /diagnostics mdns)
   void beginSaved();     // WiFi.begin() with the saved credentials
   void beginFast(const WifiCreds& c);   // boot: deep-sleep wake → cached BSSID/channel (+ IP), else beginSaved
   void fastDone(bool ok);               // connected → refresh the RTC cache; fast join timed out → normal join
@@ -53,6 +53,10 @@ class WifiMgr {
   uint32_t fastAtMs_ = 0;
   void escalate();       // link down and wanted: core WifiEscalation → reconnect / radio reset / maintenance restart
   bool mdns_ = false;
+  bool mdnsOnce_ = false;
+  InboundWatch inbound_;
+  uint32_t servedSeen_ = 0, sampleMs_ = 0, samples_ = 0;
+  void checkInbound(bool up);   // stats sample + minute NET line; idle 30 min → gateway ping → mDNS restart or relink
   bool connectedOnce_ = false;
   uint32_t apStopAtMs_ = 0;
   WifiEscalation esc_;

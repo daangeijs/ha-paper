@@ -222,6 +222,16 @@ bool HaClient::yieldTls() {
   return true;
 }
 
+bool HaClient::shedHeap(uint32_t waitMs) {
+  if (state_ == St::Idle || state_ == St::Backoff || state_ == St::Revoked) return false;
+  LOG_WRN("HA", "WebSocket closed: internal RAM under the floor · retry in %us", unsigned(waitMs / 1000));
+  ws_.close();
+  state_ = St::Backoff;
+  nextTryMs_ = millis() + waitMs;
+  entitySubs_.clear();
+  return true;
+}
+
 void HaClient::setConfigEntities(const std::set<std::string>& ids, const LightSubs& lights) {
   if (!(lights == lightSubs_)) {
     lightSubs_ = lights;
@@ -468,6 +478,7 @@ void HaClient::onReady() {
   lastPingMs_ = millis();
   setHaState(static_cast<int>(HaState::Connected));
   LOG_INF("HA", "WebSocket auth_ok");
+  heapMark("WebSocket auth_ok");
 
   idUser_ = nextId_++;
   ws_.sendText("{\"id\":" + std::to_string(idUser_) + ",\"type\":\"auth/current_user\"}");
@@ -847,6 +858,12 @@ void HaClient::onMessage(const std::string& msg) {
     if (heapMinFree() < low0 && heapMinFree() < 48 * 1024)   // #149: which message took the internal low-water down
       LOG_WRN("HEAP", "entity event (%u B, %u entities): internal low-water %u → %u B, largest block %u B",
               unsigned(msg.size()), unsigned(touched.size()), unsigned(low0), unsigned(heapMinFree()), unsigned(heapLargestFree()));
+    static uint32_t events = 0;
+    if (++events % 10 == 0) {
+      char what[32];
+      snprintf(what, sizeof what, "%u HA events", unsigned(events));
+      heapMark(what);
+    }
     if (!ev["a"].isNull()) {
       size_t attrs = 0, bytes = 0;
       for (auto& m : adapter_.raw())

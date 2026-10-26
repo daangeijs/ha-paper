@@ -7,6 +7,8 @@
 #include "app/app_impl.h"
 #include "core/json.h"
 #include "core/power.h"
+#include "core/ota_status.h"
+#include "core/logic.h"
 
 namespace x4 {
 namespace ui {
@@ -34,6 +36,46 @@ static void fitVersion(Canvas& c, std::string& v, int& size, int maxW) {
   for (int s : {46, 40, 34, 28}) { size = s; if (c.textWidth(v, B(s), t) <= maxW) return; }
 }
 
+// Status line under the installed version (#250): title + up to two detail lines, at a fixed place and height.
+constexpr int kOtaStatusTop = 14 + 24 + 10 + 46 + 10 + 12, kOtaStatusH = 31 + 4 + 2 * 22;
+static int otaLeftW(Rect r) { return r.w - 16 - 270 - 22 - 16; }
+
+Rect otaStatusRect(Rect r) { return rc(r.x + 16, r.y + kOtaStatusTop, otaLeftW(r), kOtaStatusH); }
+
+static OtaLine otaStatusText(I& a) {
+  auto& st = a.svc.status();
+  if (st.otaChecksOff && st.ota == OtaState::UpToDate) return {a.t(S::otaChecksOff), a.t(S::otaChecksOffText)};
+  if (a.otaBlocked) return {a.t(S::otaLowBattery), a.otaMsg};
+  if (!a.otaMsg.empty()) return {a.t(S::otaFailed), a.otaMsg};
+  if (st.ota == OtaState::Downloading || st.ota == OtaState::Installing)
+    return {a.t(S::otaInstalling), st.otaAvailableVersion.empty() ? std::string(a.t(S::otaLocalFile)) : "v" + st.otaAvailableVersion};
+  if (st.ota == OtaState::Failed) return {a.t(S::otaFailed), a.t(S::otaNothingChanged)};
+  // = GET /ota status order (net/web_server.cpp otaToJson)
+  OtaLineIn in;
+  in.channel = a.set.otaChannel;
+  in.status = st.otaChecking ? "checking" : st.ota == OtaState::Available ? "available"
+            : a.otaOffline || st.otaCheckErr != OtaErr::None ? "error"
+            : st.otaChecked || st.otaLastCheckEpoch > 0 ? "uptodate" : "idle";
+  in.error = a.otaOffline ? OtaErr::Network : st.otaCheckErr;
+  in.version = st.otaAvailableVersion;
+  in.message = st.otaCheckMsg;
+  if (st.otaLastCheckEpoch > 0) {
+    time_t t = time_t(st.otaLastCheckEpoch);
+    struct tm tm;
+    localtime_r(&t, &tm);
+    in.checked = pad2(tm.tm_hour) + ":" + pad2(tm.tm_min);
+  }
+  return otaLine(a.lang, in);
+}
+
+void otaStatus(Canvas& c, I& a, Rect r) {
+  Rect s = otaStatusRect(r);
+  OtaLine l = otaStatusText(a);
+  TextOpts tto; tto.maxW = s.w;
+  c.text(s.x, baseline(s.y, B(26), 1.2), l.title, B(26), tto);
+  c.paragraph(s.x, s.y + 31 + 4, s.w, 22, l.sub, R(18), C(Ink::Black), 2);   // "This build doesn't check…" wraps
+}
+
 static void ota(Canvas& c, I& a, Rect r) {
   auto& st = a.svc.status();
   int x0 = r.x + 16, top = r.y + 14, rightW = 270;
@@ -50,23 +92,7 @@ static void ota(Canvas& c, I& a, Rect r) {
   }
   y += 46 + 10;
   rule(c, x0, y, lx1 - x0, false);
-  y += 12;
-  std::string title, subt;
-  std::string chan = a.t(a.set.otaChannel == "beta" ? S::chanBetaLong : S::chanStableLong);
-  if (st.otaChecksOff && st.ota == OtaState::UpToDate) { title = a.t(S::otaChecksOff); subt = a.t(S::otaChecksOffText); }
-  else if (a.otaBlocked) { title = a.t(S::otaLowBattery); subt = a.otaMsg; }
-  else if (!a.otaMsg.empty()) { title = a.t(S::otaFailed); subt = a.otaMsg; }
-  else switch (st.ota) {
-    case OtaState::UpToDate: title = a.t(S::otaUpToDate); subt = chan; break;
-    case OtaState::Available: title = a.t(S::otaAvailable, st.otaAvailableVersion); subt = chan; break;
-    case OtaState::Downloading: case OtaState::Installing: title = a.t(S::otaInstalling);
-      subt = st.otaAvailableVersion.empty() ? std::string(a.t(S::otaLocalFile)) : "v" + st.otaAvailableVersion; break;
-    case OtaState::Failed: title = a.t(S::otaFailed); subt = a.t(S::otaNothingChanged); break;
-  }
-  TextOpts tto; tto.maxW = lx1 - x0;
-  c.text(x0, baseline(y, B(26), 1.2), title, B(26), tto);
-  y += 31 + 4;
-  y += 22 * c.paragraph(x0, y, lx1 - x0, 22, subt, R(18), C(Ink::Black), 2) + 10;   // "This build doesn't check…" wraps
+  y += 12 + kOtaStatusH + 10;   // the status line: overlay region otaStatus()
   if (st.ota == OtaState::Available && !st.otaNotes.empty()) {
     TextOpts wn = C(Ink::Black); wn.upper = !sleek();
     c.text(x0, baseline(y, sleek() ? T6(14) : B(18), 1.2), a.t(S::otaWhatsNew), sleek() ? T6(14) : B(18), wn);
@@ -456,29 +482,29 @@ static void setupWeb(Canvas& c, I& a, Rect r) {
   c.textCenter(x + 105, qy + 200 + 10 + 22, host(a), B(22), [] { TextOpts t; t.tracking = 1; return t; }());
   if (!st.ip.empty()) c.textCenter(x + 105, qy + 200 + 10 + 22 + 26, a.t(S::swOr, st.ip), R(18), C(Ink::Black));
   int tx = x + 210 + 28, tw = r.x + r.w - 22 - tx;
-  int y = r.y + 18;
+  // #272: titles only; the block (connected 22+12, title 33+12, 3 rows of 52, 18, button 44) centres on the QR
+  const int rowH = 52, blockH = 22 + 12 + 33 + 12 + 3 * rowH + 18 + 44;
+  int y = std::max(r.y + 14, cy - blockH / 2);
   c.circle(tx + 11, y + 11, 11, Ink::Black);
   c.icon(Icon::Tick14, tx + 4, y + 4, Ink::Paper);
   TextOpts ct; ct.maxW = tw - 30;
   c.text(tx + 30, y + 17, a.t(S::swConnected, ssid), B(16), ct);
-  y += 22 + 10;
+  y += 22 + 12;
   c.text(tx, baseline(y, B(30), 1.1), a.t(S::swTitle), B(30));
-  y += 33 + 10;
-  std::pair<std::string, std::string> steps[] = {
-      {a.t(S::swOpen, host(a)), st.ip.empty() ? a.t(S::swOpenSub, ssid) : a.t(S::swOpenSubIp, ssid, st.ip)},
-      {a.t(S::signIn), a.t(S::swSignInSub)},
-      {a.t(S::stepDone), a.t(S::swDoneSub)}};
+  y += 33 + 12;
+  std::string steps[] = {a.t(S::swOpen, host(a)), a.t(S::signIn), a.t(S::stepDone)};
+  TextOpts stt; stt.maxW = tw - 42;
   for (int k = 0; k < 3; ++k) {
     c.dottedHLine(tx, y, tw, 1, Ink::Black);
-    y += 8;
-    stepCircle(c, tx + 13, y + 13, 26, std::to_string(k + 1));
-    c.text(tx + 38, baseline(y, B(19), 1.2), steps[k].first, B(19));
-    int n = c.paragraph(tx + 38, y + 23, tw - 38, 19, steps[k].second, R(14), C(Ink::Black), 2);
-    y += 23 + n * 19 + 10;
+    stepCircle(c, tx + 14, y + rowH / 2, 28, std::to_string(k + 1));
+    c.text(tx + 42, mid(y, rowH, B(22)), steps[k], B(22), stt);
+    y += rowH;
   }
+  c.dottedHLine(tx, y, tw, 1, Ink::Black);
+  y += 18;
   std::string other = a.t(S::swOtherWifi);
   int bw = c.textWidth(other, B(15)) + 28 + 4;
-  Rect b = rc(tx, std::min(y + 2, r.y + r.h - 16 - 44), bw, 44);
+  Rect b = rc(tx, std::min(y, r.y + r.h - 16 - 44), bw, 44);
   button(c, b, other, B(15), false, [&a] { a.changeWifi(); });
   c.text(b.x + bw + 12, mid(b.y, 44, R(14)), a.t(S::swWaiting), R(14), C(Ink::Black));
 }

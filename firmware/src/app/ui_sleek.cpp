@@ -7,6 +7,7 @@
 #include <cstdlib>
 #include "app/app_impl.h"
 #include "core/catalog.h"
+#include "core/history.h"
 #include "core/json.h"
 
 namespace x4 {
@@ -291,7 +292,18 @@ void barsCard(Canvas& c, I& a, const Widget& w, Rect r) {
   TextOpts lo; lo.maxW = x1 - x0 - sumW - 10;
   c.text(x0, hb, lab, lf, lo);
   if (!summary.empty()) c.textRight(x1, hb, summary, sf);
-  Font af = T4(13);
+  Font af = T4(13), lf2 = T6(15);
+  // prices (#260): today's low / high under the axis
+  hist::Extreme pLo, pHi;
+  const bool lh = series == "prices" && ser.size() >= 24 && hist::dayLowHigh(ser.data(), 24, a.lang, pLo, pHi);
+  if (lh) {
+    std::string l = a.t(S::histLow, fmtNum(pLo.v, "", 2), std::string(pLo.time)), g = a.t(S::histHigh, fmtNum(pHi.v, "", 2), std::string(pHi.time));
+    TextOpts lt = C(Ink::Black); lt.tabular = true;
+    int lbl = bot - lineH(lf2) + asc(lf2);
+    c.text(x0, lbl, l, lf2, lt);
+    if (c.textWidth(l, lf2, lt) + 12 + c.textWidth(g, lf2, lt) <= x1 - x0) c.textRight(x1, lbl, g, lf2, lt);
+    bot -= lineH(lf2) + 6;
+  }
   int axisTop = bot - lineH(af);
   TextOpts at = C(Ink::Black); at.tabular = true;
   static const char* ticks[] = {"00", "06", "12", "18", "24"};

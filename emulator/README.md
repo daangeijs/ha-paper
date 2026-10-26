@@ -133,7 +133,9 @@ npm run device-sim -- --help
   `/auth/token` (authorization_code with PKCE verification, refresh_token, `invalid_grant`), `/auth/revoke`,
   `/api/websocket` (auth, auth/current_user, get_states, subscribe_entities, subscribe_events, call_service,
   energy/get_prefs, config/area_registry/list, config/entity_registry/list, render_template for the firmware's
-  discovery and first-run seed templates, recorder/statistics_during_period → {}) with entities from `src/core/data.ts`
+  discovery and first-run seed templates, recorder/statistics_during_period and history/history_during_period with
+  seeded series for sensor.outdoor_temperature, rain_rate, rain_total, train_delay and an opt-in 1 Hz
+  sensor.chatty_power, `server/fake-ha-history.ts`, #266) with entities from `src/core/data.ts`
   that drift every `--ha-tick` ms. `--house stranger` swaps in somebody else's HA (`server/fake-ha-stranger.ts`: P1
   meter, Nest thermostat, a few lights and thermometers) to see the first-run screens (#23); `--house dutch` /
   `dutch-energy` is a SolarEdge + P1 + Anker battery + tado house with Dutch names, without / with an Energy dashboard
@@ -146,7 +148,7 @@ npm run device-sim -- --help
   `?sha256=` / `X-SHA256`, 422 on mismatch, 202 + reboot into it on success.
 - **Simulator only** (not on the device): `GET /__sim/state` (current screen, full/partial/skipped refresh counts, recent
   refresh events, HA link state, pairing code, tokens as hashes) and `POST /__sim/control`
-  `{"preset":"first-install"|"never-linked"|"installed", "battery":15, "battery_mv":3950, "ota_fail":"ok"|"hash"|"boot", "screen":"energy", "tap":0}` (`tap`: touch tile n of the shown screen; only scene
+  `{"preset":"first-install"|"never-linked"|"installed", "battery":15, "battery_mv":3950, "ota_fail":"ok"|"hash"|"boot", "ota_check_fail":"ok"|"memory"|"network"|"busy"|"none"|"other", "screen":"energy", "tap":0}` (`tap`: touch tile n of the shown screen; only scene
   tiles act, 409 otherwise).
 
 ```sh

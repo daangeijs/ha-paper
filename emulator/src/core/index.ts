@@ -2,6 +2,7 @@
 export * from './format.ts';
 export * from './config.ts';
 export * from './severity.ts';
+export * from './route.ts';
 export * from './regions.ts';
 export * from './paging.ts';
 export * from './refresh.ts';
@@ -12,6 +13,7 @@ export * from './power.ts';
 export * from './migrate.ts';
 export * from './recovery.ts';
 export * from './ambient.ts';
+export * from './frontlight.ts';
 export * from './haReport.ts';
 export * from './glance.ts';
 export * from './haAddress.ts';

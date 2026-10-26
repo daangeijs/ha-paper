@@ -5,8 +5,11 @@
 #include <ESPmDNS.h>
 #include <WiFi.h>
 #include <esp_attr.h>
+#include <esp_netif.h>
 #include <esp_sntp.h>
 #include <esp_wifi.h>
+#include <freertos/semphr.h>
+#include <ping/ping_sock.h>
 
 #include <algorithm>
 #include <atomic>
@@ -15,6 +18,7 @@
 #include "hw/watchdog.h"
 #include "net/health.h"
 #include "net/hub.h"
+#include "net/net_stats.h"
 #include "net/power.h"
 #include "net/storage.h"
 #include "net/time_sync.h"
@@ -53,6 +57,10 @@ bool g_dnsUp = false;
 constexpr uint32_t kFastMs = 8000;   // fast join (cached BSSID/channel/IP) not up after this → normal join
 std::atomic<uint8_t> g_lastReason{0};
 std::atomic<bool> g_timeSynced{false};
+// #227: set by the Wi-Fi event task, handled by the net task (mDNS restart)
+std::atomic<bool> g_ipEvent{false}, g_bssidEvent{false};
+uint8_t g_bssid[6];
+bool g_haveBssid = false;
 const IPAddress kApIp(192, 168, 4, 1);
 
 void setWifi(WifiState s) {
@@ -129,6 +137,13 @@ void WifiMgr::begin() {
   WiFi.setHostname(hostname());
   WiFi.onEvent([](arduino_event_id_t e, arduino_event_info_t info) {
     if (e == ARDUINO_EVENT_WIFI_STA_DISCONNECTED) g_lastReason = info.wifi_sta_disconnected.reason;
+    if (e == ARDUINO_EVENT_WIFI_STA_GOT_IP) g_ipEvent = true;   // also a renewed lease (same IP)
+    if (e == ARDUINO_EVENT_WIFI_STA_CONNECTED) {
+      const uint8_t* b = info.wifi_sta_connected.bssid;
+      if (g_haveBssid && memcmp(b, g_bssid, sizeof g_bssid) != 0) g_bssidEvent = true;
+      memcpy(g_bssid, b, sizeof g_bssid);
+      g_haveBssid = true;
+    }
   });
   WifiCreds c;
   const bool have = storage().loadWifi(c);
@@ -332,8 +347,11 @@ void WifiMgr::connect(const std::string& ssid, const std::string& password,
   if (done) done(false, err);
 }
 
-void WifiMgr::startMdns() {
+void WifiMgr::startMdns(const char* reason) {
+  g_ipEvent = false;
+  g_bssidEvent = false;
 #if X4_QEMU
+  (void)reason;
   return;   // the mDNS responder only binds the Wi-Fi/ETH default netifs, not "ETH_QEMU" (slirp has no multicast anyway)
 #endif
   if (mdns_) MDNS.end();
@@ -342,8 +360,12 @@ void WifiMgr::startMdns() {
     MDNS.addService("http", "tcp", 80);
     MDNS.addServiceTxt("http", "tcp", "path", "/");
     MDNS.addServiceTxt("http", "tcp", "fw", firmwareVersion());
-    LOG_INF("WIFI", "mDNS %s.local + _http._tcp", hostname());
+    LOG_INF("WIFI", "mDNS %s.local + _http._tcp (%s)", hostname(), reason);
+  } else {
+    LOG_WRN("WIFI", "mDNS start failed (%s)", reason);
   }
+  mdnsStarted(mdns_, mdnsOnce_ ? reason : nullptr);
+  mdnsOnce_ = true;
 }
 
 void WifiMgr::onConnected() {
@@ -361,10 +383,11 @@ void WifiMgr::onConnected() {
     hub().markStatus();
   }
   LOG_INF("WIFI", "connected · %s · %s", ssid.c_str(), ip.c_str());
+  heapMark("Wi-Fi connected");
 #if !X4_QEMU
   fastDone(true);   // RTC Wi-Fi cache for the next deep-sleep wake (#10)
 #endif
-  startMdns();
+  startMdns("connect");
   sntp_set_time_sync_notification_cb(onTimeSync);
   configTzTime(timezone().c_str(), "pool.ntp.org", "time.cloudflare.com", "time.google.com");
   if (hub().softAp) apStopAtMs_ = millis() + 8000;
@@ -466,6 +489,7 @@ void WifiMgr::loop() {
   trackQemuLink();
   const bool qup = linkUp();
   checkStale(qup);
+  checkInbound(qup);
   if (qup && !wasConnected_) {
     wasConnected_ = true;
     onConnected();
@@ -532,6 +556,9 @@ void WifiMgr::loop() {
   if (up || userDisconnected_ || hub().savedSsid.empty()) esc_.reset();
   else escalate();
   checkStale(up);
+  // #227: the responder can miss a lease renewal (netif re-bound, no re-announce) or a roam to another AP
+  if (up && (g_ipEvent || g_bssidEvent)) startMdns(g_bssidEvent ? "bssid" : "got_ip");
+  checkInbound(up);
 }
 
 void WifiMgr::haReached(bool ok) {
@@ -548,6 +575,83 @@ void WifiMgr::checkStale(bool up) {
   qemu_eth_renew();
 #else
   LOG_WRN("WIFI", "link up but HA unreachable (%u failed connects in %u min) · reconnect", unsigned(fails), unsigned(windowMin));
+  WiFi.reconnect();
+#endif
+}
+
+namespace {
+// 3 ICMP echoes to the default netif's gateway (~3 s, net task). true when one answers, or when it cannot be asked
+// (no gateway, no session): the inbound watch only drops Wi-Fi on a clear "no".
+bool gatewayAnswers() {
+  esp_netif_t* nif = esp_netif_get_default_netif();
+  esp_netif_ip_info_t ip{};
+  if (!nif || esp_netif_get_ip_info(nif, &ip) != ESP_OK || ip.gw.addr == 0) return true;
+  struct Ctx {
+    SemaphoreHandle_t done;
+    std::atomic<int> ok{0};
+  } ctx;
+  ctx.done = xSemaphoreCreateBinary();
+  if (!ctx.done) return true;
+  esp_ping_config_t cfg = ESP_PING_DEFAULT_CONFIG();
+  cfg.target_addr.type = IPADDR_TYPE_V4;
+  cfg.target_addr.u_addr.ip4.addr = ip.gw.addr;
+  cfg.count = 3;
+  cfg.interval_ms = 500;
+  cfg.timeout_ms = 1000;
+  esp_ping_callbacks_t cb{};
+  cb.cb_args = &ctx;
+  cb.on_ping_success = [](esp_ping_handle_t, void* a) { static_cast<Ctx*>(a)->ok++; };
+  cb.on_ping_end = [](esp_ping_handle_t, void* a) { xSemaphoreGive(static_cast<Ctx*>(a)->done); };
+  esp_ping_handle_t h = nullptr;
+  bool asked = esp_ping_new_session(&cfg, &cb, &h) == ESP_OK && esp_ping_start(h) == ESP_OK;
+  bool ended = false;
+  for (uint32_t t0 = millis(); asked && !ended && millis() - t0 < 6000;) {
+    wdt::feedIfSubscribed();
+    ended = xSemaphoreTake(ctx.done, pdMS_TO_TICKS(200)) == pdTRUE;
+  }
+  if (h) {
+    esp_ping_stop(h);
+    delay(50);   // the ping task returns from on_ping_end before its session is deleted
+    esp_ping_delete_session(h);
+  }
+  vSemaphoreDelete(ctx.done);
+  return !asked || !ended || ctx.ok > 0;
+}
+}  // namespace
+
+void WifiMgr::checkInbound(bool up) {
+  const uint32_t now = millis();
+  if (now - sampleMs_ >= 10000 || !sampleMs_) {
+    sampleMs_ = now | 1u;
+    int dbm = 0;
+    const bool known = wifiRssi(dbm);
+#if X4_QEMU
+    wifiSample(known, dbm, nullptr);
+#else
+    wifiSample(known, dbm, up ? WiFi.BSSID() : nullptr);
+#endif
+    if (samples_++ % 6 == 0) netStatsLog();   // once a minute, next to the HEAP line
+  }
+  if (!up) return inbound_.linkDown();
+  inbound_.linkUp(now);
+  const uint32_t served = webServed();
+  if (served != servedSeen_) {
+    servedSeen_ = served;
+    inbound_.served(now);
+  }
+  if (!inbound_.due(now)) return;
+  const bool gw = gatewayAnswers();
+  const bool relink = inbound_.checked(millis(), gw) == InboundWatch::Action::Reconnect;
+  idleChecked(relink);
+  if (!relink) {
+    LOG_WRN("WIFI", "no web request for %u min · gateway answers · mDNS restart", unsigned(InboundWatch::kIdleMs / 60000));
+    return startMdns("idle");
+  }
+#if X4_QEMU
+  LOG_WRN("WIFI", "no web request for %u min · gateway silent · DHCP restart", unsigned(InboundWatch::kIdleMs / 60000));
+  qemu_eth_renew();
+#else
+  LOG_WRN("WIFI", "no web request for %u min · gateway silent · reconnect", unsigned(InboundWatch::kIdleMs / 60000));
   WiFi.reconnect();
 #endif
 }
@@ -648,12 +752,14 @@ void WifiMgr::escalate() {
 // Linked with -Wl,--wrap=esp_wifi_init (x4pro only, #198). Arduino's WiFiGeneric.cpp sets 32 dynamic RX and 32 dynamic
 // TX buffers (~1.7 KB each, internal RAM: no SPIRAM_TRY_ALLOCATE_WIFI_LWIP in the prebuilt libs); a burst next to a
 // TLS handshake took the internal heap to 10.9 KB. 12 + 12 cap the transient at ~41 KB instead of ~109 KB. The BA
-// window must stay ≤ dynamic RX and ≤ 2 × static RX (4, kept: fixed cost, the minimum Arduino uses).
+// window must stay ≤ dynamic RX and ≤ 2 × static RX (4, kept: fixed cost, the minimum Arduino uses). TX 12 → 8
+// (#248): the display sends little (pings, reports), and at RSSI -88 the retried frames sat in TX buffers; RX stays 12
+// so a weak link doesn't also lose frames to a full RX queue (more retries, more airtime).
 extern "C" esp_err_t __real_esp_wifi_init(const wifi_init_config_t* config);
 extern "C" esp_err_t __wrap_esp_wifi_init(const wifi_init_config_t* config) {
   wifi_init_config_t c = *config;
   c.dynamic_rx_buf_num = std::min(c.dynamic_rx_buf_num, 12);
-  c.dynamic_tx_buf_num = std::min(c.dynamic_tx_buf_num, 12);
+  c.dynamic_tx_buf_num = std::min(c.dynamic_tx_buf_num, 8);
   c.rx_ba_win = std::min({c.rx_ba_win, 6, c.dynamic_rx_buf_num, 2 * c.static_rx_buf_num});
   const esp_err_t err = __real_esp_wifi_init(&c);
   LOG_INF("NET", "Wi-Fi buffers: static RX %d · dynamic RX %d · dynamic TX %d · cache TX %d · RX BA window %d (%s)",

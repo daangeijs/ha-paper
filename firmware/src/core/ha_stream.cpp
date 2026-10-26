@@ -12,7 +12,7 @@ const char* const kAttrs[] = {
     "preset_modes",                                                                         // climate: away button (#148)
     "area_id", "area_name", "brightness", "dimmable", "supported_color_modes",              // lights
     "x4_order",                                                                             // climate, lights
-    "departures", "per_hour", "note", "typical",                                            // routes
+    "departures", "upcoming", "per_hour", "note", "typical",                                // routes (upcoming: #275)
 };
 
 int64_t epochOf(ArduinoJson::JsonVariantConst v) { return v.is<double>() ? static_cast<int64_t>(v.as<double>()) : 0; }

@@ -42,6 +42,7 @@ class QemuBoard : public Board {
   uint32_t millis() override;
   int64_t epochSeconds() override;
   void restart() override;
+  void powerOff() override;   // #258: no latch in QEMU; logs, returns (the App keeps the face, Power restarts)
   void writeRtcFromSystemClock() {}
   void notifyOnInput(void* task);   // TaskHandle_t woken by qemuPushInput (same contract as X4Board)
   bool pushInput(const InputEvent& e) override;

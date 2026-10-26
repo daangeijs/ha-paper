@@ -1,0 +1,274 @@
+{
+  "_doc": "Energy dashboard prefs (energy/get_prefs) → grid meters and price (#274). grid = gridFlows(source) per grid source (emulator src/core/energyPrefs.ts = firmware gridFlows() in core/entity_map.cpp); statistic_ids = EntityAdapter::statisticIds() after setEnergyPrefs; sources = the Energy-dashboard entity_sources for sensor.grid_power and sensor.energy_prices (emulator aliasesOf in server/device.ts, firmware EntityAdapter::sources()).",
+  "cases": [
+    {
+      "name": "legacy",
+      "description": "HA < 2025.12: flow_from[] (two tariffs, price on the first) and flow_to[] (its entity_energy_price = export price).",
+      "prefs": {
+        "energy_sources": [
+          {
+            "type": "grid",
+            "flow_from": [
+              {
+                "stat_energy_from": "sensor.meter_import_t1",
+                "entity_energy_price": "sensor.tariff"
+              },
+              {
+                "stat_energy_from": "sensor.meter_import_t2",
+                "entity_energy_price": "sensor.tariff_t2"
+              }
+            ],
+            "flow_to": [
+              {
+                "stat_energy_to": "sensor.meter_export",
+                "entity_energy_price": "sensor.tariff_export"
+              }
+            ],
+            "cost_adjustment_day": 0
+          },
+          {
+            "type": "solar",
+            "stat_energy_from": "sensor.pv_energy"
+          }
+        ]
+      },
+      "grid": [
+        {
+          "import": [
+            "sensor.meter_import_t1",
+            "sensor.meter_import_t2"
+          ],
+          "export": [
+            "sensor.meter_export"
+          ],
+          "price": "sensor.tariff",
+          "priceExport": "sensor.tariff_export"
+        }
+      ],
+      "statistic_ids": [
+        "sensor.pv_energy",
+        "sensor.meter_import_t1",
+        "sensor.meter_import_t2",
+        "sensor.meter_export"
+      ],
+      "sources": {
+        "sensor.energy_prices": "sensor.tariff"
+      }
+    },
+    {
+      "name": "flat",
+      "description": "HA 2025.12+: the grid source is flat: stat_energy_from / stat_energy_to / entity_energy_price / entity_energy_price_export / stat_rate.",
+      "prefs": {
+        "energy_sources": [
+          {
+            "type": "grid",
+            "stat_energy_from": "sensor.meter_import",
+            "stat_energy_to": "sensor.meter_export",
+            "stat_cost": null,
+            "entity_energy_price": "sensor.tariff",
+            "number_energy_price": null,
+            "entity_energy_price_export": "sensor.tariff_export",
+            "number_energy_price_export": null,
+            "stat_rate": "sensor.meter_power",
+            "cost_adjustment_day": 0
+          },
+          {
+            "type": "solar",
+            "stat_energy_from": "sensor.pv_energy",
+            "stat_rate": "sensor.pv_power"
+          },
+          {
+            "type": "battery",
+            "stat_energy_from": "sensor.batt_out",
+            "stat_energy_to": "sensor.batt_in",
+            "stat_rate": "sensor.batt_power"
+          }
+        ]
+      },
+      "grid": [
+        {
+          "import": [
+            "sensor.meter_import"
+          ],
+          "export": [
+            "sensor.meter_export"
+          ],
+          "price": "sensor.tariff",
+          "priceExport": "sensor.tariff_export"
+        }
+      ],
+      "statistic_ids": [
+        "sensor.pv_energy",
+        "sensor.meter_import",
+        "sensor.meter_export",
+        "sensor.batt_out",
+        "sensor.batt_in"
+      ],
+      "sources": {
+        "sensor.grid_power": "sensor.meter_power",
+        "sensor.energy_prices": "sensor.tariff"
+      }
+    },
+    {
+      "name": "flat-two-grids",
+      "description": "HA 2025.12+ with one grid source per tariff: meters of both, the first price that is set, the first stat_rate.",
+      "prefs": {
+        "energy_sources": [
+          {
+            "type": "grid",
+            "stat_energy_from": "sensor.meter_import_t1",
+            "stat_energy_to": "sensor.meter_export_t1",
+            "entity_energy_price": null,
+            "number_energy_price": 0.25
+          },
+          {
+            "type": "grid",
+            "stat_energy_from": "sensor.meter_import_t2",
+            "stat_energy_to": "sensor.meter_export_t2",
+            "entity_energy_price": "sensor.tariff_t2",
+            "stat_rate": "sensor.meter_power"
+          }
+        ]
+      },
+      "grid": [
+        {
+          "import": [
+            "sensor.meter_import_t1"
+          ],
+          "export": [
+            "sensor.meter_export_t1"
+          ],
+          "price": "",
+          "priceExport": ""
+        },
+        {
+          "import": [
+            "sensor.meter_import_t2"
+          ],
+          "export": [
+            "sensor.meter_export_t2"
+          ],
+          "price": "sensor.tariff_t2",
+          "priceExport": ""
+        }
+      ],
+      "statistic_ids": [
+        "sensor.meter_import_t1",
+        "sensor.meter_import_t2",
+        "sensor.meter_export_t1",
+        "sensor.meter_export_t2"
+      ],
+      "sources": {
+        "sensor.grid_power": "sensor.meter_power",
+        "sensor.energy_prices": "sensor.tariff_t2"
+      }
+    },
+    {
+      "name": "flat-import-only",
+      "description": "Flat grid with only an import meter and a fixed price: no export meter, no price entity.",
+      "prefs": {
+        "energy_sources": [
+          {
+            "type": "grid",
+            "stat_energy_from": "sensor.meter_import",
+            "stat_energy_to": null,
+            "entity_energy_price": null,
+            "number_energy_price": 0.3,
+            "entity_energy_price_export": null
+          }
+        ]
+      },
+      "grid": [
+        {
+          "import": [
+            "sensor.meter_import"
+          ],
+          "export": [],
+          "price": "",
+          "priceExport": ""
+        }
+      ],
+      "statistic_ids": [
+        "sensor.meter_import"
+      ],
+      "sources": {}
+    },
+    {
+      "name": "both-shapes",
+      "description": "A source carrying both shapes (a migration leftover): legacy first, a meter named twice counts once, the legacy price wins.",
+      "prefs": {
+        "energy_sources": [
+          {
+            "type": "grid",
+            "flow_from": [
+              {
+                "stat_energy_from": "sensor.meter_import",
+                "entity_energy_price": "sensor.tariff"
+              }
+            ],
+            "flow_to": [],
+            "stat_energy_from": "sensor.meter_import",
+            "stat_energy_to": "sensor.meter_export",
+            "entity_energy_price": "sensor.tariff_new",
+            "entity_energy_price_export": "sensor.tariff_export"
+          }
+        ]
+      },
+      "grid": [
+        {
+          "import": [
+            "sensor.meter_import"
+          ],
+          "export": [
+            "sensor.meter_export"
+          ],
+          "price": "sensor.tariff",
+          "priceExport": "sensor.tariff_export"
+        }
+      ],
+      "statistic_ids": [
+        "sensor.meter_import",
+        "sensor.meter_export"
+      ],
+      "sources": {
+        "sensor.energy_prices": "sensor.tariff"
+      }
+    },
+    {
+      "name": "junk",
+      "description": "Not objects / wrong types are skipped: flow_from not a list, a number as meter, a string source.",
+      "prefs": {
+        "energy_sources": [
+          "grid",
+          {
+            "type": "grid",
+            "flow_from": {
+              "stat_energy_from": "sensor.x"
+            },
+            "flow_to": [
+              null,
+              7,
+              {
+                "stat_energy_to": 5
+              }
+            ],
+            "stat_energy_from": 42,
+            "entity_energy_price": [
+              "sensor.y"
+            ]
+          }
+        ]
+      },
+      "grid": [
+        {
+          "import": [],
+          "export": [],
+          "price": "",
+          "priceExport": ""
+        }
+      ],
+      "statistic_ids": [],
+      "sources": {}
+    }
+  ]
+}

@@ -1,5 +1,5 @@
 // Smoke test: every device screen/state and every web-console page renders without throwing.
-import { describe, it, expect, vi } from 'vitest';
+import { describe, it, expect, vi, beforeAll, afterAll } from 'vitest';
 import { createElement } from 'react';
 import { renderToString } from 'react-dom/server';
 import { Emulator, type EmuState } from './Emulator.tsx';
@@ -72,6 +72,63 @@ describe('B/W-only rule (lint)', () => {
     }
   });
   it('sees gray where it is allowed (boot face)', () => expect(graysIn(screen(emu({ mode: 'boot' })))).toEqual(['#555']));
+});
+
+// History tile (#267): Classic and Modern, bars and line, the states without a chart; black / white only.
+describe('history tile renders', () => {
+  beforeAll(() => { vi.stubEnv('TZ', 'Europe/Amsterdam'); });
+  afterAll(() => { vi.unstubAllEnvs(); });
+  const W = [{ type: 'history', entity: 'sensor.outdoor_temperature', cs: 4 }, { type: 'history', entity: 'sensor.outdoor_humidity', window: '6h', agg: 'max', cs: 2 },
+    { type: 'history', entity: 'sensor.garden_temperature', cs: 2 }];
+  const at = (look: 'classic' | 'geist', widgets: object[] = W) => {
+    const base = emu();
+    const e = emu({ now: new Date(2026, 9, 26, 13, 20), screens: [{ id: 'hist', app: 'home', title: 'History', widgets } as any, ...base.state.screens.filter((s) => s.app === 'settings')], idx: 0, sub: 0,
+      cfg: { ...base.state.cfg, ...(look === 'classic' ? { style: 'classic' } : { style: 'sleek', typeface: look }) } as EmuState['cfg'] });
+    const h = html(e); return h.slice(h.indexOf('data-x4-screen'));
+  };
+  for (const look of ['classic', 'geist'] as const) it(look + ': line for a mean, bars for a max, low / high with times, axis, no history', () => {
+    const h = at(look);
+    expect(h).toContain('data-x4-history="line"'); expect(h).toContain('data-x4-history="bars"');
+    expect(h).toMatch(/Low 5\.0 · 03:00/); expect(h).toMatch(/High 15\.1 · 14:30/);
+    expect(h).toMatch(/>18<\/span>.*>00<\/span>.*>06<\/span>.*>12<\/span>/s);
+    expect(h).toContain('No history');
+    expect(h).toContain('vector-effect="non-scaling-stroke"');
+    expect(graysIn(h)).toEqual([]);
+  });
+  it('7 d: weekday ticks and day + time on low / high; 1 h: minutes before now', () => {
+    const h = at('classic', [{ type: 'history', entity: 'sensor.outdoor_temperature', window: '7d', agg: 'max', cs: 4 }, { type: 'history', entity: 'sensor.outdoor_temperature', window: '1h', cs: 4, label: 'Last hour' }]);
+    expect(h).toMatch(/Low [\d.]+ · (Mo|Tu|We|Th|Fr|Sa|Su) \d\d:\d\d/);
+    expect(h).toContain('>-30</span>'); expect(h).toContain('>Now</span>'); expect(h).toContain('Last hour');
+  });
+  for (const look of ['classic', 'geist'] as const) it(look + ': a rain nowcast ahead and an hourly weather forecast (#283)', () => {
+    const h = at(look, [{ type: 'history', entity: 'binary_sensor.rain_expected', attribute: 'forecast', value: 'precipitation', window: '2h', style: 'bars', cs: 4, label: 'Rain' },
+      { type: 'history', entity: 'weather.home', window: '24h', cs: 4 }]);
+    expect(h).toContain('>Now</span>'); expect(h).toContain('>+30</span>'); expect(h).toContain('>+90</span>');
+    expect(h).toMatch(/Low 0\.0 · \d\d:\d\d/); expect(h).toMatch(/High \d+\.\d · \d\d:\d\d/);
+    expect(h).toContain('data-x4-history="line"'); expect(h).toContain('Home weather');
+    expect(graysIn(h)).toEqual([]);
+  });
+});
+
+// Price chart (#260): today's low / high with times under the bars, and a caret over the hour now in Classic.
+describe('price chart renders', () => {
+  const at = (look: 'classic' | 'geist', lang: 'en' | 'nl' = 'en') => {
+    const base = emu();
+    const e = emu({ now: new Date(2026, 9, 26, 9, 20), simHour: 9, haLang: lang, screens: [{ id: 'pr', app: 'home', title: 'Prices', widgets: [{ type: 'bars', series: 'prices', cs: 4 }, { type: 'bars', series: 'usage', cs: 4 }] } as any, ...base.state.screens.filter((s) => s.app === 'settings')], idx: 0, sub: 0,
+      cfg: { ...base.state.cfg, ...(look === 'classic' ? { style: 'classic' } : { style: 'sleek', typeface: look }) } as EmuState['cfg'] });
+    const h = html(e); return h.slice(h.indexOf('data-x4-screen'));
+  };
+  for (const look of ['classic', 'geist'] as const) it(look + ': low / high once (prices only), black / white only', () => {
+    const h = at(look);
+    expect(h).toContain('Low 0.18 · 13:00'); expect(h).toContain('High 0.38 · 18:00');
+    expect(h.split('data-x4-lowhigh').length - 1).toBe(1);
+    expect(h.split('data-x4-now').length - 1).toBe(look === 'classic' ? 1 : 0);
+    expect(graysIn(h)).toEqual([]);
+  });
+  it('Dutch: decimal comma', () => {
+    const h = at('classic', 'nl');
+    expect(h).toContain('Laag 0,18 · 13:00'); expect(h).toContain('Hoog 0,38 · 18:00');
+  });
 });
 
 describe('web console renders', () => {

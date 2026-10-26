@@ -9,6 +9,7 @@
 #include <set>
 
 #include "core/catalog.h"
+#include "core/entity_map.h"
 #include "core/json.h"
 
 namespace x4 {
@@ -277,25 +278,16 @@ Config seedConfig(const Json& snap, const std::vector<Screen>& tail, SeedReport*
           for (auto* k : {"stat_energy_from", "stat_energy_to"})
             if (auto m = strOf(s.get(k)); !m.empty()) mBatt.push_back(m);
         } else {
-          if (const Json* ff = s.get("flow_from"); ff && ff->isArr())
-            for (auto& f : ff->arr) {
-              if (!f.isObj()) continue;
-              if (auto m = strOf(f.get("stat_energy_from")); !m.empty()) {
-                importM = true;
-                mGrid.push_back(m);
-                mImport.push_back(m);
-              }
-              if (auto p = strOf(f.get("entity_energy_price")); !p.empty()) {
-                price = true;
-                if (priceId.empty()) priceId = p;
-              }
-            }
-          if (const Json* ft = s.get("flow_to"); ft && ft->isArr())
-            for (auto& f : ft->arr)
-              if (f.isObj()) if (auto m = strOf(f.get("stat_energy_to")); !m.empty()) {
-                mGrid.push_back(m);
-                mExport.push_back(m);
-              }
+          GridFlows g = gridFlows(s);
+          if (!g.imports.empty()) importM = true;
+          mGrid.insert(mGrid.end(), g.imports.begin(), g.imports.end());
+          mGrid.insert(mGrid.end(), g.exports.begin(), g.exports.end());
+          mImport.insert(mImport.end(), g.imports.begin(), g.imports.end());
+          mExport.insert(mExport.end(), g.exports.begin(), g.exports.end());
+          if (!g.price.empty()) {
+            price = true;
+            if (priceId.empty()) priceId = g.price;
+          }
         }
       }
   if (live.count("sensor.energy_prices")) price = true;

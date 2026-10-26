@@ -4,7 +4,8 @@
 #   2. 20 s after boot loop() hangs (X4_TEST_WDT_HANG): the TWDT hardware is armed (30 s, stage 0 interrupt) with
 #      loopTask subscribed, and 31 s later the TWDT's own bookkeeping names loopTask as the task blocking the feed
 #      → the image takes the reset the TWDT interrupt takes under QEMU (TASK_WDT hint, software reset)
-#   3. the next boot logs "reset reason TASK_WDT" (net/diag.h boot ring), skips the hang and keeps serving the web console
+#   3. the next boot logs "reset reason TASK_WDT" (net/diag.h boot ring), logs the task-watchdog record naming loopTask (#241),
+#      skips the hang and keeps serving the web console
 # QEMU's ESP32-S3 timer-group watchdog never counts, so the TWDT interrupt itself cannot fire here (a bare MWDT1 set to
 # reset after 3 s did nothing in 8 s; docs/ESP32_EMULATION.md). The timer firing, the ISR and the panic + core dump
 # path are hardware-only.
@@ -68,6 +69,9 @@ wait_log 90 "HA Paper $VER" 2
 wait_log 30 "reset reason TASK_WDT"
 for _ in $(seq 60); do up && break; sleep 1; done
 up || { echo "FAIL: web console not up after the watchdog reset"; tail -30 "$LOG"; exit 1; }
+# #241: the TWDT interrupt's RTC record names the starved task; the boot after it logs it with the last log line
+grep -F "[DIAG] task watchdog at" "$LOG" | grep -qF "loopTask" || { echo "FAIL: no [DIAG] task watchdog line naming loopTask"; exit 1; }
+grep -F "reset reason TASK_WDT (hw " "$LOG" | grep -qF "task_wdt: loopTask" || { echo "FAIL: TASK_WDT boot has no task_wdt panic text"; exit 1; }
 sleep 40   # past the 20 s hang point plus a full watchdog period
 [[ $(grep -cF "HA Paper $VER" "$LOG") == 2 ]] || { echo "FAIL: rebooted again"; tail -30 "$LOG"; exit 1; }
 up || { echo "FAIL: web console gone"; exit 1; }

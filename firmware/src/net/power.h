@@ -52,8 +52,11 @@ const char* powerAppliedWifiPs();    // modem sleep the power rules set: none | 
 void powerWifiCache(const std::function<void(glance::WifiCache&)>& f);
 
 #if X4_QEMU
-void powerSimSet(bool battery, bool armed);   // POST /__qemu/power: power source, skip the first-boot count, API idle
+// POST /__qemu/power: power source, skip the first-boot count, API idle; charging + cell mV (#249, 0 = 3950)
+void powerSimSet(bool battery, bool armed, bool charging = false, int mv = 0);
 bool powerSimBattery();                       // QemuBoard::power(): USB (always live) unless set to battery
+bool powerSimCharging();                      // QemuBoard::power(): charger STAT
+uint16_t powerSimMv();                        // QemuBoard::power(): VCELL
 #endif
 
 }  // namespace x4::net

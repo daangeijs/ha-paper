@@ -1,3 +1,4 @@
+import { existsSync, readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 import { activeOtaSlot, crc32, parseAppDesc, readInstalled } from "../src/firmwareInfo.ts";
 import { encodeTable, X4_ROWS } from "./tables.ts";
@@ -64,5 +65,23 @@ describe("installed firmware (#239)", () => {
     expect((await readInstalled(ha, older)).label).toBe("HA Paper (other version)");
 
     expect((await readInstalled(flashOf([]))).label).toBe("No firmware");
+  });
+
+  it("names any HA Paper build by its own descriptor (#242), bundled or not", async () => {
+    const img = appImage({ version: "0.2.0-beta.2", project: "ha-paper", sha: 0x44 });
+    const ha = flashOf([[0x8000, encodeTable(X4_ROWS)], [0xe000, otadata(1)], [0x10000, img]]);
+    expect((await readInstalled(ha)).label).toBe("HA Paper 0.2.0-beta.2");
+    const other = { desc: parseAppDesc(appImage({ version: "0.3.0", project: "ha-paper", sha: 0x55 })), version: "0.3.0" };
+    expect((await readInstalled(ha, other)).label).toBe("HA Paper 0.2.0-beta.2");
+  });
+
+  // The real image from `pio run -e x4pro` (firmware/src/hw/app_desc.cpp replaces the Arduino core's descriptor).
+  const built = new URL("../../firmware/.pio/build/x4pro/firmware.bin", import.meta.url);
+  it.skipIf(!existsSync(built))("reads project ha-paper and X4_FW_VERSION from the built firmware.bin (#242)", () => {
+    const d = parseAppDesc(new Uint8Array(readFileSync(built)))!;
+    expect(d.project).toBe("ha-paper");
+    expect(d.version).toMatch(/^\d+\.\d+\.\d+/);
+    expect(d.idf).toMatch(/^v5\./);
+    expect(d.elfSha256).not.toBe("00".repeat(32));
   });
 });

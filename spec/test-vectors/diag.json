@@ -1,5 +1,5 @@
 {
-  "description": "Boot / crash ring (GET /api/v1/diagnostics boots + last_crash). ops run in order on an empty ring: boot = a new boot (esp_reset_reason name, firmware version, panic message or null), touch = the running boot is alive (uptime_s, min_free_heap, epoch; epoch 0 = clock unknown → last_seen unchanged), clear = DELETE /diagnostics. Newest first, 8 kept; a DEEPSLEEP boot right after a DEEPSLEEP boot replaces it (glance wakes, #10). Strings are cut to 11 / 23 / 95 bytes (RTC struct).",
+  "description": "Boot / crash ring (GET /api/v1/diagnostics boots + last_crash). ops run in order on an empty ring: boot = a new boot (esp_reset_reason name, firmware version, panic message or null, optional hw = raw chip reset cause, null when absent), touch = the running boot is alive (uptime_s, min_free_heap, epoch; epoch 0 = clock unknown → last_seen unchanged), clear = DELETE /diagnostics. Newest first, 8 kept; a DEEPSLEEP boot right after a DEEPSLEEP boot replaces it (glance wakes, #10). Strings are cut to 11 / 23 / 95 / 15 bytes (RTC struct).",
   "cases": [
     {
       "name": "first boot",
@@ -14,6 +14,7 @@
       "boots": [
         {
           "reason": "POWERON",
+          "hw": null,
           "crash": false,
           "version": "0.3.0",
           "uptime_s": 0,
@@ -67,6 +68,7 @@
       "boots": [
         {
           "reason": "SW",
+          "hw": null,
           "crash": false,
           "version": "0.3.0",
           "uptime_s": 40,
@@ -76,6 +78,7 @@
         },
         {
           "reason": "POWERON",
+          "hw": null,
           "crash": false,
           "version": "0.3.0",
           "uptime_s": 10,
@@ -111,6 +114,7 @@
       "boots": [
         {
           "reason": "PANIC",
+          "hw": null,
           "crash": true,
           "version": "0.3.0",
           "uptime_s": 0,
@@ -120,6 +124,7 @@
         },
         {
           "reason": "POWERON",
+          "hw": null,
           "crash": false,
           "version": "0.3.0",
           "uptime_s": 3600,
@@ -167,6 +172,7 @@
       "boots": [
         {
           "reason": "TASK_WDT",
+          "hw": null,
           "crash": true,
           "version": "0.3.0",
           "uptime_s": 0,
@@ -176,6 +182,7 @@
         },
         {
           "reason": "SW",
+          "hw": null,
           "crash": false,
           "version": "0.4.0-beta.1",
           "uptime_s": 95,
@@ -185,6 +192,7 @@
         },
         {
           "reason": "POWERON",
+          "hw": null,
           "crash": false,
           "version": "0.3.0",
           "uptime_s": 0,
@@ -244,6 +252,7 @@
       "boots": [
         {
           "reason": "SW",
+          "hw": null,
           "crash": false,
           "version": "0.3.0",
           "uptime_s": 0,
@@ -253,6 +262,7 @@
         },
         {
           "reason": "BROWNOUT",
+          "hw": null,
           "crash": true,
           "version": "0.3.0",
           "uptime_s": 5,
@@ -262,6 +272,7 @@
         },
         {
           "reason": "PANIC",
+          "hw": null,
           "crash": true,
           "version": "0.3.0",
           "uptime_s": 50,
@@ -271,6 +282,7 @@
         },
         {
           "reason": "POWERON",
+          "hw": null,
           "crash": false,
           "version": "0.3.0",
           "uptime_s": 0,
@@ -348,6 +360,7 @@
       "boots": [
         {
           "reason": "SW",
+          "hw": null,
           "crash": false,
           "version": "0.3.0",
           "uptime_s": 0,
@@ -357,6 +370,7 @@
         },
         {
           "reason": "SW",
+          "hw": null,
           "crash": false,
           "version": "0.3.0",
           "uptime_s": 0,
@@ -366,6 +380,7 @@
         },
         {
           "reason": "SW",
+          "hw": null,
           "crash": false,
           "version": "0.3.0",
           "uptime_s": 0,
@@ -375,6 +390,7 @@
         },
         {
           "reason": "SW",
+          "hw": null,
           "crash": false,
           "version": "0.3.0",
           "uptime_s": 0,
@@ -384,6 +400,7 @@
         },
         {
           "reason": "SW",
+          "hw": null,
           "crash": false,
           "version": "0.3.0",
           "uptime_s": 0,
@@ -393,6 +410,7 @@
         },
         {
           "reason": "SW",
+          "hw": null,
           "crash": false,
           "version": "0.3.0",
           "uptime_s": 0,
@@ -402,6 +420,7 @@
         },
         {
           "reason": "SW",
+          "hw": null,
           "crash": false,
           "version": "0.3.0",
           "uptime_s": 0,
@@ -411,6 +430,7 @@
         },
         {
           "reason": "INT_WDT",
+          "hw": null,
           "crash": true,
           "version": "0.3.0",
           "uptime_s": 0,
@@ -480,6 +500,7 @@
       "boots": [
         {
           "reason": "PWR_GLITCH_",
+          "hw": null,
           "crash": false,
           "version": "1.2.3-beta.45+averyvery",
           "uptime_s": 0,
@@ -518,6 +539,7 @@
       "boots": [
         {
           "reason": "SW",
+          "hw": null,
           "crash": false,
           "version": "0.3.0",
           "uptime_s": 0,
@@ -625,6 +647,7 @@
       "boots": [
         {
           "reason": "DEEPSLEEP",
+          "hw": null,
           "crash": false,
           "version": "0.3.0",
           "uptime_s": 0,
@@ -634,6 +657,7 @@
         },
         {
           "reason": "PANIC",
+          "hw": null,
           "crash": true,
           "version": "0.3.0",
           "uptime_s": 30,
@@ -643,6 +667,7 @@
         },
         {
           "reason": "POWERON",
+          "hw": null,
           "crash": false,
           "version": "0.3.0",
           "uptime_s": 0,
@@ -654,6 +679,105 @@
       "last_crash": {
         "reason": "PANIC",
         "panic": "boom",
+        "version": "0.3.0",
+        "uptime_s": 0,
+        "last_seen": null
+      }
+    },
+    {
+      "name": "hw: the raw reset cause rides along (#241); a TWDT panic is CORE_SW, a hardware watchdog stage CORE_MWDT0; cut to 15",
+      "ops": [
+        {
+          "op": "boot",
+          "reason": "POWERON",
+          "version": "0.3.0",
+          "panic": null,
+          "hw": "POWERON"
+        },
+        {
+          "op": "boot",
+          "reason": "TASK_WDT",
+          "version": "0.3.0",
+          "panic": "task_wdt: loopTask (CPU 1)",
+          "hw": "CORE_SW"
+        },
+        {
+          "op": "boot",
+          "reason": "TASK_WDT",
+          "version": "0.3.0",
+          "panic": null,
+          "hw": "CORE_MWDT0"
+        },
+        {
+          "op": "boot",
+          "reason": "USB",
+          "version": "0.3.0",
+          "panic": null,
+          "hw": "USB_UART"
+        },
+        {
+          "op": "boot",
+          "reason": "WDT",
+          "version": "0.3.0",
+          "panic": null,
+          "hw": "A_VERY_LONG_HW_CAUSE"
+        }
+      ],
+      "boots": [
+        {
+          "reason": "WDT",
+          "hw": "A_VERY_LONG_HW_",
+          "crash": true,
+          "version": "0.3.0",
+          "uptime_s": 0,
+          "min_free_heap": 0,
+          "panic": null,
+          "last_seen": null
+        },
+        {
+          "reason": "USB",
+          "hw": "USB_UART",
+          "crash": false,
+          "version": "0.3.0",
+          "uptime_s": 0,
+          "min_free_heap": 0,
+          "panic": null,
+          "last_seen": null
+        },
+        {
+          "reason": "TASK_WDT",
+          "hw": "CORE_MWDT0",
+          "crash": true,
+          "version": "0.3.0",
+          "uptime_s": 0,
+          "min_free_heap": 0,
+          "panic": null,
+          "last_seen": null
+        },
+        {
+          "reason": "TASK_WDT",
+          "hw": "CORE_SW",
+          "crash": true,
+          "version": "0.3.0",
+          "uptime_s": 0,
+          "min_free_heap": 0,
+          "panic": "task_wdt: loopTask (CPU 1)",
+          "last_seen": null
+        },
+        {
+          "reason": "POWERON",
+          "hw": "POWERON",
+          "crash": false,
+          "version": "0.3.0",
+          "uptime_s": 0,
+          "min_free_heap": 0,
+          "panic": null,
+          "last_seen": null
+        }
+      ],
+      "last_crash": {
+        "reason": "WDT",
+        "panic": null,
         "version": "0.3.0",
         "uptime_s": 0,
         "last_seen": null
@@ -696,6 +820,7 @@
       "boots": [
         {
           "reason": "DEEPSLEEP",
+          "hw": null,
           "crash": false,
           "version": "0.3.0",
           "uptime_s": 0,
@@ -705,6 +830,7 @@
         },
         {
           "reason": "PANIC",
+          "hw": null,
           "crash": true,
           "version": "0.3.0",
           "uptime_s": 0,
@@ -714,6 +840,7 @@
         },
         {
           "reason": "DEEPSLEEP",
+          "hw": null,
           "crash": false,
           "version": "0.3.0",
           "uptime_s": 12,
@@ -723,6 +850,7 @@
         },
         {
           "reason": "POWERON",
+          "hw": null,
           "crash": false,
           "version": "0.3.0",
           "uptime_s": 0,

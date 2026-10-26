@@ -241,5 +241,39 @@ class Collector(unittest.TestCase):
                 os.environ["X4_TOKEN"] = old
 
 
+class Probe(unittest.TestCase):
+    """#227: the name and the IP are checked separately; a dead name with a live IP is its own finding."""
+
+    def test_name_and_ip(self):
+        class H(http.server.BaseHTTPRequestHandler):
+            def do_GET(self):
+                self.send_response(200); self.send_header("Content-Type", "application/json"); self.end_headers()
+                self.wfile.write(b"{}")
+
+            def log_message(self, *a):
+                pass
+
+        srv = http.server.ThreadingHTTPServer(("127.0.0.1", 0), H)
+        threading.Thread(target=srv.serve_forever, daemon=True).start()
+        port = srv.server_address[1]
+        try:
+            c, ip = soak.probe("http://localhost:%d" % port, "x4_t", 3, None)
+            self.assertEqual(ip, "127.0.0.1")
+            self.assertTrue(c["name_dns"].startswith("ok "))
+            self.assertEqual((c["ip_tcp"], c["ip_http"], c["name_http"]), ("ok", "200", "200"))
+            c, ip = soak.probe("http://x4-gone.invalid:%d" % port, "x4_t", 3, "127.0.0.1")   # last good IP
+            self.assertTrue(c["name_dns"].startswith("fail "))
+            self.assertEqual((ip, c["ip_tcp"], c["ip_http"], c["name_http"]), ("127.0.0.1", "ok", "200", "dns"))
+            rows = [dict(soak.unreachable_row(T0, "dns", None), **c)]
+            self.assertIn("name gone while the IP answered: 1.", soak.summarize(rows, "2026-10-16"))
+            c, _ = soak.probe("http://127.0.0.1:%d" % port, "x4_t", 3, None)   # an IP in --url: no name columns
+            self.assertEqual((c["name_dns"], c["name_http"], c["ip_http"]), ("", "", "200"))
+        finally:
+            srv.shutdown()
+            srv.server_close()
+        c, _ = soak.probe("http://127.0.0.1:%d" % port, "x4_t", 3, None)   # closed now
+        self.assertEqual((c["ip_tcp"], c["ip_http"]), ("refused", "refused"))
+
+
 if __name__ == "__main__":
     unittest.main()

@@ -110,6 +110,7 @@ void DeviceServices::begin() {
     h.status.currency = currency;
     h.status.ha = link.linked() ? HaState::Offline : HaState::NeverLinked;
     h.status.otaChecksOff = !otaRepo()[0];
+    h.status.otaLastCheckEpoch = otaLastCheckEpoch();
     h.setupFinished = link.linked();
     h.markStatus();
   }
@@ -130,7 +131,9 @@ void DeviceServices::begin() {
   }
 
   tlsPoolBegin();   // before Wi-Fi: its WPA crypto uses mbedTLS too
+  heapMark("before Wi-Fi");
   wifiMgr().begin();
+  heapMark("Wi-Fi started");
   webServer().begin();
   auto ids = entityIdsOf(bootConfig_);
   LightSubs subs = lightSubs(bootConfig_);
@@ -144,7 +147,8 @@ void DeviceServices::begin() {
     published_ = h.status;
   }
   // Net task on core 0 (AsyncTCP lives there too); App/display/input stay on core 1.
-  xTaskCreatePinnedToCore(netTask, "x4net", 16384, this, 3, nullptr, 0);
+  // 12 KB, internal RAM (#248): peak use 5.1 KB on the X4 Pro (HA TLS, reports), 5.6 KB in QEMU (TLS, config apply)
+  xTaskCreatePinnedToCore(netTask, "x4net", 12288, this, 3, nullptr, 0);
 }
 
 void DeviceServices::netTask(void*) {
@@ -355,12 +359,7 @@ void DeviceServices::callService(const std::string& domain, const std::string& s
   hub().post([domain, service, jsonData] { haClient().callService(domain, service, jsonData); });
 }
 
-void DeviceServices::otaCheck() {
-  hub().post([] {
-    std::string err;
-    x4::net::otaCheck(err);
-  });
-}
+void DeviceServices::otaCheck() { otaRequestCheck(); }
 
 void DeviceServices::otaInstall() {
   hub().post([] {

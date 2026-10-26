@@ -11,7 +11,7 @@ namespace {
 
 // A new setting = one row here and one in emulator src/core/settings.ts (SETTINGS_KEYS / DISPLAY_KEYS).
 const char* const kKeys[] = {"display", "ota_channel", "tz", "name", "entities"};
-const char* const kDisplayKeys[] = {"brightness", "warmth", "night",      "returnHome", "standby", "clock",   "intervalSec",
+const char* const kDisplayKeys[] = {"brightness", "warmth", "lightTimeout", "night",      "returnHome", "standby", "clock",   "intervalSec",
                                     "fullEvery",  "cleanEvery", "otaAuto", "style",      "typeface", "surface", "haReport",
                                     "powerSave",  "wakeEvery", "liveMin",   // glance (#10)
                                     "debugInput"};                         // #214

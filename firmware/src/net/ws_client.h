@@ -15,6 +15,7 @@ namespace x4::net {
 class WsClient {
  public:
   static constexpr size_t kMaxMessage = 512 * 1024;
+  static constexpr uint32_t kSendDeadlineMs = 5000;   // per frame; a stall past it drops the connection (#248)
 
   bool connect(const Url& base, const std::string& path, uint32_t timeoutMs = 10000);  // blocking
   bool connected();

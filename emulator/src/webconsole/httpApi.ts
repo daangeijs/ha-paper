@@ -8,7 +8,7 @@ import type { Diagnostics } from '../core/diag.ts';
 import type { LogsResponse } from '../core/logs.ts';
 import type { Scope } from '../core/auth.ts';
 import { tr } from '../core/strings.ts';
-import { ApiError, DeviceUnreachableError, type DeviceApi, type DeviceSnapshot, type EntityList, type NetworkInfo, type ScreenValues, type SeedReportView, type TokenInfo } from './DeviceApi.ts';
+import { ApiError, DeviceUnreachableError, type DeviceApi, type DeviceSnapshot, type EntityList, type NetworkInfo, type OtaView, type ScreenValues, type SeedReportView, type TokenInfo } from './DeviceApi.ts';
 
 type WireToken = { id: string; name: string; scope: 'read' | 'write'; created: string; last_used: string | null; masked: string };
 type WireState = {
@@ -136,6 +136,7 @@ export function createHttpApi(base = '/api/v1', opts: { fetch?: typeof fetch; po
     },
     dismissSeedReport: () => req('DELETE', '/seed'),
 
+    getOta: () => req<OtaView>('GET', '/ota'),
     otaCheck: () => req('POST', '/ota/check'),
     otaInstall: () => req('POST', '/ota'),
 

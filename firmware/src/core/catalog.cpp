@@ -6,7 +6,7 @@ namespace x4 {
 
 const std::vector<const char*>& widgetTypes() {
   static const std::vector<const char*> v = {"clock", "stat", "price", "gauge", "bars", "route", "lightList", "switch",
-                                             "light", "scene", "zoneList", "thermo", "setting", "ota", "wifi", "ha", "about"};
+                                             "light", "scene", "zoneList", "thermo", "history", "setting", "ota", "wifi", "ha", "about"};
   return v;
 }
 
@@ -50,7 +50,7 @@ const EntityDef* findEntity(const std::string& id) {
 
 const std::vector<SettingDef>& settingDefs() {
   static const std::vector<SettingDef> v = {
-      {"brightness", S::setBrightness}, {"warmth", S::setWarmth}, {"night", S::setNight}, {"returnHome", S::setReturnHome},
+      {"brightness", S::setBrightness}, {"warmth", S::setWarmth}, {"lightTimeout", S::setLightTimeout}, {"night", S::setNight}, {"returnHome", S::setReturnHome},
       {"standby", S::setStandby}, {"clock", S::setClock}, {"interval", S::setInterval}, {"cleanEvery", S::setCleanEvery},
       {"fullEvery", S::setCleanEvery},   // legacy tile key (#26, #44)
       {"style", S::setStyle}, {"typeface", S::setTypeface}, {"surface", S::setSurface},   // display styles (device setting)
@@ -66,7 +66,7 @@ const SettingDef* findSetting(const std::string& key) {
 
 bool settingInfo(const std::string& key, S& out) {
   static const struct { const char* key; S info; } v[] = {
-      {"standby", S::infoStandby}, {"interval", S::infoInterval}, {"cleanEvery", S::infoCleanEvery}, {"fullEvery", S::infoCleanEvery},
+      {"lightTimeout", S::infoLightTimeout}, {"standby", S::infoStandby}, {"interval", S::infoInterval}, {"cleanEvery", S::infoCleanEvery}, {"fullEvery", S::infoCleanEvery},
       {"powerSave", S::infoPowerSave}, {"wakeEvery", S::infoWakeEvery}, {"liveMin", S::infoLiveMin},
   };
   for (auto& s : v) if (key == s.key) { out = s.info; return true; }

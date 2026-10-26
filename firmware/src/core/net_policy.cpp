@@ -1,6 +1,7 @@
 #include "core/net_policy.h"
 
 #include <algorithm>
+#include <cstdio>
 
 namespace x4 {
 
@@ -79,6 +80,40 @@ bool StaleLink::poll(uint32_t now) {
   return true;
 }
 
+std::string bssidTag(const uint8_t* bssid) {
+  if (!bssid) return {};
+  uint32_t h = 0x811c9dc5u;
+  for (int i = 0; i < 6; i++) h = (h ^ bssid[i]) * 16777619u;
+  char b[5];
+  snprintf(b, sizeof b, "%04x", unsigned((h ^ (h >> 16)) & 0xffff));
+  return b;
+}
+
+TlsPeer tlsPeerFor(const std::string& host) {
+  auto under = [&](const std::string& d) {
+    if (host == d) return true;
+    const size_t n = host.size(), k = d.size();
+    return n > k && host[n - k - 1] == '.' && host.compare(n - k, k, d) == 0;
+  };
+  return under("github.com") || under("githubusercontent.com") ? TlsPeer::GitHub : TlsPeer::Ha;
+}
+
+TlsFloor tlsFloor(TlsPeer peer, unsigned poolSlotsFree) {
+  const bool pooled = poolSlotsFree >= 2;
+  TlsFloor f;
+  f.freeInternal = (pooled ? kTlsMinFreePooled : kTlsMinFreeInternal) + (peer == TlsPeer::GitHub ? kTlsGitHubExtra : 0);
+  f.largestInternal = pooled ? kTlsMinLargestPooled : kTlsMinLargestBlock;
+  f.freeDma = f.freeInternal - kTlsDmaSlack;
+  f.largestDma = f.largestInternal;
+  return f;
+}
+
+bool heapOkForTls(const TlsHeap& h, TlsPeer peer) {
+  const TlsFloor f = tlsFloor(peer, h.poolSlotsFree);
+  return h.freeInternal >= f.freeInternal && h.largestInternal >= f.largestInternal && h.freeDma >= f.freeDma &&
+         h.largestDma >= f.largestDma;
+}
+
 bool HeapWatch::sample(uint32_t now, uint32_t largestFreeBlock, uint32_t freeInternal, int localHour, bool mayRestart) {
   if (heapOkForTls(largestFreeBlock, freeInternal)) {
     low_.reset();
@@ -87,6 +122,17 @@ bool HeapWatch::sample(uint32_t now, uint32_t largestFreeBlock, uint32_t freeInt
   }
   const uint32_t t = low_.add(now);
   if (sent_ || !mayRestart || localHour != 3 || t < kLowForMs) return false;
+  sent_ = true;
+  return true;
+}
+
+bool HeapStarve::sample(uint32_t now, uint32_t freeInternal, uint32_t freeDma) {
+  if (!under(freeInternal, freeDma)) {
+    low_.reset();
+    if (freeInternal >= kFloorInternal + kRecover && freeDma >= kFloorDma + kRecover) sent_ = false;
+    return false;
+  }
+  if (low_.add(now) < kLowForMs || sent_) return false;
   sent_ = true;
   return true;
 }

@@ -10,8 +10,8 @@
 //        solar   power ← source.stat_rate (HA ≥ 2025.12 power sensors) or a power sensor on the device of
 //                        stat_energy_from (device discovery template); today ← recorder change of stat_energy_from
 //        grid    power ← stat_rate | power[].stat_rate | power_config{stat_rate[_inverted] | stat_rate_from − _to}
-//                        (or device discovery); import/export today ← flow_from / flow_to statistics;
-//                prices ← flow_from[].entity_energy_price (attrs normalised to 24 × €/kWh, see hourlyPrices())
+//                        (or device discovery); import/export today ← meter statistics, prices ← entity_energy_price
+//                        (attrs normalised to 24 × €/kWh, see hourlyPrices()); both prefs shapes, see gridFlows()
 //        battery power ← stat_rate etc. (HA: + = discharging; the UI shows + = charging, so it is negated);
 //                soc   ← device_class battery sensor (%) on the battery's device
 //        home    power ← solar + grid + battery discharge (when the sources exist); today ← solar + import − export
@@ -31,6 +31,16 @@
 namespace x4 {
 
 using EntityUpdates = std::vector<std::pair<std::string, EntityValue>>;
+struct Json;
+
+// One energy/get_prefs grid source (#274): legacy flow_from[] / flow_to[] (stat_energy_from / stat_energy_to,
+// entity_energy_price) and HA 2025.12+ flat stat_energy_from / stat_energy_to / entity_energy_price /
+// entity_energy_price_export. Legacy first, a meter once, first price wins. = gridFlows() in emulator core/energyPrefs.ts.
+struct GridFlows {
+  std::vector<std::string> imports, exports;
+  std::string price, priceExport;
+};
+GridFlows gridFlows(const Json& src);
 
 struct EntitySource {
   std::string ha;          // HA entity id

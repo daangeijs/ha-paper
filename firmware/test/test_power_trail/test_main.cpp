@@ -17,6 +17,13 @@ static void test_poweron_after_running_is_lost_awake() {
   TEST_ASSERT_TRUE(verdict(kAwake, "POWERON") == Verdict::LostAwake);
 }
 
+// #258: turned off by a Power hold, then switched on again: asked for, not a loss
+static void test_poweron_after_off_is_not_a_loss() {
+  const std::string t = append(append(kAwake, keyLine(9000, 4100, false)), offLine(11200));
+  TEST_ASSERT_EQUAL_STRING("off 11200", lastLine(t).c_str());
+  TEST_ASSERT_TRUE(verdict(t, "POWERON") == Verdict::None);
+}
+
 static void test_other_resets_are_not_a_power_loss() {
   for (const char* r : {"DEEPSLEEP", "SW", "PANIC", "TASK_WDT", "USB", "BROWNOUT"}) {
     TEST_ASSERT_TRUE(verdict("sleep standby", r) == Verdict::None);
@@ -75,6 +82,7 @@ int main(int, char**) {
   UNITY_BEGIN();
   RUN_TEST(test_poweron_after_sleep_is_lost_asleep);
   RUN_TEST(test_poweron_after_running_is_lost_awake);
+  RUN_TEST(test_poweron_after_off_is_not_a_loss);
   RUN_TEST(test_other_resets_are_not_a_power_loss);
   RUN_TEST(test_glance_cycles_do_not_write_flash);
   RUN_TEST(test_boot_marks_awake_once);

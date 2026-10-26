@@ -1,10 +1,12 @@
 #include "core/home.h"
 #include "core/catalog.h"
+#include "core/entity_map.h"
 #include "core/json.h"
 #include "core/locale.h"
 #include <algorithm>
 #include <cmath>
 #include <cstdlib>
+#include <ctime>
 #include <limits>
 
 namespace x4 {
@@ -171,7 +173,7 @@ HomeData deriveHome(const EntityStore& st) {
   return d;
 }
 
-RouteState routeState(const EntityValue* e, bool car) {
+RouteState routeState(const EntityValue* e, bool car, Lang lang) {
   RouteState rs;
   if (!e) return rs;
   rs.has = true;
@@ -193,6 +195,26 @@ RouteState routeState(const EntityValue* e, bool car) {
       if (auto* in = x.get("info")) dep.info = in->strOr("");
       rs.deps.push_back(dep);
     }
+    return rs;
+  }
+  if (!parseJson(attr(e, "upcoming"), j) || !j.isArr()) return rs;
+  for (auto& x : j.arr) {   // NS departures integration (#275): ISO planned/actual, status on_time | delayed | cancelled
+    auto iso = [&x](const char* k) { auto* v = x.get(k); return v && v->isStr() ? parseIsoTime(v->str) : int64_t(-1); };
+    int64_t planned = iso("planned"), actual = iso("actual"), t = actual >= 0 ? actual : planned;
+    if (t < 0) continue;
+    time_t tt = time_t(t);
+    struct tm tm {};
+    localtime_r(&tt, &tm);
+    DepartureState dep;
+    dep.minuteOfDay = tm.tm_hour * 60 + tm.tm_min;
+    auto* dl = x.get("delay");
+    if (dl && dl->isNum()) dep.delay = dl->num;
+    else if (actual >= 0 && planned >= 0) dep.delay = std::max(0.0, jsRound(double(actual - planned) / 60.0));
+    auto str = [&x](const char* k) { auto* v = x.get(k); return v ? v->strOr("") : std::string(); };
+    dep.cancelled = str("status") == "cancelled";
+    std::string track = str("track"), dir = str("direction");
+    dep.info = track.empty() ? dir : tr(lang, S::routeTrack, track) + (dir.empty() ? "" : " · " + dir);
+    rs.deps.push_back(dep);
   }
   return rs;
 }

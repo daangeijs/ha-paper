@@ -201,6 +201,7 @@ components:
         available: { type: object, nullable: true, description: "The release found by a check, or the version an upload in progress named (null when it named none, #237)", properties: { version: { type: string }, size_mb: { type: number }, notes: { type: array, items: { type: string } } } }
         last_check: { type: string, format: date-time, nullable: true }
         message: { type: string, description: "With update checks off (repo empty): \"Update checks are off in this build. Install new firmware by upload (POST /api/v1/ota/upload).\"" }
+        error: { type: string, nullable: true, enum: [memory, network, busy, none, other, null], description: "x-firmware (#250): why the last check failed (status error); null otherwise, also for a failed install (message says why). memory = not enough RAM for the GitHub TLS handshake (try again in a minute); network = no Wi-Fi or no answer; busy = GitHub refused (403/429, rate limit); none = no releases published; other = any other answer (message has the HTTP status). status is checking from the moment POST /ota/check answers 202 until the result is in." }
         progress: { type: integer, description: "x-firmware: download progress 0–100" }
         repo: { type: string, description: "x-firmware: GitHub owner/repo checked; empty = not configured in this build (alpha builds): update checks off, auto off, status idle, POST /ota → 409, POST /ota/check → 202 without a check; POST /ota/upload still works" }
     Logs:
@@ -239,6 +240,7 @@ components:
             type: object
             properties:
               reason: { type: string, enum: [UNKNOWN, POWERON, EXT, SW, PANIC, INT_WDT, TASK_WDT, WDT, DEEPSLEEP, BROWNOUT, SDIO, USB, JTAG, EFUSE, PWR_GLITCH, CPU_LOCKUP], description: "esp_reset_reason() at the start of this boot" }
+              hw: { type: string, nullable: true, example: CORE_SW, description: "raw chip reset cause (#241, esp_rom_get_reset_reason) behind reason: POWERON, CORE_SW, CPU_SW, DEEP_SLEEP, CORE_MWDT0 (timer-group 0 watchdog stage reset: TASK_WDT without the panic path), CORE_MWDT1, CORE_RTC_WDT, CPU_MWDT0, CPU_MWDT1, CPU_RTC_WDT, SYS_BROWNOUT, SYS_RTC_WDT, SYS_SUPER_WDT, SYS_CLK_GLITCH, EFUSE_CRC, USB_UART, USB_JTAG, PWR_GLITCH or 0xNN; null when unknown" }
               crash: { type: boolean, description: "reason is PANIC, INT_WDT, TASK_WDT, WDT, BROWNOUT or CPU_LOCKUP" }
               version: { type: string, example: "0.3.0", description: firmware that ran this boot }
               uptime_s: { type: integer, description: "how long this boot ran (last update, every 10 s)" }
@@ -255,6 +257,17 @@ components:
             version: { type: string, example: "0.3.0" }
             uptime_s: { type: integer, nullable: true, description: "how long the crashed boot ran; null when that boot is no longer in the ring" }
             last_seen: { type: integer, nullable: true }
+        last_wdt:
+          type: object
+          nullable: true
+          description: "#241: the last task-watchdog timeout, written to RTC memory by the TWDT interrupt and reported by the boots after it (survives resets, not a power cut; cleared by DELETE)"
+          properties:
+            uptime_s: { type: integer, description: uptime of the boot that timed out, when it fired }
+            tasks: { type: string, example: "loopTask (CPU 1)", description: "tasks/users that did not feed the watchdog in time" }
+            free_internal: { type: integer, description: free internal heap when it fired (bytes) }
+            largest_internal: { type: integer, description: "largest free internal 8-bit block at the last 10 s sample before it fired (the interrupt does not take the heap lock)" }
+            min_dma: { type: integer, description: lowest free DMA-capable heap of that boot }
+            last_log: { type: string, nullable: true, example: "[W][HA] tls handshake failed", description: "newest line of that boot's log tail (GET /logs?boot=previous)" }
         heap:
           type: object
           properties:
@@ -340,6 +353,32 @@ components:
           properties:
             before_boot: { type: string, nullable: true, example: "key 123456 3950 0", description: "last line when this boot started; null = no trail yet" }
             lines: { type: array, maxItems: 8, items: { type: string }, description: newest lines, oldest first, example: ["awake", "key 123456 3950 0", "standby drawn 125020", "keyup 1180", "awake"] }
+        web:
+          type: object
+          description: "x-firmware (#227): the web server since boot. Also in the minute `[I][NET] web open … served … 503 … last_req …` log line"
+          required: [open, served, refused_503, last_request_age_s]
+          properties:
+            open: { type: integer, description: "connections the cap of 8 counts as open (API requests leave it when their handler starts)" }
+            served: { type: integer, description: "requests that left the cap count: an API request when its handler starts, anything else when its connection closes" }
+            refused_503: { type: integer, description: "connections refused at the cap of 8 (503 + Retry-After)" }
+            last_request_age_s: { type: integer, nullable: true, description: "seconds since served last went up; null = none since boot" }
+        mdns:
+          type: object
+          description: "x-firmware (#227): the ha-paper-XXXX.local responder. Restarted on every connect, on every DHCP lease event (also a renewal with the same IP), on a change of access point, and when no request came in for 30 min while the gateway answers"
+          required: [up, restarts, last_restart_reason]
+          properties:
+            up: { type: boolean, description: "false under QEMU (no multicast)" }
+            restarts: { type: integer, description: starts after the first one this boot }
+            last_restart_reason: { type: string, nullable: true, enum: [connect, got_ip, bssid, idle] }
+        wifi:
+          type: object
+          description: "x-firmware (#227): the station link, sampled every 10 s. Inbound watch: no request for 30 min → 3 pings to the gateway; an answer restarts mDNS only, silence reconnects Wi-Fi (idle alone never does)"
+          required: [rssi, bssid, idle_checks, idle_reconnects]
+          properties:
+            rssi: { type: integer, nullable: true, description: "dBm; null off Wi-Fi (QEMU: Ethernet)" }
+            bssid: { type: string, nullable: true, example: 3fa2, description: "4-hex tag of the access point (FNV-1a of the BSSID, not the MAC); changes on a roam" }
+            idle_checks: { type: integer, description: inbound-watch gateway checks this boot }
+            idle_reconnects: { type: integer, description: of those, the ones where the gateway was silent and Wi-Fi was re-made }
     SeedReport:
       type: object
       description: |
@@ -625,7 +664,7 @@ paths:
               schema:
                 type: object
                 properties:
-                  display: { type: object, properties: { brightness: { type: integer }, warmth: { type: integer }, night: { type: string, example: "23-07" }, returnHome: { type: string, example: "5" }, standby: { type: string, example: never }, clock: { type: string, example: "24" }, intervalSec: { type: integer, example: 30 }, fullEvery: { type: integer, example: 8, description: "legacy (#26): stored and served, no effect" }, cleanEvery: { type: integer, enum: [30, 60, 120], example: 30, description: "minutes between scheduled clean (full) refreshes, at :00/:30; skipped at night (#26)" },
+                  display: { type: object, properties: { brightness: { type: integer }, warmth: { type: integer }, lightTimeout: { type: integer, enum: [30, 60, 120, 300, 0], default: 60, description: "seconds without a key or touch before the front light turns off (#220); 0 = never. The brightness setting is unchanged; the next key or tap (not Power) only turns the light back on. Home Assistant updates do not. 422: display.lightTimeout must be 0, 30, 60, 120 or 300" }, night: { type: string, example: "23-07" }, returnHome: { type: string, example: "5" }, standby: { type: string, example: never }, clock: { type: string, example: "24" }, intervalSec: { type: integer, example: 30 }, fullEvery: { type: integer, example: 8, description: "legacy (#26): stored and served, no effect" }, cleanEvery: { type: integer, enum: [30, 60, 120], example: 30, description: "minutes between scheduled clean (full) refreshes, at :00/:30; skipped at night (#26)" },
                     otaAuto: { type: string, enum: [off, notify, night], description: "automatic updates (Settings › Updates); the web console edits it with ota_channel (#159)" },
                     style: { type: string, enum: [classic, sleek], default: classic, description: "Display style (see docs/DISPLAY_STYLES_PLAN.md). A change is one full refresh. 422: style must be classic or sleek" },
                     typeface: { type: string, enum: [archivo, bricolage, fraunces, geist], default: archivo, description: "Sleek typeface (ignored in classic). 422: typeface must be archivo, bricolage, fraunces or geist" },

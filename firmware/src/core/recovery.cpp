@@ -17,20 +17,33 @@ RecoveryState recoveryOffer(uint32_t nowMs) {
 }
 
 RecoveryAction recoveryStep(RecoveryState& s, uint32_t nowMs, uint8_t keys) {
-  auto idle = [&](RecoveryAction a) { s = RecoveryState{}; s.armed = keys == 0; return a; };
+  const bool wasPowerArmed = s.powerArmed;
+  const bool powerArmed = s.powerArmed || !(keys & kKeyPower);
+  s.powerArmed = powerArmed;
+  auto idle = [&](RecoveryAction a) { s = RecoveryState{}; s.armed = keys == 0; s.powerArmed = powerArmed; return a; };
+  auto reset = [&]() { s = RecoveryState{}; s.powerArmed = powerArmed; return RecoveryAction::None; };
+  auto at = [&](RecoveryPhase p) { s.phase = p; s.since = nowMs; s.armed = true; s.crash = false; return RecoveryAction::None; };
   const uint32_t elapsed = nowMs - s.since;   // millis() wraps: unsigned
   switch (s.phase) {
     case RecoveryPhase::Idle:
       if (!s.armed) { s.armed = keys == 0; return RecoveryAction::None; }
-      if (keys == kCombo) { s.phase = RecoveryPhase::Hold; s.since = nowMs; }
-      else if (keys == kRestartCombo) { s.phase = RecoveryPhase::RestartHold; s.since = nowMs; }
+      if (keys == kCombo) return at(RecoveryPhase::Hold);
+      if (keys == kRestartCombo) return at(RecoveryPhase::RestartHold);
+      if (keys == kKeyPower && wasPowerArmed) return at(RecoveryPhase::PowerHold);
+      return RecoveryAction::None;
+    case RecoveryPhase::PowerHold:
+      if (keys == 0) return idle(RecoveryAction::Press);   // released before 2 s: a short press
+      if (keys == kCombo) return at(RecoveryPhase::Hold);
+      if (keys == kRestartCombo) return at(RecoveryPhase::RestartHold);
+      if (keys != kKeyPower) return reset();
+      if (elapsed >= kPowerOffHoldMs) return idle(RecoveryAction::Off);   // still held: unarmed, the key-up does nothing
       return RecoveryAction::None;
     case RecoveryPhase::RestartHold:
-      if (keys != kRestartCombo) { s = RecoveryState{}; return RecoveryAction::None; }
+      if (keys != kRestartCombo) return reset();
       if (elapsed >= kRestartHoldMs) return idle(RecoveryAction::Restart);   // keys still held: unarmed
       return RecoveryAction::None;
     case RecoveryPhase::Hold:
-      if (keys != kCombo) { s = RecoveryState{}; return RecoveryAction::None; }
+      if (keys != kCombo) return reset();
       if (elapsed >= kResetHoldMs) {
         s.phase = RecoveryPhase::Confirm; s.since = nowMs; s.armed = false; s.crash = false;
         return RecoveryAction::Show;
@@ -61,6 +74,7 @@ const char* recoveryPhaseName(RecoveryPhase p) {
   switch (p) {
     case RecoveryPhase::Hold: return "hold";
     case RecoveryPhase::RestartHold: return "rhold";
+    case RecoveryPhase::PowerHold: return "phold";
     case RecoveryPhase::Confirm: return "confirm";
     default: return "idle";
   }
@@ -73,6 +87,8 @@ const char* recoveryActionName(RecoveryAction a) {
     case RecoveryAction::Cancel: return "cancel";
     case RecoveryAction::Timeout: return "timeout";
     case RecoveryAction::Restart: return "restart";
+    case RecoveryAction::Press: return "press";
+    case RecoveryAction::Off: return "off";
     default: return "none";
   }
 }

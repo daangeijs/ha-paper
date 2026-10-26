@@ -77,6 +77,35 @@ class StaleLink {
   uint32_t fails_ = 0, firstFail_ = 0, waitMs_ = kStaleMs;
 };
 
+// ---------- inbound watch (#227) ----------
+// Overnight soak: the .local name stopped resolving for an hour while the device kept pushing to HA. With the link up
+// and no web request served for kIdleMs, the net task pings the gateway: unreachable → Wi-Fi reconnect; reachable →
+// mDNS restart only. Idle alone never reconnects (no browser open is normal). Each check starts the window over.
+class InboundWatch {
+ public:
+  static constexpr uint32_t kIdleMs = 30UL * 60UL * 1000UL;
+  enum class Action : uint8_t { MdnsRestart, Reconnect };
+  void linkUp(uint32_t now) {
+    if (!up_) since_ = now;
+    up_ = true;
+  }
+  void linkDown() { up_ = false; }
+  void served(uint32_t now) { since_ = now; }   // a request completed
+  bool due(uint32_t now) const { return up_ && now - since_ >= kIdleMs; }
+  Action checked(uint32_t now, bool gatewayOk) {
+    since_ = now;
+    return gatewayOk ? Action::MdnsRestart : Action::Reconnect;
+  }
+
+ private:
+  bool up_ = false;
+  uint32_t since_ = 0;
+};
+
+// Short, non-reversible AP tag for logs and /diagnostics: 4 hex digits of FNV-1a over the 6 BSSID bytes. Tells a
+// roam between APs apart without publishing a MAC.
+std::string bssidTag(const uint8_t* bssid);
+
 // ---------- heap guard ----------
 // mbedTLS allocates from internal RAM (CONFIG_MBEDTLS_INTERNAL_MEM_ALLOC). Measured under QEMU (#79): a handshake
 // peaks at ~45 KB in total; its largest single piece is a 16,717 B record buffer (one in, one out:
@@ -97,6 +126,25 @@ inline bool heapOkForTls(uint32_t largestFreeBlock, uint32_t freeInternal, unsig
   return largestFreeBlock >= kTlsMinLargestPooled && freeInternal >= kTlsMinFreePooled;
 }
 
+// Per peer and with a DMA floor (#248, real X4 Pro): an HA handshake costs ~10 KB of internal RAM, api.github.com
+// ~47 KB (52.5 KB free before, 5,304 B at the low point, min_dma 716 B; the Wi-Fi RX buffers need DMA RAM). GitHub
+// adds 16 KB to the internal floor. MALLOC_CAP_INTERNAL also counts ~8 KB of non-DMA RAM (seen: DMA 4.6–7.7 KB under
+// internal), so the DMA floor is the internal one minus 12 KB; the largest DMA block must hold what the internal rule
+// asks for.
+enum class TlsPeer : uint8_t { Ha, GitHub };   // Ha: any host but GitHub's
+TlsPeer tlsPeerFor(const std::string& host);    // github.com, *.github.com, *.githubusercontent.com → GitHub
+constexpr uint32_t kTlsGitHubExtra = 16 * 1024;
+constexpr uint32_t kTlsDmaSlack = 12 * 1024;
+struct TlsHeap {
+  uint32_t freeInternal, largestInternal, freeDma, largestDma;
+  unsigned poolSlotsFree;
+};
+struct TlsFloor {
+  uint32_t freeInternal, largestInternal, freeDma, largestDma;
+};
+TlsFloor tlsFloor(TlsPeer peer, unsigned poolSlotsFree);
+bool heapOkForTls(const TlsHeap& h, TlsPeer peer);
+
 // Low on every sample for 30 min → maintenance restart, but only 03:00–03:59 local and when allowed.
 class HeapWatch {
  public:
@@ -104,6 +152,31 @@ class HeapWatch {
   // localHour: 0–23, -1 = clock not set (never restarts). Returns true once when the restart is due.
   bool sample(uint32_t now, uint32_t largestFreeBlock, uint32_t freeInternal, int localHour, bool mayRestart);
   uint32_t lowForMs() const { return low_.total(); }
+
+ private:
+  ElapsedSum low_;
+  bool sent_ = false;
+};
+
+// Internal or DMA RAM under the floor for kLowForMs → drop the HA WebSocket (#248). The TLS guard only stops new
+// sessions; at RSSI -88 the Wi-Fi buffers drained the heap with the WebSocket up (min 340 B, 1.6 KB RX allocs failing,
+// then a watchdog reset). True once per low spell; re-arms when both are back above floor + kRecover.
+class HeapStarve {
+ public:
+  static constexpr uint32_t kFloorInternal = 24 * 1024;
+  static constexpr uint32_t kFloorDma = 16 * 1024;
+  static constexpr uint32_t kRecover = 8 * 1024;
+  static constexpr uint32_t kLowForMs = 10000;
+  static bool under(uint32_t freeInternal, uint32_t freeDma) {
+    return freeInternal < kFloorInternal || freeDma < kFloorDma;
+  }
+  // Deeper: the web server refuses new connections (503) below this, at once.
+  static constexpr uint32_t kRefuseInternal = 12 * 1024;
+  static constexpr uint32_t kRefuseDma = 8 * 1024;
+  static bool critical(uint32_t freeInternal, uint32_t freeDma) {
+    return freeInternal < kRefuseInternal || freeDma < kRefuseDma;
+  }
+  bool sample(uint32_t now, uint32_t freeInternal, uint32_t freeDma);
 
  private:
   ElapsedSum low_;

@@ -20,6 +20,7 @@
 #include "core/panel_guard.h"
 #include "hw/hw_diag.h"
 #include "hw/watchdog.h"
+#include "net/diag.h"
 #include "net/power.h"
 
 // QEMU's panic handler loops instead of resetting (main.cpp, X4_TEST_CRASH_ON_BOOT), so a task-watchdog panic would
@@ -28,8 +29,18 @@
 // dump → reset, hw/watchdog.h). QEMU's MWDT does not count either, so today only the X4_TEST_WDT_HANG stand-in
 // (main.cpp, sim/qemu/wdt-test.sh) calls this.
 extern "C" void IRAM_ATTR esp_task_wdt_isr_user_handler(void) {
+  x4::net::diagWdtFired();   // the RTC watchdog record, as on hardware (net/diag.cpp)
   esp_rom_printf("[qemu] task watchdog fired · software reset (TASK_WDT)\n");
   esp_reset_reason_set_hint(ESP_RST_TASK_WDT);
+  esp_rom_software_reset_system();
+}
+
+// #245: esp_restart_noos resets CPU 1, then CPU 0. Espressif QEMU does not emulate the CPU stall and can merge the two
+// reset requests into a PRO-only reset, so the old image keeps running on core 1 (and the interrupt matrix keeps its
+// routing) during the next boot, which then hangs silently. `-Wl,--wrap=esp_rom_software_reset_cpu` (x4qemu envs
+// only) makes it one system reset: both cores and the interrupt matrix. rst:0x3 still reads as ESP_RST_SW / the hint.
+extern "C" void IRAM_ATTR __wrap_esp_rom_software_reset_cpu(int cpu) {
+  if (cpu != 0) return;   // folded into the system reset of the CPU 0 call
   esp_rom_software_reset_system();
 }
 
@@ -110,7 +121,9 @@ void QemuBoard::notifyOnInput(void* task) { g_consumer = static_cast<TaskHandle_
 bool QemuBoard::pollInput(InputEvent& out) { return g_queue && xQueueReceive(g_queue, &out, 0) == pdTRUE; }
 
 // No I2C in QEMU: a fixed gauge, 80 % at 3950 mV (below the 4.15 V "recently charged" line). USB unless POST /__qemu/power.
-PowerInfo QemuBoard::power() { return PowerInfo{80, false, !net::powerSimBattery(), true, 3950}; }
+PowerInfo QemuBoard::power() {
+  return PowerInfo{80, net::powerSimCharging(), !net::powerSimBattery(), true, net::powerSimMv()};
+}
 
 uint32_t QemuBoard::millis() { return ::millis(); }
 
@@ -120,6 +133,7 @@ int64_t QemuBoard::epochSeconds() {
 }
 
 void QemuBoard::restart() { esp_restart(); }
+void QemuBoard::powerOff() { LOG_INF("POWER", "off by Power hold · QEMU: no latch, stays on the face until Power"); }
 
 bool QemuBoard::pushInput(const InputEvent& e) { return qemuPushEvent(e); }
 

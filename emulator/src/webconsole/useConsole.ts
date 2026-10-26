@@ -10,14 +10,16 @@ import { fmtUptime, type Diagnostics } from '../core/diag.ts';
 import { armLine } from '../core/glance.ts';
 import { parseHaAddress } from '../core/haAddress.ts';
 import { consoleLang, tr, trMsg, trParts, type StrKey } from '../core/strings.ts';
-import { DeviceUnreachableError, type DeviceApi, type DeviceSnapshot, type EntityLists } from './DeviceApi.ts';
+import { DeviceUnreachableError, type DeviceApi, type DeviceSnapshot, type EntityLists, type OtaView } from './DeviceApi.ts';
+import { otaLine } from '../core/otaStatus.ts';
+import { HISTORY_AGGS, WINDOW_DEFAULT, historySource, parseSpan } from '../core/history.ts';
 import { HA_NO_ANSWER } from './httpApi.ts';
 import { loadAdvPage, loadView, saveAdvPage, saveView, tileCrops, tileValueFor, useScreenPreview, useScreenValues, type AdvPage, type ScreenView } from './preview.ts';
 import { CLASSIC_GRID, SLEEK_GRID } from '../core/paging.ts';
 import { fromKey, logicalSource, nowLine, sharedLine, sharedWith, tileLogical } from './tileSource.ts';
 import { loadPreviewSeen, savePreviewSeen } from './checklist.ts';
 import { useDeviceLogs } from './logsView.ts';
-import { addApp, addTile, cleanLabel, clearPicks, pickGroups, togglePick, entitiesFor, hasLabelField, pickDomains, pickedEntity, setBarsSeries, entityIssue, entityValue, firstIssue, matches, moveApp, moveScreen, moveTile, nudgeTile, rankEntities,
+import { addApp, addTile, cleanLabel, clearPicks, pickGroups, togglePick, entitiesFor, hasLabelField, pickDomains, pickedEntity, setBarsSeries, setHistoryKey, setHistorySource, historyWindows, historyIssue, bucketsFor, entityIssue, entityValue, firstIssue, matches, moveApp, moveScreen, moveTile, nudgeTile, rankEntities,
   capHides, removeApp, removeTile, renameApp, resizeTile, setSceneAllOff, setTileEntity, setTileLabel, tileSize, titleIssue, type TileEdit } from './configEdit.ts';
 
 type Tab = 'screens' | 'device' | 'advanced';
@@ -28,6 +30,8 @@ type Local = {
   qScreens: string; qPalette: string; qEntity: string; newApp: string; editApp: string | null; appMsg: string; dropApp: string | null;
   settings: DeviceSettings | null; settingsMsg: { ok: boolean; text: string } | null;
   diag: Diagnostics | null; diagMsg: string; haReport: ReportStatus | null;
+  /** Updates card (#250): GET /ota; otaMsg = a refused POST /ota/check */
+  ota: OtaView | null; otaMsg: string;
   yaml: string; yamlEdited: boolean; yamlMsg: { ok: boolean; text: string } | null;
   newName: string; newScope: 'ro' | 'rw'; reveal: { id: string; secret: string } | null;
   wifiSel: string; wifiPw: string; wifiMsg: string; wifiBusy: boolean;
@@ -42,7 +46,7 @@ type Local = {
   wifiOpen: boolean; infoOpen: Record<string, boolean>;
 };
 const INITIAL: Local = { signing: false, tab: 'screens', sel: 0, selW: -1, draft: null, dirty: false,
-  qScreens: '', qPalette: '', qEntity: '', canvasMsg: '', dropCell: -1, pend: null, newApp: '', editApp: null, appMsg: '', dropApp: null, settings: null, settingsMsg: null, diag: null, diagMsg: '', haReport: null, yaml: '', yamlEdited: false, yamlMsg: null,
+  qScreens: '', qPalette: '', qEntity: '', canvasMsg: '', dropCell: -1, pend: null, newApp: '', editApp: null, appMsg: '', dropApp: null, settings: null, settingsMsg: null, diag: null, diagMsg: '', haReport: null, ota: null, otaMsg: '', yaml: '', yamlEdited: false, yamlMsg: null,
   srcOpen: false, qSrc: '', srcFlip: false, srcMsg: null, wifiOpen: false, infoOpen: {},
   newName: 'Laptop', newScope: 'rw', reveal: null, wifiSel: 'HomeNet', wifiPw: '', wifiMsg: '', wifiBusy: false, haUrl: null, haEdit: false, haMsg: '' };
 
@@ -210,6 +214,15 @@ export function useConsole(api: DeviceApi, initial: DeviceSnapshot | null = null
   const loadDiag = () => api.getDiagnostics().then((d) => setWeb({ diag: d, diagMsg: '' }), (e: Error) => setWeb({ diagMsg: e.message }));
   const loadReport = () => api.getHaReport().then((r) => setWeb({ haReport: r }), () => setWeb({ haReport: null }));
   useEffect(() => { if (onDevice) { loadDiag(); loadReport(); } }, [api, onDevice, rev]);
+  const loadOta = useCallback(() => api.getOta().then((o) => setWeb({ ota: o }), () => {}), [api, setWeb]);
+  // a check runs on the display for a few seconds: follow it until the result is in
+  const otaChecking = W.ota?.status === 'checking';
+  useEffect(() => {
+    if (!onDevice) return;
+    loadOta();
+    const t = otaChecking ? setInterval(loadOta, 1000) : undefined;
+    return () => clearInterval(t);
+  }, [loadOta, onDevice, otaChecking]);
   const putSetting = (f: SettingField, value: string | number | boolean) => {
     const key = f.key;
     api.putSettings((f.top ? { [key]: value } : { display: { [key]: value } }) as SettingsPatch).then(
@@ -368,7 +381,7 @@ export function useConsole(api: DeviceApi, initial: DeviceSnapshot | null = null
     blocks: cur ? gridLayout(cur.widgets).map((c, j) => ({ c, w: cur.widgets[j], j })).filter((o) => o.c).map(({ c, w, j }) => ({ j, col: c!.col, row: c!.row, cs: c!.cs, rs: c!.rs, name: liveValue(w, j) || nameAt(w, j),
       // #184: no widget type, size or entity id on the card; the names are HA's friendly names
       sub: liveValue(w, j) ? nameAt(w, j) : capNote(w) || (gapOf(w.entity) ? gapWord(gapOf(w.entity)!, true) : ''), border: j === selW ? '3px solid #1d1d1f' : '1.5px solid #1d1d1f', bg: j === selW ? '#F6F5F2' : '#fff',
-      on: j === selW, bad: !!entityIssue(w, ents.ready ? ents.list : null)?.hard,
+      on: j === selW, bad: !!entityIssue(w, ents.ready ? ents.list : null)?.hard || !!historyIssue(w),
       aria: nameAt(w, j) + (liveValue(w, j) ? ', ' + liveValue(w, j) : '') + ', ' + tileSize(w) + ', column ' + c!.col + ', row ' + c!.row,
       crop: crops[j] && shot ? { url: shot.url, box: `${crops[j]!.x} ${crops[j]!.y} ${crops[j]!.w} ${crops[j]!.h}` } : null,
       select: () => setWeb({ selW: j === selW ? -1 : j, srcOpen: false, qSrc: '', srcFlip: false, srcMsg: null }),
@@ -396,26 +409,26 @@ export function useConsole(api: DeviceApi, initial: DeviceSnapshot | null = null
       rows: g.rows.map((r) => ({ ...r, toggle: () => { if (cur && !r.viaArea) commit(togglePick(cur.widgets, selW, 'entities', r.id), selW); } })) })) : [],
     listEmpty: ents.ready && !!sw && !!LIST_PICKS[sw.type] && !pickGroups(ents.list, ents.areas, sw, W.qEntity, '').length,
     // entity picker (stat / gauge / switch)
-    hasPicker: !!sw && !!pickDomains(sw.type),
-    pickerHint: sw && pickDomains(sw.type) ? t('pickerHint', pickDomains(sw.type)!.join(', ')) : '',
+    hasPicker: !!sw && !!pickDomains(sw.type, sw),
+    pickerHint: sw && pickDomains(sw.type, sw) ? t('pickerHint', pickDomains(sw.type, sw)!.join(', ')) : '',
     entLoading: !ents.ready, entError: ents.error, entStatus: ents.error ? t('retrying', tm(ents.error))
       : S && !S.ha.linked ? t('notLinkedNoList')
         : S && S.offline ? t('haDownList')
           : t('loadingHa'),
     qEntity: W.qEntity, setQEntity: (e: ChangeEvent<HTMLInputElement>) => setWeb({ qEntity: e.target.value }),
     // best fit for the widget first (configEdit rankEntities), with HA's value when the list was read
-    entities: sw && pickDomains(sw.type) ? [
+    entities: sw && pickDomains(sw.type, sw) ? [
       // scene tile (#146): the built-in all lights off first (no entity), then HA's scenes and scripts
       ...(sw.type === 'scene' && matches(W.qEntity, t('allLightsOff'), 'all_off') ? [{ id: 'all_off', name: t('allLightsOff'), value: t('sceneBuiltIn'), on: !sw.entity }] : []).map((r) => ({ ...r,
         bg: r.on ? '#1d1d1f' : '#fff', fg: r.on ? '#fff' : '#1d1d1f', sub: r.on ? '#d9d6ce' : '#5c5a55', pick: () => { if (cur) commit(setSceneAllOff(cur.widgets, selW), selW); } })),
-      ...preferFirst(rankEntities(ents.list, sw.type, W.qEntity), pendAt(selW)?.prefer).slice(0, 200).map((en) => {
+      ...preferFirst(rankEntities(ents.list, sw.type, W.qEntity, sw), pendAt(selW)?.prefer).slice(0, 200).map((en) => {
         const on = (pickedEntity(sw) || (sw.type === 'gauge' ? GAUGE_DEFAULT_ENTITY : '')) === en.id;
         const value = sw.type === 'scene' ? '' : entityGap(en.state) ? gapWord(entityGap(en.state)!) : tm(entityValue(en));
         return { id: en.id, name: en.name, value, on, bg: on ? '#1d1d1f' : '#fff', fg: on ? '#fff' : '#1d1d1f', sub: on ? '#d9d6ce' : '#5c5a55',
           pick: () => { if (cur) { commit(setTileEntity(cur.widgets, selW, en.id), selW); setWeb({ srcOpen: true }); } } };
       })] : [],
     entityErr: sw ? selIssue(sw) : null,
-    noEntities: ents.ready && !!sw && !!pickDomains(sw.type) && !entitiesFor(ents.list, sw.type, W.qEntity).length && !(sw.type === 'scene' && !W.qEntity.trim()),
+    noEntities: ents.ready && !!sw && !!pickDomains(sw.type, sw) && !entitiesFor(ents.list, sw.type, W.qEntity, sw).length && !(sw.type === 'scene' && !W.qEntity.trim()),
     // the display lists at most 800 entities, the most useful first (#150)
     entCut: ents.lists?.entities && ents.lists.entities.shown < ents.lists.entities.total ? t('capEntities', ents.lists.entities.shown, ents.lists.entities.total) : '',
     // nothing to pick (#86): the search found nothing, or HA has no entity of these domains at all
@@ -435,6 +448,36 @@ export function useConsole(api: DeviceApi, initial: DeviceSnapshot | null = null
     isBars: !!sw && sw.type === 'bars',
     seriesOpts: BARS_SERIES.map((m) => ({ label: t(({ prices: 'seriesPrices', usage: 'seriesUsage', solar: 'seriesSolar' } as const)[m as 'prices' | 'usage' | 'solar']), ...seg(!!sw && (sw.series || 'usage') === m),
       pick: () => { if (cur) commit(setBarsSeries(cur.widgets, selW, m), selW); } })),
+    // history tile (#267): window, per bar, value, chart, range; choices from core/history.ts
+    isHistory: !!sw && sw.type === 'history',
+    ...(() => {
+      const h = sw && sw.type === 'history' ? sw : null;
+      const put = (k: Parameters<typeof setHistoryKey>[2], v: string | undefined) => { if (cur) commit(setHistoryKey(cur.widgets, selW, k, v), selW); };
+      const win = String(h?.window ?? WINDOW_DEFAULT), src = h ? historySource(h) : 'recorder', wins = historyWindows(src);
+      const winMs = parseSpan(win) ?? 0, half = winMs / 2 % 3_600_000 === 0 ? winMs / 7_200_000 + 'h' : winMs / 120_000 + 'm';
+      const ahead = h?.ahead === undefined ? 'next' : String(h.ahead) === '0' ? 'past' : 'around';
+      const field = (k: 'attribute' | 'value' | 'time') => (e: ChangeEvent<HTMLInputElement>) => put(k, e.target.value.replace(/[^A-Za-z0-9_]/g, ''));
+      const opt = (label: string, on: boolean, pick: () => void) => ({ label, ...seg(on), pick });
+      const err = h ? historyIssue(h) : null;
+      return {
+        // data source (#283): recorder, a list in an attribute, a weather forecast
+        histSources: ([['recorder', 'srcRecorder'], ['attribute', 'srcAttribute'], ['forecast', 'srcForecast']] as const).map(([k, lk]) => opt(t(lk), src === k, () => { if (cur) commit(setHistorySource(cur.widgets, selW, k), selW); })),
+        histIsAttr: src === 'attribute', histIsSeries: src !== 'recorder', histIsForecast: src === 'forecast',
+        histAttr: h?.attribute === undefined ? '' : String(h.attribute), setHistAttr: field('attribute'),
+        histValue: h?.value === undefined ? '' : String(h.value), setHistValue: field('value'), histValueHint: src === 'forecast' ? 'temperature' : 'value',
+        histTime: h?.time === undefined ? '' : String(h.time), setHistTime: field('time'),
+        histAheads: ([['next', 'aheadNext', undefined], ['around', 'aheadAround', half], ['past', 'aheadPast', '0']] as const).map(([k, lk, v]) => opt(t(lk), ahead === k, () => put('ahead', v))),
+        histForecasts: ([['hourly', 'fcHourly'], ['daily', 'fcDaily']] as const).map(([k, lk]) => opt(t(lk), String(h?.forecast ?? 'hourly') === k, () => put('forecast', k === 'hourly' ? undefined : k))),
+        histWindows: (wins.includes(win) ? wins : [...wins, win]).map((x) => opt(x, win === x, () => put('window', x === WINDOW_DEFAULT ? undefined : x))),
+        histBuckets: [opt(t('histAuto'), h?.bucket === undefined, () => put('bucket', undefined)), ...bucketsFor(win, h ?? undefined).map((b) => opt(b, String(h?.bucket) === b, () => put('bucket', b)))],
+        histAggs: HISTORY_AGGS.map((a) => opt(t(({ mean: 'aggMean', max: 'aggMax', min: 'aggMin', last: 'aggLast', change: 'aggChange' } as const)[a]), String(h?.agg ?? 'mean') === a, () => put('agg', a === 'mean' ? undefined : a))),
+        histStyles: ([['auto', 'histAuto'], ['bars', 'styleBars'], ['line', 'styleLine']] as const).map(([k, lk]) => opt(t(lk), String(h?.style ?? 'auto') === k, () => put('style', k === 'auto' ? undefined : k))),
+        histMin: h?.min === undefined ? '' : String(h.min), histMax: h?.max === undefined ? '' : String(h.max),
+        setHistMin: (e: ChangeEvent<HTMLInputElement>) => put('min', e.target.value.replace(/[^-\d.]/g, '')),
+        setHistMax: (e: ChangeEvent<HTMLInputElement>) => put('max', e.target.value.replace(/[^-\d.]/g, '')),
+        histErr: err ? tm(err.msg) : '',
+      };
+    })(),
     removeSel: () => removeAt(selW),
     moves: ([['←', 'moveLeft', -1, 0], ['→', 'moveRight', 1, 0], ['↑', 'moveUp', 0, -1], ['↓', 'moveDown', 0, 1]] as const)
       .map(([label, ak, dx, dy]) => ({ label, aria: t(ak), pick: () => { if (cur && sw) tileEdit(nudgeTile(cur.widgets, selW, dx, dy)); } })),
@@ -447,7 +490,7 @@ export function useConsole(api: DeviceApi, initial: DeviceSnapshot | null = null
     groups: Object.keys(gmap).map((g) => ({ label: tm(g), items: gmap[g].map((it) => ({ label: tm(it.label), dragStart: (e: DragEvent) => setDrag(e, { kind: 'new', w: it.w, pal: palOf(it) }), add: () => addNew(it.w, undefined, palOf(it)) })) })),
     // tile source (#191): one line, the Change panel behind it. Logical tiles: logicalSource (saved at once);
     // tiles with their own entity: the entity picker above (part of the draft, pushed with the screen)
-    hasSource: !!sw && (!!selLogical || !!pickDomains(sw.type)), srcLogical: !!selLogical, src: srcL,
+    hasSource: !!sw && (!!selLogical || !!pickDomains(sw.type, sw)), srcLogical: !!selLogical, src: srcL,
     srcEntity: srcL ? srcL.entity : swEntity || (sw?.type === 'scene' ? t('allLightsOff') : '—'),
     srcFrom: srcL ? srcL.from : swEntity ? t('srcByYou') : sw?.type === 'scene' ? t('sceneBuiltIn').toLowerCase() : t(fromKey(null)),
     srcNowLine: srcL ? srcL.now : swEntity && sw?.type !== 'scene' ? nowLine(t, tm, ents.list, swEntity) : '',
@@ -511,6 +554,16 @@ export function useConsole(api: DeviceApi, initial: DeviceSnapshot | null = null
         change: (e: ChangeEvent<HTMLSelectElement>) => { const raw = e.target.value; const v = typeof f.values[0] === 'number' ? Number(raw) : typeof f.values[0] === 'boolean' ? raw === 'true' : raw; putSetting(f, v); } };
     }) })) : [],
     hasSettingsMsg: !!W.settingsMsg, settingsMsg: W.settingsMsg ? W.settingsMsg.text : '', settingsMsgColor: W.settingsMsg && !W.settingsMsg.ok ? '#B3261E' : '#1E6B35',
+    // Updates (#250): what the display's Settings › Updates says, and Check
+    otaReady: !!W.ota,
+    otaLine: W.ota ? (W.ota.repo === '' ? { title: t('otaChecksOff'), sub: t('otaChecksOffText') }
+      : otaLine(lang, { status: W.ota.status, error: W.ota.error ?? null, version: W.ota.available?.version ?? '', checked: W.ota.last_check ? hm(new Date(W.ota.last_check)) : '', channel: W.ota.channel, message: W.ota.message }))
+      : { title: '', sub: '' },
+    otaMsg: W.otaMsg,
+    otaCanCheck: !!W.ota && W.ota.repo !== '' && !viewOnly && !['downloading', 'installing', 'verifying'].includes(W.ota.status),
+    otaChecking,
+    otaCheck: () => { if (otaChecking) return; setWeb({ otaMsg: '', ota: W.ota && { ...W.ota, status: 'checking' } });
+      api.otaCheck().then(loadOta, (e: Error) => { setWeb({ otaMsg: tm(e.message) }); loadOta(); }); },
     diagReady: !!W.diag, diagMsg: W.diagMsg,
     diagLines: W.diag ? diagLines(W.diag) : [],
     diagPanic: W.diag?.last_crash?.panic || '',

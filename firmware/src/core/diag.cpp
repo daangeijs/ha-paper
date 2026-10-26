@@ -27,7 +27,7 @@ std::string strOrNull(const char* s) { return s && *s ? jsonQuote(s) : "null"; }
 std::string epochOrNull(int64_t e) { return e > 0 ? std::to_string(e) : "null"; }
 
 std::string bootJson(const Boot& b, bool api) {
-  std::string o = "{\"reason\":" + jsonQuote(b.reason);
+  std::string o = "{\"reason\":" + jsonQuote(b.reason) + ",\"hw\":" + strOrNull(b.hw);
   if (api) o += std::string(",\"crash\":") + (isCrash(b.reason) ? "true" : "false");
   o += ",\"version\":" + jsonQuote(b.version) + ",\"uptime_s\":" + num(b.uptimeS) +
        ",\"min_free_heap\":" + num(b.minFreeHeap) + ",\"panic\":" + strOrNull(b.panic) +
@@ -44,7 +44,7 @@ const Boot* at(const Ring& r, int i) {
   return &r.boots[(r.head + kBoots - i) % kBoots];
 }
 
-void push(Ring& r, const char* reason, const char* version, const char* panic) {
+void push(Ring& r, const char* reason, const char* version, const char* panic, const char* hw) {
   // glance (#10): a DEEPSLEEP wake right after a DEEPSLEEP wake takes its slot, so wakes never push crashes out
   const bool wake = reason && !strcmp(reason, "DEEPSLEEP");
   if (wake && r.count && !strcmp(r.boots[r.head].reason, "DEEPSLEEP")) {
@@ -58,6 +58,7 @@ void push(Ring& r, const char* reason, const char* version, const char* panic) {
   copyCut(b.reason, sizeof b.reason, reason);
   copyCut(b.version, sizeof b.version, version);
   copyCut(b.panic, sizeof b.panic, panic);
+  copyCut(b.hw, sizeof b.hw, hw);
 }
 
 void touch(Ring& r, uint32_t uptimeS, uint32_t minFreeHeap, int64_t epoch) {
@@ -77,7 +78,8 @@ bool isCrash(const char* reason) {
 bool valid(const Ring& r) {
   if (r.count > kBoots || r.head >= kBoots) return false;
   for (const Boot& b : r.boots)
-    if (!terminated(b.reason, sizeof b.reason) || !terminated(b.version, sizeof b.version) || !terminated(b.panic, sizeof b.panic))
+    if (!terminated(b.reason, sizeof b.reason) || !terminated(b.version, sizeof b.version) || !terminated(b.panic, sizeof b.panic) ||
+        !terminated(b.hw, sizeof b.hw))
       return false;
   return true;
 }
@@ -120,8 +122,10 @@ bool fromJson(const std::string& text, Ring& out) {
     if (!b.isObj()) return false;
     const Json* panic = b.get("panic");
     const std::string p = panic ? panic->strOr("") : "";
+    const Json* hw = b.get("hw");
+    const std::string w = hw ? hw->strOr("") : "";
     push(out, (b.get("reason") ? b.get("reason")->strOr("UNKNOWN") : "UNKNOWN").c_str(),
-         (b.get("version") ? b.get("version")->strOr("") : "").c_str(), p.c_str());
+         (b.get("version") ? b.get("version")->strOr("") : "").c_str(), p.c_str(), w.c_str());
     Boot& cur = out.boots[out.head];
     if (const Json* u = b.get("uptime_s")) cur.uptimeS = static_cast<uint32_t>(u->numOr(0));
     if (const Json* h = b.get("min_free_heap")) cur.minFreeHeap = static_cast<uint32_t>(h->numOr(0));
@@ -147,10 +151,17 @@ void appendOlder(Ring& r, const Ring& older) {
   r = merged;
 }
 
+std::string wdtJson(const Wdt& w) {
+  if (!w.set) return "null";
+  return "{\"uptime_s\":" + num(w.uptimeS) + ",\"tasks\":" + jsonQuote(w.tasks) + ",\"free_internal\":" + num(w.freeInternal) +
+         ",\"largest_internal\":" + num(w.largestInternal) + ",\"min_dma\":" + num(w.minDma) +
+         ",\"last_log\":" + strOrNull(w.lastLog.c_str()) + "}";
+}
+
 std::string reportJson(const Ring& r, const Report& rep) {
   std::string o = "{\"firmware\":" + jsonQuote(rep.firmware) + ",\"uptime_s\":" + num(rep.uptimeS) +
                   ",\"reset_reason\":" + jsonQuote(rep.resetReason) + ",\"boots\":" + bootsJson(r) +
-                  ",\"last_crash\":" + lastCrashJson(r);
+                  ",\"last_crash\":" + lastCrashJson(r) + ",\"last_wdt\":" + wdtJson(rep.wdt);
   const Heap& h = rep.heap;
   o += ",\"heap\":{\"free_internal\":" + num(h.freeInternal) + ",\"min_free_internal\":" + num(h.minFreeInternal) +
        ",\"largest_free_internal\":" + num(h.largestFreeInternal) + ",\"free_psram\":" + num(h.freePsram) + ",\"low_point\":";
@@ -199,6 +210,14 @@ std::string reportJson(const Ring& r, const Report& rep) {
   o += ",\"power_trail\":{\"before_boot\":" + strOrNull(rep.trailBeforeBoot.c_str()) + ",\"lines\":[";
   for (size_t i = 0; i < rep.trail.size(); i++) o += (i ? "," : "") + jsonQuote(rep.trail[i]);
   o += "]}";
+  const Net& n = rep.net;
+  o += ",\"web\":{\"open\":" + std::to_string(n.webOpen) + ",\"served\":" + num(n.served) + ",\"refused_503\":" +
+       num(n.refused503) + ",\"last_request_age_s\":" + (n.lastRequestAgeS >= 0 ? std::to_string(n.lastRequestAgeS) : "null") + "}";
+  o += ",\"mdns\":{\"up\":" + std::string(n.mdnsUp ? "true" : "false") + ",\"restarts\":" + num(n.mdnsRestarts) +
+       ",\"last_restart_reason\":" + (n.mdnsReason ? jsonQuote(n.mdnsReason) : std::string("null")) + "}";
+  o += ",\"wifi\":{\"rssi\":" + (n.rssiKnown ? std::to_string(n.rssi) : std::string("null")) +
+       ",\"bssid\":" + (n.bssid.empty() ? std::string("null") : jsonQuote(n.bssid)) + ",\"idle_checks\":" +
+       num(n.idleChecks) + ",\"idle_reconnects\":" + num(n.idleReconnects) + "}";
   return o + "}";
 }
 

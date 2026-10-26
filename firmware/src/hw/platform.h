@@ -49,6 +49,7 @@ class Board {
   virtual void pause(uint32_t ms) { (void)ms; }   // block the calling task (hardware); no-op in host tests
   virtual uint8_t heldKeys() { return 0; }   // keys held now, core/recovery.h bits (kKeyPower | kKeyRight | kKeyLeft)
   virtual bool pushInput(const InputEvent&) { return false; }   // remote input (#214), any task; false = queue full
+  virtual void powerOff() {}   // Power held 2 s (#258): hardware cuts its own power, no return; QEMU / host return
 };
 
 }  // namespace x4

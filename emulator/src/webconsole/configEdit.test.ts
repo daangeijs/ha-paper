@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import { defaultConfig, parseYaml, toYaml, type Widget } from '../core/config.ts';
 import { HA_ENTITIES, ROOMS } from '../core/data.ts';
+import { bucketsFor, firstIssue, historyIssue, rankEntities, setHistoryKey } from './configEdit.ts';
 import { addApp, capHides, cleanLabel, clearPicks, entitiesFor, entityIssue, hasLabelField, matches, moveApp, moveScreen, pickDomains, pickedEntity, pickGroups, removeApp, renameApp, setBarsSeries, setSceneAllOff, setTileEntity, slugify, togglePick } from './configEdit.ts';
 import { presetHasAway } from '../core/format.ts';
 
@@ -111,6 +112,27 @@ describe('configEdit', () => {
     expect(setBarsSeries([{ type: 'bars', series: 'prices', cs: 4 }], 0, 'solar')[0]).toEqual({ type: 'bars', series: 'solar', cs: 4 });
     expect(['price', 'bars', 'thermo', 'gauge', 'stat', 'route'].every(hasLabelField)).toBe(true);
     expect(['clock', 'zoneList', 'lightList'].some(hasLabelField)).toBe(false);
+  });
+  it('history tile (#267): numeric entities, bucket choices per window, a new window drops a bucket that no longer fits', () => {
+    const list = [...HA_ENTITIES, { id: 'sensor.weather_text', name: 'Weather', unit: '', state: 'sunny' }];
+    const ids = entitiesFor(list, 'history', '').map((e) => e.id);
+    expect(ids).toContain('sensor.outdoor_temperature'); expect(ids).toContain('input_number.target_temp');
+    expect(ids).not.toContain('sensor.weather_text'); expect(ids).not.toContain('switch.coffee_machine');
+    expect(rankEntities(list, 'history', 'outdoor temp')[0].id).toBe('sensor.outdoor_temperature');
+    expect(bucketsFor('1h')).toEqual(['1m', '5m', '10m', '15m', '30m']);
+    expect(bucketsFor('7d')).toEqual(['2h', '3h', '6h', '12h', '1d']);
+    let ws: Widget[] = [{ type: 'history', entity: 'sensor.outdoor_temperature', cs: 4 }];
+    ws = setHistoryKey(ws, 0, 'window', '1h'); ws = setHistoryKey(ws, 0, 'bucket', '1m');
+    expect(ws[0]).toMatchObject({ window: '1h', bucket: '1m' });
+    ws = setHistoryKey(ws, 0, 'window', '7d');
+    expect(ws[0].bucket).toBeUndefined();
+    expect(historyIssue(ws[0])).toBeNull();
+    ws = setHistoryKey(setHistoryKey(ws, 0, 'min', '30'), 0, 'max', '-5');
+    expect(historyIssue(ws[0])).toEqual({ msg: 'min must be below max', hard: true });
+    const cfg = { ...defaultConfig(), screens: [{ id: 'a', app: 'home', title: 'A', widgets: ws }] };
+    expect(firstIssue(cfg, list)).toEqual({ screen: 0, tile: 0, msg: 'min must be below max' });
+    ws = setHistoryKey(ws, 0, 'max', ''); expect(ws[0].max).toBeUndefined(); expect(historyIssue(ws[0])).toBeNull();
+    expect(parseYaml(toYaml({ ...cfg, screens: [{ ...cfg.screens[0], widgets: ws }] })).screens[0].widgets[0]).toEqual({ ...ws[0], min: 30 });   // the dialect reads a bare integer as a number
   });
   it('presetHasAway (#148): a list or its JSON text', () => {
     expect(presetHasAway(['home', 'away'])).toBe(true);

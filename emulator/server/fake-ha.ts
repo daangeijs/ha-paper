@@ -4,8 +4,9 @@
 //   POST /auth/revoke          revoke a refresh token (always 200, like HA)
 //   POST /api/states/<id>      create/replace a state (admin only, like HA; 201 new, 200 existing): device health (#32)
 //   GET  /api/websocket        auth, auth/current_user, get_states, subscribe_entities, subscribe_events (state_changed),
-//                              call_service, energy/get_prefs, config/area_registry/list, config/entity_registry/list,
-//                              render_template (only the firmware's discovery / seed templates), recorder/statistics_during_period ({})
+//                              call_service (weather.get_forecasts with return_response, #283), energy/get_prefs, config/area_registry/list, config/entity_registry/list,
+//                              render_template (only the firmware's discovery / seed templates),
+//                              recorder/statistics_during_period + history/history_during_period (./fake-ha-history.ts, #266)
 //   /__fake/*                  test control (standalone `npm run fake-ha`, e.g. for the QEMU firmware contract run):
 //                              POST revoke-all · POST state {entity_id,state,attributes} · GET calls · POST llat {name,admin}
 //                              · GET posted (every POST /api/states, newest last) · POST big-house {n} (#57)
@@ -23,6 +24,11 @@
 //                              · POST language {language, number_format?} (get_config's `language`, #98; the Dutch houses
 //                                start with nl; number_format = the user profile's, frontend/get_user_data "language", #110;
 //                                time_zone / currency = get_config's, #147)
+//                              · GET history: recorder entities, seed, chatty, calls (statistics/history requests, newest
+//                                last) · POST history {seed?, chatty?, entities?: [{id, model, kind?}], states?, reset_calls?}
+//                                (states: put the recorder entities' current values into the house; chatty = sensor.chatty_power, #266)
+//                              · POST energy-prefs {variant: flat-grid|house} (energy/get_prefs with one HA 2025.12+ flat grid
+//                                source sensor.flat_grid_* instead of the house's grid flows, #274; house = back to normal)
 // Houses: 'demo' (default) = the emulator's mock data (src/core/data.ts), changing periodically;
 // 'stranger' = somebody else's HA (./fake-ha-stranger.ts, #23) to test first-run screens; 'big' = demo + ~1200 entities
 // with long attributes (./fake-ha-big.ts, #57); 'dutch' / 'dutch-energy' = SolarEdge + P1 + Anker battery + tado, Dutch names,
@@ -34,6 +40,7 @@ import type { Duplex } from 'node:stream';
 import { createServer as createNetServer, type AddressInfo, type Server as NetServer, type Socket } from 'node:net';
 import { ENT, LIGHT_LIST, PRICES, ROOMS, ROOM_NAME, SOLAR, USAGE, ZONE_LIST, CHEAP, EXTRA_ENTITIES } from '../src/core/data.ts';
 import { pad } from '../src/core/format.ts';
+import { demoForecast } from '../src/core/historyChart.ts';
 import { LIGHT_GROUP_ATTRS, SEED_CAPS, sensorKind, type ClimateRow, type HaSnapshot, type LightRow, type SensorRow } from '../src/core/seed.ts';
 import { acceptWebSocket, type WsConn } from './ws.ts';
 import { BIG_HOUSE_EXTRA, bigHouseEntities } from './fake-ha-big.ts';
@@ -42,6 +49,7 @@ import { DUTCH_AREAS, DUTCH_ENTITIES, DUTCH_PREFS } from './fake-ha-dutch.ts';
 import { entityListAnswer } from '../src/core/entityList.ts';
 import { REAL_AREAS, REAL_CONFIG, REAL_DEVICES, REAL_ENTITIES, REAL_PREFS, type RealDevice } from './fake-ha-real.ts';
 import { pkceChallenge, randomToken } from './ha-client.ts';
+import { FakeHistory, histEntity, type HistModel, type HistKind } from './fake-ha-history.ts';
 
 export type EntityState = { entity_id: string; state: string; attributes: Record<string, unknown>; last_changed: string; last_updated: string };
 type User = { id: string; name: string; isAdmin: boolean };
@@ -84,7 +92,24 @@ function initialStates(): Map<string, EntityState> {
   for (const e of EXTRA_ENTITIES) put(e.id, e.state, { friendly_name: e.name, ...(e.unit ? { unit_of_measurement: e.unit } : {}) });
   for (const id of ['sensor.living_temperature', 'sensor.outdoor_temperature']) m.get(id)!.attributes.device_class = 'temperature';
   m.get('sensor.outdoor_humidity')!.attributes.device_class = 'humidity';
+  Object.assign(m.get('binary_sensor.rain_expected')!.attributes, { device_class: 'moisture', forecast: rainForecast(Date.now()) });
+  Object.assign(m.get('weather.home')!.attributes, { temperature: 11.4, temperature_unit: '°C', humidity: 78, precipitation_unit: 'mm', supported_features: 3 });
   return m;
+}
+
+/** A rain nowcast attribute (#283, shaped like a radar integration's): 5-minute {datetime (UTC ISO), precipitation
+ *  (mm/h)} from 2 h before to 2 h after now, a shower about an hour ahead. */
+export const rainForecast = (now: number) => demoForecast('precipitation', 'datetime', 5 * 60_000, now, 0, 2 * 3_600_000);
+/** weather.get_forecasts (#283): hourly = 48 h from the current hour, daily = 7 days from today (UTC), with
+ *  temperature, precipitation and a condition. */
+export function weatherForecast(type: string, now: number): Record<string, string | number>[] | null {
+  const step = type === 'hourly' ? 3_600_000 : type === 'daily' ? 86_400_000 : 0; if (!step) return null;
+  const n = type === 'hourly' ? 48 : 7, from = Math.floor(now / step) * step;
+  const temp = demoForecast('temperature', 'datetime', step, from + 2 * 3_600_000, 0, n * step), rain = demoForecast('precipitation', 'datetime', step, from + 2 * 3_600_000, 0, n * step);
+  return temp.filter((e) => Date.parse(String(e.datetime)) >= from).slice(0, n).map((e, i) => {
+    const p = Number(rain.find((r) => r.datetime === e.datetime)?.precipitation ?? 0);
+    return { datetime: e.datetime, condition: p > 0.5 ? 'rainy' : i % 5 === 0 ? 'partlycloudy' : 'cloudy', temperature: e.temperature, precipitation: p, ...(type === 'daily' ? { templow: Number(e.temperature) - 6 } : {}) };
+  });
 }
 
 const DEMO_PREFS = {
@@ -95,6 +120,16 @@ const DEMO_PREFS = {
   ],
   device_consumption: [],
 };
+
+/** POST /__fake/energy-prefs {variant: 'flat-grid'}: the house's grid sources replaced by one HA 2025.12+ flat grid
+ * source (no flow_from / flow_to, #274); {variant: 'house'} restores the house's prefs. */
+export const FLAT_GRID = { type: 'grid', stat_energy_from: 'sensor.flat_grid_import', stat_energy_to: 'sensor.flat_grid_export', stat_cost: null,
+  entity_energy_price: 'sensor.flat_grid_price', number_energy_price: null, entity_energy_price_export: 'sensor.flat_grid_price_export',
+  number_energy_price_export: null, stat_rate: 'sensor.flat_grid_power', cost_adjustment_day: 0 };
+export function flatGridPrefs(prefs: unknown): unknown {
+  const p = (prefs && typeof prefs === 'object' ? prefs : { device_consumption: [] }) as { energy_sources?: { type?: string }[] };
+  return { ...p, energy_sources: [FLAT_GRID, ...(p.energy_sources ?? []).filter((s) => s?.type !== 'grid')] };
+}
 
 /** areaOf: the area HA's area_id() template answers (the entity's own, else its device's). With a device registry
  *  (`reg`): the entity registry's own area_id, device_id, display_precision, and the devices. */
@@ -220,6 +255,8 @@ export class FakeHa {
   templateErrors: string[] = [];
   /** Test knob: answer the seed template with this ERROR event instead of a result (POST /__fake/seed-fail). */
   seedFail: string | null = null;
+  /** Recorder: statistics + history series and the request log (#266). */
+  history = new FakeHistory();
   /** WebSocket sessions that got auth_ok since start (a reconnect after a fault adds one). */
   sessions = 0;
   private port = 0;
@@ -383,6 +420,11 @@ export class FakeHa {
     });
   }
 
+  historyInfo() {
+    const h = this.history;
+    return { seed: h.seed, chatty: h.chatty, entities: [...h.entities.values()].map((e) => ({ id: e.id, model: e.model, kind: e.kind, unit: e.unit, sample_s: e.sampleS })), calls: h.calls };
+  }
+
   /** Set an entity state and push it to subscribers. */
   setState(id: string, state: string, attrs: Record<string, unknown> = {}, replaceAttrs = false) {
     const old = this.states.get(id);
@@ -411,6 +453,8 @@ export class FakeHa {
     this.setState('sensor.solar_power', String(solar));
     this.setState('sensor.home_power', String(home));
     this.setState('sensor.grid_power', String(home - solar - num('sensor.battery_power')));
+    const rain = this.states.get('binary_sensor.rain_expected'), first = (rain?.attributes.forecast as { datetime?: string }[] | undefined)?.[0]?.datetime;
+    if (rain && Date.now() - Date.parse(String(first)) >= 2 * 3_600_000 + 5 * 60_000) this.setState(rain.entity_id, rain.state, { forecast: rainForecast(Date.now()) });   // #283: a new nowcast every 5 min
     if (Math.random() < 0.3) {
       const z = ZONE_LIST[Math.floor(Math.random() * ZONE_LIST.length)];
       const st = this.states.get('climate.' + z.id)!;
@@ -525,6 +569,20 @@ export class FakeHa {
         const b = JSON.parse((await readBody(req)) || '{}'); const e = this.priceSensor(b.entity_id ? String(b.entity_id) : undefined, Number(b.days ?? 2));
         return send(200, { entity_id: e.entity_id, entries: (e.attributes.prices as unknown[]).length, bytes: JSON.stringify(e.attributes).length });
       }
+      if (u.pathname === '/__fake/energy-prefs' && req.method === 'POST') {
+        const b = JSON.parse((await readBody(req)) || '{}'); const house = houseData(this.house).prefs;
+        this.prefs = b.variant === 'flat-grid' ? flatGridPrefs(house) : house; return send(200, this.prefs);
+      }
+      if (u.pathname === '/__fake/history' && req.method === 'GET') return send(200, this.historyInfo());
+      if (u.pathname === '/__fake/history' && req.method === 'POST') {
+        const b = JSON.parse((await readBody(req)) || '{}'); const h = this.history;
+        if (b.seed != null) h.seed = Number(b.seed);
+        if (Array.isArray(b.entities)) { h.entities.clear(); for (const e of b.entities) h.entities.set(String(e.id), histEntity(String(e.id), e.model as HistModel, e.kind as HistKind | undefined)); }
+        if (b.chatty != null) h.chatty = !!b.chatty;
+        if (b.reset_calls) h.calls = [];
+        if (b.states) for (const e of h.entities.values()) { const v = h.value(e, Date.now() / 1000); this.setState(e.id, v == null ? 'unavailable' : v.toFixed(e.dp), h.attributes(e)); }
+        return send(200, this.historyInfo());
+      }
       if (u.pathname === '/__fake/seed-fail' && req.method === 'POST') {
         const b = JSON.parse((await readBody(req)) || '{}'); this.seedFail = b.error ? String(b.error) : null; return send(200, { seed_fail: this.seedFail });
       }
@@ -631,7 +689,17 @@ export class FakeHa {
           ws.send(JSON.stringify({ id: m.id, type: 'event', event: { result, listeners: { all: false, entities: [], domains: [], time: false } } }));
           return;
         }
-        case 'recorder/statistics_during_period': return ok({});
+        case 'recorder/statistics_during_period':
+        case 'history/history_during_period': {   // energy meter ids have no statistics here: {} as before
+          const r = m.type === 'history/history_during_period' ? this.history.history(m, Date.now(), (id) => this.states.has(id)) : this.history.statistics(m, Date.now(), this.timeZone);
+          if ('error' in r) return err(...r.error);
+          const text = JSON.stringify({ id: m.id, type: 'result', success: true, result: r.result });
+          const rows = Object.values(r.result).reduce((n, a) => n + a.length, 0);
+          this.history.record({ type: m.type, ids: m.statistic_ids ?? m.entity_ids ?? [], ...(m.period ? { period: m.period } : {}), ...(m.types ? { types: m.types } : {}),
+            start_time: String(m.start_time), ...(m.end_time ? { end_time: String(m.end_time) } : {}), rows, bytes: Buffer.byteLength(text), t: nowIso() });
+          this.opts.log('FAKE-HA ' + m.type + ' #' + m.id + ': ' + rows + ' rows, ' + Buffer.byteLength(text) + ' B');
+          ws.send(text); return;
+        }
         case 'config/entity_registry/list': return ok([...this.states.keys()].map((id) => ({ entity_id: id, area_id: (this.reg ? this.reg.entityArea.get(id) : this.areaOf.get(id)) ?? null,
           device_id: this.reg?.deviceOf.get(id) ?? null, platform: id.startsWith('climate.') && this.house !== 'stranger' ? 'tado' : 'fake', disabled_by: null })));
         case 'config/device_registry/list': return ok((this.reg?.devices ?? []).map((d) => ({ id: d.id, name: d.name, name_by_user: null, area_id: d.area, manufacturer: d.manufacturer, model: d.model, disabled_by: null, entry_type: null, via_device_id: null })));
@@ -674,6 +742,11 @@ export class FakeHa {
     } else if (domain === 'script' && service === 'turn_on') {   // #146: script.good_night turns the demo lights off
       if (ids.includes('script.good_night')) for (const l of LIGHT_LIST) if (this.states.get('light.' + l.id)?.state === 'on') this.setState('light.' + l.id, 'off', {});
       for (const id of ids) this.setState(id, 'off', { last_triggered: nowIso() });
+    } else if (domain === 'weather' && service === 'get_forecasts') {   // #283: a service with a response, like HA
+      if (!m.return_response) return err('service_validation_error', 'Service call requires responses but caller did not ask for responses');
+      const out: Record<string, { forecast: unknown[] }> = {};
+      for (const id of ids) { const f = weatherForecast(String(data.type), Date.now()); if (!f) return err('service_validation_error', 'Weather entity does not support \'' + data.type + '\' forecast'); out[id] = { forecast: f }; }
+      return ok({ context: { id: randomToken(12), parent_id: null, user_id: null }, response: out });
     } else if (domain !== 'homeassistant') return err('not_found', 'Service ' + domain + '.' + service + ' not found.');
     ok({ context: { id: randomToken(12), parent_id: null, user_id: null } });
   }

@@ -387,6 +387,25 @@ describe('API auth (401 / 403)', () => {
       await source(!usb0);
     }
   });
+  // #249: unplugged from a USB host with a full cell (≥ 4.15 V, charger STAT seen this boot): battery profile within
+  // seconds, not after the 30-minute recent-charge rule (#73). QEMU only: the simulator has no recent-charge memory.
+  it.skipIf(NO_RW)('power.applied switches to battery after a USB unplug with a full, just-charged cell (QEMU)', async () => {
+    if (sim || typeof (await http(base, 'GET', '/__qemu/state')).json?.full !== 'number') return;
+    const applied = (want: object, src: string) => until(() => http(base, 'GET', '/api/v1/status', { token: rw }), (r) => {
+      const a = r.json?.power?.applied; return !!a && r.json.power.source === src && Object.entries(want).every(([k, v]) => a[k] === v);
+    }, 30_000);
+    try {
+      expect((await http(base, 'POST', '/__qemu/power?source=usb&charging=1&mv=4180')).status).toBe(204);
+      await applied({ cpuMhz: 240, wifiPs: 'none' }, 'usb');
+      await http(base, 'POST', '/__qemu/power?source=usb&mv=4180');   // full: STAT drops, host still there
+      await new Promise((res) => setTimeout(res, 1500));
+      await http(base, 'POST', '/__qemu/power?source=battery&mv=4180');   // unplugged
+      const b = await applied({ cpuMhz: 80, wifiPs: 'min' }, 'battery');
+      expect(b.json.power.applied).toMatchObject({ cpuMhz: 80, wifiPs: 'min' });
+    } finally {
+      await http(base, 'POST', '/__qemu/power?source=usb');
+    }
+  });
   it.skipIf(NO_RO)('403 "token is read-only" for writes with a read token; reads work', async () => {
     expect((await http(base, 'GET', '/api/v1/config', { token: ro })).status).toBe(200);
     for (const [m, p, body] of [['PUT', '/config', 'version: 1\n'], ['POST', '/display/refresh', undefined], ['POST', '/ota/check', undefined]] as const) {
@@ -679,6 +698,91 @@ describe.skipIf(REAL)('fake HA WebSocket API', () => {
   });
 });
 
+// The fake HA's recorder answers, pinned to HA core's shapes (server/fake-ha-history.ts cites the source, #266). Runs
+// from this runner against the simulator's fake HA or the standalone one of `make qemu-contract`; the device is not involved.
+describe.skipIf(REAL && !FAKE)('fake HA recorder: statistics_during_period + history_during_period (#266)', () => {
+  const ctl = async (path: string, body?: unknown) =>
+    (await fetch(haLocal() + '/__fake/' + path, body === undefined ? {} : { method: 'POST', body: JSON.stringify(body) })).json();
+  let ws: HaSocket;
+  const iso = (agoS: number) => new Date(Date.now() - agoS * 1000).toISOString();
+  beforeAll(async () => {
+    const { token } = await ctl('llat', { name: 'recorder-test', admin: false });
+    ws = new HaSocket(); await ws.connect(haLocal(), token);
+  });
+  afterAll(async () => { ws?.close(); await ctl('history', { chatty: false, reset_calls: true }); });
+  const stats = (b: Record<string, unknown>) => ws.command<Record<string, any[]>>({ type: 'recorder/statistics_during_period', ...b });
+  const hist = (b: Record<string, unknown>) => ws.command<Record<string, any[]>>({ type: 'history/history_during_period', ...b });
+
+  it('statistics, period hour: {id: [{start, end (ms), mean, min, max}]} per compiled hour; meters without stats absent', async () => {
+    const now = Date.now();
+    const r = await stats({ start_time: iso(86400), statistic_ids: ['sensor.outdoor_temperature', 'sensor.rain_rate', 'sensor.train_delay', 'sensor.grid_import_today'], period: 'hour', types: ['mean', 'min', 'max'] });
+    expect(Object.keys(r).sort()).toEqual(['sensor.outdoor_temperature', 'sensor.rain_rate']);   // train_delay has no state_class
+    const rows = r['sensor.outdoor_temperature'];
+    expect(rows.length).toBeGreaterThanOrEqual(23); expect(rows.length).toBeLessThanOrEqual(24);
+    for (const x of rows) {
+      expect(Object.keys(x).sort()).toEqual(['end', 'max', 'mean', 'min', 'start']);
+      expect(Number.isInteger(x.start) && x.start % 3_600_000 === 0 && x.end - x.start === 3_600_000).toBe(true);
+      expect(x.end).toBeLessThanOrEqual(now); expect(x.min).toBeLessThanOrEqual(x.mean); expect(x.mean).toBeLessThanOrEqual(x.max);
+    }
+    expect(rows[0].start).toBeGreaterThanOrEqual(now - 86_400_000);
+    // deterministic: the same request gives the same rows
+    expect((await stats({ start_time: new Date(rows[0].start).toISOString(), end_time: new Date(rows[2].end).toISOString(), statistic_ids: ['sensor.outdoor_temperature'], period: 'hour', types: ['mean', 'min', 'max'] }))['sensor.outdoor_temperature']).toEqual(rows.slice(0, 3));
+    expect(await stats({ start_time: iso(86400), statistic_ids: ['sensor.grid_import_today'], period: 'hour', types: ['change'] })).toEqual({});   // energy path unchanged
+    await expect(stats({ start_time: 'yesterday', statistic_ids: ['sensor.rain_rate'], period: 'hour' })).rejects.toThrow('Invalid start_time');
+  });
+
+  it('statistics, 5minute and day; total_increasing: change = sum delta, sum only when asked, day rows at local midnight', async () => {
+    const five = (await stats({ start_time: iso(3600), statistic_ids: ['sensor.rain_rate'], period: '5minute', types: ['max'] }))['sensor.rain_rate'];
+    expect(five.length).toBeGreaterThanOrEqual(11);
+    for (const x of five) { expect(Object.keys(x).sort()).toEqual(['end', 'max', 'start']); expect(x.end - x.start).toBe(300_000); }
+    const tz = (await ws.command<any>({ type: 'get_config' })).time_zone as string;
+    const day = await stats({ start_time: iso(7 * 86400), statistic_ids: ['sensor.rain_total', 'sensor.outdoor_temperature'], period: 'day', types: ['change', 'sum', 'mean'] });
+    const rain = day['sensor.rain_total'], temp = day['sensor.outdoor_temperature'];
+    expect(rain.length).toBeGreaterThanOrEqual(7);
+    const hhmm = (ms: number) => new Intl.DateTimeFormat('en-GB', { timeZone: tz, hour: '2-digit', minute: '2-digit', hourCycle: 'h23' }).format(ms);
+    for (const x of rain) { expect(hhmm(x.start)).toBe('00:00'); expect(hhmm(x.end)).toBe('00:00'); expect(x.mean).toBeNull(); expect(x.change).toBeGreaterThanOrEqual(0); }
+    for (let i = 1; i < rain.length; i++) expect(rain[i].change).toBeCloseTo(rain[i].sum - rain[i - 1].sum, 6);
+    expect(temp[0].sum).toBeNull(); expect(temp[0].change).toBeNull(); expect(typeof temp[0].mean).toBe('number');   // mixed ids: null for the other kind
+    const onlyChange = (await stats({ start_time: iso(3 * 3600), statistic_ids: ['sensor.rain_total'], period: 'hour', types: ['change'] }))['sensor.rain_total'];
+    expect(Object.keys(onlyChange[0]).sort()).toEqual(['change', 'end', 'start']);
+  });
+
+  it('history, minimal_response + no_attributes: first row {s, lu = start}, then {s, lu} on every change only', async () => {
+    const t0 = Date.now() - 6 * 3600_000;
+    const r = await hist({ start_time: new Date(t0).toISOString(), entity_ids: ['sensor.train_delay', 'sensor.outdoor_temperature', 'sensor.not_recorded'], minimal_response: true, no_attributes: true, significant_changes_only: false });
+    expect(Object.keys(r).sort()).toEqual(['sensor.outdoor_temperature', 'sensor.train_delay']);
+    for (const rows of Object.values(r)) {
+      expect(rows[0]).toEqual({ s: expect.any(String), lu: t0 / 1000 });
+      for (let i = 1; i < rows.length; i++) {
+        expect(Object.keys(rows[i]).sort()).toEqual(['lu', 's']);
+        expect(rows[i].s).not.toBe(rows[i - 1].s); expect(rows[i].lu).toBeGreaterThan(rows[i - 1].lu);
+      }
+      expect(rows.at(-1)!.lu).toBeLessThanOrEqual(Date.now() / 1000);
+    }
+    expect(r['sensor.outdoor_temperature'].length).toBeGreaterThan(20);   // 5-minute sensor
+    const night = await hist({ start_time: iso(2 * 86400), entity_ids: ['sensor.train_delay'], minimal_response: true, no_attributes: true });
+    expect(night['sensor.train_delay'].map((x) => x.s)).toContain('unavailable');   // no trains at night
+    const withAttr = await hist({ start_time: iso(3600), entity_ids: ['sensor.outdoor_temperature'], minimal_response: true });
+    expect(withAttr['sensor.outdoor_temperature'][0].a).toMatchObject({ unit_of_measurement: '°C', state_class: 'measurement' });
+    expect(withAttr['sensor.outdoor_temperature'].slice(1).every((x) => !('a' in x))).toBe(true);
+    expect(await hist({ start_time: new Date(Date.now() + 3600_000).toISOString(), entity_ids: ['sensor.outdoor_temperature'] })).toEqual({});
+    await expect(hist({ start_time: iso(3600), entity_ids: ['Not An Entity'] })).rejects.toThrow('Invalid entity_ids');
+  });
+
+  it('chatty sensor (opt-in): a 6 h history answer is over 512 KB; the call log counts requests and bytes', async () => {
+    await ctl('history', { chatty: true, reset_calls: true });
+    const r = await hist({ start_time: iso(6 * 3600), entity_ids: ['sensor.chatty_power'], minimal_response: true, no_attributes: true });
+    expect(r['sensor.chatty_power'].length).toBeGreaterThan(15_000);
+    const info = await ctl('history');
+    expect(info.chatty).toBe(true);
+    expect(info.calls).toHaveLength(1);
+    expect(info.calls[0]).toMatchObject({ type: 'history/history_during_period', ids: ['sensor.chatty_power'], rows: r['sensor.chatty_power'].length });
+    expect(info.calls[0].bytes).toBeGreaterThan(512 * 1024);
+    await ctl('history', { chatty: false });
+    expect(await hist({ start_time: iso(600), entity_ids: ['sensor.chatty_power'] })).toEqual({});
+  });
+});
+
 describe.skipIf(REAL)('OTA', () => {
   it('check → available; upload with a wrong image → 422, nothing changed; right image → reboot into it', async () => {
     expect((await http(base, 'POST', '/api/v1/ota/check', { token: rw })).status).toBe(202);
@@ -694,6 +798,27 @@ describe.skipIf(REAL)('OTA', () => {
     await until(() => http(base, 'GET', '/api/v1/ota', { token: rw }), (r) => r.json.status === 'updated' && r.json.installed === '0.4.0');
     const raw = await http(base, 'POST', '/api/v1/ota/upload?sha256=' + 'f'.repeat(64), { token: rw, body: new Uint8Array(img), type: 'application/octet-stream' });
     expect(raw.status).toBe(422);
+  });
+  // #250: Check gave no sign it ran. GET /ota right after the 202 says checking; then the result with last_check, or a
+  // failed check as `error` (the display and the console turn it into plain words, core/otaStatus.ts).
+  it('POST /ota/check → checking at once → uptodate/available with last_check; a failed check → error + reason', async () => {
+    const ctl = (b: object) => http(base, 'POST', '/__sim/control', { body: JSON.stringify(b), type: 'application/json' });
+    try {
+      for (const [fail, error, msg] of [['memory', 'memory', /Not enough memory/], ['busy', 'busy', /HTTP 403/], ['network', 'network', /not reachable/]] as const) {
+        await ctl({ ota_check_fail: fail });
+        expect((await http(base, 'POST', '/api/v1/ota/check', { token: rw })).status).toBe(202);
+        const e = await until(() => http(base, 'GET', '/api/v1/ota', { token: rw }), (r) => r.json.status === 'error');
+        expect(e.json).toMatchObject({ error, message: expect.stringMatching(msg), available: null });
+      }
+      await ctl({ ota_check_fail: 'ok' });
+      expect((await http(base, 'POST', '/api/v1/ota/check', { token: rw })).status).toBe(202);
+      const now = await http(base, 'GET', '/api/v1/ota', { token: rw });
+      expect(now.json).toMatchObject({ status: 'checking', error: null });
+      const done = await until(() => http(base, 'GET', '/api/v1/ota', { token: rw }), (r) => r.json.status !== 'checking');
+      expect(done.json).toMatchObject({ status: expect.stringMatching(/^(uptodate|available)$/), error: null, message: '' });
+      expect(Date.now() - Date.parse(done.json.last_check)).toBeLessThan(60_000);
+      expect((await ctl({ ota_check_fail: 'nope' })).status).toBe(400);
+    } finally { await ctl({ ota_check_fail: 'ok' }); }
   });
   it('POST /ota is blocked under 30 % battery (409); a corrupted download changes nothing', async () => {
     await http(base, 'POST', '/__sim/control', { body: JSON.stringify({ preset: 'installed' }), type: 'application/json' });
@@ -726,7 +851,7 @@ describe('OTA with update checks off (no release repository in the build)', () =
       const g = await http(base, 'GET', '/api/v1/ota', { token: rw });
       expect(g.status).toBe(200);
       if (REAL && g.json.repo !== '') return ctx.skip();
-      expect(g.json).toMatchObject({ auto: 'off', repo: '', status: 'idle', available: null, message: expect.stringMatching(/^Update checks are off/) });
+      expect(g.json).toMatchObject({ auto: 'off', repo: '', status: 'idle', available: null, error: null, message: expect.stringMatching(/^Update checks are off/) });
       const inst = await http(base, 'POST', '/api/v1/ota', { token: rw });
       expect(inst.status).toBe(409); expect(inst.json.error).toMatch(/^Update checks are off.*ota\/upload/);
       expect((await http(base, 'POST', '/api/v1/ota/check', { token: rw })).status).toBe(202);
@@ -829,6 +954,22 @@ describe('settings (x-firmware)', () => {
     const p = await put({ powerSave: 'off', wakeEvery: 30, liveMin: 5 });
     expect(p.status).toBe(200); expect(p.json.display).toMatchObject({ powerSave: 'off', wakeEvery: 30, liveMin: 5 });
     expect((await put(orig)).status).toBe(200);
+  });
+  it.skipIf(NO_RW)('front light timeout (#220): lightTimeout round trip, default 60, exact 422 message', async () => {
+    const put = (display: object) => http(base, 'PUT', '/api/v1/settings', { token: rw, body: JSON.stringify({ display }), type: 'application/json' });
+    const g = await http(base, 'GET', '/api/v1/settings', { token: rw });
+    expect([30, 60, 120, 300, 0]).toContain(g.json.display.lightTimeout);
+    const orig = g.json.display.lightTimeout;
+    for (const bad of [45, '60', -1]) {
+      const r = await put({ lightTimeout: bad });
+      expect(r.status, String(bad)).toBe(422); expect(r.json.error).toBe('display.lightTimeout must be 0, 30, 60, 120 or 300');
+    }
+    for (const v of [30, 0]) {
+      const p = await put({ lightTimeout: v });
+      expect(p.status).toBe(200); expect(p.json.display.lightTimeout).toBe(v);
+      expect((await http(base, 'GET', '/api/v1/settings', { token: rw })).json.display.lightTimeout).toBe(v);
+    }
+    expect((await put({ lightTimeout: orig })).status).toBe(200);
   });
   it.skipIf(NO_RW)('entities: the tile source round trip (#191) (PUT merges, "-" negates, null / "" removes, exact 422 messages)', async () => {
     const put = (entities: object) => http(base, 'PUT', '/api/v1/settings', { token: rw, body: JSON.stringify({ entities }), type: 'application/json' });
@@ -1025,6 +1166,16 @@ describe('diagnostics (x-firmware)', () => {
     expect(d.battery.history.length).toBeGreaterThanOrEqual(1); expect(d.battery.history.length).toBeLessThanOrEqual(288);
     const row = d.battery.history[d.battery.history.length - 1];
     expect(row).toHaveLength(7); expect(row[1]).toBeGreaterThanOrEqual(0); expect([0, 1]).toContain(row[3]); expect([0, 1]).toContain(row[4]); expect(typeof row[5]).toBe('string');
+    // #227 inbound path: this request is open; earlier ones were served; QEMU has no mDNS responder and no RSSI
+    expect(d.web).toMatchObject({ open: expect.any(Number), served: expect.any(Number), refused_503: expect.any(Number) });
+    // open is 0 on the firmware today: handleRequest's onDisconnect replaces the connection gate's (counted at dispatch)
+    expect(d.web.open).toBeGreaterThanOrEqual(0); expect(d.web.served).toBeGreaterThanOrEqual(1);
+    expect(typeof d.web.last_request_age_s).toBe('number');
+    expect(d.mdns).toMatchObject({ up: expect.any(Boolean), restarts: expect.any(Number) });
+    expect(d.mdns.last_restart_reason === null || ['connect', 'got_ip', 'bssid', 'idle'].includes(d.mdns.last_restart_reason)).toBe(true);
+    expect(d.wifi).toMatchObject({ idle_checks: expect.any(Number), idle_reconnects: expect.any(Number) });
+    expect(d.wifi.bssid === null || /^[0-9a-f]{4}$/.test(d.wifi.bssid)).toBe(true);
+    expect(d.wifi.rssi === null || typeof d.wifi.rssi === 'number').toBe(true);
     expect(d.panel.failed).toEqual(expect.any(Boolean));   // #181: null failure while the panel is fine
     expect(d.panel.failed ? typeof d.panel.failure === 'string' : d.panel.failure === null).toBe(true);
     expect((await http(base, 'GET', '/api/v1/status', { token: rw })).json.uptime_s).toEqual(expect.any(Number));
@@ -2007,6 +2158,26 @@ describe.skipIf(!FAKE)('real firmware with the fake HA', () => {
       expect(before - s.json.heap_min_free, `internal low-water ${before} → ${s.json.heap_min_free} B`).toBeLessThanOrEqual(16384);
       expect(s.json.heap_min_free).toBeGreaterThanOrEqual(Math.min(32768, before));
     } finally { await put({ 'sensor.energy_prices': null }); }
+  });
+  // #274: HA 2025.12+ stores the grid source flat (stat_energy_from / _to, entity_energy_price, stat_rate); the display
+  // read only flow_from / flow_to, so grid import / export, usage and the price entity were missing.
+  it('#274: a flat grid source (HA 2025.12+) gives the price, grid power and the import / export meters', async () => {
+    const status = () => http(base, 'GET', '/api/v1/status', { token: rw });
+    const linked = () => until(status, (r) => r.json.home_assistant === 'linked', 60_000);
+    await linked();
+    const stats = (x: any) => (x.calls as { type: string; ids: string[] }[]).find((c) => c.type === 'recorder/statistics_during_period' && c.ids.includes('sensor.flat_grid_import'));
+    try {
+      expect((await fakeCtl('energy-prefs', { variant: 'flat-grid' })).energy_sources[0].flow_from).toBeUndefined();
+      await fakeCtl('drop-ws', {});
+      const g = await until(() => http(base, 'GET', '/api/v1/settings', { token: rw }), (r) => r.json.entity_sources?.['sensor.energy_prices'] === 'sensor.flat_grid_price (energy)', 60_000);
+      expect(g.json.entity_sources['sensor.grid_power']).toBe('sensor.flat_grid_power (energy)');
+      const h = await until(() => fakeCtl('history'), (x: any) => !!stats(x), 30_000);
+      expect(stats(h)!.ids).toEqual(expect.arrayContaining(['sensor.flat_grid_import', 'sensor.flat_grid_export']));
+    } finally {
+      await fakeCtl('energy-prefs', { variant: 'house' });
+      await fakeCtl('drop-ws', {});
+      await linked();
+    }
   });
   // #149: once the link dropped during a low-memory episode it stayed offline until a manual restart. Hold internal
   // RAM below the TLS guard, drop the WebSocket, let go: the client must relink on its own.

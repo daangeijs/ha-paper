@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Soak collector: poll an HA Paper display, one CSV row per poll, a markdown summary per day (#46).
 
-    X4_TOKEN=x4_… python3 soak.py --url http://ha-paper-a1b2.local [--interval 300] [--hours 168] [--out DIR]
+    X4_TOKEN=x4_… python3 soak.py --url http://ha-paper-a1b2.local [--ip 192.168.1.40] [--interval 300] [--hours 168] [--out DIR]
     python3 soak.py --summarize DIR/soak.csv [--day 2026-10-16]     summary from an existing CSV to stdout
 
 Reads GET /api/v1/status and /api/v1/diagnostics with a read API token (web console › API access) from
@@ -11,13 +11,26 @@ and `npm run device-sim`. Stdlib only.
 Reboots: uptime went backwards (or the boot time moved forward); the reasons come from the boot ring in
 /diagnostics. Unreachable polls are `asleep` when the display said it would sleep (power.nextWakeEpoch, mode) or
 woke with reset reason DEEPSLEEP afterwards, otherwise `down`.
+
+Inbound path (#227: one night the .local name stopped resolving on the Mac while the display kept pushing to HA).
+With a name in --url every poll checks the name and the IP separately, one column each:
+  name_dns   ok <ms> | fail <error>               getaddrinfo of the name (mDNS on macOS); an ok updates the IP
+  ip         the address used: this resolve, else the last good one, else --ip
+  ip_tcp     ok | timeout | refused | unreachable | <errno name>   bare TCP connect to ip:port
+  ip_http    200 | HTTP <code> | <same failure words>   GET /api/v1/status by IP
+  name_http  200 | HTTP <code> | dns | <same failure words>   GET /api/v1/status by name
+Status and diagnostics are read by IP when it answers, else by name. name_dns fail + ip_http 200 = the device is
+fine and only the name is gone; ip_tcp fail = nothing reaches it. With an IP in --url only the ip_* columns are filled.
+The display's own view is in the web_* / mdns_* / bssid / idle_* columns (/diagnostics web, mdns, wifi).
 """
 import argparse
 import csv
 import datetime
+import errno
 import http.client
 import json
 import os
+import socket
 import sys
 import time
 import urllib.error
@@ -26,7 +39,10 @@ import urllib.request
 
 COLUMNS = ["time", "state", "error", "uptime_s", "firmware", "battery", "source", "charging", "free_heap",
            "heap_min_free", "heap_largest_block", "free_psram", "rssi", "home_assistant", "ha_report",
-           "ha_report_last_push", "reset_reason", "new_boots", "power_mode", "next_wake_epoch", "refreshes"]
+           "ha_report_last_push", "reset_reason", "new_boots", "power_mode", "next_wake_epoch", "refreshes",
+           "name_dns", "ip", "ip_tcp", "ip_http", "name_http", "web_served", "web_refused_503", "web_last_req_s",
+           "mdns_up", "mdns_restarts", "mdns_reason", "bssid", "idle_checks", "idle_reconnects"]
+PROBE = ("name_dns", "ip", "ip_tcp", "ip_http", "name_http")
 CRASH = {"PANIC", "INT_WDT", "TASK_WDT", "WDT", "BROWNOUT", "CPU_LOCKUP"}
 BOOT_SLACK_S = 120     # boot time (poll time - uptime) may drift this much without counting as a reboot
 WAKE_GRACE_S = 600     # after nextWakeEpoch the display should answer again within this
@@ -102,10 +118,15 @@ def make_row(when, status, diag, prev):
         "new_boots": ";".join(new_boots(prev, when.timestamp(), status, diag)),
         "power_mode": _get(status, "power", "mode"), "next_wake_epoch": _get(status, "power", "nextWakeEpoch"),
         "refreshes": _get(status, "refreshes"),
+        "web_served": _get(diag, "web", "served"), "web_refused_503": _get(diag, "web", "refused_503"),
+        "web_last_req_s": _get(diag, "web", "last_request_age_s"), "mdns_up": _get(diag, "mdns", "up"),
+        "mdns_restarts": _get(diag, "mdns", "restarts"), "mdns_reason": _get(diag, "mdns", "last_restart_reason"),
+        "bssid": _get(diag, "wifi", "bssid"), "idle_checks": _get(diag, "wifi", "idle_checks"),
+        "idle_reconnects": _get(diag, "wifi", "idle_reconnects"),
     }
     if isinstance(r["refreshes"], dict):
         r["refreshes"] = json.dumps(r["refreshes"], separators=(",", ":"), sort_keys=True)
-    return {k: _cell(v) for k, v in r.items()}
+    return {k: _cell(r.get(k)) for k in COLUMNS}   # PROBE cells: collect()
 
 
 def unreachable_row(when, error, last_status):
@@ -224,6 +245,15 @@ def summarize(rows, day):
         L.append("ha_report: %s." % ", ".join("%s %d" % kv for kv in sorted(rep.items())))
     L.append("")
 
+    pr = [r for r in dr if r.get("ip_tcp") or r.get("name_dns")]
+    if pr:
+        def bad(c):
+            return sum(1 for r in pr if r.get(c) and not r[c].startswith(("ok", "200")))
+        only_name = sum(1 for r in pr if r.get("ip_http") == "200" and r.get("name_http") not in ("", "200"))
+        L += ["## Inbound path", "", "%d polls: name_dns failed %d, ip_tcp failed %d, ip_http failed %d, name_http failed %d; "
+              "name gone while the IP answered: %d." % (len(pr), bad("name_dns"), bad("ip_tcp"), bad("ip_http"),
+                                                         bad("name_http"), only_name), ""]
+
     L += ["## Unreachable", ""]
     gaps = [g for g in _gaps(rows) if g[0]["time"][:10] == day]
     if gaps:
@@ -271,6 +301,70 @@ def poll(base, token, timeout):
         return None, None, ("down", type(why).__name__ if not str(why) else str(why))
 
 
+def _why(e):
+    """Short failure word for a probe exception."""
+    e = getattr(e, "reason", None) or e
+    if isinstance(e, socket.gaierror):
+        return "dns"
+    if isinstance(e, (socket.timeout, TimeoutError)):
+        return "timeout"
+    if isinstance(e, ConnectionRefusedError):
+        return "refused"
+    if isinstance(e, OSError) and e.errno in (errno.EHOSTUNREACH, errno.ENETUNREACH, errno.EHOSTDOWN):
+        return "unreachable"
+    if isinstance(e, OSError) and e.errno:
+        return errno.errorcode.get(e.errno, str(e.errno))
+    return type(e).__name__
+
+
+def _http_code(base, token, timeout):
+    try:
+        fetch(base, "/api/v1/status", token, timeout)
+        return "200"
+    except urllib.error.HTTPError as e:
+        return "HTTP %d" % e.code
+    except (urllib.error.URLError, OSError, ValueError, http.client.HTTPException) as e:
+        return _why(e)
+
+
+def _is_ip(host):
+    try:
+        socket.inet_aton(host)
+        return host.count(".") == 3
+    except OSError:
+        return False
+
+
+def probe(base, token, timeout, last_ip):
+    """Inbound-path cells (PROBE columns) and the IP to poll; see the module docstring."""
+    u = urllib.parse.urlparse(base)
+    host, port = u.hostname or "", u.port or 80
+    c = {k: "" for k in PROBE}
+    ip = host if _is_ip(host) else None
+    if ip is None:
+        t0 = time.monotonic()
+        try:
+            ip = socket.getaddrinfo(host, port, socket.AF_INET, socket.SOCK_STREAM)[0][4][0]
+            c["name_dns"] = "ok %d" % ((time.monotonic() - t0) * 1000)
+        except OSError as e:
+            c["name_dns"] = "fail " + (str(e) or type(e).__name__)
+            ip = last_ip
+    if ip:
+        c["ip"] = ip
+        try:
+            socket.create_connection((ip, port), timeout=timeout).close()
+            c["ip_tcp"] = "ok"
+        except OSError as e:
+            c["ip_tcp"] = _why(e)
+        if c["ip_tcp"] == "ok":
+            c["ip_http"] = _http_code("%s://%s:%d" % (u.scheme or "http", ip, port), token, timeout)
+        else:
+            c["ip_http"] = c["ip_tcp"]
+    if not _is_ip(host):
+        c["name_http"] = _http_code(base, token, timeout) if c["name_dns"].startswith("ok") else "dns"
+    return c, ip
+
+
 def collect(args, token):
     base = args.url if "://" in args.url else "http://" + args.url
     base = base.rstrip("/")
@@ -278,12 +372,15 @@ def collect(args, token):
     os.makedirs(out, exist_ok=True)
     path = os.path.join(out, "soak.csv")
     fresh = not os.path.exists(path) or os.path.getsize(path) == 0
-    prev, last_status, n = None, None, 0
+    prev, last_status, n, ip = None, None, 0, args.ip
     start = time.monotonic()
     print("soak: %s every %d s → %s%s" % (base, args.interval, path, " for %g h" % args.hours if args.hours else ""))
     while True:
         when = datetime.datetime.now().astimezone()
-        status, diag, err = poll(base, token, args.timeout)
+        cells, ip = probe(base, token, args.timeout, ip)
+        u = urllib.parse.urlparse(base)
+        by_ip = cells["ip_http"] == "200" and not _is_ip(u.hostname or "")
+        status, diag, err = poll("%s://%s:%d" % (u.scheme, ip, u.port or 80) if by_ip else base, token, args.timeout)
         if err and err[1] in ("HTTP 401", "HTTP 403") and n == 0:
             print("soak: %s rejected the token (%s): set X4_TOKEN to a read API token" % (base, err[1]), file=sys.stderr)
             return 2
@@ -296,6 +393,7 @@ def collect(args, token):
         else:
             row = {k: "" for k in COLUMNS}
             row.update(time=when.isoformat(timespec="seconds"), state="error", error=err[1])
+        row.update({k: v for k, v in cells.items() if v})
         with open(path, "a", newline="") as f:
             w = csv.DictWriter(f, fieldnames=COLUMNS)
             if fresh:
@@ -305,9 +403,10 @@ def collect(args, token):
         day = row["time"][:10]
         with open(os.path.join(out, "summary-%s.md" % day), "w") as f:
             f.write(summarize(read_csv(path), day))
-        print("%s %-6s up %6s heap %6s/%6s bat %3s ha %s%s%s" % (
+        print("%s %-6s up %6s heap %6s/%6s bat %3s ha %s · dns %s tcp %s http %s/%s%s%s" % (
             row["time"][11:19], row["state"], row["uptime_s"], row["free_heap"], row["heap_largest_block"], row["battery"],
-            row["home_assistant"], "  reboot: " + row["new_boots"] if row["new_boots"] else "",
+            row["home_assistant"], row["name_dns"].split(" ")[0] or "-", row["ip_tcp"] or "-", row["ip_http"] or "-",
+            row["name_http"] or "-", "  reboot: " + row["new_boots"] if row["new_boots"] else "",
             "  " + row["error"] if row["error"] else ""), flush=True)
         n += 1
         nxt = start + n * args.interval
@@ -319,6 +418,7 @@ def collect(args, token):
 def main(argv=None):
     p = argparse.ArgumentParser(description=__doc__.split("\n")[0])
     p.add_argument("--url", help="display address, e.g. http://ha-paper-a1b2.local or 192.168.1.40")
+    p.add_argument("--ip", help="display IP to probe until the name resolves once (default: from the name)")
     p.add_argument("--interval", type=int, default=300, help="seconds between polls (default 300)")
     p.add_argument("--hours", type=float, default=0, help="stop after this many hours (default: run until Ctrl-C)")
     p.add_argument("--out", help="output folder (default soak/<host>[-port])")

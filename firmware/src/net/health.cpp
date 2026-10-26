@@ -24,15 +24,26 @@ uint32_t heapLargestFree() { return heap_caps_get_largest_free_block(MALLOC_CAP_
 uint32_t heapMinFree() { return heap_caps_get_minimum_free_size(MALLOC_CAP_INTERNAL); }
 uint32_t heapFreeInternal() { return heap_caps_get_free_size(MALLOC_CAP_INTERNAL); }
 
-bool tlsHeapOk(const char* what) {
-  const uint32_t largest = heapLargestFree(), free = heapFreeInternal();
-  const bool pooled = kTlsPoolSlots - tlsPoolUsed() >= 2;
-  if (heapOkForTls(largest, free, kTlsPoolSlots - tlsPoolUsed())) return true;
-  LOG_WRN("HEAP", "internal free %u B (need %u), largest block %u B (need %u) · skipping TLS to %s", unsigned(free),
-          unsigned(pooled ? kTlsMinFreePooled : kTlsMinFreeInternal), unsigned(largest),
-          unsigned(pooled ? kTlsMinLargestPooled : kTlsMinLargestBlock), what);
+namespace {
+constexpr uint32_t kShedWaitMs = 60000;   // WebSocket off after a heap shed; then the TLS guard decides
+TlsHeap tlsHeapNow() {
+  return {heapFreeInternal(), heapLargestFree(), uint32_t(heap_caps_get_free_size(MALLOC_CAP_DMA)),
+          uint32_t(heap_caps_get_largest_free_block(MALLOC_CAP_DMA)), kTlsPoolSlots - tlsPoolUsed()};
+}
+}  // namespace
+
+bool tlsHeapOk(const char* what, TlsPeer peer) {
+  const TlsHeap h = tlsHeapNow();
+  if (heapOkForTls(h, peer)) return true;
+  const TlsFloor f = tlsFloor(peer, h.poolSlotsFree);
+  LOG_WRN("HEAP", "internal free %u B (need %u), largest %u B (need %u), DMA free %u B (need %u), largest %u B (need %u)"
+          " · skipping TLS to %s", unsigned(h.freeInternal), unsigned(f.freeInternal), unsigned(h.largestInternal),
+          unsigned(f.largestInternal), unsigned(h.freeDma), unsigned(f.freeDma), unsigned(h.largestDma),
+          unsigned(f.largestDma), what);
   return false;
 }
+
+bool tlsHeapOk(const char* host) { return tlsHeapOk(host, tlsPeerFor(host)); }
 
 bool maintenanceRestartAllowed() {
   if (otaBusy() || otaPendingVerify()) return false;
@@ -63,8 +74,8 @@ std::atomic<int> g_webOpen{0}, g_rssi{0};
 std::atomic<bool> g_rssiKnown{false}, g_report{false};
 }  // namespace
 
-void heapRequestOpen(const char* path) {
-  g_webOpen.fetch_add(1);
+void heapRequestOpen() { g_webOpen.fetch_add(1); }
+void heapRequestPath(const char* path) {
   portENTER_CRITICAL(&g_lowMux);
   strlcpy(g_lastPath, path, sizeof g_lastPath);
   portEXIT_CRITICAL(&g_lowMux);
@@ -104,6 +115,16 @@ void heapCheckpoint(const char* where) {
           p.report ? "yes" : "no", p.ota ? "yes" : "no", p.web, p.path[0] ? p.path : "-", rssi);
 }
 
+void heapMark(const char* what) {
+  static std::atomic<uint32_t> last{0};
+  const uint32_t f = heapFreeInternal();
+  const int32_t d = last ? int32_t(f - last.load()) : 0;
+  last = f;
+  LOG_INF("HEAP", "mark %s · internal free %u (%+d) largest %u · DMA free %u largest %u · psram %u", what, unsigned(f),
+          int(d), unsigned(heapLargestFree()), unsigned(heap_caps_get_free_size(MALLOC_CAP_DMA)),
+          unsigned(heap_caps_get_largest_free_block(MALLOC_CAP_DMA)), unsigned(heap_caps_get_free_size(MALLOC_CAP_SPIRAM)));
+}
+
 void heapLowPoint(diag::LowPoint& out) {
   portENTER_CRITICAL(&g_lowMux);
   const Low p = g_low;
@@ -127,9 +148,19 @@ void heapLowPoint(diag::LowPoint& out) {
 }
 
 void healthLoop() {
-  static uint32_t lastMs = 0;
+  static uint32_t lastMs = 0, starveMs = 0;
   static HeapWatch watch;
+  static HeapStarve starve;
   const uint32_t now = millis();
+  if (!starveMs || now - starveMs >= 2000) {
+    starveMs = now | 1u;
+    const uint32_t freeI = heapFreeInternal(), freeD = uint32_t(heap_caps_get_free_size(MALLOC_CAP_DMA));
+    if (starve.sample(now, freeI, freeD)) {
+      LOG_WRN("HEAP", "internal free %u B, DMA free %u B under the floor for %u s", unsigned(freeI), unsigned(freeD),
+              unsigned(HeapStarve::kLowForMs / 1000));
+      haClient().shedHeap(kShedWaitMs);
+    }
+  }
   if (lastMs && now - lastMs < 10000) return;
   lastMs = now | 1u;
   int dbm = 0;
@@ -147,7 +178,7 @@ void healthLoop() {
   }
   static bool low = false;
   const uint32_t largest = heapLargestFree(), free = heapFreeInternal();
-  const bool ok = heapOkForTls(largest, free, kTlsPoolSlots - tlsPoolUsed());
+  const bool ok = heapOkForTls(tlsHeapNow(), TlsPeer::Ha);
   if (!ok && !low)
     LOG_WRN("HEAP", "internal free %u B, largest block %u B · TLS refused until it recovers", unsigned(free), unsigned(largest));
   else if (ok && low) LOG_INF("HEAP", "internal free %u B, largest block %u B · TLS allowed again", unsigned(free), unsigned(largest));

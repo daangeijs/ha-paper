@@ -47,8 +47,7 @@ def esptool(port, *args, capture=False):
         print(r.stdout, end="")
         print(r.stderr, end="", file=sys.stderr)
     if r.returncode != 0:
-        die("esptool failed. Is the display in download mode? Hold the Left button, press Reset, release Left, "
-            "then run this again. (Port busy? Close other serial monitors.)")
+        die("esptool failed. Replug USB and run this again. (Port busy? Close other serial monitors.)")
     return r.stdout if capture else ""
 
 
@@ -71,8 +70,8 @@ def find_port():
     if len(ports) == 1:
         return ports[0]
     if not ports:
-        die("No Espressif USB device found. Connect the X4 Pro with the pogo adapter and a data USB-C cable, put it "
-            "in download mode (hold Left, press Reset), or pass --port.")
+        die("No Espressif USB device found. Connect the X4 Pro with the pogo adapter and a data USB-C cable, or pass "
+            "--port. No buttons needed; if it still isn't found, replug USB.")
     die("Several Espressif devices found (%s): pass --port." % ", ".join(ports))
 
 
@@ -129,7 +128,7 @@ def flash(port, version):
     for offset, name in PARTS:
         args += ["0x%x" % offset, name]
     esptool(port, *args)
-    print("\nHA Paper %s flashed. The display restarts by itself; press Reset if it doesn't." % version)
+    print("\nHA Paper %s flashed. The display restarts by itself. Replug USB if it doesn't start." % version)
 
 
 def restore(port, path):
@@ -139,7 +138,7 @@ def restore(port, path):
     if os.path.isfile(side) and open(side).read().split()[0] != sha256(path):
         die("%s does not match %s: the backup is damaged." % (path, side))
     esptool(port, "write-flash", "0x0", path)
-    print("\nStock firmware restored. Press Reset.")
+    print("\nStock firmware restored. Replug USB if it doesn't start.")
 
 
 def confirm(question, yes):

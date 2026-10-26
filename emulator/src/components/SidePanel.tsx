@@ -81,6 +81,7 @@ export function SidePanel({ v }: { v: Vals }) {
         <button className="dev-btn" onClick={v.firstInstall} style={{ height: "34px", padding: "0 12px", border: "1px solid #1d1d1f", borderRadius: "6px", background: "#1d1d1f", color: "#F6F5F2", fontSize: "13px" }}>First install</button>
         <button className="dev-btn" onClick={v.installed} title="Already on Wi-Fi “HomeNet”, Home Assistant linked, web console signed in: boots straight to Home" style={{ height: "34px", padding: "0 12px", border: "1px solid #1d1d1f", borderRadius: "6px", background: "#fff", fontSize: "13px" }}>Installed</button>
         <button className="dev-btn" onClick={v.holdReset} title="Hold Power + Right for 5 s, release: factory reset screen (Right erases, any other key cancels)" style={{ height: "34px", padding: "0 12px", border: "1px solid #A8A49B", borderRadius: "6px", background: "#fff", fontSize: "13px" }}>Hold Power + Right</button>
+        <button className="dev-btn" onClick={v.holdPower} title="Hold Power alone for 2 s: Turned off face, then off; press Power to turn on (issue #258)" style={{ height: "34px", padding: "0 12px", border: "1px solid #A8A49B", borderRadius: "6px", background: "#fff", fontSize: "13px" }}>Hold Power 2 s</button>
         <button className="dev-btn" onClick={v.holdRestart} title="Hold Power + Left (Prev) for 5 s: Restarting…, then a clean restart (issue #226)" style={{ height: "34px", padding: "0 12px", border: "1px solid #A8A49B", borderRadius: "6px", background: "#fff", fontSize: "13px" }}>Hold Power + Left</button>
         <button className="dev-btn" onClick={v.crashLoop} title="Boot ring shows 3 crash resets in a row: the reset screen is offered at boot" style={{ height: "34px", padding: "0 12px", border: "1px solid #A8A49B", borderRadius: "6px", background: "#fff", fontSize: "13px" }}>Crash loop</button>
         <button className="dev-btn" onClick={v.noHaSim}style={{ height: "34px", padding: "0 12px", border: "1px solid #A8A49B", borderRadius: "6px", background: "#fff", fontSize: "13px" }}>Never linked</button>
@@ -101,6 +102,14 @@ export function SidePanel({ v }: { v: Vals }) {
         <button className="dev-btn" onClick={v.publishRelease} style={{ height: "34px", padding: "0 12px", border: "1px solid #A8A49B", borderRadius: "6px", background: "#fff", fontSize: "13px", flex: "none" }}>Publish release</button>
         <div style={{ flex: "1", display: "flex", border: "1px solid #A8A49B", borderRadius: "6px", overflow: "hidden" }}>
           {(v.failOpts).map((o: any, i_o: number) => (<Fragment key={i_o}>
+            <button onClick={o.pick} style={{ flex: "1", height: "34px", border: "0", borderRight: "1px solid #A8A49B", background: o.bg, color: o.fg, font: "500 12px 'IBM Plex Mono', monospace" }}>{o.label}</button>
+          </Fragment>))}
+        </div>
+      </div>
+      <div style={{ display: "flex", gap: "8px", alignItems: "center" }}>
+        <span style={{ fontSize: "13px", flex: "none", width: "110px" }}>Next check</span>
+        <div style={{ flex: "1", display: "flex", border: "1px solid #A8A49B", borderRadius: "6px", overflow: "hidden" }}>
+          {(v.checkOpts).map((o: any, i_o: number) => (<Fragment key={i_o}>
             <button onClick={o.pick} style={{ flex: "1", height: "34px", border: "0", borderRight: "1px solid #A8A49B", background: o.bg, color: o.fg, font: "500 12px 'IBM Plex Mono', monospace" }}>{o.label}</button>
           </Fragment>))}
         </div>

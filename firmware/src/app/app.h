@@ -16,6 +16,7 @@ struct DisplaySettings {   // Settings › Display (SPEC §8); persisted by net/
   std::string night = "23-07", returnHome = "5", standby = "never", clock = "24";
   int intervalSec = 30, fullEvery = 8;   // fullEvery: legacy (#26), stored and served, unused
   int cleanEvery = 30;                    // scheduled clean refresh interval, minutes: 30 | 60 | 120
+  int lightTimeout = 60;                  // front light off after s without input (#220): 30 | 60 | 120 | 300 | 0 = never
   // Added: Settings › Updates choices and the device name shown on About.
   std::string otaChannel = "stable", otaAuto = "notify";   // stable|beta, off|notify|night
   std::string deviceName = "Living room display";

@@ -68,6 +68,15 @@ export function DeviceTab({ v }: { v: ConsoleView }) {
                 <div style={{ display: "flex", justifyContent: "space-between", gap: "10px", fontSize: "14px", padding: "6px 0", borderTop: "1px solid #ece9e3" }}><span style={{ color: "#5c5a55" }}>{ln.k}</span><span style={{ fontWeight: "500" }}>{ln.v}</span></div>
               </Fragment>))}
             </div>
+            {v.web.otaReady && (<div className="x4-ota" aria-live="polite" style={{ ...CARD }}>
+              <div style={{ fontSize: "18px", fontWeight: "600" }}>{v.web.t('menuUpdates')}</div>
+              <div style={{ borderTop: "1px solid #ece9e3", paddingTop: "8px" }}>
+                <div style={{ fontSize: "15px", fontWeight: "600" }}>{v.web.otaLine.title}</div>
+                {!!v.web.otaLine.sub && (<div style={{ fontSize: "13px", color: "#5c5a55", lineHeight: "1.45", overflowWrap: "anywhere" }}>{v.web.otaLine.sub}</div>)}
+              </div>
+              {!!v.web.otaMsg && (<div style={{ fontSize: "13px", color: "#B3261E" }}>{v.web.otaMsg}</div>)}
+              {v.web.otaCanCheck && (<button className="dev-btn" onClick={v.web.otaCheck} disabled={v.web.otaChecking} style={{ height: "40px", border: "1px solid #c9c6be", borderRadius: "8px", background: "#fff", fontSize: "14px", opacity: v.web.otaChecking ? 0.6 : 1 }}>{v.web.t(v.web.otaChecking ? 'checking' : 'otaCheck')}</button>)}
+            </div>)}
             <div style={{ background: "#fff", border: "1px solid #d3d0c8", borderRadius: "14px", padding: "20px", display: "flex", flexDirection: "column", gap: "10px" }}>
               <div style={{ fontSize: "18px", fontWeight: "600" }}>{v.web.t('diagnostics')}</div>
               {!v.web.diagReady && !v.web.diagMsg && (<div style={{ fontSize: "14px", color: "#5c5a55" }}>{v.web.t('loading')}</div>)}

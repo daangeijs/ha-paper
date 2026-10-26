@@ -130,6 +130,58 @@ static void test_heap_threshold_pooled() {
   TEST_ASSERT_FALSE(heapOkForTls(20 * 1024, 64 * 1024 - 1, 0));
 }
 
+// #248: per-peer floor, DMA RAM counted too (numbers from the real X4 Pro)
+static void test_tls_peer_for_host() {
+  TEST_ASSERT_TRUE(tlsPeerFor("api.github.com") == TlsPeer::GitHub);
+  TEST_ASSERT_TRUE(tlsPeerFor("github.com") == TlsPeer::GitHub);
+  TEST_ASSERT_TRUE(tlsPeerFor("objects.githubusercontent.com") == TlsPeer::GitHub);
+  TEST_ASSERT_TRUE(tlsPeerFor("homeassistant.local") == TlsPeer::Ha);
+  TEST_ASSERT_TRUE(tlsPeerFor("abc.ui.nabu.casa") == TlsPeer::Ha);
+  TEST_ASSERT_TRUE(tlsPeerFor("notgithub.com") == TlsPeer::Ha);
+  TEST_ASSERT_TRUE(tlsPeerFor("github.com.evil.example") == TlsPeer::Ha);
+  TEST_ASSERT_TRUE(tlsPeerFor("") == TlsPeer::Ha);
+}
+
+static void test_tls_floor_per_peer() {
+  TlsFloor ha = tlsFloor(TlsPeer::Ha, 2), gh = tlsFloor(TlsPeer::GitHub, 2);
+  TEST_ASSERT_EQUAL_UINT32(40 * 1024, ha.freeInternal);   // unchanged (#149)
+  TEST_ASSERT_EQUAL_UINT32(28 * 1024, ha.freeDma);
+  TEST_ASSERT_EQUAL_UINT32(4 * 1024, ha.largestDma);
+  TEST_ASSERT_EQUAL_UINT32(56 * 1024, gh.freeInternal);   // ~47 KB handshake + margin
+  TEST_ASSERT_EQUAL_UINT32(44 * 1024, gh.freeDma);
+  TlsFloor haU = tlsFloor(TlsPeer::Ha, 1), ghU = tlsFloor(TlsPeer::GitHub, 0);
+  TEST_ASSERT_EQUAL_UINT32(64 * 1024, haU.freeInternal);
+  TEST_ASSERT_EQUAL_UINT32(20 * 1024, haU.largestDma);
+  TEST_ASSERT_EQUAL_UINT32(80 * 1024, ghU.freeInternal);
+}
+
+static void test_tls_heap_dma_and_peer() {
+  const TlsHeap ok{60 * 1024, 30 * 1024, 52 * 1024, 30 * 1024, 2};
+  TEST_ASSERT_TRUE(heapOkForTls(ok, TlsPeer::Ha));
+  TEST_ASSERT_TRUE(heapOkForTls(ok, TlsPeer::GitHub));
+  TlsHeap h = ok;
+  h.freeDma = 44 * 1024 - 1;   // GitHub's DMA floor
+  TEST_ASSERT_TRUE(heapOkForTls(h, TlsPeer::Ha));
+  TEST_ASSERT_FALSE(heapOkForTls(h, TlsPeer::GitHub));
+  h = ok;
+  h.freeDma = 28 * 1024 - 1;
+  TEST_ASSERT_FALSE(heapOkForTls(h, TlsPeer::Ha));
+  h = ok;
+  h.largestDma = 4 * 1024 - 1;
+  TEST_ASSERT_FALSE(heapOkForTls(h, TlsPeer::Ha));
+  // the device before its api.github.com handshake (low point 5,304 B after): HA yes, GitHub no
+  const TlsHeap before{53760, 20 * 1024, 46 * 1024, 20 * 1024, 2};
+  TEST_ASSERT_TRUE(heapOkForTls(before, TlsPeer::Ha));
+  TEST_ASSERT_FALSE(heapOkForTls(before, TlsPeer::GitHub));
+  // the refused manual check: internal free 39,644 B
+  const TlsHeap refused{39644, 20 * 1024, 32 * 1024, 20 * 1024, 2};
+  TEST_ASSERT_FALSE(heapOkForTls(refused, TlsPeer::Ha));
+  // the WebSocket holds two slots: the unpooled 64 KB rule, plus 16 KB for GitHub
+  const TlsHeap unpooled{70 * 1024, 30 * 1024, 58 * 1024, 30 * 1024, 1};
+  TEST_ASSERT_TRUE(heapOkForTls(unpooled, TlsPeer::Ha));
+  TEST_ASSERT_FALSE(heapOkForTls(unpooled, TlsPeer::GitHub));
+}
+
 static constexpr uint32_t kFree = 100 * 1024;
 
 static void test_heap_watch_night_window() {
@@ -161,6 +213,34 @@ static void test_heap_watch_blocked_outside_window_or_ota() {
   for (uint32_t t = 60 * 60000; t <= 90 * 60000; t += 10000) TEST_ASSERT_FALSE(w.sample(t, 16000, kFree, -1, true));
   TEST_ASSERT_FALSE(w.sample(90 * 60000 + 10000, 16000, kFree, 3, false));   // OTA running
   TEST_ASSERT_TRUE(w.sample(90 * 60000 + 20000, 16000, kFree, 3, true));
+}
+
+static void test_heap_starve_sheds_once_after_10s() {
+  HeapStarve s;
+  const uint32_t okI = 90 * 1024, okD = 70 * 1024;
+  TEST_ASSERT_FALSE(s.sample(0, okI, okD));
+  TEST_ASSERT_FALSE(s.sample(2000, 22 * 1024, okD));    // device log #248: 22 KB internal
+  TEST_ASSERT_FALSE(s.sample(10000, 22 * 1024, okD));   // low 8 s
+  TEST_ASSERT_TRUE(s.sample(12000, 22 * 1024, okD));    // low 10 s → shed
+  TEST_ASSERT_FALSE(s.sample(30000, 22 * 1024, okD));   // once per spell
+  TEST_ASSERT_FALSE(s.sample(32000, 26 * 1024, okD));   // above floor, not yet + 8 KB: still armed off
+  for (uint32_t t = 34000; t <= 50000; t += 2000) TEST_ASSERT_FALSE(s.sample(t, 22 * 1024, okD));
+  TEST_ASSERT_FALSE(s.sample(52000, okI, okD));         // recovered → re-armed
+  TEST_ASSERT_FALSE(s.sample(54000, okI, 14 * 1024));   // DMA alone: 14.8 KB in the device log
+  TEST_ASSERT_TRUE(s.sample(64000, okI, 14 * 1024));
+}
+
+static void test_heap_starve_web_refuse_floor() {
+  TEST_ASSERT_FALSE(HeapStarve::critical(24 * 1024, 16 * 1024));   // QEMU heap-hog level: still served
+  TEST_ASSERT_TRUE(HeapStarve::critical(11 * 1024, 40 * 1024));
+  TEST_ASSERT_TRUE(HeapStarve::critical(40 * 1024, 7 * 1024));
+  TEST_ASSERT_TRUE(HeapStarve::under(22 * 1024, 40 * 1024));
+}
+
+static void test_heap_starve_brief_dip_ignored() {
+  HeapStarve s;
+  for (uint32_t t = 0; t < 60000; t += 4000)   // dips every other sample: never 10 s in a row
+    TEST_ASSERT_FALSE(s.sample(t, (t / 4000) % 2 ? 10 * 1024 : 60 * 1024, 50 * 1024));
 }
 
 static void test_same_origin_write() {
@@ -221,6 +301,35 @@ static void test_stale_link_backoff_and_reset() {
   TEST_ASSERT_FALSE(s.poll(StaleLink::kStaleMs * 2));
 }
 
+// #227: idle alone never reconnects; the gateway check decides; served requests and each check restart the window
+void test_inbound_watch() {
+  InboundWatch w;
+  const uint32_t idle = InboundWatch::kIdleMs, t0 = 0xFFFF0000u;   // wraps during the test
+  TEST_ASSERT_FALSE(w.due(t0 + idle));   // link never up
+  w.linkUp(t0);
+  w.linkUp(t0 + 1000);                    // still up: the window keeps its start
+  TEST_ASSERT_FALSE(w.due(t0 + idle - 1));
+  TEST_ASSERT_TRUE(w.due(t0 + idle));
+  w.served(t0 + idle);
+  TEST_ASSERT_FALSE(w.due(t0 + 2 * idle - 1));
+  TEST_ASSERT_TRUE(w.due(t0 + 2 * idle));
+  TEST_ASSERT_TRUE(w.checked(t0 + 2 * idle, true) == InboundWatch::Action::MdnsRestart);
+  TEST_ASSERT_FALSE(w.due(t0 + 3 * idle - 1));
+  TEST_ASSERT_TRUE(w.checked(t0 + 3 * idle, false) == InboundWatch::Action::Reconnect);
+  w.linkDown();
+  TEST_ASSERT_FALSE(w.due(t0 + 10 * idle));
+  w.linkUp(t0 + 10 * idle);
+  TEST_ASSERT_FALSE(w.due(t0 + 11 * idle - 1));
+}
+
+void test_bssid_tag() {
+  const uint8_t a[6] = {0x00, 0x11, 0x22, 0x33, 0x44, 0x55}, b[6] = {0x00, 0x11, 0x22, 0x33, 0x44, 0x56};
+  TEST_ASSERT_EQUAL(4, bssidTag(a).size());
+  TEST_ASSERT_TRUE(bssidTag(a) != bssidTag(b));
+  TEST_ASSERT_TRUE(bssidTag(a) == bssidTag(a));
+  TEST_ASSERT_TRUE(bssidTag(nullptr).empty());
+}
+
 int main(int, char**) {
   UNITY_BEGIN();
   RUN_TEST(test_jitter_bounds);
@@ -237,8 +346,16 @@ int main(int, char**) {
   RUN_TEST(test_heap_watch_night_window);
   RUN_TEST(test_heap_watch_needs_continuous_low);
   RUN_TEST(test_heap_watch_blocked_outside_window_or_ota);
+  RUN_TEST(test_heap_starve_sheds_once_after_10s);
+  RUN_TEST(test_heap_starve_brief_dip_ignored);
+  RUN_TEST(test_heap_starve_web_refuse_floor);
   RUN_TEST(test_same_origin_write);
   RUN_TEST(test_stale_link_relinks_after_fails_and_time);
   RUN_TEST(test_stale_link_backoff_and_reset);
+  RUN_TEST(test_tls_peer_for_host);
+  RUN_TEST(test_tls_floor_per_peer);
+  RUN_TEST(test_tls_heap_dma_and_peer);
+  RUN_TEST(test_inbound_watch);
+  RUN_TEST(test_bssid_tag);
   return UNITY_END();
 }

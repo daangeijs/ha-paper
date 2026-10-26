@@ -68,6 +68,7 @@ A tile with no room is not drawn.
 | light | light: ‹id› | legacy (pre-0.5): rewritten to `{type: switch, entity: light.‹id›}` (`‹id›` with a `.` kept as-is) |
 | scene | entity, label (optional) | tap runs it: `scene.*` → `scene.turn_on`, `script.*` → `script.turn_on`; no entity (or the older `scene: all_off`) = all lights off (`light.turn_off`, `entity_id: all`); an entity wins over `scene:` |
 | zoneList | entities (optional) | climate entities (any integration), 10 per page (use cs 4, rs 2); see *list picks*; the away button shows when a climate entity's `preset_modes` has `away` and is sent to those (#148) |
+| history | entity, window, bucket, agg, style, min, max, label; attribute, value, time, ahead, forecast (all but entity optional) | a numeric entity over time; domain `sensor` \| `input_number` \| `number`; or a list in an attribute / a weather forecast (#283); see *history* (#264); the firmware parses it (#268) and draws the unknown-tile face until #270 |
 | thermo | zone: ‹id›, label (optional) | single room, `‹id›` = object id of a `climate.*` entity (the console picks it); no zone = “—”; rs 2 recommended |
 | setting, ota, wifi, ha, about | | system tiles of the built-in Settings pages: accepted for older files, then dropped (see *Settings is built in*) |
 
@@ -101,12 +102,74 @@ What the display reads from the entity (any integration, or a template sensor th
 
 | mode | state | attributes |
 |---|---|---|
-| train, bus | ignored | `departures` (required): a list, or a JSON string of one, of `{"time": "HH:MM", "delay": minutes, "cancelled": bool, "info": text}`; local clock times, upcoming first. `note` (optional): replaces the footer. `per_hour` (bus, optional): adds "‹n› per hour" |
+| train, bus | ignored | `departures` (required): a list, or a JSON string of one, of `{"time": "HH:MM", "delay": minutes, "cancelled": bool, "info": text}`; local clock times, upcoming first. Or, without `departures`, `upcoming` as the NS departures integration (ha-ns-departures) writes it: `{"planned": ISO, "actual": ISO, "delay": minutes, "track": text, "direction": text, "status": "on_time" \| "delayed" \| "cancelled", …}`; the row shows the local time of `actual` (else `planned`), `delay` (else actual − planned), cancelled when `status` is `cancelled`, and "Track ‹track› · ‹direction›" (#275, `spec/test-vectors/route-departures.json`). `note` (optional): replaces the footer. `per_hour` (bus, optional): adds "‹n› per hour" |
 | car | travel time in minutes | `typical` (optional): usual minutes; without it there is no badge and no "usually" line. `note` (optional) |
 
 Severity: worst of the next two departures (delay < 2 on time, < 5 minor, ≤ 15 delayed, > 15 or cancelled disrupted);
 car: travel time / typical ≥ 1.15, 1.4, 1.75 (`spec/test-vectors/severity.json`). No entity: "Pick a sensor for this
 route". Entity `unavailable` / `unknown`: the gap ring and word (#86). Entity missing or without upcoming departures: "—".
+
+### history (#264)
+
+`{type: history, entity: sensor.outdoor_temperature, window: 24h, agg: mean, cs: 4}`. At most **6** history tiles per
+config (the 7th fails: `At most 6 history tiles`).
+
+| key | values | default |
+|---|---|---|
+| window | `‹n›m` \| `‹n›h` \| `‹n›d`, 10m–7d (a bare number has no unit and fails) | `24h` |
+| bucket | `1m 5m 10m 15m 30m 1h 2h 3h 6h 12h 1d`; divides the window into 2–96 bars | the smallest step giving ≤ 12 bars per column (`cs`); else the dividing step with the fewest bars in 2–96 |
+| agg | `mean` (time-weighted) \| `max` \| `min` \| `last` (value at the bucket's end) \| `change` (counters: last minus the value before) | `mean` |
+| style | `bars` \| `line` \| `auto` | `auto`: `line` for `mean`, `bars` otherwise |
+| min, max | numbers (negative / decimal allowed), `min` < `max` | bars from 0, lines auto-ranged with 10 % padding |
+| label | text | HA friendly name, else the entity id |
+
+Defaults with `cs: 4`: 1h → 5m, 6h → 10m, 24h → 30m, 7d → 6h; `cs: 2`, 24h → 1h. Buckets align to local time; the last
+one is open and holds now. Data: `recorder/statistics_during_period` (`period` 5minute below 1h, hour below 1d, else day;
+`types` = the agg, `last` reads `mean`); without statistics (or a bucket under 5m)
+`history/history_during_period`, only for windows up to 24 h. Unavailable / unknown = an empty bucket. The chart prints
+the low and high bucket with its time and an x axis: minutes before now (≤ 3 h), round hours (≤ 48 h), else weekdays.
+Reference: `emulator/src/core/history.ts` (firmware `core/history.cpp`); vectors: `spec/test-vectors/history.json` (incl. its config cases).
+
+#### series from an attribute or a weather forecast (#283)
+
+The same tile charts a list HA already holds, e.g. a rain nowcast or a weather forecast. The keys pick the source:
+`attribute` set → a list in that attribute of the entity (domain `sensor` \| `binary_sensor` \| `weather`); else a
+`weather.*` entity → `weather.get_forecasts` (a service call with `return_response`); else the recorder (above).
+
+```yaml
+- {type: history, entity: binary_sensor.rain_expected, attribute: forecast, value: precipitation, window: 2h, cs: 4}
+- {type: history, entity: weather.home, window: 24h, cs: 4}
+- {type: history, entity: weather.home, forecast: daily, value: precipitation, window: 7d, bucket: 1d, agg: change, cs: 4}
+```
+
+| key | values | default |
+|---|---|---|
+| attribute | attribute name (letters, digits, `_`) | — (none = recorder or forecast) |
+| value | the entry field to chart | `temperature` (forecast), else `value` |
+| time | the entry field with its time | `datetime` |
+| forecast | `hourly` \| `daily`; weather entity without `attribute` only | `hourly` |
+| ahead | `0` or a span ≤ window that the bucket divides: the part of the window after now | the whole window |
+
+The list (or a JSON string of one) holds objects `{‹time›: ISO 8601 or epoch s / ms, ‹value›: number}` (an entry
+without a valid time or number is skipped; an ISO time without offset is local), or plain numbers: one per bucket,
+the first in the bucket holding now. Entries are samples, not held values: a sample belongs to the bucket its time falls
+in; `mean` averages them, `min` / `max`, `last` = the latest, `change` = their sum; a bucket without a sample is empty.
+With `ahead` > 0 the bucket holding now starts the last `ahead` of the window (`ahead` = window: the first bucket);
+`ahead: 0` is the recorder's span (now in the last bucket). An hourly forecast needs a bucket of 1h or more, a daily
+one 1d (the default bucket skips shorter steps). Axis for windows ≤ 3 h: `-60 Now +30 +60`. Validation (first error):
+
+| rule | message |
+|---|---|
+| attribute entity domain | `history: “‹entity›” is not a sensor / binary_sensor / weather entity` |
+| ahead / value / time / forecast on a recorder series | `history: ‹key› needs an attribute or a weather entity` |
+| attribute / value / time not a name | `history: ‹key› must be an attribute name (letters, digits, _)` |
+| forecast not hourly / daily, or with `attribute` | `history: forecast must be hourly or daily, on a weather entity without attribute` |
+| forecast bucket shorter than its step | `history: an hourly forecast needs a bucket of 1h or more` \| `history: a daily forecast needs a bucket of 1d or more` |
+| ahead not 0 or a span ≤ window | `history: ahead must be 0 or like 30m or 2h, at most the window` |
+| bucket does not divide ahead | `history: bucket ‹bucket› does not divide ahead ‹ahead›` |
+
+Reference: `emulator/src/core/history.ts`; vectors: `spec/test-vectors/history-series.json`. The firmware does not read
+these sources yet: `firmware/deviations/283-attribute-series.md`.
 
 ## validation
 
@@ -120,7 +183,7 @@ Reject first error with 1-based line number and message (exact text; `‹›` = 
 | widget not under `widgets:` | widget | `Widget outside a “widgets:” list` |
 | flow-map part without `:` | widget | `Expected key: value` |
 | unknown type | widget | `Unknown widget type “‹type›”` |
-| stat/gauge/switch/route entity bad id or domain | widget | `‹type›: “‹entity›” is not a ‹d1 / d2 / …› entity` |
+| stat/gauge/switch/route/history entity bad id or domain | widget | `‹type›: “‹entity›” is not a ‹d1 / d2 / …› entity` |
 | lightList `areas` item not an area id | widget | `lightList: “‹id›” is not an area id` |
 | lightList / zoneList `entities` item not a light / climate entity_id | widget | `‹type›: “‹id›” is not a ‹light \| climate› entity` |
 | zoneList `labels` item not `climate.<id>=Name` | widget | `zoneList: “‹item›” in labels is not climate.<id>=Name` |
@@ -131,6 +194,16 @@ Reject first error with 1-based line number and message (exact text; `‹›` = 
 | `col`/`row` set, `row` not 1–2 | widget | `row must be 1 or 2` |
 | pinned tile sticks out of grid | widget | `Does not fit at col ‹col›, row ‹row›` |
 | pinned tile overlaps earlier pinned tile | widget | `Overlaps another tile at col ‹col›, row ‹row›` |
+| history `window` not 10m–7d | widget | `history: window must be like 30m, 6h or 7d (10m–7d)` |
+| history `bucket` not on the ladder | widget | `history: bucket must be one of 1m 5m 10m 15m 30m 1h 2h 3h 6h 12h 1d` |
+| history `bucket` does not divide `window` | widget | `history: bucket ‹bucket› does not divide window ‹window›` |
+| history bars not 2–96 | widget | `history: ‹window› / ‹bucket› = ‹n› bars (2–96)` (`1 bar`) |
+| history without `bucket`, none fits | widget | `history: no bucket fits window ‹window›; set bucket` |
+| history `agg` | widget | `history: agg must be mean, max, min, last, change` |
+| history `style` | widget | `history: style must be bars, line or auto` |
+| history `min` / `max` not a number | widget | `history: min and max must be numbers` |
+| history `min` ≥ `max` | widget | `history: min must be below max` |
+| 7th history tile | widget | `At most 6 history tiles` |
 | any other line | that line | `Can’t read this line` |
 | no screens | 1 | `No screens found` |
 | duplicate screen id | `- id:` (last with that id) | `Duplicate screen id “‹id›”` |

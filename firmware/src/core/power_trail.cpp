@@ -11,6 +11,7 @@ std::string keyLine(uint32_t ms, int mv, bool usb) {
 }
 std::string standbyLine(uint32_t ms) { return "standby drawn " + std::to_string(ms); }
 std::string keyUpLine(uint32_t heldMs) { return "keyup " + std::to_string(heldMs); }
+std::string offLine(uint32_t ms) { return "off " + std::to_string(ms); }
 
 std::vector<std::string> lastLines(const std::string& trail, size_t n) {
   std::vector<std::string> all;

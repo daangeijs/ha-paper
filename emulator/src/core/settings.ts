@@ -7,6 +7,7 @@ import { POWER_SAVES, WAKE_EVERY, type PowerSave } from './power.ts';
 import { DEFAULT_LIVE_MIN, LIVE_MIN } from './glance.ts';
 import { settingsScreens } from './config.ts';
 import { TZ_ZONES, validTzSetting } from './locale.ts';
+import { DEFAULT_LIGHT_TIMEOUT, LIGHT_TIMEOUTS } from './frontlight.ts';
 export { validPosixTz } from './locale.ts';
 
 export type DisplayStyle = 'classic' | 'sleek';
@@ -26,6 +27,8 @@ export type DisplaySettings = { brightness: number; warmth: number; night: strin
   /** Power saving (#10): `glance` by default (#18) — on battery it deep-sleeps between wakes; on USB it is always live.
    *  New keys with defaults (migrate.ts rules): a firmware without them ignores them. */
   powerSave: PowerSave; wakeEvery: number; liveMin: number;
+  /** Front light off after this many seconds without input, 0 = never (#220). Missing = DEFAULT_LIGHT_TIMEOUT. */
+  lightTimeout?: number;
   /** Settings › Updates › Automatic (firmware key; the device keeps it with the OTA state). */
   otaAuto?: OtaAutoMode;
   /** POST /api/v1/debug/input allowed (#214, measuring on hardware). API only, no tile; missing = false. */
@@ -39,7 +42,7 @@ export type SettingsPatch = { display?: Partial<DisplaySettings>; name?: string;
 export type OtaChannel = 'stable' | 'beta';
 
 /** Emulator-internal cfg (Settings tiles): minutes as numbers, 0 = never. */
-export type DisplayCfg = { brightness: number; warmth: number; night: string; fullEvery: number; cleanEvery: number; interval: number; returnHome: number; standby: number; clock: string;
+export type DisplayCfg = { brightness: number; warmth: number; lightTimeout: number; night: string; fullEvery: number; cleanEvery: number; interval: number; returnHome: number; standby: number; clock: string;
   style: DisplayStyle; typeface: Typeface; surface: Surface; haReport: boolean } & PowerCfg;
 /** Power saving (Settings › Power, #10). On the wire in `display`. */
 export type PowerCfg = { powerSave: PowerSave; wakeEvery: number; liveMin: number };
@@ -47,13 +50,13 @@ export const DEFAULT_POWER: PowerCfg = { powerSave: 'glance', wakeEvery: 15, liv
 export type Cfg = DisplayCfg;
 
 export const cfgToDisplay = (c: DisplayCfg): DisplaySettings => ({
-  brightness: c.brightness, warmth: c.warmth, night: c.night, returnHome: c.returnHome ? String(c.returnHome) : 'never',
+  brightness: c.brightness, warmth: c.warmth, lightTimeout: c.lightTimeout, night: c.night, returnHome: c.returnHome ? String(c.returnHome) : 'never',
   standby: c.standby ? String(c.standby) : 'never', clock: c.clock, intervalSec: c.interval, fullEvery: c.fullEvery, cleanEvery: c.cleanEvery,
   style: c.style, typeface: c.typeface, surface: c.surface, haReport: c.haReport,
   powerSave: c.powerSave, wakeEvery: c.wakeEvery, liveMin: c.liveMin,
 });
 export const displayToCfg = (d: DisplaySettings): DisplayCfg => ({
-  brightness: d.brightness, warmth: d.warmth, night: d.night, returnHome: d.returnHome === 'never' ? 0 : Number(d.returnHome),
+  brightness: d.brightness, warmth: d.warmth, lightTimeout: d.lightTimeout ?? DEFAULT_LIGHT_TIMEOUT, night: d.night, returnHome: d.returnHome === 'never' ? 0 : Number(d.returnHome),
   standby: d.standby === 'never' ? 0 : Number(d.standby), clock: d.clock, interval: d.intervalSec, fullEvery: d.fullEvery, cleanEvery: d.cleanEvery ?? DEFAULT_CLEAN_EVERY,
   style: d.style, typeface: d.typeface, surface: d.surface, haReport: d.haReport ?? true,
   powerSave: d.powerSave ?? DEFAULT_POWER.powerSave, wakeEvery: d.wakeEvery ?? DEFAULT_POWER.wakeEvery, liveMin: d.liveMin ?? DEFAULT_POWER.liveMin,
@@ -65,6 +68,7 @@ const range = (min: number, max: number, step: number): number[] => Array.from({
 export const DISPLAY_FIELDS: { key: keyof DisplaySettings; label: StrKey; info?: StrKey; values: (string | number | boolean)[]; fmt: (v: string | number | boolean, lang: Lang) => string }[] = [
   { key: 'brightness', label: SETTINGS.brightness.lk, values: range(0, 100, 10), fmt: (v, lg) => SETTINGS.brightness.fmt(v, lg) },
   { key: 'warmth', label: SETTINGS.warmth.lk, values: range(0, 100, 10), fmt: (v, lg) => SETTINGS.warmth.fmt(v, lg) },
+  { key: 'lightTimeout', label: SETTINGS.lightTimeout.lk, info: SETTINGS.lightTimeout.info, values: LIGHT_TIMEOUTS, fmt: (v, lg) => SETTINGS.lightTimeout.fmt(v, lg) },
   { key: 'night', label: SETTINGS.night.lk, values: ['off', '22-06', '23-07', '00-06'], fmt: (v, lg) => SETTINGS.night.fmt(v, lg) },
   { key: 'returnHome', label: SETTINGS.returnHome.lk, values: ['never', '1', '5', '15'], fmt: (v, lg) => SETTINGS.returnHome.fmt(v === 'never' ? 0 : Number(v), lg) },
   { key: 'standby', label: SETTINGS.standby.lk, info: SETTINGS.standby.info, values: ['never', '10', '30', '60'], fmt: (v, lg) => SETTINGS.standby.fmt(v === 'never' ? 0 : Number(v), lg) },
@@ -112,6 +116,7 @@ export function displayError(d: DisplaySettings): string | null {
   const int = (v: unknown, lo: number, hi: number) => Number.isInteger(v) && (v as number) >= lo && (v as number) <= hi;
   if (!int(d.brightness, 0, 100)) return 'display.brightness must be 0–100';
   if (!int(d.warmth, 0, 100)) return 'display.warmth must be 0–100';
+  if (d.lightTimeout !== undefined && !LIGHT_TIMEOUTS.includes(d.lightTimeout)) return 'display.lightTimeout must be 0, 30, 60, 120 or 300';
   if (!/^(off|([01]\d|2[0-3])-([01]\d|2[0-3]))$/.test(String(d.night))) return 'display.night must be "off" or "HH-HH"';
   if (!['never', '1', '5', '15'].includes(String(d.returnHome))) return 'display.returnHome must be never, 1, 5 or 15';
   if (!['never', '10', '30', '60'].includes(String(d.standby))) return 'display.standby must be never, 10, 30 or 60';
@@ -137,7 +142,7 @@ export const nameError = (name: unknown): string | null => (typeof name !== 'str
 
 /** PUT /settings key tables (#43). A new setting = one row here and one in firmware core/settings_api.cpp. */
 export const SETTINGS_KEYS = ['display', 'ota_channel', 'tz', 'name', 'entities'] as const;
-export const DISPLAY_KEYS = ['brightness', 'warmth', 'night', 'returnHome', 'standby', 'clock', 'intervalSec', 'fullEvery', 'cleanEvery', 'otaAuto',
+export const DISPLAY_KEYS = ['brightness', 'warmth', 'lightTimeout', 'night', 'returnHome', 'standby', 'clock', 'intervalSec', 'fullEvery', 'cleanEvery', 'otaAuto',
   'style', 'typeface', 'surface', 'haReport', 'powerSave', 'wakeEvery', 'liveMin', 'debugInput'] as const;
 export const TZ_ERROR = 'tz must be "", a known zone like Europe/Amsterdam or a POSIX TZ string like CET-1CEST,M3.5.0,M10.5.0/3';
 

@@ -254,6 +254,31 @@ std::vector<double> hourlyPrices(const EntityValue& v, int64_t nowEpoch) { retur
 
 // ------------------------------------------------------------------------------------------- adapter
 
+GridFlows gridFlows(const Json& s) {
+  GridFlows g;
+  if (!s.isObj()) return g;
+  auto add = [](std::vector<std::string>& l, const std::string& m) {
+    if (!m.empty() && std::find(l.begin(), l.end(), m) == l.end()) l.push_back(m);
+  };
+  if (auto* ff = s.get("flow_from"); ff && ff->isArr())
+    for (auto& f : ff->arr) {
+      if (!f.isObj()) continue;
+      add(g.imports, strOf(f.get("stat_energy_from")));
+      if (g.price.empty()) g.price = strOf(f.get("entity_energy_price"));
+    }
+  if (auto* ft = s.get("flow_to"); ft && ft->isArr())
+    for (auto& f : ft->arr) {
+      if (!f.isObj()) continue;
+      add(g.exports, strOf(f.get("stat_energy_to")));
+      if (g.priceExport.empty()) g.priceExport = strOf(f.get("entity_energy_price"));
+    }
+  add(g.imports, strOf(s.get("stat_energy_from")));
+  add(g.exports, strOf(s.get("stat_energy_to")));
+  if (g.price.empty()) g.price = strOf(s.get("entity_energy_price"));
+  if (g.priceExport.empty()) g.priceExport = strOf(s.get("entity_energy_price_export"));
+  return g;
+}
+
 bool EntityAdapter::isLogicalId(const std::string& id) {
   if (id.compare(0, std::strlen(kRoutePrefix), kRoutePrefix) == 0) return true;
   for (auto& l : fixedLogical()) if (l == id) return true;
@@ -291,14 +316,10 @@ bool EntityAdapter::setEnergyPrefs(const std::string& text) {
           if (!energy_.count(kBattPower) && powerFromPrefs(s, p, -1)) energy_[kBattPower] = p;
         } else if (type == "grid") {
           hasGrid_ = true;
-          if (auto* ff = s.get("flow_from"); ff && ff->isArr())
-            for (auto& f : ff->arr) {
-              if (auto m = strOf(f.get("stat_energy_from")); !m.empty()) importMeters_.push_back(m);
-              if (priceEntity_.empty()) priceEntity_ = strOf(f.get("entity_energy_price"));
-            }
-          if (auto* ft = s.get("flow_to"); ft && ft->isArr())
-            for (auto& f : ft->arr)
-              if (auto m = strOf(f.get("stat_energy_to")); !m.empty()) exportMeters_.push_back(m);
+          GridFlows g = gridFlows(s);
+          importMeters_.insert(importMeters_.end(), g.imports.begin(), g.imports.end());
+          exportMeters_.insert(exportMeters_.end(), g.exports.begin(), g.exports.end());
+          if (priceEntity_.empty()) priceEntity_ = g.price;
           if (!energy_.count(kGridPower) && powerFromPrefs(s, p, 1)) energy_[kGridPower] = p;
         }
       }

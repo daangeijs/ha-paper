@@ -8,7 +8,7 @@
 namespace x4 {
 
 struct Widget {
-  std::string type;                          // clock, stat, price, gauge, bars, route, lightList, switch, scene, zoneList, thermo, setting, ota, wifi, ha, about
+  std::string type;                          // clock, stat, price, gauge, bars, route, lightList, switch, scene, zoneList, thermo, history, setting, ota, wifi, ha, about
   int cs = 1, rs = 1;
   std::map<std::string, std::string> fields; // entity (HA entity_id) / series / route / scene / zone / key / label
   // Added: every key/value exactly as written, in emulator Object.keys order (used by toYaml for 1:1 output).
@@ -57,7 +57,7 @@ bool isSystemTile(const std::string& widgetType);
 const std::vector<Screen>& settingsScreens();         // the fixed Settings pages (= emulator settingsScreens())
 Config withSettings(const Config& c);                 // what the display runs: user apps + Settings, user screens + pages
 Config userConfig(const Config& c);                   // without the Settings app and its screens
-// HA domains an entity widget accepts (stat / gauge / switch / route / scene); nullptr for other types.
+// HA domains an entity widget accepts (stat / gauge / switch / route / scene / history); nullptr for other types.
 const std::vector<const char*>* entityDomains(const std::string& widgetType);
 // Scene tile tap (#146, spec/test-vectors/scene-action.json): its scene / script entity → <domain>.turn_on, none (or
 // the older scene: all_off) → light.turn_off all. service_data is {"entity_id": entityId}.

@@ -30,6 +30,8 @@ using namespace x4;
 
 static const int64_t kNoon = 1791885600 + 3600;   // 2026-10-13 13:00 Europe/Amsterdam (11:00 UTC)
 
+static std::string strOfTest(const Json* j) { return j && j->isStr() ? j->str : std::string(); }
+
 static std::string fixture(const char* name) {
   std::ifstream f(std::string(X4_REPO_ROOT) + "/firmware/test/fixtures/ha/" + name, std::ios::binary);
   std::stringstream ss; ss << f.rdbuf();
@@ -357,8 +359,80 @@ void test_render_template_answer_over_64k() {
   TEST_ASSERT_EQUAL_STRING("sensor.bulk_799", parsed[799][0] | "");
 }
 
+// #274: both grid shapes of energy/get_prefs (legacy flow_from / flow_to, HA 2025.12+ flat), spec/test-vectors/energy-prefs.json
+void test_energy_prefs_vectors() {
+  std::ifstream f(std::string(X4_REPO_ROOT) + "/spec/test-vectors/energy-prefs.json", std::ios::binary);
+  std::stringstream ss; ss << f.rdbuf();
+  JsonDocument doc;
+  TEST_ASSERT_TRUE_MESSAGE(deserializeJson(doc, ss.str()) == DeserializationError::Ok, "spec/test-vectors/energy-prefs.json");
+  auto same = [](JsonArrayConst want, const std::vector<std::string>& got, const std::string& m) {
+    TEST_ASSERT_EQUAL_INT_MESSAGE(int(want.size()), int(got.size()), m.c_str());
+    for (size_t i = 0; i < got.size(); ++i) TEST_ASSERT_EQUAL_STRING_MESSAGE(want[i] | "", got[i].c_str(), m.c_str());
+  };
+  int n = 0;
+  for (JsonObjectConst c : doc["cases"].as<JsonArrayConst>()) {
+    std::string name = c["name"] | "", text;
+    serializeJson(c["prefs"], text);
+    Json prefs; TEST_ASSERT_TRUE(parseJson(text, prefs));
+    size_t gi = 0;
+    JsonArrayConst grids = c["grid"];
+    for (auto& s : prefs.get("energy_sources")->arr) {
+      if (!s.isObj() || strOfTest(s.get("type")) != "grid") continue;
+      TEST_ASSERT_TRUE_MESSAGE(gi < grids.size(), name.c_str());
+      JsonObjectConst want = grids[gi++];
+      GridFlows g = gridFlows(s);
+      same(want["import"], g.imports, name + " import");
+      same(want["export"], g.exports, name + " export");
+      TEST_ASSERT_EQUAL_STRING_MESSAGE(want["price"] | "", g.price.c_str(), name.c_str());
+      TEST_ASSERT_EQUAL_STRING_MESSAGE(want["priceExport"] | "", g.priceExport.c_str(), name.c_str());
+    }
+    TEST_ASSERT_EQUAL_INT_MESSAGE(int(grids.size()), int(gi), name.c_str());
+    EntityAdapter a;
+    a.setEnergyPrefs(text);
+    same(c["statistic_ids"], a.statisticIds(), name + " statistic_ids");
+    auto src = a.sources();
+    for (const char* id : {"sensor.grid_power", "sensor.energy_prices"}) {
+      const char* want = c["sources"][id] | "";
+      auto it = src.find(id);
+      bool energy = it != src.end() && std::string(it->second.why) == "energy";
+      TEST_ASSERT_EQUAL_STRING_MESSAGE(want, energy ? it->second.ha.c_str() : "", (name + " " + id).c_str());
+    }
+    ++n;
+  }
+  TEST_ASSERT_GREATER_OR_EQUAL(5, n);
+}
+
+// ---------- route departures: departures / NS upcoming (spec/test-vectors/route-departures.json, emulator core/route.ts, #275)
+void test_route_departures_vectors() {
+  std::ifstream f(std::string(X4_REPO_ROOT) + "/spec/test-vectors/route-departures.json", std::ios::binary);
+  std::stringstream ss; ss << f.rdbuf();
+  if (ss.str().empty()) { TEST_IGNORE_MESSAGE("spec/test-vectors/route-departures.json not present"); return; }
+  Json j; TEST_ASSERT_TRUE(parseJson(ss.str(), j));
+  int n = 0;
+  for (auto& c : j.get("cases")->arr) {
+    setenv("TZ", c.get("posixTz")->str.c_str(), 1); tzset();
+    EntityValue e; e.state = "x";
+    for (auto& kv : c.get("attrs")->obj) e.attrs[kv.first] = kv.second.str;
+    std::string name = c.get("name")->str + " " + c.get("lang")->str;
+    RouteState rs = routeState(&e, false, c.get("lang")->str == "nl" ? Lang::Nl : Lang::En);
+    auto& out = c.get("out")->arr;
+    TEST_ASSERT_EQUAL_INT_MESSAGE(int(out.size()), int(rs.deps.size()), name.c_str());
+    for (size_t i = 0; i < out.size(); ++i) {
+      const DepartureState& d = rs.deps[i];
+      TEST_ASSERT_EQUAL_STRING_MESSAGE(out[i].get("time")->str.c_str(), hhmm(d.minuteOfDay).c_str(), name.c_str());
+      TEST_ASSERT_TRUE_MESSAGE(out[i].get("delay")->num == d.delay, name.c_str());
+      TEST_ASSERT_EQUAL_MESSAGE(out[i].get("cancelled")->b, d.cancelled, name.c_str());
+      TEST_ASSERT_EQUAL_STRING_MESSAGE(out[i].get("info")->str.c_str(), d.info.c_str(), name.c_str());
+      ++n;
+    }
+  }
+  setUp();
+  TEST_ASSERT_GREATER_THAN(20, n);
+}
+
 int main(int, char**) {
   UNITY_BEGIN();
+  RUN_TEST(test_energy_prefs_vectors);
   RUN_TEST(test_prefs_with_power_sensors);
   RUN_TEST(test_prefs_meters_device_discovery_and_statistics);
   RUN_TEST(test_price_formats);
@@ -367,5 +441,6 @@ int main(int, char**) {
   RUN_TEST(test_identity_without_prefs);
   RUN_TEST(test_render_template_answer_over_64k);
   RUN_TEST(test_away_presets_and_no_living_guess);
+  RUN_TEST(test_route_departures_vectors);
   return UNITY_END();
 }

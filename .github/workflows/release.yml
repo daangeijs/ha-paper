@@ -25,6 +25,10 @@ jobs:
       - uses: ./.github/actions/host-deps
       - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
         with: { python-version: '3.12' }
+      # The tag's section in RELEASE_NOTES.md: its bullets → manifest.json notes (the device's Updates screen) and the
+      # release body. Runs first: a missing section or a line the device would cut fails the release (#251).
+      - name: Release notes (RELEASE_NOTES.md section → manifest.json notes)
+        run: python3 firmware/tools/release_notes.py --version "${GITHUB_REF_NAME#v}" --notes-out notes.txt --body-out notes-section.md
       - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
           node-version-file: .node-version
@@ -44,12 +48,6 @@ jobs:
         run: make test PIO=pio ESPTOOL=esptool
       - name: Browser flasher lint
         run: cd flasher && npm run lint
-      - name: Release notes (commit subjects since the previous tag → manifest.json notes)
-        run: |
-          prev=$(git describe --tags --abbrev=0 --match 'v[0-9]*' "${GITHUB_REF_NAME}^" 2>/dev/null || true)
-          range=${prev:+$prev..}${GITHUB_REF_NAME}
-          { git log --no-merges --pretty='%s' "$range" | grep -v '^Merge' | head -20; } > notes.txt || true
-          cat notes.txt
       - name: Build release artifacts
         run: |
           make dist PIO=pio ESPTOOL=esptool VERSION="${GITHUB_REF_NAME#v}" NOTES=notes.txt
@@ -204,7 +202,7 @@ jobs:
           ## Changes in ${v}
 
           EOF
-            sed 's/^/- /' notes.txt
+            cat notes-section.md
           } > body.md
           cat body.md
       - uses: softprops/action-gh-release@efb35369e0ad2afab669f228072c1b0d510eae64 # v3.0.3

@@ -2,7 +2,8 @@
 // RTC log tail gone) still tells what the board was doing when it lost power. Firmware only: the emulator has no
 // power path. Device glue: net/power.cpp. Pure; test/test_power_trail.
 // The file is lines, oldest first, capped at kMaxLines: `awake`, `sleep <reason>`, `key <ms> <mV> <usb>` (Power
-// KeyDown, before the App acts), `standby drawn <ms>` (after the standby full refresh), `keyup <held ms>`.
+// KeyDown, before the App acts), `standby drawn <ms>` (after the standby full refresh), `keyup <held ms>`, `off <ms>`
+// (Power held 2 s, #258: written before the latch is released).
 #pragma once
 #include <cstddef>
 #include <cstdint>
@@ -17,6 +18,7 @@ std::string sleepMarker(const char* reason);   // "sleep <reason>", written befo
 std::string keyLine(uint32_t ms, int mv, bool usb);   // "key <ms> <mV> <usb 0/1>"; mV -1 = not read
 std::string standbyLine(uint32_t ms);                // "standby drawn <ms>"
 std::string keyUpLine(uint32_t heldMs);              // "keyup <held ms>"
+std::string offLine(uint32_t ms);                    // "off <ms>"
 
 std::string lastLine(const std::string& trail);
 std::vector<std::string> lastLines(const std::string& trail, size_t n);   // oldest first
@@ -27,6 +29,7 @@ std::string append(const std::string& trail, const std::string& line);
 //   LostAsleep: it went into deep sleep (latch held) and came back as POWERON, so power vanished while asleep.
 //   LostAwake:  it was running (awake, or a Power key stage) and came back as POWERON: battery empty, USB plugged in
 //               after one, or power cut.
+//   An `off` last line (turned off by a Power hold) is None: the power loss was asked for.
 enum class Verdict : unsigned char { None, LostAsleep, LostAwake };
 Verdict verdict(const std::string& trail, const char* reset);
 const char* verdictName(Verdict v);   // none | lost-asleep | lost-awake

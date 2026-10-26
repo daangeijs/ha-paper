@@ -4,7 +4,7 @@
 import type { DeviceApi } from '../webconsole/DeviceApi.ts';
 import { ApiError, DeviceUnreachableError } from '../webconsole/DeviceApi.ts';
 import { validateYaml, toYaml } from '../core/config.ts';
-import { HA_ENTITIES, HOST, FW_INSTALLED, ROOMS } from '../core/data.ts';
+import { HA_ENTITIES, HOST, FW_INSTALLED, REPO, ROOMS } from '../core/data.ts';
 import { listCounts } from '../core/paging.ts';
 import { bootsJson, diagClear, diagPush, diagTouch, lastCrash, type DiagRing } from '../core/diag.ts';
 import { BATT_ZERO, battHistory, battStep } from '../core/battery.ts';
@@ -16,7 +16,7 @@ import type { Emulator } from './Emulator.tsx';
 // awake for 2 min (src/core/power.ts). getState is also refused (snapshot() throws) but, like the console's own
 // polling, does not count as use.
 const REQUESTS = ['wifiConnect', 'wifiScan', 'signInWithHa', 'signOut', 'haUnlink', 'finishSetup', 'putConfig', 'listEntities',
-  'getSettings', 'putSettings', 'validateConfig', 'createToken', 'revokeToken', 'otaCheck', 'otaInstall', 'getDiagnostics', 'clearDiagnostics', 'getHaReport', 'getSeedReport', 'dismissSeedReport', 'screenValues', 'getLogs'] as const;
+  'getSettings', 'putSettings', 'validateConfig', 'createToken', 'revokeToken', 'getOta', 'otaCheck', 'otaInstall', 'getDiagnostics', 'clearDiagnostics', 'getHaReport', 'getSeedReport', 'dismissSeedReport', 'screenValues', 'getLogs'] as const;
 
 export function createEmulatorApi(emu: Emulator): DeviceApi {
   const api = makeApi(emu);
@@ -84,11 +84,14 @@ function makeApi(emu: Emulator): DeviceApi {
       ring = diagTouch(ring, up, 141_020, Math.floor(Date.now() / 1000));
       const st = emu.state, chg = st.usb && emu.battery < 100;
       batt = battStep(batt, { ms: Date.now() - bootAt, epoch: Math.floor(Date.now() / 1000), pct: emu.battery, mv: null, chg, usb: st.usb, power: powerDecision(emu.powerInputs(st)).reason, rssi: st.wifi.connected ? -58 : null }).s;
-      return { firmware: FW_INSTALLED, uptime_s: up, reset_reason: 'POWERON', boots: bootsJson(ring), last_crash: lastCrash(ring),
+      return { firmware: FW_INSTALLED, uptime_s: up, reset_reason: 'POWERON', boots: bootsJson(ring), last_crash: lastCrash(ring), last_wdt: null,
         heap: { free_internal: 182_344, min_free_internal: 141_020, largest_free_internal: 110_592, free_psram: 7_864_320, low_point: null },
         panel: { controller: 'UC8179', source: 'probe', verdict: 'ultrachip', promoted: true, ver: '00 00 01 FF FF', flg: 0, nvs_screen_type: 1, failed: false, failure: null },
         coredump: null, touch_recoveries: 0, deep_sleep: { armed: emu.armLeft === 0, boots_left: emu.armLeft, armed_by: emu.armLeft === 0 ? 'boots' : null }, battery: battHistory(batt),
-        power_trail: { before_boot: null, lines: [] } };
+        power_trail: { before_boot: null, lines: [] },
+        web: { open: 1, served: 0, refused_503: 0, last_request_age_s: null },   // #227: the emulator has no HTTP server
+        mdns: { up: !!st.wifi.connected, restarts: 0, last_restart_reason: null },
+        wifi: { rssi: st.wifi.connected ? -58 : null, bssid: st.wifi.connected ? '3fa2' : null, idle_checks: 0, idle_reconnects: 0 } };
     },
     // the emulator's event log is the device log; it never reboots, so the previous boot is empty
     async getLogs(since, previous) { return previous ? logsQuery(logRing(LOG_TAIL_CAP), {}, 'previous') : logsQuery(emu.logs, { since, limit: LOG_LIMIT_MAX }); },
@@ -102,6 +105,11 @@ function makeApi(emu: Emulator): DeviceApi {
       return { enabled, state: !enabled ? 'off' : emu.state.ha.linked ? 'ok' : 'waiting', last_push_epoch: enabled && emu.state.ha.linked ? Math.floor(bootAt / 1000) : null };
     },
 
+    async getOta() {
+      const o = emu.state.ota;
+      return { installed: o.fw, channel: o.channel, status: o.status, available: o.avail ? { version: o.avail.version, size_mb: o.avail.size, notes: o.avail.notes } : null,
+        last_check: o.lastCheck ? o.lastCheck.toISOString() : null, message: o.msg, error: o.err, repo: REPO };
+    },
     async otaCheck() { emu.checkUpdate('WEB'); },
     async otaInstall() { emu.install(); },
 

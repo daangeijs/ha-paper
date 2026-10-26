@@ -20,7 +20,9 @@
 #include <cstdlib>
 
 #include "Logging.h"
+#include "core/ota_status.h"
 #include "hw/watchdog.h"
+#include "net/ha_client.h"
 #include "net/health.h"
 #include "net/hub.h"
 #include "net/wifi_mgr.h"
@@ -29,6 +31,8 @@
 #include "net/util.h"
 
 namespace x4::net {
+
+static_assert(kHttpLowMemory == kOtaHttpLowMemory, "core/ota_status.h mirrors net/tls.h");
 
 namespace {
 
@@ -269,19 +273,70 @@ void otaLoop() {
 }
 
 namespace {
-bool otaCheckImpl(std::string& err);
+bool otaCheckImpl(std::string& err, OtaErr& why);
+}
+
+void setChecking(bool on, bool ok = true, OtaErr why = OtaErr::None, const std::string& msg = "") {
+  std::lock_guard<std::recursive_mutex> l(hub().mu);
+  NetStatus& st = hub().status;
+  st.otaChecking = on;
+  if (!on) {
+    st.otaChecked = true;
+    st.otaLastCheckEpoch = otaLastCheckEpoch();
+    st.otaCheckErr = ok ? OtaErr::None : why;
+    st.otaCheckMsg = ok ? "" : msg;
+  }
+  hub().markStatus();
 }
 
 bool otaCheck(std::string& err) {
   g_checking = true;
-  bool ok = otaCheckImpl(err);
+  setChecking(true);
+  OtaErr why = OtaErr::None;
+  bool ok = otaCheckImpl(err, why);
+  setChecking(false, ok, why, err);
   g_checking = false;
   if (ok) g_justUpdated = false;
+  LOG_INF("OTA", "check · %s", ok ? "done" : otaErrName(why) ? otaErrName(why) : "skipped");
   return ok;
 }
 
+bool otaRequestCheck() {
+  if (!otaRepo()[0] || g_checking.exchange(true)) return false;
+  setChecking(true);
+  hub().post([] {
+    std::string err;
+    otaCheck(err);   // result: Hub status, GET /ota
+  });
+  return true;
+}
+
 namespace {
-bool otaCheckImpl(std::string& err) {
+constexpr const char* kLowMemMsg = "Not enough memory right now — try again in a minute";
+constexpr uint32_t kLowMemRetryMs = 2000;
+
+// GitHub's handshake needs ~47 KB of internal RAM (#248). When the guard refuses: close the HA WebSocket (its TLS
+// session and socket buffers; HaClient::loop reconnects after this job) and give lwIP a moment before one more try.
+void makeTlsRoom(const char* what) {
+  LOG_WRN("OTA", "not enough memory for %s · closing the HA WebSocket, retrying in %u s", what,
+          unsigned(kLowMemRetryMs / 1000));
+  haClient().yieldTls();
+  for (const uint32_t t0 = millis(); millis() - t0 < kLowMemRetryMs;) {
+    wdt::feedIfSubscribed();
+    delay(50);
+  }
+}
+
+int githubGet(const std::string& url, std::string& body, size_t maxBytes, uint32_t timeoutMs,
+              const char* accept = nullptr) {
+  int code = httpGet(url, body, maxBytes, timeoutMs, accept);
+  if (code != kHttpLowMemory) return code;
+  Url u;
+  makeTlsRoom(parseUrl(url, u) ? u.host.c_str() : "GitHub");
+  return httpGet(url, body, maxBytes, timeoutMs, accept);
+}
+
+bool otaCheckImpl(std::string& err, OtaErr& why) {
   if (!otaRepo()[0]) {
     err = kOtaChecksOffMsg;   // a build state, not an error: g_error stays empty so GET /ota reports idle
     return false;
@@ -289,6 +344,7 @@ bool otaCheckImpl(std::string& err) {
   if (!netConnected()) {
     err = "No network — try again later";
     g_error = err;
+    why = OtaErr::Network;
     return false;
   }
   const bool beta = otaChannel() == "beta";
@@ -296,13 +352,15 @@ bool otaCheckImpl(std::string& err) {
                           (beta ? "/releases?per_page=5" : "/releases/latest");
   LOG_INF("OTA", "GET %s", api.c_str());
   std::string body;
-  int code = httpGet(api, body, 256 * 1024, 15000, "application/vnd.github+json");
-  storage().putI64(kNs, "last", time(nullptr) > 1700000000 ? time(nullptr) : 0);
+  int code = githubGet(api, body, 256 * 1024, 15000, "application/vnd.github+json");
+  // GitHub never saw a refused request: no stamp, so the hourly auto retry applies
+  if (code != kHttpLowMemory) storage().putI64(kNs, "last", time(nullptr) > 1700000000 ? time(nullptr) : 0);
   if (code != 200) {
     err = code == 404               ? "No releases published yet"
-          : code == kHttpLowMemory ? "Low memory — try again later"
+          : code == kHttpLowMemory ? kLowMemMsg
                                    : "GitHub not reachable (HTTP " + std::to_string(code) + ")";
     g_error = err;
+    why = otaErrOf(code, netConnected());
     return false;
   }
   JsonDocument filter;
@@ -316,6 +374,7 @@ bool otaCheckImpl(std::string& err) {
   if (deserializeJson(d, body, DeserializationOption::Filter(filter))) {
     err = "Unexpected answer from GitHub";
     g_error = err;
+    why = OtaErr::Other;
     return false;
   }
   JsonObject rel;
@@ -331,6 +390,7 @@ bool otaCheckImpl(std::string& err) {
   if (rel.isNull()) {
     err = "No releases published yet";
     g_error = err;
+    why = OtaErr::NoReleases;
     return false;
   }
   Release r;
@@ -343,11 +403,14 @@ bool otaCheckImpl(std::string& err) {
   if (r.firmwareUrl.empty() || r.manifestUrl.empty()) {
     err = "Release " + std::string(rel["tag_name"] | "?") + " has no firmware.bin + manifest.json";
     g_error = err;
+    why = OtaErr::Other;
     return false;
   }
   std::string man;
-  code = httpGet(r.manifestUrl, man, 16 * 1024);
+  code = githubGet(r.manifestUrl, man, 16 * 1024, 15000);
   if (code != 200 || !parseManifest(man, r, err)) {
+    if (err.empty() && code == kHttpLowMemory) err = kLowMemMsg;
+    why = code == 200 ? OtaErr::Other : otaErrOf(code, netConnected());
     if (err.empty()) err = "manifest.json download failed (HTTP " + std::to_string(code) + ")";
     g_error = err;
     return false;
@@ -378,9 +441,12 @@ bool otaInstall(std::string& err) {
     g_error = err;
     return false;
   }
-  if (!tlsHeapOk("firmware download")) {
-    err = g_error = "Low memory — try again later";
-    return false;
+  if (!tlsHeapOk("firmware download", TlsPeer::GitHub)) {
+    makeTlsRoom("firmware download");
+    if (!tlsHeapOk("firmware download", TlsPeer::GitHub)) {
+      err = g_error = kLowMemMsg;
+      return false;
+    }
   }
   WifiPsOff psOff;   // modem sleep stalls a minutes-long stream
   const Release r = g_avail;

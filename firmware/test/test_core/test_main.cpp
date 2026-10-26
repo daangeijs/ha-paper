@@ -3,6 +3,7 @@
 #include <unity.h>
 #include <cstdio>
 #include <cctype>
+#include <cmath>
 #include <cstring>
 #include <dirent.h>
 #include <fstream>
@@ -18,6 +19,7 @@
 #include "core/glance.h"
 #include "core/ha_address.h"
 #include "core/ha_report.h"
+#include "core/history.h"
 #include "core/input_spec.h"
 #include "core/home.h"
 #include "core/json.h"
@@ -25,6 +27,7 @@
 #include "core/log_ring.h"
 #include "core/logic.h"
 #include "core/migrate.h"
+#include "core/ota_status.h"
 #include "core/power.h"
 #include "core/recovery.h"
 #include "core/seed.h"
@@ -55,6 +58,7 @@ static int runVectorFile(const std::string& path) {
   std::vector<const Json*> cases;
   if (j.isArr()) for (auto& c : j.arr) cases.push_back(&c);
   else if (j.isObj() && j.get("cases") && j.get("cases")->isArr()) for (auto& c : j.get("cases")->arr) cases.push_back(&c);
+  else if (j.isObj() && j.get("config") && j.get("config")->isArr()) for (auto& c : j.get("config")->arr) cases.push_back(&c);   // history.json
   else cases.push_back(&j);
   int n = 0;
   for (auto* c : cases) {
@@ -240,6 +244,30 @@ void test_ambient_spec_vectors() {
     TEST_ASSERT_EQUAL(c.get("expect")->b, nightStale(int64_t(c.get("nowSec")->num), int64_t(c.get("lastDataSec")->num))); ++n;
   }
   TEST_ASSERT_EQUAL_INT(19, n);
+}
+
+// ---------- front light timeout (spec/test-vectors/frontlight.json, emulator src/core/frontlight.ts) ----------
+void test_frontlight_spec_vectors() {
+  std::string t = readFile(std::string(X4_REPO_ROOT) + "/spec/test-vectors/frontlight.json");
+  if (t.empty()) { TEST_IGNORE_MESSAGE("spec/test-vectors/frontlight.json not present"); return; }
+  Json j; TEST_ASSERT_TRUE(parseJson(t, j));
+  TEST_ASSERT_EQUAL_INT(kDefaultLightTimeout, int(j.get("default")->num));
+  const auto& ts = j.get("timeouts")->arr;
+  TEST_ASSERT_EQUAL_INT(int(sizeof(kLightTimeouts) / sizeof(kLightTimeouts[0])), int(ts.size()));
+  for (size_t i = 0; i < ts.size(); ++i) { TEST_ASSERT_EQUAL_INT(kLightTimeouts[i], int(ts[i].num)); TEST_ASSERT_TRUE(validLightTimeout(int(ts[i].num))); }
+  TEST_ASSERT_FALSE(validLightTimeout(45));
+  int n = 0;
+  for (auto& c : j.get("timedOut")->arr) {
+    TEST_ASSERT_EQUAL(c.get("expect")->b, lightTimedOut(uint32_t(c.get("idleMs")->num), int(c.get("timeoutSec")->num))); ++n;
+  }
+  for (auto& c : j.get("level")->arr) {
+    TEST_ASSERT_EQUAL_INT(int(c.get("expect")->num), frontlightPct(int(c.get("brightness")->num), c.get("standby")->b, c.get("night")->b, c.get("lightOut")->b)); ++n;
+  }
+  for (auto& c : j.get("consume")->arr) {
+    TEST_ASSERT_EQUAL(c.get("expect")->b, lightWakeConsumes(int(c.get("brightness")->num), c.get("standby")->b, c.get("night")->b,
+                                                            c.get("lightOut")->b, c.get("power")->b)); ++n;
+  }
+  TEST_ASSERT_EQUAL_INT(10 + 16 + 32, n);
 }
 
 // ---------- refresh policy (spec/test-vectors/refresh.json, emulator src/core/refresh.ts) ----------
@@ -649,7 +677,9 @@ void test_diag_vectors() {
       const std::string kind = op.get("op")->str;
       if (kind == "boot") {
         const Json* p = op.get("panic");
-        diag::push(r, op.get("reason")->str.c_str(), op.get("version")->str.c_str(), p && p->isStr() ? p->str.c_str() : nullptr);
+        const Json* hw = op.get("hw");
+        diag::push(r, op.get("reason")->str.c_str(), op.get("version")->str.c_str(), p && p->isStr() ? p->str.c_str() : nullptr,
+                   hw && hw->isStr() ? hw->str.c_str() : nullptr);
       } else if (kind == "touch") {
         diag::touch(r, uint32_t(op.get("uptime_s")->num), uint32_t(op.get("min_free_heap")->num), int64_t(op.get("epoch")->num));
       } else {
@@ -789,6 +819,28 @@ void test_diag_merge_and_report() {
   TEST_ASSERT_FALSE(j.get("panel")->get("failed")->b);
   TEST_ASSERT_TRUE(j.get("panel")->get("failure")->isNull());
   TEST_ASSERT_TRUE(j.get("heap")->get("low_point")->isNull());   // #198: no checkpoint yet
+  TEST_ASSERT_TRUE(j.get("last_wdt")->isNull());                  // #241: no task-watchdog timeout recorded
+  TEST_ASSERT_TRUE(j.get("web")->get("last_request_age_s")->isNull());   // #227: no request yet
+  TEST_ASSERT_TRUE(j.get("mdns")->get("last_restart_reason")->isNull());
+  TEST_ASSERT_TRUE(j.get("wifi")->get("rssi")->isNull());
+  TEST_ASSERT_TRUE(j.get("wifi")->get("bssid")->isNull());
+  rep.net.webOpen = 1; rep.net.served = 42; rep.net.refused503 = 3; rep.net.lastRequestAgeS = 7; rep.net.mdnsUp = true;
+  rep.net.mdnsRestarts = 2; rep.net.mdnsReason = "got_ip"; rep.net.rssiKnown = true; rep.net.rssi = -71; rep.net.bssid = "3fa2";
+  rep.net.idleChecks = 1;
+  TEST_ASSERT_TRUE(parseJson(diag::reportJson(rtc, rep), j));
+  TEST_ASSERT_EQUAL(42, int(j.get("web")->get("served")->num));
+  TEST_ASSERT_EQUAL(3, int(j.get("web")->get("refused_503")->num));
+  TEST_ASSERT_EQUAL(7, int(j.get("web")->get("last_request_age_s")->num));
+  TEST_ASSERT_TRUE(j.get("mdns")->get("up")->b);
+  TEST_ASSERT_EQUAL_STRING("got_ip", j.get("mdns")->get("last_restart_reason")->str.c_str());
+  TEST_ASSERT_EQUAL(-71, int(j.get("wifi")->get("rssi")->num));
+  TEST_ASSERT_EQUAL_STRING("3fa2", j.get("wifi")->get("bssid")->str.c_str());
+  TEST_ASSERT_EQUAL(1, int(j.get("wifi")->get("idle_checks")->num));
+  rep.wdt.set = true; rep.wdt.uptimeS = 551; rep.wdt.tasks = "x4net (CPU 0)"; rep.wdt.freeInternal = 5300; rep.wdt.minDma = 716;
+  TEST_ASSERT_TRUE(parseJson(diag::reportJson(rtc, rep), j));
+  TEST_ASSERT_EQUAL_STRING("x4net (CPU 0)", j.get("last_wdt")->get("tasks")->str.c_str());
+  TEST_ASSERT_EQUAL(716, int(j.get("last_wdt")->get("min_dma")->num));
+  TEST_ASSERT_TRUE(j.get("last_wdt")->get("last_log")->isNull());
   rep.heap.lowPoint.set = true; rep.heap.lowPoint.minFreeInternal = 11264; rep.heap.lowPoint.where = "tls";
   rep.heap.lowPoint.lastPath = "/api/v1/ha/entities"; rep.heap.lowPoint.tlsSlots = 2; rep.heap.lowPoint.ws = true;
   TEST_ASSERT_TRUE(parseJson(diag::reportJson(rtc, rep), j));
@@ -1271,6 +1323,34 @@ void test_seed_glue() {
   TEST_ASSERT_EQUAL_STRING("b", sensorKind("", "%", "sensor.p1_meter_wifi_strength").c_str());
 }
 
+// ---------- Settings › Updates status line (#250, spec/test-vectors/ota-status.json, emulator src/core/otaStatus.ts) ----------
+void test_ota_status_vectors() {
+  std::string t = readFile(std::string(X4_REPO_ROOT) + "/spec/test-vectors/ota-status.json");
+  TEST_ASSERT_FALSE_MESSAGE(t.empty(), "spec/test-vectors/ota-status.json missing");
+  Json j; TEST_ASSERT_TRUE(parseJson(t, j));
+  int n = 0;
+  for (auto& c : j.get("errOf")->arr) {
+    OtaErr e = otaErrOf(int(c.get("code")->num), c.get("online")->b);
+    TEST_ASSERT_EQUAL_STRING_MESSAGE(c.get("error")->str.c_str(), otaErrName(e), std::to_string(int(c.get("code")->num)).c_str());
+    TEST_ASSERT_TRUE(otaErrFromName(c.get("error")->str) == e);
+    ++n;
+  }
+  for (auto& c : j.get("line")->arr) {
+    const Json& i = *c.get("in");
+    OtaLineIn in;
+    in.status = i.get("status")->str;
+    in.error = i.get("error")->isNull() ? OtaErr::None : otaErrFromName(i.get("error")->str);
+    in.version = i.get("version")->str; in.checked = i.get("checked")->str;
+    in.channel = i.get("channel")->str; in.message = i.get("message")->str;
+    OtaLine o = otaLine(langOf(c.get("lang")->str), in);
+    std::string at = c.get("name")->str + " / " + c.get("lang")->str;
+    TEST_ASSERT_EQUAL_STRING_MESSAGE(c.get("out")->get("title")->str.c_str(), o.title.c_str(), at.c_str());
+    TEST_ASSERT_EQUAL_STRING_MESSAGE(c.get("out")->get("sub")->str.c_str(), o.sub.c_str(), at.c_str());
+    ++n;
+  }
+  TEST_ASSERT_GREATER_THAN(20, n);
+}
+
 // ---------- hardware-key factory reset (#21, spec/test-vectors/recovery.json, emulator src/core/recovery.ts) ----------
 void test_recovery_spec_vectors() {
   std::string t = readFile(std::string(X4_REPO_ROOT) + "/spec/test-vectors/recovery.json");
@@ -1279,6 +1359,7 @@ void test_recovery_spec_vectors() {
   TEST_ASSERT_EQUAL_UINT32(kResetHoldMs, uint32_t(j.get("hold_ms")->num));
   TEST_ASSERT_EQUAL_UINT32(kResetConfirmMs, uint32_t(j.get("confirm_ms")->num));
   TEST_ASSERT_EQUAL_UINT32(kRestartHoldMs, uint32_t(j.get("restart_hold_ms")->num));
+  TEST_ASSERT_EQUAL_UINT32(kPowerOffHoldMs, uint32_t(j.get("power_off_hold_ms")->num));
   int steps = 0, cases = 0;
   for (auto& c : j.get("cases")->arr) {
     std::string name = c.get("name")->str;
@@ -1728,6 +1809,179 @@ void test_input_spec() {
   TEST_ASSERT_FALSE(parseInputSpec("hold=1", e));
 }
 
+// ---------- history tile (spec/test-vectors/history.json, emulator src/core/history.ts, #268) ----------
+static void assertNear(const Json& want, double got, const std::string& what) {
+  if (want.isNull()) { TEST_ASSERT_TRUE_MESSAGE(std::isnan(got), (what + ": want null").c_str()); return; }
+  TEST_ASSERT_FALSE_MESSAGE(std::isnan(got), (what + ": got null").c_str());
+  TEST_ASSERT_TRUE_MESSAGE(std::fabs(want.num - got) <= 1e-6, (what + ": want " + jsNumber(want.num) + ", got " + jsNumber(got)).c_str());
+}
+static void assertSeries(const Json& want, const hist::Series& s, const std::string& what) {
+  TEST_ASSERT_EQUAL_INT_MESSAGE(int(want.arr.size()), s.n, what.c_str());
+  for (int i = 0; i < s.n; ++i) assertNear(want.arr[i], s.v[i], what + " [" + std::to_string(i) + "]");
+}
+static double numOrNan(const Json* j) { return j && j->isNum() ? j->num : NAN; }
+
+void test_history_vectors() {
+  Json j;
+  TEST_ASSERT_TRUE(parseJson(readFile(std::string(X4_REPO_ROOT) + "/spec/test-vectors/history.json"), j));
+  const int64_t now = int64_t(j.get("now")->num);
+  int cases = runVectorFile(std::string(X4_REPO_ROOT) + "/spec/test-vectors/history.json");
+  TEST_ASSERT_EQUAL_INT(16, cases);   // the config cases (parseConfig, like config/*.json)
+  for (auto& c : j.get("defaultBucket")->arr) {
+    int64_t b = hist::defaultBucket(hist::parseSpan(c.get("window")->str), int(c.get("cs")->num));
+    const Json* want = c.get("bucket");
+    std::string what = "defaultBucket " + c.get("window")->str;
+    if (want->isNull()) TEST_ASSERT_EQUAL_INT64_MESSAGE(-1, b, what.c_str());
+    else TEST_ASSERT_EQUAL_INT64_MESSAGE(hist::parseSpan(want->str), b, what.c_str());
+    ++cases;
+  }
+  for (auto& c : j.get("spec")->arr) {
+    Widget w; w.type = "history";
+    for (auto& kv : c.get("widget")->obj) {
+      std::string v = kv.second.isNum() ? jsNumber(kv.second.num) : kv.second.str;
+      if (kv.first == "cs") w.cs = std::atoi(v.c_str()); else w.fields[kv.first] = v;
+    }
+    hist::Spec s = hist::specOf(w);
+    const Json& o = *c.get("out");
+    TEST_ASSERT_EQUAL_STRING(o.get("entity")->str.c_str(), s.entity.c_str());
+    TEST_ASSERT_EQUAL_INT64(int64_t(o.get("windowMs")->num), s.windowMs);
+    TEST_ASSERT_EQUAL_INT64(int64_t(o.get("bucketMs")->num), s.bucketMs);
+    TEST_ASSERT_EQUAL_INT(int(o.get("n")->num), s.n);
+    TEST_ASSERT_EQUAL_STRING(o.get("agg")->str.c_str(), hist::aggName(s.agg));
+    TEST_ASSERT_EQUAL_STRING(o.get("style")->str.c_str(), s.style == hist::Style::Bars ? "bars" : "line");
+    assertNear(*o.get("min"), s.min, "spec min");
+    assertNear(*o.get("max"), s.max, "spec max");
+    ++cases;
+  }
+  for (auto& c : j.get("style")->arr) {
+    hist::Agg a; TEST_ASSERT_TRUE(hist::aggOf(c.get("agg")->str, a));
+    hist::Style s = hist::resolveStyle(a, c.get("style")->strOr(""));
+    TEST_ASSERT_EQUAL_STRING(c.get("out")->str.c_str(), s == hist::Style::Bars ? "bars" : "line");
+    ++cases;
+  }
+  for (auto& c : j.get("stats")->get("period")->arr) {
+    const Json* p = c.get("period");
+    TEST_ASSERT_EQUAL_STRING(p->strOr("").c_str(), hist::periodName(hist::statsPeriod(int64_t(c.get("bucketMin")->num) * hist::kMin)));
+    ++cases;
+  }
+  for (auto& c : j.get("stats")->get("type")->arr) {
+    hist::Agg a; TEST_ASSERT_TRUE(hist::aggOf(c.get("agg")->str, a));
+    TEST_ASSERT_EQUAL_STRING(c.get("type")->str.c_str(), hist::statsType(a));
+    ++cases;
+  }
+  static hist::Series s;   // ~0.8 KB: off the test stack, like the device's PSRAM store
+  for (auto& c : j.get("history")->arr) {
+    std::string name = c.get("name")->str;
+    int tz = int(c.get("tz")->num);
+    int64_t win = int64_t(c.get("windowMs")->num), bk = int64_t(c.get("bucketMs")->num);
+    hist::Span sp = hist::chartSpan(win, bk, now, tz);
+    TEST_ASSERT_EQUAL_INT64_MESSAGE(int64_t(c.get("span")->get("start")->num), sp.start, name.c_str());
+    TEST_ASSERT_EQUAL_INT64_MESSAGE(int64_t(c.get("span")->get("end")->num), sp.end, name.c_str());
+    std::vector<hist::Point> pts;
+    for (auto& r : c.get("rows")->arr) pts.push_back(hist::pointOf(r.get("s")->str.data(), r.get("s")->str.size(), r.get("lu")->num));
+    hist::sortPoints(pts.data(), pts.size());
+    const auto& wantPts = c.get("points")->arr;
+    TEST_ASSERT_EQUAL_INT_MESSAGE(int(wantPts.size()), int(pts.size()), name.c_str());
+    for (size_t k = 0; k < pts.size(); ++k) {
+      TEST_ASSERT_EQUAL_INT64_MESSAGE(int64_t(wantPts[k].get("t")->num), pts[k].t, (name + " point t").c_str());
+      assertNear(*wantPts[k].get("v"), pts[k].v, name + " point v");
+    }
+    for (auto& kv : c.get("out")->obj) {
+      hist::Agg a; TEST_ASSERT_TRUE(hist::aggOf(kv.first, a));
+      hist::bucketize(pts.data(), pts.size(), win, bk, a, now, tz, s);
+      TEST_ASSERT_EQUAL_INT64(sp.start, s.start);
+      assertSeries(kv.second, s, "history " + name + " " + kv.first);
+      ++cases;
+    }
+  }
+  for (auto& c : j.get("statistics")->arr) {
+    std::string name = c.get("name")->str;
+    int tz = int(c.get("tz")->num);
+    int64_t win = int64_t(c.get("windowMs")->num), bk = int64_t(c.get("bucketMs")->num);
+    std::vector<hist::StatRow> rows;
+    for (auto& r : c.get("rows")->arr)
+      rows.push_back({int64_t(r.get("start")->num), r.get("end") ? int64_t(r.get("end")->num) : -1, numOrNan(r.get("mean")),
+                      numOrNan(r.get("min")), numOrNan(r.get("max")), numOrNan(r.get("change"))});
+    for (auto& kv : c.get("out")->obj) {
+      hist::Agg a; TEST_ASSERT_TRUE(hist::aggOf(kv.first, a));
+      hist::fromStatistics(rows.data(), rows.size(), win, bk, a, now, tz, s);
+      assertSeries(kv.second, s, "statistics " + name + " " + kv.first);
+      ++cases;
+    }
+  }
+  for (auto& c : j.get("yScale")->arr) {
+    std::vector<double> v;
+    for (auto& x : c.get("values")->arr) v.push_back(numOrNan(&x));
+    hist::Style st = c.get("style")->str == "bars" ? hist::Style::Bars : hist::Style::Line;
+    hist::Range r = hist::yScale(v.data(), int(v.size()), st, numOrNan(c.get("min")), numOrNan(c.get("max")));
+    assertNear(*c.get("out")->get("lo"), r.lo, "yScale lo");
+    assertNear(*c.get("out")->get("hi"), r.hi, "yScale hi");
+    ++cases;
+  }
+  for (auto& c : j.get("lowHigh")->arr) {
+    Lang lang = langOf(c.get("lang")->str);
+    s.start = int64_t(c.get("start")->num); s.bucketMs = int64_t(c.get("bucketMs")->num);
+    s.n = int(c.get("values")->arr.size());
+    for (int i = 0; i < s.n; ++i) s.v[i] = numOrNan(&c.get("values")->arr[i]);
+    hist::Extreme lo, hi;
+    bool ok = hist::lowHigh(s, int64_t(c.get("windowMs")->num), int(c.get("tz")->num), lang, lo, hi);
+    const Json* o = c.get("out");
+    TEST_ASSERT_EQUAL(!o->isNull(), ok);
+    if (ok) {
+      for (auto pr : {std::make_pair("low", &lo), std::make_pair("high", &hi)}) {
+        const Json* w = o->get(pr.first);
+        TEST_ASSERT_EQUAL_INT(int(w->get("i")->num), pr.second->i);
+        assertNear(*w->get("v"), pr.second->v, "lowHigh v");
+        TEST_ASSERT_EQUAL_INT64(int64_t(w->get("t")->num), pr.second->t);
+        TEST_ASSERT_EQUAL_STRING(w->get("time")->str.c_str(), pr.second->time);
+      }
+    }
+    ++cases;
+  }
+  for (auto& c : j.get("dayLowHigh")->arr) {
+    std::vector<double> v;
+    for (auto& x : c.get("values")->arr) v.push_back(x.num);
+    hist::Extreme lo, hi;
+    bool ok = hist::dayLowHigh(v.data(), int(v.size()), langOf(c.get("lang")->str), lo, hi);
+    const Json* o = c.get("out");
+    TEST_ASSERT_EQUAL(!o->isNull(), ok);
+    if (ok) {
+      for (auto pr : {std::make_pair("low", &lo), std::make_pair("high", &hi)}) {
+        const Json* w = o->get(pr.first);
+        TEST_ASSERT_EQUAL_INT(int(w->get("i")->num), pr.second->i);
+        assertNear(*w->get("v"), pr.second->v, "dayLowHigh v");
+        TEST_ASSERT_EQUAL_INT64(int64_t(w->get("t")->num), pr.second->t);
+        TEST_ASSERT_EQUAL_STRING(w->get("time")->str.c_str(), pr.second->time);
+      }
+    }
+    ++cases;
+  }
+  for (auto& c : j.get("axis")->arr) {
+    std::string what = "axis " + c.get("window")->str + " " + c.get("bucket")->str + " " + c.get("lang")->str;
+    hist::Tick t[hist::kMaxTicks];
+    int n = hist::axisTicks(hist::parseSpan(c.get("window")->str), hist::parseSpan(c.get("bucket")->str), now, int(c.get("tz")->num),
+                            langOf(c.get("lang")->str), t);
+    const auto& want = c.get("out")->arr;
+    TEST_ASSERT_EQUAL_INT_MESSAGE(int(want.size()), n, what.c_str());
+    for (int k = 0; k < n; ++k) {
+      TEST_ASSERT_TRUE_MESSAGE(std::fabs(want[k].get("x")->num - t[k].x) <= 1e-9, what.c_str());
+      TEST_ASSERT_EQUAL_STRING_MESSAGE(want[k].get("text")->str.c_str(), t[k].text, what.c_str());
+    }
+    ++cases;
+  }
+  std::printf("history vectors: %d cases\n", cases);
+}
+
+void test_history_store_psram() {   // the bucket store goes through PsramAlloc (PSRAM on the device), never internal RAM
+  static_assert(sizeof(hist::Series) <= 800, "Series grew");
+  long before = psramLiveBytes();
+  {
+    hist::SeriesList l(hist::kMaxTiles);
+    TEST_ASSERT_EQUAL(long(hist::kMaxTiles * sizeof(hist::Series)), psramLiveBytes() - before);
+  }
+  TEST_ASSERT_EQUAL(before, psramLiveBytes());
+}
+
 int main(int, char**) {
   UNITY_BEGIN();
   RUN_TEST(test_list_pick_vectors);
@@ -1745,6 +1999,7 @@ int main(int, char**) {
   RUN_TEST(test_severity_spec_vectors);
   RUN_TEST(test_refresh_spec_vectors);
   RUN_TEST(test_ambient_spec_vectors);
+  RUN_TEST(test_frontlight_spec_vectors);
   RUN_TEST(test_grid_rects);
   RUN_TEST(test_light_pages);
   RUN_TEST(test_zone_pages_and_flat);
@@ -1768,6 +2023,7 @@ int main(int, char**) {
   RUN_TEST(test_sleep_now_vectors);
   RUN_TEST(test_migration_spec_vectors);
   RUN_TEST(test_recovery_spec_vectors);
+  RUN_TEST(test_ota_status_vectors);
   RUN_TEST(test_battery_label_vectors);
   RUN_TEST(test_stat_sub_vectors);
   RUN_TEST(test_stat_raw_vectors);
@@ -1781,5 +2037,7 @@ int main(int, char**) {
   RUN_TEST(test_cw2017_gauge);
   RUN_TEST(test_cw2017_vcell_vectors);
   RUN_TEST(test_input_spec);
+  RUN_TEST(test_history_vectors);
+  RUN_TEST(test_history_store_psram);
   return UNITY_END();
 }

@@ -1,0 +1,327 @@
+{
+  "description": "Route tile departures (spec/SCHEMA.md route, #275). `departures` [{time HH:MM, delay, cancelled, info}] wins; else `upcoming` [{planned, actual, delay, track, direction, status}] with ISO timestamps (the NS departures integration): time = local HH:MM of actual, else planned; delay = `delay`, else max(0, round(actual − planned in minutes)); cancelled = status \"cancelled\" (the integration's statuses: on_time, delayed, cancelled); info = \"Track ‹track› · ‹direction›\" (strings routeTrack). Timestamps without an offset are local.",
+  "cases": [
+    {
+      "name": "departures-shape",
+      "tz": 120,
+      "posixTz": "CET-1CEST,M3.5.0,M10.5.0/3",
+      "attrs": {
+        "departures": "[{\"time\":\"08:04\",\"delay\":0,\"cancelled\":false,\"info\":\"Intercity\"},{\"time\":\"08:19\",\"delay\":6,\"cancelled\":false,\"info\":\"Sprinter · track 4\"},{\"time\":\"8:34\",\"delay\":0,\"cancelled\":true}]"
+      },
+      "lang": "en",
+      "out": [
+        {
+          "time": "08:04",
+          "delay": 0,
+          "cancelled": false,
+          "info": "Intercity"
+        },
+        {
+          "time": "08:19",
+          "delay": 6,
+          "cancelled": false,
+          "info": "Sprinter · track 4"
+        },
+        {
+          "time": "08:34",
+          "delay": 0,
+          "cancelled": true,
+          "info": ""
+        }
+      ]
+    },
+    {
+      "name": "departures-shape",
+      "tz": 120,
+      "posixTz": "CET-1CEST,M3.5.0,M10.5.0/3",
+      "attrs": {
+        "departures": "[{\"time\":\"08:04\",\"delay\":0,\"cancelled\":false,\"info\":\"Intercity\"},{\"time\":\"08:19\",\"delay\":6,\"cancelled\":false,\"info\":\"Sprinter · track 4\"},{\"time\":\"8:34\",\"delay\":0,\"cancelled\":true}]"
+      },
+      "lang": "nl",
+      "out": [
+        {
+          "time": "08:04",
+          "delay": 0,
+          "cancelled": false,
+          "info": "Intercity"
+        },
+        {
+          "time": "08:19",
+          "delay": 6,
+          "cancelled": false,
+          "info": "Sprinter · track 4"
+        },
+        {
+          "time": "08:34",
+          "delay": 0,
+          "cancelled": true,
+          "info": ""
+        }
+      ]
+    },
+    {
+      "name": "departures-wins-over-upcoming",
+      "tz": 120,
+      "posixTz": "CET-1CEST,M3.5.0,M10.5.0/3",
+      "attrs": {
+        "departures": "[{\"time\":\"09:00\",\"delay\":1,\"cancelled\":false,\"info\":\"Bus 1\"}]",
+        "upcoming": "[{\"planned\":\"2026-09-29T07:55:00+02:00\",\"actual\":\"2026-09-29T07:55:00+02:00\",\"delay\":0,\"track\":\"5\",\"planned_track\":\"5\",\"track_changed\":false,\"direction\":\"Harbour\",\"train\":\"IC 1234\",\"status\":\"on_time\",\"message\":null}]"
+      },
+      "lang": "en",
+      "out": [
+        {
+          "time": "09:00",
+          "delay": 1,
+          "cancelled": false,
+          "info": "Bus 1"
+        }
+      ]
+    },
+    {
+      "name": "departures-wins-over-upcoming",
+      "tz": 120,
+      "posixTz": "CET-1CEST,M3.5.0,M10.5.0/3",
+      "attrs": {
+        "departures": "[{\"time\":\"09:00\",\"delay\":1,\"cancelled\":false,\"info\":\"Bus 1\"}]",
+        "upcoming": "[{\"planned\":\"2026-09-29T07:55:00+02:00\",\"actual\":\"2026-09-29T07:55:00+02:00\",\"delay\":0,\"track\":\"5\",\"planned_track\":\"5\",\"track_changed\":false,\"direction\":\"Harbour\",\"train\":\"IC 1234\",\"status\":\"on_time\",\"message\":null}]"
+      },
+      "lang": "nl",
+      "out": [
+        {
+          "time": "09:00",
+          "delay": 1,
+          "cancelled": false,
+          "info": "Bus 1"
+        }
+      ]
+    },
+    {
+      "name": "upcoming-ns",
+      "tz": 120,
+      "posixTz": "CET-1CEST,M3.5.0,M10.5.0/3",
+      "attrs": {
+        "upcoming": "[{\"planned\":\"2026-09-29T07:55:00+02:00\",\"actual\":\"2026-09-29T07:55:00+02:00\",\"delay\":0,\"track\":\"5\",\"planned_track\":\"5\",\"track_changed\":false,\"direction\":\"Harbour\",\"train\":\"IC 1234\",\"status\":\"on_time\",\"message\":null},{\"planned\":\"2026-09-29T08:10:00+02:00\",\"actual\":\"2026-09-29T08:14:00+02:00\",\"delay\":4,\"track\":\"5b\",\"planned_track\":\"5b\",\"track_changed\":false,\"direction\":\"Airport\",\"train\":\"IC 1234\",\"status\":\"delayed\",\"message\":\"Signal failure\"},{\"planned\":\"2026-09-29T08:25:00+02:00\",\"actual\":\"2026-09-29T08:25:00+02:00\",\"delay\":0,\"track\":\"7\",\"planned_track\":\"7\",\"track_changed\":false,\"direction\":\"Central\",\"train\":\"IC 1234\",\"status\":\"cancelled\",\"message\":\"Cancelled due to staff shortage\"}]"
+      },
+      "lang": "en",
+      "out": [
+        {
+          "time": "07:55",
+          "delay": 0,
+          "cancelled": false,
+          "info": "Track 5 · Harbour"
+        },
+        {
+          "time": "08:14",
+          "delay": 4,
+          "cancelled": false,
+          "info": "Track 5b · Airport"
+        },
+        {
+          "time": "08:25",
+          "delay": 0,
+          "cancelled": true,
+          "info": "Track 7 · Central"
+        }
+      ]
+    },
+    {
+      "name": "upcoming-ns",
+      "tz": 120,
+      "posixTz": "CET-1CEST,M3.5.0,M10.5.0/3",
+      "attrs": {
+        "upcoming": "[{\"planned\":\"2026-09-29T07:55:00+02:00\",\"actual\":\"2026-09-29T07:55:00+02:00\",\"delay\":0,\"track\":\"5\",\"planned_track\":\"5\",\"track_changed\":false,\"direction\":\"Harbour\",\"train\":\"IC 1234\",\"status\":\"on_time\",\"message\":null},{\"planned\":\"2026-09-29T08:10:00+02:00\",\"actual\":\"2026-09-29T08:14:00+02:00\",\"delay\":4,\"track\":\"5b\",\"planned_track\":\"5b\",\"track_changed\":false,\"direction\":\"Airport\",\"train\":\"IC 1234\",\"status\":\"delayed\",\"message\":\"Signal failure\"},{\"planned\":\"2026-09-29T08:25:00+02:00\",\"actual\":\"2026-09-29T08:25:00+02:00\",\"delay\":0,\"track\":\"7\",\"planned_track\":\"7\",\"track_changed\":false,\"direction\":\"Central\",\"train\":\"IC 1234\",\"status\":\"cancelled\",\"message\":\"Cancelled due to staff shortage\"}]"
+      },
+      "lang": "nl",
+      "out": [
+        {
+          "time": "07:55",
+          "delay": 0,
+          "cancelled": false,
+          "info": "Spoor 5 · Harbour"
+        },
+        {
+          "time": "08:14",
+          "delay": 4,
+          "cancelled": false,
+          "info": "Spoor 5b · Airport"
+        },
+        {
+          "time": "08:25",
+          "delay": 0,
+          "cancelled": true,
+          "info": "Spoor 7 · Central"
+        }
+      ]
+    },
+    {
+      "name": "upcoming-delay-from-times",
+      "tz": 120,
+      "posixTz": "CET-1CEST,M3.5.0,M10.5.0/3",
+      "attrs": {
+        "upcoming": "[{\"planned\":\"2026-09-29T23:52:00+02:00\",\"actual\":\"2026-09-30T00:03:30+02:00\",\"track\":\"\",\"planned_track\":\"\",\"track_changed\":false,\"direction\":\"Harbour\",\"train\":\"IC 1234\",\"status\":\"delayed\",\"message\":null},{\"planned\":\"2026-09-30T00:20:00+02:00\",\"direction\":\"Central\",\"status\":\"on_time\"},{\"actual\":\"2026-09-30T00:41:00+02:00\",\"planned\":\"2026-09-30T00:44:00+02:00\",\"track\":\"2\"}]"
+      },
+      "lang": "en",
+      "out": [
+        {
+          "time": "00:03",
+          "delay": 12,
+          "cancelled": false,
+          "info": "Harbour"
+        },
+        {
+          "time": "00:20",
+          "delay": 0,
+          "cancelled": false,
+          "info": "Central"
+        },
+        {
+          "time": "00:41",
+          "delay": 0,
+          "cancelled": false,
+          "info": "Track 2"
+        }
+      ]
+    },
+    {
+      "name": "upcoming-delay-from-times",
+      "tz": 120,
+      "posixTz": "CET-1CEST,M3.5.0,M10.5.0/3",
+      "attrs": {
+        "upcoming": "[{\"planned\":\"2026-09-29T23:52:00+02:00\",\"actual\":\"2026-09-30T00:03:30+02:00\",\"track\":\"\",\"planned_track\":\"\",\"track_changed\":false,\"direction\":\"Harbour\",\"train\":\"IC 1234\",\"status\":\"delayed\",\"message\":null},{\"planned\":\"2026-09-30T00:20:00+02:00\",\"direction\":\"Central\",\"status\":\"on_time\"},{\"actual\":\"2026-09-30T00:41:00+02:00\",\"planned\":\"2026-09-30T00:44:00+02:00\",\"track\":\"2\"}]"
+      },
+      "lang": "nl",
+      "out": [
+        {
+          "time": "00:03",
+          "delay": 12,
+          "cancelled": false,
+          "info": "Harbour"
+        },
+        {
+          "time": "00:20",
+          "delay": 0,
+          "cancelled": false,
+          "info": "Central"
+        },
+        {
+          "time": "00:41",
+          "delay": 0,
+          "cancelled": false,
+          "info": "Spoor 2"
+        }
+      ]
+    },
+    {
+      "name": "upcoming-utc-and-winter",
+      "tz": 60,
+      "posixTz": "CET-1CEST,M3.5.0,M10.5.0/3",
+      "attrs": {
+        "upcoming": "[{\"planned\":\"2026-12-01T06:55:00Z\",\"actual\":\"2026-12-01T06:57:00Z\",\"delay\":2,\"track\":\"1\",\"planned_track\":\"1\",\"track_changed\":false,\"direction\":\"Central\",\"train\":\"IC 1234\",\"status\":\"delayed\",\"message\":null},{\"planned\":\"2026-12-01T08:05:00+01:00\",\"actual\":\"2026-12-01T08:05:00+01:00\",\"delay\":0,\"track\":\"3a\",\"planned_track\":\"3a\",\"track_changed\":false,\"direction\":\"Airport\",\"train\":\"IC 1234\",\"status\":\"on_time\",\"message\":null},{\"planned\":\"2026-12-01 09:15:00\",\"actual\":\"2026-12-01 09:15:00\",\"delay\":0,\"track\":\"3\",\"planned_track\":\"3\",\"track_changed\":false,\"direction\":\"Harbour\",\"train\":\"IC 1234\",\"status\":\"on_time\",\"message\":null}]"
+      },
+      "lang": "en",
+      "out": [
+        {
+          "time": "07:57",
+          "delay": 2,
+          "cancelled": false,
+          "info": "Track 1 · Central"
+        },
+        {
+          "time": "08:05",
+          "delay": 0,
+          "cancelled": false,
+          "info": "Track 3a · Airport"
+        },
+        {
+          "time": "09:15",
+          "delay": 0,
+          "cancelled": false,
+          "info": "Track 3 · Harbour"
+        }
+      ]
+    },
+    {
+      "name": "upcoming-utc-and-winter",
+      "tz": 60,
+      "posixTz": "CET-1CEST,M3.5.0,M10.5.0/3",
+      "attrs": {
+        "upcoming": "[{\"planned\":\"2026-12-01T06:55:00Z\",\"actual\":\"2026-12-01T06:57:00Z\",\"delay\":2,\"track\":\"1\",\"planned_track\":\"1\",\"track_changed\":false,\"direction\":\"Central\",\"train\":\"IC 1234\",\"status\":\"delayed\",\"message\":null},{\"planned\":\"2026-12-01T08:05:00+01:00\",\"actual\":\"2026-12-01T08:05:00+01:00\",\"delay\":0,\"track\":\"3a\",\"planned_track\":\"3a\",\"track_changed\":false,\"direction\":\"Airport\",\"train\":\"IC 1234\",\"status\":\"on_time\",\"message\":null},{\"planned\":\"2026-12-01 09:15:00\",\"actual\":\"2026-12-01 09:15:00\",\"delay\":0,\"track\":\"3\",\"planned_track\":\"3\",\"track_changed\":false,\"direction\":\"Harbour\",\"train\":\"IC 1234\",\"status\":\"on_time\",\"message\":null}]"
+      },
+      "lang": "nl",
+      "out": [
+        {
+          "time": "07:57",
+          "delay": 2,
+          "cancelled": false,
+          "info": "Spoor 1 · Central"
+        },
+        {
+          "time": "08:05",
+          "delay": 0,
+          "cancelled": false,
+          "info": "Spoor 3a · Airport"
+        },
+        {
+          "time": "09:15",
+          "delay": 0,
+          "cancelled": false,
+          "info": "Spoor 3 · Harbour"
+        }
+      ]
+    },
+    {
+      "name": "upcoming-skips-bad-entries",
+      "tz": 120,
+      "posixTz": "CET-1CEST,M3.5.0,M10.5.0/3",
+      "attrs": {
+        "upcoming": "[{\"direction\":\"Central\",\"status\":\"on_time\"},{\"planned\":\"soon\",\"actual\":null,\"status\":\"on_time\"},\"x\",{\"planned\":\"2026-09-29T10:00:00+02:00\",\"actual\":\"2026-09-29T10:00:00+02:00\",\"delay\":0,\"track\":\"\",\"planned_track\":\"\",\"track_changed\":false,\"direction\":\"\",\"train\":\"IC 1234\",\"status\":\"on_time\",\"message\":null}]"
+      },
+      "lang": "en",
+      "out": [
+        {
+          "time": "10:00",
+          "delay": 0,
+          "cancelled": false,
+          "info": ""
+        }
+      ]
+    },
+    {
+      "name": "upcoming-skips-bad-entries",
+      "tz": 120,
+      "posixTz": "CET-1CEST,M3.5.0,M10.5.0/3",
+      "attrs": {
+        "upcoming": "[{\"direction\":\"Central\",\"status\":\"on_time\"},{\"planned\":\"soon\",\"actual\":null,\"status\":\"on_time\"},\"x\",{\"planned\":\"2026-09-29T10:00:00+02:00\",\"actual\":\"2026-09-29T10:00:00+02:00\",\"delay\":0,\"track\":\"\",\"planned_track\":\"\",\"track_changed\":false,\"direction\":\"\",\"train\":\"IC 1234\",\"status\":\"on_time\",\"message\":null}]"
+      },
+      "lang": "nl",
+      "out": [
+        {
+          "time": "10:00",
+          "delay": 0,
+          "cancelled": false,
+          "info": ""
+        }
+      ]
+    },
+    {
+      "name": "upcoming-not-a-list",
+      "tz": 120,
+      "posixTz": "CET-1CEST,M3.5.0,M10.5.0/3",
+      "attrs": {
+        "upcoming": "none"
+      },
+      "lang": "en",
+      "out": []
+    },
+    {
+      "name": "upcoming-not-a-list",
+      "tz": 120,
+      "posixTz": "CET-1CEST,M3.5.0,M10.5.0/3",
+      "attrs": {
+        "upcoming": "none"
+      },
+      "lang": "nl",
+      "out": []
+    }
+  ]
+}

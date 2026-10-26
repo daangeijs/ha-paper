@@ -662,7 +662,9 @@
             "kWh"
           ]
         ],
-        "weather": []
+        "weather": [
+          "weather.home"
+        ]
       },
       "yaml": "# HA Paper display config\nversion: 1\napps:\n  - id: home\n    title: Home\n  - id: house\n    title: House\nscreens:\n  - id: overview\n    app: home\n    title: Home\n    widgets:\n      - {type: clock, cs: 2}\n      - {type: price}\n      - {type: stat, entity: sensor.living_temperature, label: Inside}\n      - {type: stat, entity: sensor.solar_power}\n      - {type: stat, entity: sensor.home_power}\n      - {type: gauge}\n      - {type: stat, entity: sensor.grid_power}\n  - id: prices\n    app: home\n    title: Energy prices\n    widgets:\n      - {type: price}\n      - {type: bars, series: prices, cs: 4}\n  - id: energy\n    app: home\n    title: Energy\n    widgets:\n      - {type: stat, entity: sensor.energy_today}\n      - {type: stat, entity: sensor.grid_import_today}\n      - {type: stat, entity: sensor.grid_export_today}\n      - {type: stat, entity: sensor.home_power}\n      - {type: bars, series: usage, cs: 4}\n  - id: solar\n    app: home\n    title: Solar & battery\n    widgets:\n      - {type: stat, entity: sensor.solar_power}\n      - {type: stat, entity: sensor.solar_today}\n      - {type: gauge}\n      - {type: stat, entity: sensor.battery_power}\n      - {type: bars, series: solar, cs: 4}\n  - id: lights\n    app: house\n    title: Lights\n    widgets:\n      - {type: lightList, cs: 4, rs: 2}\n  - id: climate\n    app: house\n    title: Heating\n    widgets:\n      - {type: zoneList, cs: 4, rs: 2}\n",
       "report": {
@@ -4357,6 +4359,143 @@
             "tile": "heating",
             "screen": "climate",
             "rule": "found"
+          },
+          {
+            "tile": "rooms",
+            "screen": "rooms",
+            "why": "few_rooms"
+          }
+        ]
+      }
+    },
+    {
+      "name": "flat-grid",
+      "description": "#274: HA 2025.12+ flat grid source (stat_energy_from / stat_energy_to / entity_energy_price / stat_rate, no flow_from / flow_to): grid power from stat_rate, imported / exported today by the meters' prefix, price from entity_energy_price, Energy screen with the usage chart.",
+      "snapshot": {
+        "energy": {
+          "energy_sources": [
+            {
+              "type": "grid",
+              "stat_energy_from": "sensor.grid_meter_energy_import",
+              "stat_energy_to": "sensor.grid_meter_energy_export",
+              "entity_energy_price": "sensor.grid_tariff",
+              "entity_energy_price_export": "sensor.grid_tariff_export",
+              "number_energy_price": null,
+              "stat_rate": "sensor.grid_meter_power",
+              "cost_adjustment_day": 0
+            }
+          ]
+        },
+        "live": [
+          "sensor.energy_prices"
+        ],
+        "sensors": [
+          [
+            "sensor.grid_meter_power",
+            "power",
+            "",
+            "Grid meter power",
+            "W"
+          ],
+          [
+            "sensor.grid_meter_import_today",
+            "energy",
+            "",
+            "Grid import today",
+            "kWh"
+          ],
+          [
+            "sensor.grid_meter_export_today",
+            "energy",
+            "",
+            "Grid export today",
+            "kWh"
+          ]
+        ]
+      },
+      "yaml": "# HA Paper display config\nversion: 1\napps:\n  - id: home\n    title: Home\nscreens:\n  - id: overview\n    app: home\n    title: Home\n    widgets:\n      - {type: clock, cs: 2}\n      - {type: price}\n      - {type: stat, entity: sensor.grid_meter_power, label: Home use}\n  - id: prices\n    app: home\n    title: Energy prices\n    widgets:\n      - {type: price}\n      - {type: bars, series: prices, cs: 4}\n  - id: energy\n    app: home\n    title: Energy\n    widgets:\n      - {type: stat, entity: sensor.grid_meter_import_today, label: Imported}\n      - {type: stat, entity: sensor.grid_meter_export_today, label: Exported}\n      - {type: stat, entity: sensor.grid_meter_power, label: Home use}\n      - {type: bars, series: usage, cs: 4}\n",
+      "report": {
+        "filled": 5,
+        "total": 16,
+        "tiles": [
+          {
+            "tile": "price",
+            "screen": "overview",
+            "entity": "sensor.grid_tariff",
+            "rule": "energy"
+          },
+          {
+            "tile": "inside",
+            "screen": "overview",
+            "why": "no_sensor"
+          },
+          {
+            "tile": "outside",
+            "screen": "overview",
+            "why": "no_sensor"
+          },
+          {
+            "tile": "solar_power",
+            "screen": "overview",
+            "why": "no_sensor"
+          },
+          {
+            "tile": "home_power",
+            "screen": "overview",
+            "entity": "sensor.grid_meter_power",
+            "rule": "grid"
+          },
+          {
+            "tile": "battery_soc",
+            "screen": "overview",
+            "why": "no_sensor"
+          },
+          {
+            "tile": "battery_power",
+            "screen": "solar",
+            "why": "no_sensor"
+          },
+          {
+            "tile": "solar_today",
+            "screen": "solar",
+            "why": "no_sensor"
+          },
+          {
+            "tile": "solar_chart",
+            "screen": "solar",
+            "why": "no_meter"
+          },
+          {
+            "tile": "energy_today",
+            "screen": "energy",
+            "why": "no_sensor"
+          },
+          {
+            "tile": "grid_import_today",
+            "screen": "energy",
+            "entity": "sensor.grid_meter_import_today",
+            "rule": "device"
+          },
+          {
+            "tile": "grid_export_today",
+            "screen": "energy",
+            "entity": "sensor.grid_meter_export_today",
+            "rule": "device"
+          },
+          {
+            "tile": "usage_chart",
+            "screen": "energy",
+            "rule": "energy"
+          },
+          {
+            "tile": "lights",
+            "screen": "lights",
+            "why": "none"
+          },
+          {
+            "tile": "heating",
+            "screen": "climate",
+            "why": "none"
           },
           {
             "tile": "rooms",

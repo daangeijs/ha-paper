@@ -153,7 +153,7 @@ void test_whitelist_covers_readers() {
   for (const char* k : {"friendly_name", "unit_of_measurement", "display_precision", "today", "raw_today", "prices_today", "prices", "unit",
                         "price_in_cents", "forecast", "current_temperature", "temperature", "preset_mode", "area_id",
                         "area_name", "brightness", "dimmable", "supported_color_modes", "x4_order", "departures",
-                        "per_hour", "note", "typical", "preset_modes"})
+                        "upcoming", "per_hour", "note", "typical", "preset_modes"})
     TEST_ASSERT_TRUE_MESSAGE(keepAttr(k), k);
   for (const char* k : {"icon", "attribution", "options", "device_class", "state_class", "entity_picture", "last_seen", ""})
     TEST_ASSERT_FALSE_MESSAGE(keepAttr(k), k);

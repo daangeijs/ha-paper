@@ -19,6 +19,7 @@ import { readBuffer } from './fake-ha.ts';
 import { parseMultipart, sha256, uploadVersion, type Manifest } from './ota.ts';
 import { previewPng } from './png.ts';
 import { INPUT_SPEC_ERROR, parseInputSpec } from '../src/core/inputSpec.ts';
+import { OTA_ERRS } from '../src/core/otaStatus.ts';
 
 // GET /status heap fields: fixed, healthy-looking numbers (the firmware reports internal RAM; TLS is skipped below a
 // 20 KB largest block or 64 KB free, core/net_policy.h). Nothing in the simulator fragments.
@@ -66,6 +67,7 @@ export function createDeviceHandler(sim: DeviceSim, o: HandlerOptions) {
       res.end(isJson ? JSON.stringify(body) : body);
     };
     const err = (code: number, error: string) => send(code, { error });
+    res.once('finish', () => { sim.web.served++; sim.web.lastAt = Date.now(); });   // #227 /diagnostics web
     // Deep sleep: the radio is off, nothing answers (only the simulator's own /__sim routes).
     if (sim.power.asleep && !u.pathname.startsWith('/__sim/')) { log('ASLEEP ' + method + ' ' + u.pathname + ' · no answer'); req.socket.destroy(); return; }
     try {
@@ -440,6 +442,7 @@ export function createDeviceHandler(sim: DeviceSim, o: HandlerOptions) {
       if (b.wake) sim.wake('power key');
       if (b.sleep) { const why = sim.sleep(); if (why) return err(409, 'stays awake: ' + why); }
       if (typeof b.ota_repo === 'string') { sim.otaRepo = b.ota_repo; sim.otaRun = { status: 'idle', avail: null, lastCheck: null, message: '' }; }   // '' = a build with update checks off
+      if (b.ota_check_fail) { if (b.ota_check_fail !== 'ok' && !(OTA_ERRS as string[]).includes(b.ota_check_fail)) return err(400, 'ota_check_fail must be ok, ' + OTA_ERRS.join(', ')); sim.checkFail = b.ota_check_fail; }
       if (b.ota_fail) { if (!['ok', 'hash', 'boot'].includes(b.ota_fail)) return err(400, 'ota_fail must be ok, hash or boot'); sim.failMode = b.ota_fail; }
       if (b.screen && !sim.goTo(String(b.screen))) return err(404, 'unknown screen');
       if (typeof b.tap === 'number') { const why = await sim.tapTile(b.tap).catch((e: Error) => e.message); if (why) return err(409, why); }

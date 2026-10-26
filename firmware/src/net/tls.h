@@ -17,10 +17,11 @@ void attachCaBundle(NetworkClientSecure& c);
 constexpr int kHttpLowMemory = -100;
 constexpr int kTlsAllocFailed = -0x7F00;   // MBEDTLS_ERR_SSL_ALLOC_FAILED (-32512)
 
-// mbedTLS record buffers from a 4-slot internal-RAM reserve first (net/tls_pool.cpp). Call before Wi-Fi starts.
+// mbedTLS record buffers from a 4-slot reserve first (PSRAM on the device, internal on QEMU; net/tls_pool.cpp). Call
+// before Wi-Fi starts.
 void tlsPoolBegin();
 unsigned tlsPoolUsed();      // slots in use now
-uint32_t tlsPoolSpills();    // record buffers since boot that missed the reserve and came from the internal heap
+uint32_t tlsPoolSpills();    // record buffers since boot that missed the reserve and came from the heap
 constexpr unsigned kTlsPoolSlots = 4;
 
 // DNS + TCP + TLS handshake, logged with its duration and the internal heap before it (host only, #123).

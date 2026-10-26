@@ -8,6 +8,7 @@
 #include <initializer_list>
 
 #include "Logging.h"
+#include "core/logic.h"
 #include "core/migrate.h"
 #include "hw/watchdog.h"
 #include "net/secret_box.h"
@@ -233,6 +234,7 @@ std::string Storage::settingsToJson(const DisplaySettings& s) {
   JsonDocument d;
   d["brightness"] = s.brightness;
   d["warmth"] = s.warmth;
+  d["lightTimeout"] = s.lightTimeout;
   d["night"] = s.night;
   d["returnHome"] = s.returnHome;
   d["standby"] = s.standby;
@@ -281,6 +283,8 @@ bool Storage::settingsFromJson(const std::string& json, DisplaySettings& s, std:
     };
     if (!intIn("brightness", 0, 100)) return fail("brightness must be 0–100");
     if (!intIn("warmth", 0, 100)) return fail("warmth must be 0–100");
+    if (!d["lightTimeout"].isNull() && !(d["lightTimeout"].is<int>() && validLightTimeout(d["lightTimeout"].as<int>())))
+      return fail("lightTimeout must be 0, 30, 60, 120 or 300");
     if (!d["night"].isNull()) {
       std::string n = d["night"].is<const char*>() ? d["night"].as<const char*>() : "?";
       int a = -1, b = -1;
@@ -317,6 +321,7 @@ bool Storage::settingsFromJson(const std::string& json, DisplaySettings& s, std:
   }
   if (d["brightness"].is<int>()) s.brightness = static_cast<uint8_t>(clampInt(d["brightness"].as<int>(), 0, 100));
   if (d["warmth"].is<int>()) s.warmth = static_cast<uint8_t>(clampInt(d["warmth"].as<int>(), 0, 100));
+  if (d["lightTimeout"].is<int>() && validLightTimeout(d["lightTimeout"].as<int>())) s.lightTimeout = d["lightTimeout"].as<int>();
   if (d["night"].is<const char*>()) s.night = d["night"].as<const char*>();
   if (d["returnHome"].is<const char*>()) s.returnHome = d["returnHome"].as<const char*>();
   if (d["standby"].is<const char*>()) s.standby = d["standby"].as<const char*>();

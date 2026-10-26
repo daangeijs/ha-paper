@@ -494,6 +494,54 @@ void test_key_restart() {
   TEST_ASSERT_EQUAL_INT(0, r.s.resets);
 }
 
+// ---- Power held 2 s (#258, core/recovery.h): "Turned off" face while still held, then Board::powerOff ----
+void test_power_hold_off() {
+  Rig r;
+  std::vector<std::string> st;
+  r.app.onPowerStage([&](const char* s) { st.push_back(s); });
+  r.b.held = kKeyPower;
+  r.b.key(Key::Power);
+  r.step(1900);
+  TEST_ASSERT_TRUE(r.has("bar"));                         // no standby on the press: it waits for release or 2 s
+  TEST_ASSERT_FALSE(r.has("off"));
+  r.step(200);                                            // 2 s, still held
+  TEST_ASSERT_TRUE(r.has("off"));
+  TEST_ASSERT_TRUE(r.sig("off").find("Turned off") != std::string::npos);
+  TEST_ASSERT_TRUE(r.sig("off").find("Hold Power to turn on") != std::string::npos);
+  TEST_ASSERT_EQUAL_INT(1, r.b.powerOffs);
+  TEST_ASSERT_EQUAL_UINT8(0, r.b.light);
+  TEST_ASSERT_EQUAL_UINT32(2, st.size());
+  TEST_ASSERT_EQUAL_STRING("off", st[1].c_str());         // trail line before the latch goes
+  r.snap("turned_off");
+  r.b.held = 0; r.step(200);                              // the key-up: no second action
+  TEST_ASSERT_TRUE(r.has("off"));
+  TEST_ASSERT_FALSE(r.b.restarted);
+  r.key(Key::Next); r.tap(400, 240);                      // QEMU / host: only Power does anything
+  TEST_ASSERT_TRUE(r.has("off"));
+  r.key(Key::Power); r.step(50);                          // a short press: power on = restart
+  TEST_ASSERT_TRUE(r.b.restarted);
+  TEST_ASSERT_EQUAL_INT(1, r.b.powerOffs);
+}
+
+// #258: a short press stays standby (on release); Power held from power-on does nothing until released once
+void test_power_short_press_and_boot_hold() {
+  Rig r;
+  r.b.held = kKeyPower; r.b.key(Key::Power); r.step(300);
+  TEST_ASSERT_FALSE(r.has("standby"));
+  r.b.held = 0; r.step(50);
+  TEST_ASSERT_TRUE(r.has("standby"));
+  r.key(Key::Power); r.step(50);                          // remote / short press: KeyDown already released
+  TEST_ASSERT_TRUE(r.has("bar"));
+  fake::FakeDisplay d; fake::FakeBoard b; fake::FakeServices s;
+  b.held = kKeyPower;                                     // the hold that switched the board on
+  App app{d, b, s};
+  app.begin(defaultConfig(), DisplaySettings());
+  b.key(Key::Power);
+  for (int i = 0; i < 100; ++i) { b.now += 50; app.loop(); }   // 5 s
+  TEST_ASSERT_EQUAL_INT(0, b.powerOffs);
+  TEST_ASSERT_FALSE(app.powerView().standby);
+}
+
 // ---- first install: Wi-Fi on the display → finish in your browser → Home ----
 void test_first_install_flow() {
   Rig r(false);
@@ -613,7 +661,7 @@ void test_ota_screen() {
   Rect t = r.app.regionRects()["t0"];
   r.tap(t.x + t.w - 100, t.y + t.h - 14 - 17 - 12 - 28);
   TEST_ASSERT_EQUAL_INT(0, r.s.otaInstalls);
-  TEST_ASSERT_TRUE(r.sig("t0").find("charge to 30% first") != std::string::npos);
+  TEST_ASSERT_TRUE(r.sig("s0").find("charge to 30% first") != std::string::npos);
   r.b.battery = 80;
   r.tap(t.x + t.w - 100, t.y + t.h - 14 - 17 - 12 - 28);
   TEST_ASSERT_EQUAL_INT(1, r.s.otaInstalls);
@@ -666,12 +714,54 @@ void test_ota_long_version() {
   }
 }
 
+// ---- Settings › Updates › Check shows that it ran (#250): Checking… → result with its time; partials of the status line only ----
+void test_ota_check_feedback() {
+  Rig r;
+  r.openApp(2); r.key(Key::Next); r.key(Key::Next); r.key(Key::Next);   // Updates
+  TEST_ASSERT_TRUE(r.sig("s0").find("Not checked yet") != std::string::npos);
+  Rect t = r.app.regionRects()["t0"], s = r.app.regionRects()["s0"];
+  TEST_ASSERT_TRUE(s.x >= t.x && s.y >= t.y && s.x + s.w <= t.x + t.w && s.y + s.h <= t.y + t.h);
+  auto onlyStatus = [&](const char* what) {   // one partial, and it covers the status line only
+    TEST_ASSERT_EQUAL_INT_MESSAGE(0, r.d.fulls(), what);
+    TEST_ASSERT_EQUAL_INT_MESSAGE(1, r.d.partials(), what);
+    Rect p = r.d.events.back().r;
+    TEST_ASSERT_TRUE_MESSAGE(p.x == s.x && p.y == s.y && p.w == s.w && p.h == s.h, what);
+  };
+  r.d.clear();
+  r.tap(t.x + t.w - 100, t.y + t.h - 14 - 17 - 12 - 28);   // Check for updates
+  TEST_ASSERT_EQUAL_INT(1, r.s.otaChecks);
+  r.s.st.otaChecking = true; r.step(50);                   // net: otaRequestCheck marks the status at once
+  onlyStatus("checking");
+  TEST_ASSERT_TRUE(r.sig("s0").find("Checking…") != std::string::npos);
+  TEST_ASSERT_TRUE(r.sig("t0").find("Check for updates") != std::string::npos);   // the button stays
+  r.tap(t.x + t.w - 100, t.y + t.h - 14 - 17 - 12 - 28);   // pressed again while checking: nothing
+  TEST_ASSERT_EQUAL_INT(1, r.s.otaChecks);
+  r.d.clear();
+  r.s.st.otaChecking = false; r.s.st.otaChecked = true; r.s.st.otaLastCheckEpoch = 1792000000; r.step(50);
+  onlyStatus("up to date");
+  std::string sig = r.sig("s0");
+  TEST_ASSERT_TRUE_MESSAGE(sig.find("Up to date") != std::string::npos && sig.find("Checked ") != std::string::npos, sig.c_str());
+  r.snap("ota_checked");
+  r.d.clear();
+  r.s.st.otaChecking = true; r.step(50);
+  r.s.st.otaChecking = false; r.s.st.otaCheckErr = OtaErr::Memory; r.s.st.otaCheckMsg = "Not enough memory right now — try again in a minute"; r.step(50);
+  TEST_ASSERT_EQUAL_INT(0, r.d.fulls());
+  sig = r.sig("s0");
+  TEST_ASSERT_TRUE_MESSAGE(sig.find("Not enough memory") != std::string::npos && sig.find("Try again in a minute") != std::string::npos, sig.c_str());
+  TEST_ASSERT_TRUE(sig.find("-100") == std::string::npos);
+  // no Wi-Fi: no check queued, "No connection"
+  r.s.st.otaCheckErr = OtaErr::None; r.s.st.wifi = WifiState::Offline; r.step(50);
+  r.tap(t.x + t.w - 100, t.y + t.h - 14 - 17 - 12 - 28);
+  TEST_ASSERT_EQUAL_INT(1, r.s.otaChecks);
+  TEST_ASSERT_TRUE(r.sig("s0").find("No connection") != std::string::npos);
+}
+
 // ---- OTA checks off in this build (X4_OTA_REPO placeholder): clear state, no check button ----
 void test_ota_checks_off() {
   Rig r;
   r.s.st.otaChecksOff = true; r.step(50);
   r.openApp(2); r.key(Key::Next); r.key(Key::Next); r.key(Key::Next);   // Updates
-  TEST_ASSERT_TRUE(r.sig("t0").find("Update checks off") != std::string::npos);
+  TEST_ASSERT_TRUE(r.sig("s0").find("Update checks off") != std::string::npos);
   TEST_ASSERT_TRUE(r.sig("t0").find("Check for updates") == std::string::npos);
 }
 
@@ -731,6 +821,23 @@ void test_tile_values() {
   TEST_ASSERT_EQUAL_STRING("Uit", v[2].c_str());
   TEST_ASSERT_EQUAL_STRING("Niet beschikbaar", v[3].c_str());
   TEST_ASSERT_EQUAL_STRING("Onbekend", v[4].c_str());
+}
+
+// #268: a history tile parses; until #270 draws it, both styles show the unknown-tile face (no crash)
+void test_history_tile_placeholder() {
+  Rig r;
+  EntityValue t; t.state = "12.3"; t.attrs["unit_of_measurement"] = "°C";
+  r.app.entities().set("sensor.outdoor_temperature", t);
+  r.app.setConfig(cfgOf("version: 1\nscreens:\n  - id: a\n    widgets:\n"
+                        "      - {type: history, entity: sensor.outdoor_temperature, cs: 4}\n"
+                        "      - {type: history, entity: sensor.outdoor_temperature, window: 7d, agg: max, cs: 2}\n"));
+  r.step(200);
+  TEST_ASSERT_TRUE(r.sig("t0").find(":?;") != std::string::npos);
+  TEST_ASSERT_EQUAL_STRING("", r.app.tileValues("a")[0].c_str());
+  DisplaySettings ds = r.app.settings(); ds.style = "sleek";
+  r.app.setSettings(ds);
+  r.step(200);
+  TEST_ASSERT_TRUE(r.sig("t1").find(":?;") != std::string::npos);
 }
 
 // ---- preview.png of another screen (#168): drawn off-screen, the panel and its frame untouched ----
@@ -1061,6 +1168,15 @@ void test_sleek_fonts_exact() {
   TEST_ASSERT_EQUAL_INT(int(Face::Classic), int(resolveFont(B(16))->face));
 }
 
+// ---- price chart (#260): today's low / high with times under the Classic bars ----
+void test_price_chart_low_high() {
+  Rig r;
+  r.key(Key::Next);
+  TEST_ASSERT_TRUE(r.barHas("Energy prices"));
+  TEST_ASSERT_TRUE(r.sig("t4").find("Low 0.18 · 13:00") != std::string::npos);
+  TEST_ASSERT_TRUE(r.sig("t4").find("High 0.38 · 18:00") != std::string::npos);
+}
+
 // ---- display styles: Sleek renders every default page (render.sh writes the PNGs) and keeps the touch targets ----
 void test_sleek_pages_and_targets() {
   Rig r(true, 13, 0, 10, sleekSet());
@@ -1068,6 +1184,8 @@ void test_sleek_pages_and_targets() {
   r.snap("sleek_home");
   r.tap(800 - 12 - 26, 32);                                 // Next (INK circle in the pager capsule)
   TEST_ASSERT_TRUE(r.barHas("Energy prices"));
+  TEST_ASSERT_TRUE(r.sig("t4").find("Low 0.18 · 13:00") != std::string::npos);    // price chart low / high (#260)
+  TEST_ASSERT_TRUE(r.sig("t4").find("High 0.38 · 18:00") != std::string::npos);
   r.tap(130, 32);                                           // app + page title → app switcher
   TEST_ASSERT_TRUE(r.has("menu"));
   r.key(Key::Home);
@@ -1121,6 +1239,52 @@ void test_minute_tick_window() {
   n.step(60000);
   double share = lastPartialShare(n);
   TEST_ASSERT_TRUE(share > 0 && share < 0.25);
+}
+
+// ---- issue #220: front light timeout — off after N s without input; the first key/tap only turns it back on ----
+void test_light_timeout() {
+  DisplaySettings ds = fast(); ds.brightness = 50; ds.lightTimeout = 30; ds.returnHome = "never";
+  Rig r(true, 13, 0, 10, ds);
+  TEST_ASSERT_EQUAL_INT(50, r.b.light);
+  r.step(27000);
+  TEST_ASSERT_EQUAL_INT(50, r.b.light);
+  r.setNum("sensor.home_power", "2100");
+  r.step(2000);                                            // 30 s idle → off; the brightness setting stays
+  TEST_ASSERT_EQUAL_INT(0, r.b.light);
+  r.setNum("sensor.home_power", "2200");                   // an HA update never wakes it
+  r.step(1000);
+  TEST_ASSERT_EQUAL_INT(0, r.b.light);
+  r.d.clear();
+  std::string t0 = r.sig("t0");
+  r.key(Key::Next);                                        // consumed: light on, same page, no redraw
+  TEST_ASSERT_EQUAL_INT(50, r.b.light);
+  TEST_ASSERT_EQUAL_STRING(t0.c_str(), r.sig("t0").c_str());
+  TEST_ASSERT_EQUAL_INT(0, r.d.fulls() + r.d.fasts());
+  r.key(Key::Next);                                        // the second key turns the page
+  TEST_ASSERT_EQUAL_INT(1, r.d.fasts());
+  // a tap is consumed the same way: no app switcher
+  r.step(31000);
+  TEST_ASSERT_EQUAL_INT(0, r.b.light);
+  r.tap(130, 32);
+  TEST_ASSERT_FALSE(r.has("menu"));
+  TEST_ASSERT_EQUAL_INT(50, r.b.light);
+  // Power is not consumed: straight to standby, light stays off
+  r.step(31000);
+  r.key(Key::Power);
+  TEST_ASSERT_TRUE(r.has("standby"));
+  TEST_ASSERT_EQUAL_INT(0, r.b.light);
+  // Never: the light stays on
+  DisplaySettings nv = ds; nv.lightTimeout = 0;
+  Rig q(true, 13, 0, 10, nv);
+  q.step(400000);
+  TEST_ASSERT_EQUAL_INT(50, q.b.light);
+  // brightness 0: nothing to wake, the first key acts
+  DisplaySettings dk = ds; dk.brightness = 0;
+  Rig k(true, 13, 0, 10, dk);
+  k.step(31000);
+  k.d.clear();
+  k.key(Key::Next);
+  TEST_ASSERT_EQUAL_INT(1, k.d.fasts());
 }
 
 // ---- issue #27: ambient idle mode — 60 s without input hides pager, battery, app label; first input only restores ----
@@ -1277,6 +1441,7 @@ int main(int, char**) {
   RUN_TEST(test_ota_screen);
   RUN_TEST(test_ota_long_version);
   RUN_TEST(test_ota_upload_version_line);
+  RUN_TEST(test_ota_check_feedback);
   RUN_TEST(test_ota_checks_off);
   RUN_TEST(test_light_toggle);
   RUN_TEST(test_generic_entities);
@@ -1286,19 +1451,24 @@ int main(int, char**) {
   RUN_TEST(test_offline_keeps_values);
   RUN_TEST(test_tile_values);
   RUN_TEST(test_render_screen_offscreen);
+  RUN_TEST(test_history_tile_placeholder);
   RUN_TEST(test_settings_wifi_ha_buttons);
   RUN_TEST(test_first_data_after_connect);
   RUN_TEST(test_style_switch_one_full_refresh);
   RUN_TEST(test_style_region_parity);
   RUN_TEST(test_sleek_fonts_exact);
+  RUN_TEST(test_price_chart_low_high);
   RUN_TEST(test_sleek_pages_and_targets);
   RUN_TEST(test_minute_tick_window);
   RUN_TEST(test_ambient_idle);
+  RUN_TEST(test_light_timeout);
   RUN_TEST(test_night_poster);
   RUN_TEST(test_bw_only_lint);
   RUN_TEST(test_user_routes);
   RUN_TEST(test_key_factory_reset);
   RUN_TEST(test_key_restart);
+  RUN_TEST(test_power_hold_off);
+  RUN_TEST(test_power_short_press_and_boot_hold);
   RUN_TEST(test_language_from_ha);
   RUN_TEST(test_settings_built_in);
   RUN_TEST(test_power_stages);

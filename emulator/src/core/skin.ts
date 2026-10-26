@@ -39,7 +39,7 @@ export const SK_FONTS: Record<Look, { t: string; d: string; s: string; k: number
 
 /** `isX` (Classic template) → `sX` (Sleek template). Widgets not listed keep the Classic layout + fallback styling. */
 const SWAP: [string, string][] = [['isStat', 'sStat'], ['isClock', 'sClock'], ['isPrice', 'sPrice'], ['isGauge', 'sGauge'], ['isBars', 'sBars'], ['isThermo', 'sThermo'],
-  ['isZoneList', 'sZones'], ['isLightList', 'sLights'], ['isLight', 'sLight'], ['isScene', 'sScene'], ['isSetting', 'sSetting']];
+  ['isZoneList', 'sZones'], ['isLightList', 'sLights'], ['isLight', 'sLight'], ['isScene', 'sScene'], ['isSetting', 'sSetting'], ['isHistory', 'sHistory']];
 
 /**
  * Map one widget view model to style-specific render data. Pure: same input, same output; never mutates `v`.

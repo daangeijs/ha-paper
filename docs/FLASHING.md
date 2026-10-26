@@ -10,12 +10,12 @@ computer and an `https://` page (or `localhost`); Firefox, Safari and phones hav
 Hosted copy: [hapaper.daangeijs.nl](https://hapaper.daangeijs.nl), the latest beta or stable release.
 
 The page doubles as the landing page for people who are not developers: what HA Paper is, four screen renders, what
-you need, the four install steps (with a drawing of the Left + Reset combo), what to do after installing, and a
+you need, the four install steps, what to do after installing, and a
 restore section. The checks and offsets below sit in a collapsed *Technical details* section. The screen images are
 committed 2-bit PNGs in `flasher/src/screens/` (5-12 KB each); `make flasher-screens` re-renders the UI and refreshes
 them.
 
-1. Connect the X4 Pro (cable from §0) and put it in download mode: hold Left, press Reset, release Left.
+1. Connect the X4 Pro (cable from §0). No buttons: the page resets it into download mode over USB.
 2. **Connect**: pick the Espressif device. The page reads the secure boot and flash encryption eFuses and stops if
    either is on, or if it can't read them.
 3. **Read backup**: reads all 16 MB in 256 KB chunks, checks each chunk against the chip's own MD5, and saves
@@ -52,7 +52,7 @@ Each GitHub release ships `x4flash.py` next to the firmware files. You need Pyth
 - Display not found at all: check §1 (some third-party units have USB download locked).
 
 1. Download all files of the release into one folder.
-2. Connect the X4 Pro and put it in download mode: hold the Left button, press Reset, release Left.
+2. Connect the X4 Pro over USB. No buttons needed.
 3. In that folder: `python3 x4flash.py` (Windows: `py x4flash.py`).
 
 The script checks the files against `SHA256SUMS`, finds the display (Espressif USB id; pass `--port` if it finds
@@ -85,10 +85,13 @@ Everything below is the developer path and runs from the repo root.
 A port target run without `PORT` prints the first candidate it finds (`/dev/cu.usbmodem*`, `/dev/ttyACM*`, `/dev/ttyUSB*`).
 Examples below use `/dev/cu.usbmodem1101`; substitute yours.
 
-Download mode: the ESP32-S3 USB-Serial/JTAG port normally lets esptool reset the chip into the ROM
-bootloader by itself. If a command says *"Failed to connect"* / *"No serial data received"*:
-**hold Left (GPIO0) and press Reset**, release Left after a second, then run the command again within ~10 s.
-(Left is a boot-strap pin; it is only a normal page key once the firmware runs.)
+Download mode needs no buttons: esptool resets the ESP32-S3 into the ROM bootloader over its USB-Serial/JTAG port
+(verified on the X4 Pro with `make flash` and the browser flasher, 2026-10-26). If a command says *"Failed to
+connect"* / *"No serial data received"*: close other serial monitors, replug USB and run it again. Button fallback
+(not verified on our unit): Reset is the small button on the top edge next to the microSD slot; press Reset while
+holding Prev (left side, GPIO0, the boot strap), then release Prev: the chip should start in download mode. If the
+firmware hangs and USB won't connect, see [#225](https://github.com/daangeijs/eink-ha-os/issues/225) and
+[#244](https://github.com/daangeijs/eink-ha-os/issues/244).
 
 ## 1. Check the unit is not locked
 
@@ -101,7 +104,7 @@ X3/X4 units have USB download disabled or secure boot / flash encryption burned 
 is undocumented. **Do not flash** if the output shows:
 
 - `Secure Boot: Enabled` or `Flash Encryption: Enabled` (look at the "Flags"/key purposes lines), or
-- esptool cannot connect at all even in download mode (USB download disabled by eFuse).
+- esptool cannot connect at all, even after a replug (USB download may be disabled by eFuse).
 
 eFuses are one-way; nothing in this project burns any.
 
@@ -193,7 +196,7 @@ covers steps 2–5; the REST API is complete either way.
 make restore PORT=/dev/cu.usbmodem1101 FILE=backups/x4pro_stock_20261013.bin
 ```
 
-Checks the file is exactly 16 MB (and its `.sha256` if present), writes it at 0x0, then press Reset.
+Checks the file is exactly 16 MB (and its `.sha256` if present), writes it at 0x0. Replug USB if it doesn't start.
 Equivalent manual command: `.venv/bin/esptool --chip esp32s3 -p PORT write-flash 0x0 backups/x4pro_stock_….bin`.
 
 ## 6. Releasing an update (OTA)
@@ -213,8 +216,8 @@ Equivalent manual command: `.venv/bin/esptool --chip esp32s3 -p PORT write-flash
    get an "untested on hardware" warning at the top of the release notes. Check a release build locally first with
    `make dist VERSION=0.4.0` (the workflow additionally checks the version string is stamped into `firmware.bin`).
 3. `.github/workflows/release.yml` runs the native + emulator tests, builds with `X4_FW_VERSION=0.4.0`, and
-   publishes `firmware.bin`, `manifest.json` (`{version, sha256, size, notes[]}`; notes = commit subjects since
-   the previous tag), `www.bin`, `bootloader.bin`, `partitions.bin`, `boot_app0.bin`,
+   publishes `firmware.bin`, `manifest.json` (`{version, sha256, size, notes[]}`; notes = the bullets of the tag's
+   `## 0.4.0` section in `RELEASE_NOTES.md`, ≤ 6 of ≤ 34 characters, or the release fails), `www.bin`, `bootloader.bin`, `partitions.bin`, `boot_app0.bin`,
    `x4flash.py` (USB flasher), `SHA256SUMS` and `ha-paper-flasher-<version>.zip` (browser flasher site with these files).
 4. Devices check `GET https://api.github.com/repos/<owner>/ha-paper/releases/latest` (stable) or `/releases`
    (beta) at most once a day (unauthenticated GitHub API: 60 requests/hour per IP), or when you press
@@ -261,8 +264,8 @@ whose name was never set now shows *HA Paper*.
 
 | Symptom | Fix |
 |---|---|
-| `make backup` / `flash`: *Failed to connect* | Download mode: hold Left, press Reset. Try another cable/port. |
-| Display stays blank after flashing | Press Reset. Check `make monitor`: the `[EPD]` probe line; an unknown controller batch falls back to SSD1677. |
+| `make backup` / `flash`: *Failed to connect* | Replug USB and retry. Close other serial monitors. Try another cable/port. |
+| Display stays blank after flashing | Replug USB. Check `make monitor`: the `[EPD]` probe line; an unknown controller batch falls back to SSD1677. |
 | `ha-paper-XXXX.local` doesn't open | Check the exact name on the display (XXXX differs per unit). `.local` names fail on many Android phones, some Windows setups and guest/VLAN networks (mDNS does not cross them): use the IP shown on the device. |
 | Linux: `Permission denied: '/dev/ttyACM0'` | Add yourself to `dialout` (§0) and log in again. |
 | WSL2: no `/dev/ttyACM0` | `usbipd attach --wsl --busid <id> --auto-attach` from Windows (§0); it detaches when the cable is replugged. |
@@ -277,6 +280,9 @@ token comes from `X4_TOKEN` only and is never printed) and appends a row to `soa
 free / lowest / largest block, battery and power source, HA link, `ha_report` state, reset reason. Reboots are found
 from uptime and the boot ring and logged with their reset reasons. `summary-YYYY-MM-DD.md` next to it is rewritten
 after every poll: resets by reason, minimum heap per 6 h, battery %/day on battery, HA disconnects, and the times the
-display did not answer, as *asleep* (it woke with reset reason `DEEPSLEEP`) or *down*. The same command works against
+display did not answer, as *asleep* (it woke with reset reason `DEEPSLEEP`) or *down*. With a `.local` name in `URL` each poll
+also checks the name and the IP separately (`name_dns`, `ip_tcp`, `ip_http`, `name_http`; `IP=` sets a fallback
+address until the name resolves once), so "the name stopped resolving" is told apart from "nothing reaches the
+display" (#227); the column meanings are in the script's docstring. The same command works against
 `npm run device-sim` (`URL=http://127.0.0.1:8080`) and `make qemu`; `python3 firmware/tools/soak.py --summarize
 soak/<host>/soak.csv` re-prints the summaries.

@@ -5,6 +5,7 @@
 #include <cstdint>
 
 #include "core/diag.h"
+#include "core/net_policy.h"
 
 namespace x4::net {
 
@@ -12,26 +13,31 @@ uint32_t heapLargestFree();   // internal RAM: largest free block (what one TLS 
 uint32_t heapMinFree();       // internal RAM: lowest free total since boot
 uint32_t heapFreeInternal();  // internal RAM: free total now
 
-// false (and logged) when internal RAM is below core kTlsMinFreeInternal / kTlsMinLargestBlock (kTlsMin*Pooled while
-// the TLS reserve has two slots free, #149): the caller fails this attempt and backs off instead of crashing
-// mid-handshake. `what` = host, for the log.
-bool tlsHeapOk(const char* what);
+// false (and logged) when internal or DMA RAM is below core tlsFloor() for this peer (kTlsMin*Pooled while the TLS
+// reserve has two slots free, #149; GitHub's floor is higher, #248): the caller fails this attempt and backs off
+// instead of crashing mid-handshake. `host` = the peer (also logged); the second form names the peer itself.
+bool tlsHeapOk(const char* host);
+bool tlsHeapOk(const char* what, TlsPeer peer);
 
 // No OTA download/upload running, the running image is confirmed (a reset of a PENDING_VERIFY image rolls back),
 // and no restart is already queued.
 bool maintenanceRestartAllowed();
 void maintenanceRestart(const char* why);   // via Hub::restartPending → pump() → Board::restart() (light off)
 
-void healthLoop();   // net task: heap watch every 10 s, `[I][HEAP] free … largest …` log line every 60 s
+void healthLoop();   // net task: heap watch every 10 s (HeapStarve every 2 s: WebSocket shed), `[I][HEAP] free …` line every 60 s
 
 // Heap low point (#198, #200): any task, after something that may have used a lot of internal RAM. When the internal
 // minimum since boot dropped >= 512 B below the last low point: `[W][HEAP] low point …` with what was going on
 // (`where` = this checkpoint, WebSocket, TLS slots, HA report push, OTA, open web requests, last API path, RSSI), kept
 // for GET /diagnostics heap.low_point. Allocation-free.
 void heapCheckpoint(const char* where);
+// `[I][HEAP] mark <what> · internal free … (Δ since the last mark) …` at boot/Wi-Fi/WebSocket milestones and every
+// 10 HA entity events (#248: where internal RAM goes, and whether it creeps).
+void heapMark(const char* what);
 void heapLowPoint(diag::LowPoint& out);
-void heapRequestOpen(const char* path);   // web server: an API request starts / its connection closes
+void heapRequestOpen();                   // web server: a connection was accepted / it closed
 void heapRequestClosed();
+void heapRequestPath(const char* path);   // the request's path (low-point context)
 void heapReportInFlight(bool on);         // ha_report: POST /api/states running
 
 // Wi-Fi power save (modem sleep) off while held; nests across tasks. When the last one ends, the power rules' mode

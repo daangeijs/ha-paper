@@ -22,7 +22,7 @@
 //   1. HA has the logical id itself (sensor.solar_power …): that one, no label (the catalog's tile);
 //   2. Energy dashboard (power roles): the source's power sensor (stat_rate | power[0].stat_rate | power_config.stat_rate),
 //      else the sensor sharing the longest entity-id prefix (≥ 2 words) with the source's meters (same device, by name)
-//      whose score is ≥ 0; imported / exported today: the same prefix test on the grid's flow_from / flow_to meters;
+//      whose score is ≥ 0; imported / exported today: the same prefix test on the grid's flow_from / flow_to or flat stat_energy_from / _to meters (#274);
 //   3. by kind + name: score = +2 per good word, −3 per bad word in "entity_id friendly name" (lower case); > 0 wins.
 //      Imported / exported today must also name the grid (GRID_DAY), used today the house (HOUSE_DAY): an appliance
 //      plug's "today consumption" is neither (#152). Lifetime meters only (no day counter) = no such tile.
@@ -36,6 +36,7 @@
 // Seed report (#89): what the seed decided per tile (SEED_TILES), so the console can say "N of M tiles filled" and
 // why the others are missing. Filled: `entity` (when the tile has one) + `rule` (id | energy | device | name | area |
 // grid | found). Dropped: `why` (no_energy | no_meter | no_sensor | none | few_rooms | overview_full).
+import { gridFlows, rateOf } from './energyPrefs.ts';
 import { DEFAULT_APPS, entityFits, ENTITY_DOMAINS, MAX_CELLS, cellsUsed, type Config, type Screen, type Widget } from './config.ts';
 
 /** energy/get_prefs result (only the fields the seed reads). */
@@ -177,13 +178,6 @@ export function sharedWords(a: string, b: string): number {
 const score = (t: string, r: Role): number =>
   r.good.reduce((s, k) => s + (t.includes(k) ? 2 : 0), 0) - r.bad.reduce((s, k) => s + (t.includes(k) ? 3 : 0), 0);
 
-/** stat_rate | power[0].stat_rate | power_config.stat_rate (one entity, HA's sign). */
-function rateOf(s: Record<string, any>): string {
-  if (str(s.stat_rate)) return s.stat_rate;
-  if (Array.isArray(s.power)) for (const p of s.power) if (str(p?.stat_rate)) return p.stat_rate;
-  return s.power_config && typeof s.power_config === 'object' ? str(s.power_config.stat_rate) : '';
-}
-
 /** The tiles the seed reports on, in order, with the screen the console's "pick one" opens (#89). Travel is opt-in
  * (HA automations for sensor.x4_route_*) and not reported. */
 export const SEED_TILES: [string, string][] = [
@@ -220,12 +214,10 @@ export function seedPlan(snap: HaSnapshot, tail: Screen[] = []): { config: Confi
       hasBattery = true;
       for (const k of ['stat_energy_from', 'stat_energy_to']) if (str(s[k])) meters.battery.push(s[k]);
     } else {
-      for (const f of Array.isArray(s.flow_from) ? s.flow_from : []) {
-        if (!f || typeof f !== 'object') continue;
-        if (str(f.stat_energy_from)) { importM = true; meters.grid.push(f.stat_energy_from); meters.import.push(f.stat_energy_from); }
-        if (str(f.entity_energy_price)) { price = true; if (!priceId) priceId = f.entity_energy_price; }
-      }
-      for (const f of Array.isArray(s.flow_to) ? s.flow_to : []) if (f && typeof f === 'object' && str(f.stat_energy_to)) { meters.grid.push(f.stat_energy_to); meters.export.push(f.stat_energy_to); }
+      const g = gridFlows(s);
+      if (g.import.length) importM = true;
+      meters.grid.push(...g.import, ...g.export); meters.import.push(...g.import); meters.export.push(...g.export);
+      if (g.price) { price = true; if (!priceId) priceId = g.price; }
     }
   }
   if (live.has('sensor.energy_prices')) price = true;

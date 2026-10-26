@@ -38,12 +38,17 @@ class X4Board : public Board {
   // Deep sleep (#10, net/power.cpp): front light parked, rails down, GPIO1 latch held, wake on Power/Right, charger
   // STAT, and a timer (seconds > 0). Call after the panel's deep-sleep command. Does not return: a wake is a reset.
   [[noreturn]] void deepSleep(int64_t seconds);
+  // Power held 2 s (#258), after the "Turned off" face and the panel's deep-sleep command: waits for Power to be
+  // released, releases the GPIO1 latch (battery: the board goes off). Still running 1 s later (USB) → deep sleep, only
+  // Power wakes, latch held LOW (unplugging then switches it off). Does not return.
+  [[noreturn]] void powerOff() override;
   void notifyOnInput(void* task);        // TaskHandle_t to xTaskNotifyGive() whenever an event is queued
   bool pushInput(const InputEvent& e) override;   // remote input (#214): same queue as touch/keys
 
  private:
   static void taskEntry(void* self);
   void task();
+  [[noreturn]] void sleepNow(int64_t seconds, bool offHold);
   void readBattery(uint32_t now);        // x4input only (I2C)
   uint32_t batteryDueIn(uint32_t now) const;
   void* queue_ = nullptr;                // QueueHandle_t

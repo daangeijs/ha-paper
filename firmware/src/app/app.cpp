@@ -196,7 +196,8 @@ void App::loop() {
   // refresh ran are not replayed one by one.
   InputEvent ev{}, e{};
   int n = 0;
-  uint8_t keys = I->board.heldKeys();
+  const uint8_t held = I->board.heldKeys();
+  uint8_t keys = held;
   while (n < 64 && I->board.pollInput(e)) {
     ++n;
     ev = e;
@@ -209,23 +210,30 @@ void App::loop() {
   bool swallow = false;
   if (I->mode != Mode::Updating) {
     const bool was = I->recovery.phase != RecoveryPhase::Idle;
-    const RecoveryAction a = recoveryStep(I->recovery, now, keys);
+    RecoveryAction a = recoveryStep(I->recovery, now, keys);
+    // #258: a Power KeyDown already released (remote input, or shorter than a pass) is a press and its release
+    if (a == RecoveryAction::None && I->recovery.phase == RecoveryPhase::PowerHold && !(held & kKeyPower))
+      a = recoveryStep(I->recovery, now, held);
     swallow = was || I->recovery.phase != RecoveryPhase::Idle || a != RecoveryAction::None;
     if (a != RecoveryAction::None) I->recoveryDone(a);
   }
+  if (I->poweredOff) return;   // QEMU / host only: the board stays up; Power (a Press) restarts it
   if (n > 1 && !swallow) I->note("input · " + std::to_string(n - 1) + " stale dropped · last wins");
   if (coalesceInput(n) >= 0 && !swallow) {
     // ambient (#27): the first touch or key (not Power) brings the chrome back and does nothing else
-    bool consume = I->ambient && I->mode == Mode::Main && !I->sleeping && !I->nightActive() &&
-                   !(ev.kind == InputEvent::Kind::KeyDown && ev.key == Key::Power);
+    // light timeout (#220): the same for the first input after the front light went off
+    const bool pwr = ev.kind == InputEvent::Kind::KeyDown && ev.key == Key::Power;
+    const bool main = I->mode == Mode::Main, night = main && I->nightActive();
+    const bool light = main && lightWakeConsumes(I->set.brightness, I->sleeping, night, I->lightOut, pwr);
+    bool consume = light || (I->ambient && main && !I->sleeping && !night && !pwr);
     I->input();
-    if (consume) { I->note("input → chrome back (consumed)"); I->commit("chrome"); }
+    if (consume) { I->note(light ? "input → light on (consumed)" : "input → chrome back (consumed)"); I->commit("chrome"); }
     else switch (ev.kind) {
       case InputEvent::Kind::KeyDown:
         if (ev.key == Key::Prev) I->nav(-1, "BTN_PREV");
         else if (ev.key == Key::Next) I->nav(1, "BTN_NEXT");
         else if (ev.key == Key::Home) I->home("KEY_HOME");
-        else I->power();
+        else if (I->mode != Mode::Updating) I->note("BTN_POWER ignored · a key is still down");   // #258: recoveryStep Press / Off
         break;
       case InputEvent::Kind::Tap: I->tap(ev.x, ev.y); break;
       case InputEvent::Kind::Swipe:
@@ -366,6 +374,7 @@ void App::Impl::build(std::vector<RegionDef>& out) {
   now = localTime();
   applyLook();
   Rect screen = rc(0, 0, kScreenW, kScreenH);
+  if (poweredOff) { out.push_back({"off", screen, [this](Canvas& c) { ui::offFace(c, *this); }}); return; }
   if (recovery.phase == RecoveryPhase::Confirm) { out.push_back({"reset", screen, [this](Canvas& c) { ui::recoveryFace(c, *this); }}); return; }
   if (mode == Mode::Boot) { out.push_back({"boot", screen, [this](Canvas& c) { ui::bootFace(c, *this); }}); return; }
   if (mode == Mode::Updating) { out.push_back({"upd", screen, [this](Canvas& c) { ui::updatingFace(c, *this); }}); return; }
@@ -425,6 +434,7 @@ void App::Impl::build(std::vector<RegionDef>& out) {
       ui::listRegions(*this, w, i, r, out);
     } else if (ui::isSystemTile(w.type)) {
       out.push_back({key, r, [this, &w, i, r](Canvas& c) { ui::systemTile(c, *this, w, i, r); }});
+      if (w.type == "ota") out.push_back({"s" + std::to_string(i), ui::otaStatusRect(r), [this, r](Canvas& c) { ui::otaStatus(c, *this, r); }, 1});
     } else {
       out.push_back({key, r, [this, &w, i, r](Canvas& c) { ui::tile(c, *this, w, i, r); }});
       if (w.type == "clock")
@@ -612,7 +622,10 @@ void App::Impl::commit(const std::string& reason, bool quiet) {
 }
 
 // ======================= behaviour =======================
-void App::Impl::input() { lastInput = ms(); idleHomed = false; ambient = false; }
+void App::Impl::input() {
+  lastInput = ms(); idleHomed = false; ambient = false;
+  if (lightOut) { lightOut = false; applyFrontlight(); }
+}
 
 void App::Impl::boot(const std::string& msg) {
   input();
@@ -700,6 +713,19 @@ void App::Impl::power() {
   board.pause(kStandbyLightMs);   // #225: frontlight off settles before the refresh load, not both at once
   fullRefresh("standby");
   if (onPowerStage) onPowerStage("standby drawn");
+}
+
+// #258: Power held 2 s. The face first (the panel keeps it without power), the panel asleep, the trail line, then the
+// board switches off (hardware: latch released, no return).
+void App::Impl::powerOff() {
+  note("BTN_POWER held " + std::to_string(kPowerOffHoldMs / 1000) + " s · turned off");
+  poweredOff = true; sleeping = false; menu = Menu::None; peekUntil = 0;
+  applyFrontlight();
+  board.pause(kStandbyLightMs);
+  fullRefresh("turned off");
+  display.sleep();
+  if (onPowerStage) onPowerStage("off");
+  board.powerOff();
 }
 
 void App::Impl::tap(int x, int y) {
@@ -830,6 +856,7 @@ void App::Impl::idleCheck() {
   for (int i = 0; i < int(cfg.screens.size()); ++i) if (cfg.screens[i].id == "overview") { homeIdx = i; break; }
   bool away = homeIdx >= 0 && (idx != homeIdx || sub != 0 || menu != Menu::None);
   uint32_t idle = ms() - lastInput;
+  if (!lightOut && lightTimedOut(idle, set.lightTimeout)) { lightOut = true; applyFrontlight(); note("IDLE → front light off"); }
   bool amb = !ambient && ambientDue(idle, menu != Menu::None, false) && !nightActive();
   IdleDecision d = ::x4::idleCheck(idle, idleMinutes(set.standby), idleMinutes(set.returnHome), idleHomed, away);
   if (d.standby) { sleeping = true; menu = Menu::None; applyFrontlight(); note("IDLE → standby"); fullRefresh("standby"); return; }
@@ -878,8 +905,7 @@ void App::Impl::captureSnap() {
 }
 
 void App::Impl::applyFrontlight() {
-  bool off = sleeping || (mode == Mode::Main && nightActive());
-  board.setFrontlight(off ? 0 : set.brightness, set.warmth);
+  board.setFrontlight(uint8_t(frontlightPct(set.brightness, sleeping || poweredOff, mode == Mode::Main && nightActive(), lightOut)), set.warmth);
 }
 
 void App::Impl::settingsChanged() {
@@ -902,7 +928,8 @@ void App::Impl::netChanged() {
   locale::setCurrency(c);
   std::string sig = std::to_string(int(st.wifi)) + "|" + st.ssid + "|" + st.ip + "|" + std::to_string(int(st.ha)) + "|" +
                     std::to_string(int(st.ota)) + "|" + st.otaAvailableVersion + "|" + std::to_string(st.otaProgressPct / 10) + "|" +
-                    st.pairingCode + "|" + std::to_string(st.otaNotes.size()) + "|" + st.haUrl;
+                    st.pairingCode + "|" + std::to_string(st.otaNotes.size()) + "|" + st.haUrl + "|" + std::to_string(st.otaChecking) +
+                    std::to_string(st.otaChecked) + "|" + std::to_string(st.otaLastCheckEpoch) + "|" + std::to_string(int(st.otaCheckErr)) + "|" + st.otaCheckMsg;
   if (sig == netSig) {
     if (langChanged && mode == Mode::Main) fullRefresh("language");
     return;
@@ -1078,6 +1105,7 @@ void App::Impl::setCfg(const std::string& key, int dir) {
   bool ch = false;
   if (key == "brightness") { int v = std::max(0, std::min(100, set.brightness + dir * 10)); ch = v != set.brightness; set.brightness = uint8_t(v); }
   else if (key == "warmth") { int v = std::max(0, std::min(100, set.warmth + dir * 10)); ch = v != set.warmth; set.warmth = uint8_t(v); }
+  else if (key == "lightTimeout") { std::string c = std::to_string(set.lightTimeout); ch = stepList({"30", "60", "120", "300", "0"}, c); if (ch) set.lightTimeout = std::atoi(c.c_str()); }
   else if (key == "night") ch = stepList({"off", "22-06", "23-07", "00-06"}, set.night);
   else if (key == "returnHome") { std::string c = std::to_string(idleMinutes(set.returnHome)); ch = stepList({"0", "1", "5", "15"}, c); if (ch) set.returnHome = c == "0" ? "never" : c; }
   else if (key == "standby") { std::string c = std::to_string(idleMinutes(set.standby)); ch = stepList({"0", "10", "30", "60"}, c); if (ch) set.standby = c == "0" ? "never" : c; }
@@ -1145,7 +1173,7 @@ void App::Impl::linkFromCard() {
   idx = hi; sub = 0; menu = Menu::None; haView = HaView::Link;
   fullRefresh("link");
 }
-void App::Impl::otaChannel(const std::string& k) { if (set.otaChannel == k) return; set.otaChannel = k; otaMsg.clear(); otaBlocked = false; settingsChanged(); commit("channel", true); }
+void App::Impl::otaChannel(const std::string& k) { if (set.otaChannel == k) return; set.otaChannel = k; otaMsg.clear(); otaBlocked = false; otaOffline = false; settingsChanged(); commit("channel", true); }
 void App::Impl::otaAuto(const std::string& k) { if (set.otaAuto == k) return; set.otaAuto = k; settingsChanged(); commit("setting", true); }
 void App::Impl::otaAction() {
   auto& st = svc.status();
@@ -1158,9 +1186,10 @@ void App::Impl::otaAction() {
     return;
   }
   if (st.otaChecksOff) return;   // no button is drawn; nothing to check against
-  if (st.wifi != WifiState::Connected) { otaMsg = t(S::noNetworkLater); commit("update status", true); return; }
+  if (st.otaChecking) { note("TOUCH check · already checking"); return; }
   otaMsg.clear(); otaBlocked = false;
-  svc.otaCheck();
+  otaOffline = st.wifi != WifiState::Connected;
+  if (!otaOffline) svc.otaCheck();   // "Checking…" arrives with the status change (netChanged → partial)
   commit("update status", true);
 }
 void App::Impl::restart() { note("TOUCH restart"); board.restart(); }
@@ -1172,6 +1201,12 @@ void App::Impl::recoveryDone(RecoveryAction a) {
   input();
   if (a == RecoveryAction::Show) { note(recovery.crash ? "CRASH LOOP · reset screen" : "BTN_POWER+BTN_NEXT 5 s · reset screen"); fullRefresh("factory reset?"); return; }
   if (a == RecoveryAction::Reset) { note("BTN_NEXT · FACTORY RESET"); svc.factoryReset(); return; }
+  if (a == RecoveryAction::Press) {   // #258: a short Power press
+    if (poweredOff) { note("BTN_POWER · power on (restart)"); board.restart(); return; }
+    power();
+    return;
+  }
+  if (a == RecoveryAction::Off) { powerOff(); return; }
   if (a == RecoveryAction::Restart) {   // #226: the panel says so first (a blocking full refresh), then the touch path
     note("BTN_POWER+BTN_PREV 5 s · restart");
     boot(t(S::bootRestarting));

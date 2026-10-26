@@ -10,6 +10,7 @@ import { NETWORKS, FW_INSTALLED, ENT, HOST, SIM_IP } from '../src/core/data.ts';
 import { fmtNum, hm, kw, newer, numFormat, numFormatOf, setNumFormat, statSource } from '../src/core/format.ts';
 import { currency, currencySymbol, ianaToPosix, money, setCurrency, tzFor, DEFAULT_TZ } from '../src/core/locale.ts';
 import { entityListAnswer } from '../src/core/entityList.ts';
+import { gridFlows, rateOf } from '../src/core/energyPrefs.ts';
 import type { InputSpec } from '../src/core/inputSpec.ts';
 import { displayError, nameError, settingsPutError, TZ_ERROR, type DisplaySettings } from '../src/core/settings.ts';
 import { LOGICAL, formatSource, isLogicalId, mergeEntities, splitRef, type EntityOverrides } from '../src/core/entityMap.ts';
@@ -20,9 +21,12 @@ import { CPU_MHZ, powerDecision, powerSource, sleepNowCheck, type PowerDecision,
 import { sleptSeconds, tallySleep, tallyWake, TALLY_ZERO, type WakeTally } from '../src/core/glance.ts';
 import { LOG_TAIL_CAP, logPush, logRing, logSplit, logsQuery, logTail, type LogRing, type LogsQuery } from '../src/core/logs.ts';
 import { changedRegions, serializeRegion, type RegionMap } from '../src/core/regions.ts';
+import { attrSamples, bucketize, chartSpan, fromHistoryRows, fromSamples, fromStatistics, historyError, historyFallbackOk, historySpec, statsPeriod, statsType, type HistorySpec, type Point, type Series, type StatRow } from '../src/core/history.ts';
+import { chartKey, historyChart, type HistState } from '../src/core/historyChart.ts';
 import { parseHaAddress, resolveHaAddress, HA_PROBE_PATH, HA_PROBE_COOLDOWN_MS, HA_PROBE_BUSY, type HaResolved, type ProbeAnswer } from '../src/core/haAddress.ts';
 import { authorizeUrl, exchangeCode, HaHttpError, HaSocket, randomToken, refreshAccess, revokeToken } from './ha-client.ts';
 import { latestFor, sha256, type Manifest, type SimRelease } from './ota.ts';
+import type { OtaErr } from '../src/core/otaStatus.ts';
 import { BATT_ZERO, battHistory, battStep, type BattState } from '../src/core/battery.ts';
 import { bootsJson, diagClear, diagPush, diagTouch, lastCrash, type DiagRing } from '../src/core/diag.ts';
 import { DEVICE_SCHEMA, SETTINGS_SCHEMA, migrate, schemaStatus } from '../src/core/migrate.ts';
@@ -70,6 +74,8 @@ export type SimCoredump = { task: string; pc: string; backtrace: string[]; backt
 export type SimCrash = 'panic' | 'task_wdt' | 'brownout';
 /** One row of GET /api/v1/ha/entities. */
 type HaListed = { id: string; name: string; unit: string; state: string; area?: string };
+/** Where a history tile's series came from (#267, #283). */
+type HistFrom = 'statistics' | 'history' | 'attribute' | 'forecast' | '';
 type HaArea = { id: string; name: string };
 type HaLists = { climate: ListCount; lights: ListCount; entities?: ListCount };
 const SIM_PANIC = 'assert failed: xQueueSemaphoreTake queue.c:1709 (pxQueue->uxItemSize == 0)';
@@ -86,7 +92,7 @@ export type Settings = {
   entities?: EntityOverrides;
 };
 export const DEFAULT_SETTINGS = (): Settings => ({
-  display: { brightness: 0, warmth: 40, night: '23-07', returnHome: '5', standby: 'never', clock: '24', intervalSec: 30, fullEvery: 8, cleanEvery: 30, style: 'classic', typeface: 'archivo', surface: 'dither', haReport: true, powerSave: 'glance', wakeEvery: 15, liveMin: 3, debugInput: false },
+  display: { brightness: 0, warmth: 40, lightTimeout: 60, night: '23-07', returnHome: '5', standby: 'never', clock: '24', intervalSec: 30, fullEvery: 8, cleanEvery: 30, style: 'classic', typeface: 'archivo', surface: 'dither', haReport: true, powerSave: 'glance', wakeEvery: 15, liveMin: 3, debugInput: false },
   ota_channel: 'stable', tz: '', name: 'HA Paper',
 });
 /** Merge a partial settings object; returns an error message (422) or null. */
@@ -111,6 +117,9 @@ export const DEFAULT_DELAYS: Delays = { wifiMs: 2000, scanMs: 1500, otaCheckMs: 
 
 /** firmware/src/net/ota.h kOtaChecksOffMsg: X4_OTA_REPO left at the placeholder (no GitHub checks; upload still works). */
 export const OTA_CHECKS_OFF_MSG = 'Update checks are off in this build. Install new firmware by upload (POST /api/v1/ota/upload).';
+/** firmware net/ota.cpp: GET /ota message of a failed check, by `error` (#250) */
+export const OTA_CHECK_MSG: Record<OtaErr, string> = { memory: 'Not enough memory right now — try again in a minute', network: 'GitHub not reachable (HTTP -1)',
+  busy: 'GitHub not reachable (HTTP 403)', none: 'No releases published yet', other: 'GitHub not reachable (HTTP 502)' };
 export const SIM_OTA_REPO = 'daangeijs/ha-paper (simulated)';
 
 export type DeviceOptions = {
@@ -165,6 +174,8 @@ export class DeviceSim {
   battery: number;
   /** GET /status battery_mv (#73, CW2017 VCELL); null = not read. 3950 matches the firmware's QEMU stub. */
   batteryMv: number | null = 3950;
+  /** GET /diagnostics web (#227): finished HTTP responses (http.ts) and when the last one finished. */
+  web = { served: 0, lastAt: 0 };
   failMode: 'ok' | 'hash' | 'boot' = 'ok';
   releases: SimRelease[];
   otaRepo: string;
@@ -189,7 +200,9 @@ export class DeviceSim {
   probe = { busy: false, endMs: -Infinity };
   pending = new Map<string, { verifier: string; returnTo: string; clientId: string; redirectUri: string; exp: number }>();
   wifiRun: { state: 'idle' | 'connecting' | 'connected' | 'failed'; error?: string } = { state: 'idle' };
-  otaRun: { status: string; avail: SimRelease | null; lastCheck: Date | null; message: string } = { status: 'idle', avail: null, lastCheck: null, message: '' };
+  otaRun: { status: string; avail: SimRelease | null; lastCheck: Date | null; message: string; error?: OtaErr | null } = { status: 'idle', avail: null, lastCheck: null, message: '' };
+  /** __sim/control ota_check_fail (#250): the next checks fail like this ('ok' = they work) */
+  checkFail: 'ok' | OtaErr = 'ok';
   /** POST /ota/upload is receiving an image (firmware otaUploadBegin … End/Abort); version '' = not known (#237). */
   upload: { version: string } | null = null;
   ha: { socket: HaSocket | null; access: string | null; accessExp: number; connected: boolean; entities: Map<string, { s: string; a: Record<string, any> }>; lastEvent: string | null; version: string; retry?: ReturnType<typeof setTimeout>; retryMs: number; areas: number;
@@ -247,7 +260,7 @@ export class DeviceSim {
     this.save();
     this.boot('power on');
     if (o.connectHa !== false) void this.connectHa();
-    this.reportT = setInterval(() => { this.battTick(); void this.reportTick(); }, 5000);
+    this.reportT = setInterval(() => { this.battTick(); void this.reportTick(); if (Date.now() - this.histAt >= DeviceSim.HIST_EVERY_MS) void this.fetchHistory('every 10 min'); }, 5000);
   }
 
   close() {
@@ -330,6 +343,7 @@ export class DeviceSim {
       else if (w.type === 'lightList') view = picked(w, ent('light.')).map((r) => [r[0], r[1]]);
       else if (w.type === 'gauge') view = this.fmtEntity(typeof w.entity === 'string' ? w.entity : 'sensor.home_battery_soc');
       else if (w.type === 'price') view = this.fmtEntity(this.mapOf()['sensor.energy_prices']?.ha || 'sensor.electricity_price');
+      else if (w.type === 'history') view = { label: w.label, v: this.fmtEntity(String(w.entity)), chart: this.histView(w) };
       out['t' + i] = serializeRegion(view);
     });
     return out;
@@ -371,7 +385,7 @@ export class DeviceSim {
   }
   goTo(id: string): boolean {
     const i = this.shown.findIndex((s) => s.id === id); if (i < 0) return false;
-    this.display.idx = i; this.navRefresh('screen ' + id); return true;
+    this.display.idx = i; this.navRefresh('screen ' + id); this.histAppCheck(); return true;
   }
   /** POST /debug/input (#214): keys and swipes page within the app shown (wrapping), Home goes to the first screen;
    *  taps and Power are logged only (the browser emulator acts them out). */
@@ -446,6 +460,108 @@ export class DeviceSim {
     this.fullRefresh('new config');
     this.log('CONFIG applied · ' + screens.length + ' screens · ' + src);
     if (JSON.stringify(this.wantedEntities()) !== wantedBefore) void this.resubscribe();
+    else void this.fetchHistory('config');
+  }
+
+  // ------------------------------------------------------------------ history tiles (#267)
+  /** Per tile (histKey): the fetched series, or why there is none. Only the current app's tiles are fetched (Daan,
+   *  #264); a tile not fetched yet draws its frame ('loading'). Refetched on connect, a config change, a new app and
+   *  every 10 min. The firmware's live append between fetches (#269) is not simulated. */
+  hist = new Map<string, { state: HistState; series: Series | null; at: number; source: HistFrom; bytes: number }>();
+  private histBusy = false; private histAgain = false; private histApp = ''; private histAt = 0;
+  static readonly HIST_EVERY_MS = 10 * 60_000;
+  /** The firmware's WS frame cap (WsClient kMaxMessage): a bigger history answer = "Too many changes". */
+  static readonly HIST_FRAME_CAP = 512 * 1024;
+  private histKey = (s: HistorySpec) => [s.entity, s.windowMs, s.bucketMs, s.agg, ...(s.source ? [s.aheadMs, s.source.attribute, s.source.value, s.source.time, s.source.forecast ?? ''] : [])].join('|');
+  /** UTC offset (minutes) of HA's time zone at `t` (the sim's own zone when HA has not said). */
+  private tzMinutes(t: number): number {
+    const zone = this.p.tzHa;
+    if (!zone) return -new Date(t).getTimezoneOffset();
+    try {
+      const p = Object.fromEntries(new Intl.DateTimeFormat('en-US', { timeZone: zone, hourCycle: 'h23', year: 'numeric', month: 'numeric', day: 'numeric', hour: 'numeric', minute: 'numeric' })
+        .formatToParts(new Date(t)).map((x) => [x.type, Number(x.value)]));
+      return Math.round((Date.UTC(p.year, p.month - 1, p.day, p.hour, p.minute) - Math.floor(t / 60_000) * 60_000) / 60_000);
+    } catch { return -new Date(t).getTimezoneOffset(); }
+  }
+  /** Valid history tiles on the screens of the app shown. */
+  private histSpecs(): HistorySpec[] {
+    const cur = this.shown[this.display.idx]; if (!cur) return [];
+    const out = new Map<string, HistorySpec>();
+    for (const sc of this.p.screens) if (sc.app === cur.app) for (const w of sc.widgets)
+      if (w.type === 'history' && typeof w.entity === 'string' && !historyError(w)) { const sp = historySpec(w); out.set(this.histKey(sp), sp); }
+    return [...out.values()];
+  }
+  /** A screen change into another app fetches that app's history tiles. */
+  private histAppCheck() {
+    const app = (this.shown[this.display.idx] || { app: '' }).app;
+    if (app !== this.histApp) void this.fetchHistory('app ' + app);
+  }
+  /** Statistics first (one call per period + type, every id), history rows in 6 h slices for ids without statistics,
+   *  one request at a time; then one redraw of what changed. */
+  async fetchHistory(reason: string): Promise<void> {
+    const sock = this.ha.socket;
+    if (!sock || !this.ha.connected || this.closed) return;
+    if (this.histBusy) { this.histAgain = true; return; }
+    this.histApp = (this.shown[this.display.idx] || { app: '' }).app; this.histAt = Date.now();
+    const specs = this.histSpecs(); if (!specs.length) return;
+    this.histBusy = true;
+    const now = Date.now(), tz = this.tzMinutes(now), iso = (t: number) => new Date(t).toISOString();
+    const done = new Set<string>();
+    const put = (sp: HistorySpec, v: { state: HistState; series: Series | null; source: HistFrom; bytes: number }) => { this.hist.set(this.histKey(sp), { ...v, at: now }); done.add(this.histKey(sp)); };
+    try {
+      // #283: attribute series from one get_states, weather forecasts from weather.get_forecasts (return_response).
+      // The firmware does not read these yet (firmware/deviations/283-attribute-series.md).
+      const attrSpecs = specs.filter((sp) => sp.source?.kind === 'attribute');
+      const states = attrSpecs.length ? await sock.command<{ entity_id: string; attributes: Record<string, unknown> }[]>({ type: 'get_states' }).catch(() => null) : null;
+      for (const sp of attrSpecs) {
+        const e = states?.find((x) => x.entity_id === sp.entity), raw = e?.attributes[sp.source!.attribute];
+        put(sp, { state: 'ok', series: fromSamples(attrSamples(raw, sp.source!, sp.bucketMs, now, tz), sp, now, tz), source: 'attribute', bytes: raw === undefined ? 0 : JSON.stringify(raw).length });
+      }
+      for (const sp of specs.filter((x) => x.source?.kind === 'forecast')) {
+        const res = await sock.command<{ response?: Record<string, { forecast?: unknown[] }> }>({ type: 'call_service', domain: 'weather', service: 'get_forecasts',
+          service_data: { type: sp.source!.forecast }, target: { entity_id: sp.entity }, return_response: true }).catch(() => null);
+        const list = res?.response?.[sp.entity]?.forecast;
+        put(sp, { state: 'ok', series: fromSamples(attrSamples(list, sp.source!, sp.bucketMs, now, tz), sp, now, tz), source: 'forecast', bytes: list ? JSON.stringify(list).length : 0 });
+      }
+      const groups = new Map<string, HistorySpec[]>();
+      for (const sp of specs) { if (sp.source) continue; const per = statsPeriod(sp.bucketMs); if (per) { const k = per + '|' + statsType(sp.agg); groups.set(k, [...(groups.get(k) || []), sp]); } }
+      for (const [k, g] of groups) {
+        const [period, type] = k.split('|');
+        const start = Math.min(...g.map((sp) => chartSpan(sp, now, tz).start));
+        const res = await sock.command<Record<string, StatRow[]>>({ type: 'recorder/statistics_during_period', start_time: iso(start), statistic_ids: [...new Set(g.map((sp) => sp.entity))], period, types: [type] }).catch(() => null);
+        const bytes = res ? JSON.stringify(res).length : 0;
+        for (const sp of g) { const rows = res?.[sp.entity]; if (rows?.length) put(sp, { state: 'ok', series: fromStatistics(rows, sp, now, tz), source: 'statistics', bytes }); }
+      }
+      for (const sp of specs) {
+        if (done.has(this.histKey(sp))) continue;
+        if (!historyFallbackOk(sp)) { put(sp, { state: 'needsStats', series: null, source: '', bytes: 0 }); continue; }
+        const { start } = chartSpan(sp, now, tz); const pts: Point[] = []; let bytes = 0, over = false;
+        for (let a = start; a < now && !over; a += 6 * 3600_000) {
+          const res = await sock.command<Record<string, { s: string; lu: number }[]>>({ type: 'history/history_during_period', start_time: iso(a), end_time: iso(Math.min(a + 6 * 3600_000, now)),
+            entity_ids: [sp.entity], minimal_response: true, no_attributes: true, significant_changes_only: false }).catch(() => null);
+          const n = res ? JSON.stringify(res).length : 0; bytes += n;
+          if (n > DeviceSim.HIST_FRAME_CAP) over = true; else if (res?.[sp.entity]) pts.push(...fromHistoryRows(res[sp.entity]));
+        }
+        put(sp, over ? { state: 'tooMany', series: null, source: 'history', bytes } : { state: 'ok', series: bucketize(pts, sp, now, tz), source: 'history', bytes });
+      }
+      this.log('HISTORY ' + reason + ' · ' + specs.map((sp) => { const h = this.hist.get(this.histKey(sp)); return sp.entity + ' ' + (h?.source || '-') + ' ' + h?.state + ' ' + (h?.bytes ?? 0) + ' B'; }).join(', '));
+    } finally { this.histBusy = false; }
+    this.dataChanged('history');
+    if (this.histAgain) { this.histAgain = false; void this.fetchHistory('again'); }
+  }
+  /** The redraw key of a history tile (historyChart geometry + values, never the formatted text). */
+  private histView(w: Widget): string {
+    if (historyError(w) || typeof w.entity !== 'string') return 'invalid';
+    const sp = historySpec(w); const h = this.hist.get(this.histKey(sp)); const now = h?.at ?? Date.now(), tz = this.tzMinutes(now);
+    const lg = langOf(this.p.language ?? 'en');
+    const c = historyChart(sp, h?.series ?? null, h?.state ?? 'loading', now, tz, lg, (v) => fmtNum(v, ''));
+    return chartKey(c, h?.series?.values ?? []);
+  }
+  /** History tiles of the app shown, for __sim/state (like the firmware's /console/state history block, #269). */
+  histState() {
+    return this.histSpecs().map((sp) => { const h = this.hist.get(this.histKey(sp));
+      return { entity: sp.entity, window_ms: sp.windowMs, bucket_ms: sp.bucketMs, agg: sp.agg, state: h?.state ?? 'loading', source: h?.source ?? '', buckets: h?.series?.values.length ?? 0,
+        filled: h?.series?.values.filter((v) => v !== null).length ?? 0, bytes: h?.bytes ?? 0, fetched_at: h ? new Date(h.at).toISOString() : null }; });
   }
 
   // ------------------------------------------------------------------ Wi-Fi
@@ -703,6 +819,7 @@ export class DeviceSim {
       this.report.force = true; this.report.retried = false; if (this.report.status === 'not_admin') this.report.status = 'waiting';
       void this.reportTick();
       await this.subscribe(sock);
+      void this.fetchHistory('connected');
     } catch (e) { this.log('HA setup failed · ' + (e as Error).message); sock.close(); }
   }
   /**
@@ -762,7 +879,7 @@ export class DeviceSim {
   wantedEntities(): string[] | null {
     const ids = new Set<string>(); let lists = false; const map = this.mapOf();
     for (const sc of this.p.screens) for (const w of sc.widgets) {
-      if ((w.type === 'stat' || w.type === 'switch' || w.type === 'scene') && typeof w.entity === 'string') ids.add(w.entity);
+      if ((w.type === 'stat' || w.type === 'switch' || w.type === 'scene' || w.type === 'history') && typeof w.entity === 'string') ids.add(w.entity);
       if (w.type === 'gauge') ids.add(typeof w.entity === 'string' ? w.entity : 'sensor.home_battery_soc');
       if (w.type === 'price') ids.add(map['sensor.energy_prices']?.ha || 'sensor.electricity_price');
       if (w.type === 'thermo' && w.zone) ids.add('climate.' + w.zone);   // no zone yet (#148): nothing to watch
@@ -829,18 +946,21 @@ export class DeviceSim {
       available: up ? (up.version ? { version: up.version, size_mb: 0, notes: [] } : null)
         : a ? { version: a.manifest.version, size_mb: Math.round((a.manifest.size / 1048576) * 100) / 100, notes: a.manifest.notes } : null,
       last_check: this.otaRun.lastCheck ? this.otaRun.lastCheck.toISOString() : null, message: this.otaRun.message || (this.otaRepo ? '' : OTA_CHECKS_OFF_MSG),
+      error: this.otaRun.status === 'error' ? this.otaRun.error ?? null : null,
       progress: this.display.progress ? this.display.progress.pct : this.otaRun.status === 'updated' ? 100 : 0, repo: this.otaRepo,
     };
   }
   otaCheck(): string | null {
-    if (!this.p.wifi.connected) { this.otaRun = { ...this.otaRun, status: 'error', message: 'No network — try again later' }; return 'No network — try again later'; }
+    if (!this.p.wifi.connected) { this.otaRun = { ...this.otaRun, status: 'error', message: 'No network — try again later', error: 'network' }; return 'No network — try again later'; }
     if (this.otaRun.status === 'checking') return null;
     if (!this.otaRepo) return null;   // firmware: 202, nothing to check; GET /ota stays idle with the checks-off message
     this.p.ota.channel = this.p.settings.ota_channel;
     const url = this.p.ota.channel === 'beta' ? 'releases?per_page=5' : 'releases/latest';
     this.log('OTA GET api.github.com/repos/…/' + url + ' (simulated)');
-    this.otaRun = { ...this.otaRun, status: 'checking', message: '' };
+    this.otaRun = { ...this.otaRun, status: 'checking', message: '', error: null };
     this.later(() => {
+      // firmware net/ota.cpp: a refused handshake (memory) stamps no last_check; any GitHub answer does
+      if (this.checkFail !== 'ok') { const e = this.checkFail; this.otaRun = { ...this.otaRun, status: 'error', message: OTA_CHECK_MSG[e], error: e, lastCheck: e === 'memory' ? this.otaRun.lastCheck : new Date() }; this.log('OTA check failed · ' + OTA_CHECK_MSG[e]); return; }
       const r = latestFor(this.releases, this.p.ota.channel);
       const has = !!r && newer(r.manifest.version, this.p.ota.fw);
       this.otaRun = { status: has ? 'available' : 'uptodate', avail: has ? r : null, lastCheck: new Date(), message: '' };
@@ -945,12 +1065,17 @@ export class DeviceSim {
   diagnostics() {
     const d = this.diagState();
     const ring = diagTouch(d.ring, Math.floor((Date.now() - this.bootAt) / 1000), SIM_HEAP.min_free_internal, Math.floor(Date.now() / 1000));
+    const rssi = NETWORKS.find((n) => n.ssid === this.p.wifi.connected)?.rssi ?? null;
     return {
       firmware: this.p.ota.fw, uptime_s: Math.floor((Date.now() - this.bootAt) / 1000), reset_reason: this.resetReason,
-      boots: bootsJson(ring), last_crash: lastCrash(ring), heap: { ...SIM_HEAP, low_point: SIM_LOW_POINT },
+      boots: bootsJson(ring), last_crash: lastCrash(ring), last_wdt: null, heap: { ...SIM_HEAP, low_point: SIM_LOW_POINT },
       panel: { controller: 'UC8179', source: 'probe', verdict: 'ultrachip', promoted: true, ver: '00 00 01 FF FF', flg: 0, nvs_screen_type: 1, failed: false, failure: null },
       coredump: d.coredump, touch_recoveries: 0, deep_sleep: { armed: true, boots_left: 0, armed_by: 'boots' }, battery: battHistory(this.battTick()),
       power_trail: { before_boot: null, lines: ['awake'] },   // #225: a fresh device marks itself awake on /power.txt
+      // #227 inbound path; served counts finished responses (http.ts), this request is still open
+      web: { open: 1, served: this.web.served, refused_503: 0, last_request_age_s: this.web.lastAt ? Math.floor((Date.now() - this.web.lastAt) / 1000) : null },
+      mdns: { up: !!this.p.wifi.connected, restarts: 0, last_restart_reason: null },
+      wifi: { rssi, bssid: rssi === null ? null : '3fa2', idle_checks: 0, idle_reconnects: 0 },
     };
   }
   /** GET /logs (x-firmware, #200) */
@@ -1083,7 +1208,7 @@ export class DeviceSim {
       screen: this.screenId(), apps: withSettings({ apps: this.p.apps, screens: [] }).apps.map((a) => a.id), mode: this.display.mode, setup: this.p.setup, progress: this.display.progress,
       refreshes: { full: this.display.full, clean: this.display.clean, fast: this.display.fast, partial: this.display.partial, skipped: this.display.skipped, since_full: this.display.sinceFull },
       last_refresh: this.display.events[this.display.events.length - 1] || null, events: this.display.events.slice(-20),
-      regions: this.display.regions,
+      regions: this.display.regions, history: this.histState(),
       ha: { url: this.p.ha.url, status: this.haStatus(), linked: this.p.ha.linked, revoked: this.p.ha.revoked, connected: this.ha.connected, user: this.p.ha.user,
         client_id: this.p.ha.clientId, entities: this.ha.entities.size, areas: this.ha.areas, last_event: this.ha.lastEvent, version: this.ha.version, report: this.reportStatus().state },
       wifi: { ...this.p.wifi, run: this.wifiRun }, ota: this.otaState(), battery: this.battery, fail_mode: this.failMode,
@@ -1111,17 +1236,12 @@ const withParam = (path: string, k: string, v: string): string => path + (path.i
  */
 export function aliasesOf(prefs: any): Record<string, string> {
   const out: Record<string, string> = {};
-  const rate = (s: any): string => {
-    if (typeof s?.stat_rate === 'string' && s.stat_rate) return s.stat_rate;
-    if (Array.isArray(s?.power)) for (const p of s.power) if (typeof p?.stat_rate === 'string' && p.stat_rate) return p.stat_rate;
-    const pc = s?.power_config; return pc && typeof pc.stat_rate === 'string' ? pc.stat_rate : '';
-  };
   const kinds = new Set<string>();
   for (const s of Array.isArray(prefs?.energy_sources) ? prefs.energy_sources : []) {
     kinds.add(s?.type);
     const logical = ({ solar: 'sensor.solar_power', grid: 'sensor.grid_power', battery: 'sensor.battery_power' } as Record<string, string>)[s?.type];
-    const r = rate(s); if (logical && r && !out[logical]) out[logical] = r;
-    if (s?.type === 'grid') for (const f of Array.isArray(s.flow_from) ? s.flow_from : []) if (typeof f?.entity_energy_price === 'string' && f.entity_energy_price && !out['sensor.energy_prices']) out['sensor.energy_prices'] = f.entity_energy_price;
+    const r = s && typeof s === 'object' ? rateOf(s) : ''; if (logical && r && !out[logical]) out[logical] = r;
+    if (s?.type === 'grid') { const p = gridFlows(s).price; if (p && !out['sensor.energy_prices']) out['sensor.energy_prices'] = p; }
   }
   if (out['sensor.grid_power'] && kinds.size === 1 && kinds.has('grid')) out['sensor.home_power'] = out['sensor.grid_power'];
   return out;

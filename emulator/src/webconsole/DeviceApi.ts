@@ -10,6 +10,7 @@ import type { Diagnostics } from '../core/diag.ts';
 import type { LogsResponse } from '../core/logs.ts';
 import type { ReportStatus } from '../core/haReport.ts';
 import type { SeedReport } from '../core/seed.ts';
+import type { OtaErr } from '../core/otaStatus.ts';
 
 /** GET /api/v1/seed (#89): what the first-link seed filled and dropped. */
 export type SeedReportView = SeedReport & { dismissed: boolean };
@@ -133,6 +134,8 @@ export interface DeviceApi {
   dismissSeedReport(): Promise<void>;
 
   // ---- OTA ----
+  /** GET /api/v1/ota (#250: the web console's Updates card). */
+  getOta(): Promise<OtaView>;
   otaCheck(): Promise<void>;
   otaInstall(): Promise<void>;
 
@@ -141,3 +144,14 @@ export interface DeviceApi {
   /** Browser-side diagnostics (emulator: event log; device SPA: console.debug). */
   trace(msg: string, kind?: 'warn' | 'ha'): void;
 }
+
+/** GET /api/v1/ota (spec/openapi.yaml OtaState), the fields the console reads. */
+export type OtaView = {
+  installed: string; channel: 'stable' | 'beta'; status: string;
+  available: { version: string; size_mb?: number; notes?: string[] } | null;
+  last_check: string | null; message: string;
+  /** #250: why the last check failed; null = it did not (or an install failed: message says why) */
+  error?: OtaErr | null;
+  /** "" = update checks off in this build */
+  repo?: string;
+};

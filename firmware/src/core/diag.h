@@ -10,13 +10,14 @@
 namespace x4::diag {
 
 constexpr int kBoots = 8;
-constexpr size_t kReasonLen = 12, kVersionLen = 24, kPanicLen = 96;   // C strings, NUL included
+constexpr size_t kReasonLen = 12, kVersionLen = 24, kPanicLen = 96, kHwLen = 16;   // C strings, NUL included
 
 // Trivially copyable: lives in RTC_NOINIT memory as is.
 struct Boot {
   char reason[kReasonLen];     // esp_reset_reason() name: POWERON, SW, PANIC, TASK_WDT, …
   char version[kVersionLen];   // firmware that ran this boot
   char panic[kPanicLen];       // panic message that caused this boot ("" = none)
+  char hw[kHwLen];             // raw chip reset cause (#241): CORE_SW, CORE_MWDT0, USB_UART, … ("" = unknown)
   uint32_t uptimeS;            // last update while this boot ran
   uint32_t minFreeHeap;        // lowest free internal heap seen
   int64_t lastSeen;            // Unix time of the last update, 0 = clock unknown
@@ -28,7 +29,8 @@ struct Ring {
 };
 
 void clear(Ring& r);                                                          // DELETE /diagnostics
-void push(Ring& r, const char* reason, const char* version, const char* panic);   // a new boot (panic may be null)
+// a new boot (panic, hw may be null)
+void push(Ring& r, const char* reason, const char* version, const char* panic, const char* hw = nullptr);
 void touch(Ring& r, uint32_t uptimeS, uint32_t minFreeHeap, int64_t epoch);   // running boot alive; epoch 0 keeps lastSeen
 const Boot* at(const Ring& r, int i);                                         // 0 = newest; nullptr past count
 bool isCrash(const char* reason);                                             // PANIC, *_WDT, BROWNOUT, CPU_LOCKUP
@@ -78,10 +80,31 @@ struct Coredump {
   std::string elfSha256;
   uint32_t size = 0;
 };
+// last_wdt (#241): the last task-watchdog timeout, recorded by the TWDT interrupt (net/diag.cpp)
+struct Wdt {
+  bool set = false;   // false → null
+  uint32_t uptimeS = 0, freeInternal = 0, largestInternal = 0, minDma = 0;
+  std::string tasks, lastLog;   // lastLog "" → null
+};
+std::string wdtJson(const Wdt& w);
+// #227: inbound path (web server, mDNS name, Wi-Fi AP) to tell "name gone" from "device unreachable"
+struct Net {
+  int webOpen = 0;
+  uint32_t served = 0, refused503 = 0;
+  int64_t lastRequestAgeS = -1;   // -1 = none since boot → null
+  bool mdnsUp = false;
+  uint32_t mdnsRestarts = 0;
+  const char* mdnsReason = nullptr;   // nullptr → null
+  bool rssiKnown = false;
+  int rssi = 0;
+  std::string bssid;              // core bssidTag(); "" → null
+  uint32_t idleChecks = 0, idleReconnects = 0;
+};
 struct Report {
   std::string firmware;
   uint64_t uptimeS = 0;
   std::string resetReason;
+  Wdt wdt;
   Heap heap;
   Panel panel;
   Coredump core;
@@ -91,6 +114,7 @@ struct Report {
   std::string batteryJson;        // #231 core/battery_history.h History::json(); empty = null
   std::string trailBeforeBoot;    // #225 power trail: last line when this boot started; empty = null
   std::vector<std::string> trail; // #225 newest lines of /power.txt, oldest first
+  Net net;
 };
 std::string reportJson(const Ring& r, const Report& rep);
 

@@ -38,6 +38,7 @@ bool WsClient::connect(const Url& base, const std::string& path, uint32_t timeou
     return false;
   }
   c_->setNoDelay(true);
+  c_->setTimeout(kSendDeadlineMs);   // SO_SNDTIMEO from here on: one blocked write ≤ ~5 s (TLS: ≤ ~10 s, its own loop)
   uint8_t key[16];
   randomBytes(key, sizeof key);
   std::string req = "GET " + path + " HTTP/1.1\r\nHost: " + base.host;
@@ -109,13 +110,24 @@ bool WsClient::sendFrame(uint8_t opcode, const uint8_t* data, size_t len) {
   randomBytes(mask, 4);
   memcpy(hdr + h, mask, 4);
   h += 4;
-  if (c_->write(hdr, h) != h) return false;
+  // Each write can block in lwIP / ssl_client for up to the socket timeout without feeding the TWDT (#248): leave it
+  // for the frame, stop at the frame deadline and drop the socket; HaClient::loop sees !connected() and reconnects.
+  wdt::BlockingCall b("ws send");
+  const uint32_t t0 = millis();
+  auto stalled = [&](size_t left) {
+    if (c_->connected()) LOG_WRN("WS", "write stalled · %u B left · reconnect", unsigned(left));
+    open_ = false;   // no close frame on a stalled socket
+    c_->stop();
+    return false;
+  };
+  if (c_->write(hdr, h) != h) return stalled(h + len);
   uint8_t buf[256];
   size_t off = 0;
   while (off < len) {
+    if (millis() - t0 >= kSendDeadlineMs) return stalled(len - off);
     size_t n = std::min(sizeof buf, len - off);
     for (size_t i = 0; i < n; i++) buf[i] = data[off + i] ^ mask[(off + i) & 3];
-    if (c_->write(buf, n) != n) return false;
+    if (c_->write(buf, n) != n) return stalled(len - off);
     off += n;
   }
   return true;

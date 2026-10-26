@@ -110,6 +110,65 @@ export function ScreensTab({ v }: { v: ConsoleView }) {
                     {(v.web.seriesOpts).map((o: any, i_o: number) => (<Fragment key={i_o}><button onClick={o.pick} aria-pressed={o.bg === '#1d1d1f'} style={{ height: "32px", padding: "0 10px", border: "1px solid #c9c6be", borderRadius: "6px", background: o.bg, color: o.fg, fontSize: "13px" }}>{o.label}</button></Fragment>))}
                   </div>
                 )}
+                {!!(v.web.isHistory) && (
+                  <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
+                    <fieldset aria-label={v.web.t('histSource')} style={{ display: "flex", alignItems: "center", gap: "8px", flexWrap: "wrap", margin: "0", padding: "0", minWidth: "0", border: "0" }}>
+                      <span style={{ minWidth: "64px", fontSize: "13px", color: "#5c5a55" }}>{v.web.t('histSource')}</span>
+                      {(v.web.histSources).map((o: any) => (<Fragment key={o.label}><button onClick={o.pick} aria-pressed={o.bg === '#1d1d1f'} style={{ height: "32px", padding: "0 10px", border: "1px solid #c9c6be", borderRadius: "6px", background: o.bg, color: o.fg, fontSize: "13px" }}>{o.label}</button></Fragment>))}
+                    </fieldset>
+                    {!!(v.web.histIsAttr) && (
+                    <fieldset aria-label={v.web.t('histAttrName')} style={{ display: "flex", alignItems: "center", gap: "8px", flexWrap: "wrap", margin: "0", padding: "0", minWidth: "0", border: "0" }}>
+                      <span style={{ minWidth: "64px", fontSize: "13px", color: "#5c5a55" }}>{v.web.t('histAttrName')}</span>
+                      <input aria-label={v.web.t('histAttrName')} placeholder={'forecast'} list="x4-hist-attrs" value={v.web.histAttr} onChange={v.web.setHistAttr} style={{ width: "140px", height: "32px", boxSizing: "border-box", border: "1px solid #c9c6be", borderRadius: "6px", padding: "0 8px", fontSize: "13px" }} />
+                      <datalist id="x4-hist-attrs"><option value="forecast" /><option value="today" /><option value="tomorrow" /><option value="prices" /></datalist>
+                    </fieldset>
+                    )}
+                    {!!(v.web.histIsSeries) && (
+                    <fieldset aria-label={v.web.t('histValueField')} style={{ display: "flex", alignItems: "center", gap: "8px", flexWrap: "wrap", margin: "0", padding: "0", minWidth: "0", border: "0" }}>
+                      <span style={{ minWidth: "64px", fontSize: "13px", color: "#5c5a55" }}>{v.web.t('histValueField')}</span>
+                      <input aria-label={v.web.t('histValueField')} placeholder={v.web.histValueHint} list="x4-hist-values" value={v.web.histValue} onChange={v.web.setHistValue} style={{ width: "140px", height: "32px", boxSizing: "border-box", border: "1px solid #c9c6be", borderRadius: "6px", padding: "0 8px", fontSize: "13px" }} />
+                      <datalist id="x4-hist-values"><option value="precipitation" /><option value="temperature" /><option value="value" /><option value="price" /><option value="precipitation_probability" /><option value="wind_speed" /></datalist>
+                      <input aria-label={v.web.t('histTimeField')} placeholder={'datetime'} list="x4-hist-times" value={v.web.histTime} onChange={v.web.setHistTime} style={{ width: "140px", height: "32px", boxSizing: "border-box", border: "1px solid #c9c6be", borderRadius: "6px", padding: "0 8px", fontSize: "13px" }} />
+                      <datalist id="x4-hist-times"><option value="datetime" /><option value="time" /><option value="start" /><option value="from" /></datalist>
+                    </fieldset>
+                    )}
+                    {!!(v.web.histIsForecast) && (<>
+                    <fieldset aria-label={v.web.t('histForecast')} style={{ display: "flex", alignItems: "center", gap: "8px", flexWrap: "wrap", margin: "0", padding: "0", minWidth: "0", border: "0" }}>
+                      <span style={{ minWidth: "64px", fontSize: "13px", color: "#5c5a55" }}>{v.web.t('histForecast')}</span>
+                      {(v.web.histForecasts).map((o: any) => (<Fragment key={o.label}><button onClick={o.pick} aria-pressed={o.bg === '#1d1d1f'} style={{ height: "32px", padding: "0 10px", border: "1px solid #c9c6be", borderRadius: "6px", background: o.bg, color: o.fg, fontSize: "13px" }}>{o.label}</button></Fragment>))}
+                    </fieldset>
+                    </>)}
+                    {!!(v.web.histIsSeries) && (<>
+                    <fieldset aria-label={v.web.t('histShows')} style={{ display: "flex", alignItems: "center", gap: "8px", flexWrap: "wrap", margin: "0", padding: "0", minWidth: "0", border: "0" }}>
+                      <span style={{ minWidth: "64px", fontSize: "13px", color: "#5c5a55" }}>{v.web.t('histShows')}</span>
+                      {(v.web.histAheads).map((o: any) => (<Fragment key={o.label}><button onClick={o.pick} aria-pressed={o.bg === '#1d1d1f'} style={{ height: "32px", padding: "0 10px", border: "1px solid #c9c6be", borderRadius: "6px", background: o.bg, color: o.fg, fontSize: "13px" }}>{o.label}</button></Fragment>))}
+                    </fieldset>
+                    </>)}
+                    <fieldset aria-label={v.web.t('histWindow')} style={{ display: "flex", alignItems: "center", gap: "8px", flexWrap: "wrap", margin: "0", padding: "0", minWidth: "0", border: "0" }}>
+                      <span style={{ minWidth: "64px", fontSize: "13px", color: "#5c5a55" }}>{v.web.t('histWindow')}</span>
+                      {(v.web.histWindows).map((o: any) => (<Fragment key={o.label}><button onClick={o.pick} aria-pressed={o.bg === '#1d1d1f'} style={{ height: "32px", padding: "0 10px", border: "1px solid #c9c6be", borderRadius: "6px", background: o.bg, color: o.fg, fontSize: "13px" }}>{o.label}</button></Fragment>))}
+                    </fieldset>
+                    <fieldset aria-label={v.web.t('histBucket')} style={{ display: "flex", alignItems: "center", gap: "8px", flexWrap: "wrap", margin: "0", padding: "0", minWidth: "0", border: "0" }}>
+                      <span style={{ minWidth: "64px", fontSize: "13px", color: "#5c5a55" }}>{v.web.t('histBucket')}</span>
+                      {(v.web.histBuckets).map((o: any) => (<Fragment key={o.label}><button onClick={o.pick} aria-pressed={o.bg === '#1d1d1f'} style={{ height: "32px", padding: "0 10px", border: "1px solid #c9c6be", borderRadius: "6px", background: o.bg, color: o.fg, fontSize: "13px" }}>{o.label}</button></Fragment>))}
+                    </fieldset>
+                    <fieldset aria-label={v.web.t('histAgg')} style={{ display: "flex", alignItems: "center", gap: "8px", flexWrap: "wrap", margin: "0", padding: "0", minWidth: "0", border: "0" }}>
+                      <span style={{ minWidth: "64px", fontSize: "13px", color: "#5c5a55" }}>{v.web.t('histAgg')}</span>
+                      {(v.web.histAggs).map((o: any) => (<Fragment key={o.label}><button onClick={o.pick} aria-pressed={o.bg === '#1d1d1f'} style={{ height: "32px", padding: "0 10px", border: "1px solid #c9c6be", borderRadius: "6px", background: o.bg, color: o.fg, fontSize: "13px" }}>{o.label}</button></Fragment>))}
+                    </fieldset>
+                    <fieldset aria-label={v.web.t('histStyle')} style={{ display: "flex", alignItems: "center", gap: "8px", flexWrap: "wrap", margin: "0", padding: "0", minWidth: "0", border: "0" }}>
+                      <span style={{ minWidth: "64px", fontSize: "13px", color: "#5c5a55" }}>{v.web.t('histStyle')}</span>
+                      {(v.web.histStyles).map((o: any) => (<Fragment key={o.label}><button onClick={o.pick} aria-pressed={o.bg === '#1d1d1f'} style={{ height: "32px", padding: "0 10px", border: "1px solid #c9c6be", borderRadius: "6px", background: o.bg, color: o.fg, fontSize: "13px" }}>{o.label}</button></Fragment>))}
+                    </fieldset>
+                    <fieldset aria-label={v.web.t('histRange')} style={{ display: "flex", alignItems: "center", gap: "8px", flexWrap: "wrap", margin: "0", padding: "0", minWidth: "0", border: "0" }}>
+                      <span style={{ minWidth: "64px", fontSize: "13px", color: "#5c5a55" }}>{v.web.t('histRange')}</span>
+                      <input inputMode="decimal" aria-label={v.web.t('histMin')} placeholder={v.web.t('histMin') + ' · ' + v.web.t('histAuto').toLowerCase()} value={v.web.histMin} onChange={v.web.setHistMin} style={{ width: "84px", height: "32px", boxSizing: "border-box", border: "1px solid #c9c6be", borderRadius: "6px", padding: "0 8px", fontSize: "13px" }} />
+                      <span style={{ fontSize: "13px", color: "#5c5a55" }}>–</span>
+                      <input inputMode="decimal" aria-label={v.web.t('histMax')} placeholder={v.web.t('histMax') + ' · ' + v.web.t('histAuto').toLowerCase()} value={v.web.histMax} onChange={v.web.setHistMax} style={{ width: "84px", height: "32px", boxSizing: "border-box", border: "1px solid #c9c6be", borderRadius: "6px", padding: "0 8px", fontSize: "13px" }} />
+                    </fieldset>
+                    {!!(v.web.histErr) && (<div role="alert" style={{ fontSize: "13px", lineHeight: "1.4", color: "#B3261E" }}>{v.web.histErr}</div>)}
+                  </div>
+                )}
                 {!!(v.web.hasSource) && (
                   <div style={{ display: "flex", flexDirection: "column", gap: "10px", borderTop: "1px solid #ece9e3", paddingTop: "12px" }}>
                     <div style={{ display: "flex", alignItems: "center", gap: "6px 10px", flexWrap: "wrap", fontSize: "14px" }}>

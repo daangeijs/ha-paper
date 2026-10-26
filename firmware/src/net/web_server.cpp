@@ -25,6 +25,7 @@
 #include "net/health.h"
 #include "net/hub.h"
 #include "net/log.h"
+#include "net/net_stats.h"
 #include "net/ota.h"
 #include "net/power.h"
 #include "net/png.h"
@@ -63,7 +64,11 @@ class CappedWebServer : public AsyncWebServer {
   explicit CappedWebServer(uint16_t port) : AsyncWebServer(port) {
     _server.onClient([](void* s, AsyncClient* c) {
       if (!c) return;
-      if (g_conns.load() >= kMaxConns) return refuse(c);
+      if (g_conns.load() >= kMaxConns) return refuse(c, "connections open");
+      // #248: under the heap floor a request (console state poll, preview.png: -9.5 KB) took the last internal RAM
+      // the Wi-Fi driver needed; its failed timer allocation aborts (ESP_ERROR_CHECK in ets_timer_*)
+      if (HeapStarve::critical(heapFreeInternal(), uint32_t(heap_caps_get_free_size(MALLOC_CAP_DMA))))
+        return refuse(c, "internal RAM low");
       c->setRxTimeout(3);   // what AsyncWebServer's own onClient does
       std::shared_ptr<AsyncWebServerRequest> r = AsyncWebServerRequest::create(static_cast<AsyncWebServer*>(s), c);
       if (!r) {
@@ -71,24 +76,26 @@ class CappedWebServer : public AsyncWebServer {
         delete c;
         return;
       }
-      // the token lives as long as the request (its disconnect callback), so every exit path decrements
+      // the token lives as long as the request (its disconnect callback), so every exit path decrements. The only
+      // onDisconnect: a second one in handleRequest replaced it, and API requests stopped counting toward kMaxConns.
       struct Token {
-        Token() { g_conns++; }
-        ~Token() { g_conns--; }
+        Token() { g_conns++; webOpened(); heapRequestOpen(); }
+        ~Token() { g_conns--; webDone(); heapRequestClosed(); }
       };
       r->onDisconnect([t = std::make_shared<Token>()] {});
     }, this);
   }
 
  private:
-  static void refuse(AsyncClient* c) {
+  static void refuse(AsyncClient* c, const char* why) {
     static uint32_t lastLog = 0;
     static uint32_t refused = 0;
     refused++;
+    webRefused();
     const uint32_t now = millis();
     if (lastLog == 0 || now - lastLog >= 10000) {
       lastLog = now ? now : 1;
-      LOG_WRN("WEB", "%d connections open · refused %u (503)", g_conns.load(), unsigned(refused));
+      LOG_WRN("WEB", "%s · %d connections open · refused %u (503)", why, g_conns.load(), unsigned(refused));
       refused = 0;
     }
     static const char kBusy[] =
@@ -333,6 +340,10 @@ void otaToJson(JsonObject o) {
     o["last_check"] = nullptr;
   }
   o["message"] = !why.empty() ? why : !otaLastError().empty() ? otaLastError() : checksOff ? kOtaChecksOffMsg : "";
+  // #250: why the last check failed (status error); null for a failed install
+  const char* err = std::strcmp(status, "error") == 0 ? otaErrName(st.otaCheckErr) : nullptr;
+  if (err) o["error"] = err;
+  else o["error"] = nullptr;
   o["progress"] = st.otaProgressPct;   // extension
   o["repo"] = otaRepo();               // extension ("" = not configured in this build)
 }
@@ -1185,11 +1196,7 @@ void putSettings(AsyncWebServerRequest* r) {
 
 void otaCheckReq(AsyncWebServerRequest* r) {
   if (!netConnected()) return sendError(r, 409, "No network — try again later");
-  if (otaChecking()) return sendJson(r, 202, "{\"status\":\"checking\"}");
-  hub().post([] {
-    std::string err;
-    otaCheck(err);   // result: GET /ota
-  });
+  otaRequestCheck();   // result: GET /ota (checking from now on; checks off: nothing runs)
   sendJson(r, 202, "{\"status\":\"checking\"}");
 }
 
@@ -1267,8 +1274,7 @@ class ApiHandler : public AsyncWebHandler {
 
   void handleRequest(AsyncWebServerRequest* r) override {
     if (r->contentLength() > kMaxBody && !isUpload(r)) return sendError(r, 413, "body too large");
-    heapRequestOpen(r->url().c_str());
-    r->onDisconnect([] { heapRequestClosed(); });   // captureless: std::function keeps it inline, no allocation
+    heapRequestPath(r->url().c_str());
     route(r);
     heapCheckpoint("web");
   }
@@ -1678,8 +1684,9 @@ void WebServer::begin() {
   // the simulated deep sleep (esp_restart) but not a fresh QEMU start (USB, not armed).
   g_server.on("/__qemu/power", HTTP_POST, [](AsyncWebServerRequest* r) {
     const std::string src = r->hasParam("source") ? str(r->arg("source")) : "";
-    if (src != "battery" && src != "usb") return sendError(r, 400, "use ?source=battery|usb[&armed=1]");
-    powerSimSet(src == "battery", r->hasParam("armed") && str(r->arg("armed")) == "1");
+    if (src != "battery" && src != "usb") return sendError(r, 400, "use ?source=battery|usb[&armed=1][&charging=1][&mv=N]");
+    powerSimSet(src == "battery", r->hasParam("armed") && str(r->arg("armed")) == "1",
+                r->hasParam("charging") && str(r->arg("charging")) == "1", r->hasParam("mv") ? r->arg("mv").toInt() : 0);
     sendNoContent(r);
   });
   g_server.on("/__qemu/state", HTTP_GET, [](AsyncWebServerRequest* r) {

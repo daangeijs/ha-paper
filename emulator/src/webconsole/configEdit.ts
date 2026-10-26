@@ -2,6 +2,7 @@
 // picker, tiles). Each returns a new Config / widget list (or an error string) and never mutates its input.
 import { ENTITY_DOMAINS, GRID_COLS, GRID_ROWS, LIST_PICKS, MAX_APPS, MAX_USER_APPS, MAX_CELLS, cellsUsed, domainOf, entityFits, gridLayout, listOf, wLabel, type Config, type Widget } from '../core/config.ts';
 import type { HaEntity } from '../core/data.ts';
+import { ATTR_DOMAINS, BUCKETS, HISTORY_DOMAINS, MAX_BARS, MIN_BARS, SOURCE_KEYS, historyDomains, historyError, historySource, parseSpan, WINDOW_DEFAULT, type HistorySource } from '../core/history.ts';
 import type { ListCount } from '../core/paging.ts';
 
 const clone = (c: Config): Config => JSON.parse(JSON.stringify(c));
@@ -72,16 +73,22 @@ export const matches = (q: string, ...fields: string[]): boolean => {
 
 /** Domains of the console's single-entity picker: the entity widgets, and a thermo's zone (a climate entity whose
  *  object id goes in `zone:`, #148). undefined = the tile has no picker. */
-export const pickDomains = (widgetType: string): string[] | undefined => ENTITY_DOMAINS[widgetType] || (widgetType === 'thermo' ? ['climate'] : undefined);
+export const pickDomains = (widgetType: string, w?: Widget): string[] | undefined =>
+  (widgetType === 'history' && w ? historyDomains(w) : ENTITY_DOMAINS[widgetType]) || (widgetType === 'thermo' ? ['climate'] : undefined);   // #283: a history tile's source
 /** The entity a tile's picker has selected: `entity`, a thermo's climate.<zone>, '' = none. */
 export const pickedEntity = (w: Widget): string => (w.type === 'thermo' ? (w.zone ? 'climate.' + w.zone : '') : typeof w.entity === 'string' ? w.entity : '');
 /** Tiles with a name field: the entity widgets plus price, bars and thermo (#148: the panel draws the label). */
 export const hasLabelField = (widgetType: string): boolean => !!pickDomains(widgetType) || widgetType === 'price' || widgetType === 'bars';
 
-/** HA entities a widget type can show (pickDomains), filtered by the search text. */
-export function entitiesFor(list: HaEntity[], widgetType: string, q: string): HaEntity[] {
-  const doms = pickDomains(widgetType) || [];
-  return list.filter((e) => doms.includes(e.id.split('.')[0]) && matches(q, e.name, e.id));
+const NUMERIC = /^-?\d+(\.\d+)?([eE][-+]?\d+)?$/;
+/** A history tile charts numbers (#267): a state that is text ("sunny", "on") rules the entity out; no state yet,
+ *  unknown or unavailable keeps it. */
+const numericOk = (e: HaEntity): boolean => e.state == null || e.state === '' || e.state === 'unknown' || e.state === 'unavailable' || NUMERIC.test(e.state);
+/** HA entities a widget type can show (pickDomains), filtered by the search text. `w`: the tile, for a history tile's
+ *  source (#283: an attribute / forecast series is not the entity's state, so its state need not be a number). */
+export function entitiesFor(list: HaEntity[], widgetType: string, q: string, w?: Widget): HaEntity[] {
+  const doms = pickDomains(widgetType, w) || [], recorder = widgetType === 'history' && (!w || historySource(w) === 'recorder');
+  return list.filter((e) => doms.includes(e.id.split('.')[0]) && (!recorder || numericOk(e)) && matches(q, e.name, e.id));
 }
 
 /** Widget values live in one-line flow maps: no , { } : and no surrounding spaces. Spaces, %, accents are fine.
@@ -148,6 +155,43 @@ export function setTileEntity(ws: Widget[], i: number, id: string): Widget[] {
 }
 /** A bar chart's series (#148). */
 export function setBarsSeries(ws: Widget[], i: number, series: string): Widget[] { const out = cloneWs(ws); out[i].series = series; return out; }
+// ---- history tile (#267): window, bucket, agg, style, min / max. Choices come from core/history.ts, so a tile built
+// here always passes historyError except for typed min / max.
+/** The console's window choices; a window typed in YAML stays and is shown as an extra choice. */
+export const HISTORY_WINDOWS = ['1h', '6h', '24h', '7d'];
+/** Bucket choices for a window: the ladder steps that divide it into 2–96 bars. */
+export const bucketsFor = (window: string, h?: Widget): string[] => {
+  const w = parseSpan(window); if (w === null) return [];
+  const min = h && historySource(h) === 'forecast' ? (String(h.forecast ?? 'hourly') === 'daily' ? 86_400_000 : 3_600_000) : 0;   // a forecast's own step (#283)
+  return BUCKETS.filter((b) => { const ms = parseSpan(b) as number; return ms >= min && w % ms === 0 && w / ms >= MIN_BARS && w / ms <= MAX_BARS; });
+};
+/** Set (or with undefined / '' clear) one history key. A new window drops a bucket that no longer fits it. */
+export function setHistoryKey(ws: Widget[], i: number, key: 'window' | 'bucket' | 'agg' | 'style' | 'min' | 'max' | (typeof SOURCE_KEYS)[number], v: string | undefined): Widget[] {
+  const out = cloneWs(ws); const w = out[i]; const t = v?.trim();
+  if (t) w[key] = t; else delete w[key];
+  if ((key === 'window' || key === 'forecast') && w.bucket !== undefined && !bucketsFor(String(w.window ?? WINDOW_DEFAULT), w).includes(String(w.bucket))) delete w.bucket;
+  if (key === 'window' && w.ahead !== undefined && w.ahead !== '0' && w.ahead !== 0) delete w.ahead;   // "around now" was half the old window
+  return out;
+}
+/** Window choices by source (#283): a nowcast is hours, a forecast up to a week. */
+export const historyWindows = (src: HistorySource): string[] => (src === 'attribute' ? ['1h', '2h', '6h', '24h'] : src === 'forecast' ? ['24h', '48h', '7d'] : HISTORY_WINDOWS);
+/** Switch a history tile's source (#283): recorder drops the source keys; attribute starts on `forecast` over 2 h;
+ *  forecast needs a weather entity. An entity of a domain the new source can't read is dropped (pick again). */
+export function setHistorySource(ws: Widget[], i: number, src: HistorySource): Widget[] {
+  const out = cloneWs(ws); const w = out[i];
+  if (src === historySource(w)) return out;
+  for (const k of SOURCE_KEYS) delete w[k];
+  delete w.window; delete w.bucket;
+  if (src === 'attribute') { w.attribute = 'forecast'; w.window = '2h'; }
+  const doms = src === 'recorder' ? HISTORY_DOMAINS : src === 'attribute' ? ATTR_DOMAINS : ['weather'];
+  if (typeof w.entity === 'string' && !doms.includes(domainOf(w.entity))) delete w.entity;
+  return out;
+}
+/** A history tile's own rule broken (config.ts historyError without the "history: " prefix), as a hard issue. */
+export function historyIssue(w: Widget): Issue | null {
+  if (w.type !== 'history') return null;
+  const e = historyError(w); return e ? { msg: e.replace(/^history: /, ''), hard: true } : null;
+}
 /** A scene tile back to the built-in all lights off (#146). */
 export function setSceneAllOff(ws: Widget[], i: number): Widget[] { const out = cloneWs(ws); delete out[i].entity; out[i].scene = 'all_off'; return out; }
 
@@ -207,11 +251,12 @@ export function entityFit(e: HaEntity, widgetType: string): number {
   if (widgetType === 'gauge') return e.unit === '%' ? 0 : e.unit ? 2 : 3;
   if (widgetType === 'stat') return STAT_UNITS.includes(e.unit) ? 0 : e.unit ? 1 : dom === 'binary_sensor' ? 3 : 2;
   if (widgetType === 'switch') return dom === 'switch' || dom === 'light' ? 0 : 1;
+  if (widgetType === 'history') return dom === 'sensor' && e.unit ? 0 : e.unit ? 1 : 2;   // measured sensors first
   return 0;
 }
 /** entitiesFor, best fit first, then by name. */
-export function rankEntities(list: HaEntity[], widgetType: string, q: string): HaEntity[] {
-  return entitiesFor(list, widgetType, q).map((e) => ({ e, f: entityFit(e, widgetType) }))
+export function rankEntities(list: HaEntity[], widgetType: string, q: string, w?: Widget): HaEntity[] {
+  return entitiesFor(list, widgetType, q, w).map((e) => ({ e, f: entityFit(e, widgetType) }))
     .sort((a, b) => a.f - b.f || a.e.name.localeCompare(b.e.name) || (a.e.id < b.e.id ? -1 : 1)).map((x) => x.e);
 }
 /** "21.4 °C", "On", "—" (unknown, unavailable or not sent). */
@@ -233,7 +278,7 @@ export function entityIssue(w: Widget, list: HaEntity[] | null): Issue | null {
     const id = 'climate.' + w.zone;
     return list && !list.some((x) => x.id === id) ? { msg: 'Home Assistant’s entity list does not have “' + id + '”. The tile shows “—” until Home Assistant reports it.', hard: false } : null;
   }
-  const doms = ENTITY_DOMAINS[w.type]; if (!doms) return null;
+  const doms = w.type === 'history' ? historyDomains(w) : ENTITY_DOMAINS[w.type]; if (!doms) return null;
   if ((w.type === 'gauge' || w.type === 'scene') && w.entity === undefined) return null;   // the home battery / all lights off
   if (!w.entity) return { msg: 'Pick an entity below.', hard: true };
   if (!entityFits(w.entity, doms)) return { msg: '“' + w.entity + '” is not a ' + doms.join(' / ') + ' entity.', hard: true };
@@ -249,8 +294,8 @@ export function firstIssue(cfg: Config, list: HaEntity[] | null): { screen: numb
     const sc = cfg.screens[s];
     const t = titleIssue(sc.title); if (t) return { screen: s, tile: -1, msg: t.msg };
     for (let i = 0; i < sc.widgets.length; i++) {
-      const e = entityIssue(sc.widgets[i], list);
-      if (e?.hard) return { screen: s, tile: i, msg: e.msg };
+      const e = [entityIssue(sc.widgets[i], list), historyIssue(sc.widgets[i])].find((x) => x?.hard);
+      if (e) return { screen: s, tile: i, msg: e.msg };
     }
   }
   return null;

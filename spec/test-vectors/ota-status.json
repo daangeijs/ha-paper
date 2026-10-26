@@ -1,0 +1,441 @@
+{
+  "_doc": "Settings › Updates status line + web console Updates card (#250; emulator src/core/otaStatus.ts, firmware core/ota_status.h). errOf(code, online): a failed GitHub request → GET /ota `error` (code ≤ 0 = no answer; -100 = TLS heap guard). line(lang, in): title + detail; checked = local HH:MM of the last check (\"\" = none).",
+  "errOf": [
+    {
+      "code": -100,
+      "online": true,
+      "error": "memory"
+    },
+    {
+      "code": 403,
+      "online": true,
+      "error": "busy"
+    },
+    {
+      "code": 429,
+      "online": true,
+      "error": "busy"
+    },
+    {
+      "code": 404,
+      "online": true,
+      "error": "none"
+    },
+    {
+      "code": -1,
+      "online": true,
+      "error": "network"
+    },
+    {
+      "code": 0,
+      "online": true,
+      "error": "network"
+    },
+    {
+      "code": 502,
+      "online": true,
+      "error": "other"
+    },
+    {
+      "code": 500,
+      "online": true,
+      "error": "other"
+    },
+    {
+      "code": 200,
+      "online": false,
+      "error": "network"
+    },
+    {
+      "code": -100,
+      "online": false,
+      "error": "network"
+    }
+  ],
+  "line": [
+    {
+      "name": "never checked",
+      "lang": "en",
+      "in": {
+        "status": "idle",
+        "error": null,
+        "version": "",
+        "checked": "",
+        "channel": "stable",
+        "message": ""
+      },
+      "out": {
+        "title": "Not checked yet",
+        "sub": "stable channel"
+      }
+    },
+    {
+      "name": "never checked",
+      "lang": "nl",
+      "in": {
+        "status": "idle",
+        "error": null,
+        "version": "",
+        "checked": "",
+        "channel": "stable",
+        "message": ""
+      },
+      "out": {
+        "title": "Nog niet gekeken",
+        "sub": "stabiel kanaal"
+      }
+    },
+    {
+      "name": "checking",
+      "lang": "en",
+      "in": {
+        "status": "checking",
+        "error": null,
+        "version": "",
+        "checked": "09:05",
+        "channel": "stable",
+        "message": ""
+      },
+      "out": {
+        "title": "Checking…",
+        "sub": "stable channel"
+      }
+    },
+    {
+      "name": "checking",
+      "lang": "nl",
+      "in": {
+        "status": "checking",
+        "error": null,
+        "version": "",
+        "checked": "09:05",
+        "channel": "stable",
+        "message": ""
+      },
+      "out": {
+        "title": "Zoeken…",
+        "sub": "stabiel kanaal"
+      }
+    },
+    {
+      "name": "up to date",
+      "lang": "en",
+      "in": {
+        "status": "uptodate",
+        "error": null,
+        "version": "",
+        "checked": "16:42",
+        "channel": "stable",
+        "message": ""
+      },
+      "out": {
+        "title": "Up to date",
+        "sub": "Checked 16:42 · stable channel"
+      }
+    },
+    {
+      "name": "up to date",
+      "lang": "nl",
+      "in": {
+        "status": "uptodate",
+        "error": null,
+        "version": "",
+        "checked": "16:42",
+        "channel": "stable",
+        "message": ""
+      },
+      "out": {
+        "title": "Up-to-date",
+        "sub": "Gekeken om 16:42 · stabiel kanaal"
+      }
+    },
+    {
+      "name": "up to date, clock unknown",
+      "lang": "en",
+      "in": {
+        "status": "uptodate",
+        "error": null,
+        "version": "",
+        "checked": "",
+        "channel": "stable",
+        "message": ""
+      },
+      "out": {
+        "title": "Up to date",
+        "sub": "stable channel"
+      }
+    },
+    {
+      "name": "up to date, clock unknown",
+      "lang": "nl",
+      "in": {
+        "status": "uptodate",
+        "error": null,
+        "version": "",
+        "checked": "",
+        "channel": "stable",
+        "message": ""
+      },
+      "out": {
+        "title": "Up-to-date",
+        "sub": "stabiel kanaal"
+      }
+    },
+    {
+      "name": "available on beta",
+      "lang": "en",
+      "in": {
+        "status": "available",
+        "error": null,
+        "version": "0.2.0-beta.3",
+        "checked": "16:42",
+        "channel": "beta",
+        "message": ""
+      },
+      "out": {
+        "title": "v0.2.0-beta.3 available",
+        "sub": "Checked 16:42 · beta channel"
+      }
+    },
+    {
+      "name": "available on beta",
+      "lang": "nl",
+      "in": {
+        "status": "available",
+        "error": null,
+        "version": "0.2.0-beta.3",
+        "checked": "16:42",
+        "channel": "beta",
+        "message": ""
+      },
+      "out": {
+        "title": "v0.2.0-beta.3 beschikbaar",
+        "sub": "Gekeken om 16:42 · bètakanaal"
+      }
+    },
+    {
+      "name": "low memory",
+      "lang": "en",
+      "in": {
+        "status": "error",
+        "error": "memory",
+        "version": "",
+        "checked": "16:42",
+        "channel": "stable",
+        "message": "Not enough memory right now — try again in a minute"
+      },
+      "out": {
+        "title": "Not enough memory",
+        "sub": "Try again in a minute"
+      }
+    },
+    {
+      "name": "low memory",
+      "lang": "nl",
+      "in": {
+        "status": "error",
+        "error": "memory",
+        "version": "",
+        "checked": "16:42",
+        "channel": "stable",
+        "message": "Not enough memory right now — try again in a minute"
+      },
+      "out": {
+        "title": "Te weinig geheugen",
+        "sub": "Probeer het over een minuut opnieuw"
+      }
+    },
+    {
+      "name": "no connection",
+      "lang": "en",
+      "in": {
+        "status": "error",
+        "error": "network",
+        "version": "",
+        "checked": "",
+        "channel": "stable",
+        "message": "No network — try again later"
+      },
+      "out": {
+        "title": "No connection",
+        "sub": "Try again later"
+      }
+    },
+    {
+      "name": "no connection",
+      "lang": "nl",
+      "in": {
+        "status": "error",
+        "error": "network",
+        "version": "",
+        "checked": "",
+        "channel": "stable",
+        "message": "No network — try again later"
+      },
+      "out": {
+        "title": "Geen verbinding",
+        "sub": "Probeer het later opnieuw"
+      }
+    },
+    {
+      "name": "GitHub rate limit",
+      "lang": "en",
+      "in": {
+        "status": "error",
+        "error": "busy",
+        "version": "",
+        "checked": "16:42",
+        "channel": "stable",
+        "message": "GitHub not reachable (HTTP 403)"
+      },
+      "out": {
+        "title": "GitHub busy",
+        "sub": "Try again later"
+      }
+    },
+    {
+      "name": "GitHub rate limit",
+      "lang": "nl",
+      "in": {
+        "status": "error",
+        "error": "busy",
+        "version": "",
+        "checked": "16:42",
+        "channel": "stable",
+        "message": "GitHub not reachable (HTTP 403)"
+      },
+      "out": {
+        "title": "GitHub is druk",
+        "sub": "Probeer het later opnieuw"
+      }
+    },
+    {
+      "name": "no releases",
+      "lang": "en",
+      "in": {
+        "status": "error",
+        "error": "none",
+        "version": "",
+        "checked": "16:42",
+        "channel": "stable",
+        "message": "No releases published yet"
+      },
+      "out": {
+        "title": "No releases yet",
+        "sub": "Checked 16:42 · stable channel"
+      }
+    },
+    {
+      "name": "no releases",
+      "lang": "nl",
+      "in": {
+        "status": "error",
+        "error": "none",
+        "version": "",
+        "checked": "16:42",
+        "channel": "stable",
+        "message": "No releases published yet"
+      },
+      "out": {
+        "title": "Nog geen versies",
+        "sub": "Gekeken om 16:42 · stabiel kanaal"
+      }
+    },
+    {
+      "name": "other check error",
+      "lang": "en",
+      "in": {
+        "status": "error",
+        "error": "other",
+        "version": "",
+        "checked": "",
+        "channel": "stable",
+        "message": "GitHub not reachable (HTTP 502)"
+      },
+      "out": {
+        "title": "Couldn’t check",
+        "sub": "GitHub not reachable (HTTP 502)"
+      }
+    },
+    {
+      "name": "other check error",
+      "lang": "nl",
+      "in": {
+        "status": "error",
+        "error": "other",
+        "version": "",
+        "checked": "",
+        "channel": "stable",
+        "message": "GitHub not reachable (HTTP 502)"
+      },
+      "out": {
+        "title": "Kijken lukte niet",
+        "sub": "GitHub not reachable (HTTP 502)"
+      }
+    },
+    {
+      "name": "install failed",
+      "lang": "en",
+      "in": {
+        "status": "error",
+        "error": null,
+        "version": "",
+        "checked": "",
+        "channel": "stable",
+        "message": "Download was corrupted — nothing changed. Try again."
+      },
+      "out": {
+        "title": "Update didn’t finish",
+        "sub": "Download was corrupted — nothing changed. Try again."
+      }
+    },
+    {
+      "name": "install failed",
+      "lang": "nl",
+      "in": {
+        "status": "error",
+        "error": null,
+        "version": "",
+        "checked": "",
+        "channel": "stable",
+        "message": "Download was corrupted — nothing changed. Try again."
+      },
+      "out": {
+        "title": "Update niet afgerond",
+        "sub": "Download was corrupted — nothing changed. Try again."
+      }
+    },
+    {
+      "name": "battery too low",
+      "lang": "en",
+      "in": {
+        "status": "blocked",
+        "error": null,
+        "version": "0.3.0",
+        "checked": "",
+        "channel": "stable",
+        "message": "Battery at 15% — charge to 30% first"
+      },
+      "out": {
+        "title": "Not enough battery",
+        "sub": "Battery at 15% — charge to 30% first"
+      }
+    },
+    {
+      "name": "battery too low",
+      "lang": "nl",
+      "in": {
+        "status": "blocked",
+        "error": null,
+        "version": "0.3.0",
+        "checked": "",
+        "channel": "stable",
+        "message": "Battery at 15% — charge to 30% first"
+      },
+      "out": {
+        "title": "Batterij te leeg",
+        "sub": "Battery at 15% — charge to 30% first"
+      }
+    }
+  ]
+}

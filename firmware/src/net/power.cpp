@@ -18,6 +18,7 @@
 #include "Logging.h"
 #include "core/battery_history.h"
 #include "core/power.h"
+#include "core/power_profile.h"
 #include "core/power_trail.h"
 #include "core/recovery.h"
 #include "net/diag.h"
@@ -52,8 +53,7 @@ uint32_t g_bootMs = 0, g_lastCheckMs = 0, g_holdUntilMs = 0;
 bool g_holdChecked = false, g_hold = false;
 const char* g_lastReason = "";
 uint32_t g_applied = 0, g_appliedAtMs = 0;
-uint32_t g_chargedMs = 0;              // last inputs() with STAT charging; valid when g_chargedSeen
-bool g_chargedSeen = false;
+ChargeMemory g_charged;                // STAT last on; a USB host unplug forgets it (#249)
 uint32_t g_wifiAtMs = glance::kNoMs, g_haAtMs = glance::kNoMs;   // glance wake: since the reset (#178 timings)
 std::atomic<int64_t> g_sleepReqS{0};   // POST /device/sleep: seconds, picked up by powerLoop (#178)
 std::atomic<uint32_t> g_sleepReqMs{0};
@@ -72,9 +72,7 @@ bool g_powerDown = false;
 uint32_t g_resetMs = 0;                // QEMU: millis() keeps counting through esp_restart; hardware: 0
 uint32_t sinceReset() { return millis() - g_resetMs; }
 
-bool g_profileSet = false;             // power rules' CPU / Wi-Fi profile applied at least once (#177)
-CpuProfile g_cpu = CpuProfile::Full;
-WifiPs g_ps = WifiPs::Min;             // Arduino's default after WiFi.begin()
+ProfileGate g_profile;                 // CPU / Wi-Fi profile in force (#177), switched after 2 s steady (#249)
 std::atomic<int> g_cpuMhz{240};
 std::atomic<bool> g_psMin{true};
 
@@ -208,9 +206,9 @@ PowerInputs inputs(App& app, Board& board) {
   i.usb = p.usb;   // USB host seen (HWCDC): external power, never sleeps
   i.battery = p.known ? int(p.batteryPct) : -1;
   // STAT drops when the cell is full: charged within 30 min and VCELL ≥ 4.15 V still counts as a charger (#73).
-  // Since boot only; a deep-sleep wake starts at "not charged".
-  if (p.charging) { g_chargedMs = now; g_chargedSeen = true; }
-  i.chargedAgoMin = g_chargedSeen ? (now - g_chargedMs) / 60000.0 : -1;
+  // Since boot only; a deep-sleep wake starts at "not charged". Unplugging a USB host forgets it (#249).
+  g_charged.step(p.charging, p.usb, now);
+  i.chargedAgoMin = g_charged.agoMin(now);
   i.voltage = p.mv ? p.mv / 1000.0 : -1;
   i.otaPendingVerify = otaPendingVerify();
   i.otaBusy = otaBusy();
@@ -238,31 +236,24 @@ std::vector<uint32_t> clockKeys(App& app) {
 // #177: CPU clock and Wi-Fi modem sleep from the power rules, live mode only (a glance wake keeps 240 MHz / min: it
 // is seconds long and most of it is TLS). 240 ↔ 80 MHz leaves APB at 80 MHz, so a peripheral mid-transfer on another
 // task (SPI to the panel, I2C, UART, LEDC) keeps its clock. Wi-Fi PS goes through wifiPsSet: an OTA / TLS hold wins.
-void applyProfile(const PowerDecision& d) {
-  const bool first = !g_profileSet;
-  g_profileSet = true;
-  if (first || d.cpuProfile != g_cpu) {
-    g_cpu = d.cpuProfile;
-    const int mhz = cpuMhzFor(d.cpuProfile);
+// #249: re-evaluated every check, so a plug / unplug switches it; a change waits kProfileSettleMs (USB flapping).
+void applyProfile(const PowerDecision& d, uint32_t now) {
+  const bool changed = g_profile.step(profileOf(d), now);
+  const PowerProfile& p = g_profile.applied();
+  const int mhz = cpuMhzFor(p.cpu);
+  const bool min = p.ps == WifiPs::Min;
+  [[maybe_unused]] const bool inEffect = wifiPsSet(min);   // every check: also re-applies after a Wi-Fi restart reset the driver's mode
+  if (changed) {
 #if X4_QEMU
-    LOG_INF("POWER", "[qemu] CPU %s · %d MHz (%s) · not applied, no clocks", cpuProfileName(d.cpuProfile), mhz, d.reason);
+    LOG_INF("POWER", "[qemu] profile %s · CPU %d MHz · Wi-Fi PS %s (%s) · not applied, no clocks or radio",
+            p.external ? "external" : "battery", mhz, wifiPsName(p.ps), d.reason);
 #else
     if (int(getCpuFrequencyMhz()) != mhz && !setCpuFrequencyMhz(uint32_t(mhz)))
       LOG_WRN("POWER", "CPU %d MHz refused · stays %u MHz", mhz, unsigned(getCpuFrequencyMhz()));
-    else
-      LOG_INF("POWER", "CPU %s · %d MHz (%s)", cpuProfileName(d.cpuProfile), mhz, d.reason);
+    LOG_INF("POWER", "profile %s · CPU %u MHz · Wi-Fi PS %s (%s)%s", p.external ? "external" : "battery",
+            unsigned(getCpuFrequencyMhz()), wifiPsName(p.ps), d.reason, inEffect ? "" : " · PS held off (OTA / TLS) until it ends");
 #endif
     g_cpuMhz = mhz;
-  }
-  const bool min = d.wifiPs == WifiPs::Min;
-  [[maybe_unused]] const bool inEffect = wifiPsSet(min);   // every check: also re-applies after a Wi-Fi restart reset the driver's mode
-  if (first || d.wifiPs != g_ps) {
-    g_ps = d.wifiPs;
-#if X4_QEMU
-    LOG_INF("POWER", "[qemu] Wi-Fi PS %s (%s) · not applied, no radio", wifiPsName(d.wifiPs), d.reason);
-#else
-    LOG_INF("POWER", "Wi-Fi PS %s (%s)%s", wifiPsName(d.wifiPs), d.reason, inEffect ? "" : " · held off (OTA / TLS) until it ends");
-#endif
   }
   g_psMin = min;
 }
@@ -511,7 +502,7 @@ void powerLoop(App& app, Board& board) {
   if (powerDown && !g_powerDown) g_powerDownMs = now;
   if (!powerDown && g_powerDown) {
     const uint32_t held = now - g_powerDownMs;
-    if (held >= kLongPressLogMs) LOG_INF("POWER", "Power key held %u ms · no power-off on a long press", unsigned(held));
+    if (held >= kLongPressLogMs) LOG_INF("POWER", "Power key held %u ms", unsigned(held));
     writeTrail(powertrail::append(g_trail, powertrail::keyUpLine(held)));
   }
   g_powerDown = powerDown;
@@ -541,12 +532,13 @@ void powerLoop(App& app, Board& board) {
   if (now - g_lastCheckMs < kCheckMs) return;
   g_lastCheckMs = now;
   const PowerDecision d = powerDecision(inputs(app, board));
-  applyProfile(d);
+  applyProfile(d, now);
   const App::PowerView v = app.powerView();
   if (!v.main || now - g_bootMs < kAwakeMinMs || (v.msSinceUserInput >= 0 && v.msSinceUserInput < kAwakeMinMs)) return;
-  if (!d.deepSleepNow) {
-    if (strcmp(d.reason, g_lastReason)) LOG_INF("POWER", "stays awake: %s", d.reason);
-    g_lastReason = d.reason;
+  if (!d.deepSleepNow || g_profile.settling()) {   // power source just changed: no deep sleep until it holds 2 s
+    const char* why = d.deepSleepNow ? "power source settling" : d.reason;
+    if (strcmp(why, g_lastReason)) LOG_INF("POWER", "stays awake: %s", why);
+    g_lastReason = why;
     return;
   }
   if (app.settings().powerSave == "glance") snapshotForSleep(app, board);
@@ -626,6 +618,8 @@ void powerKeyStage(const char* stage) {
       g_powerDownMs = t0;
     }
     line = powertrail::keyLine(t0, mv, usb);
+  } else if (!strcmp(stage, "off")) {
+    line = powertrail::offLine(t0);   // #258: before the latch is released
   } else {
     line = powertrail::standbyLine(t0);
   }
@@ -648,7 +642,11 @@ void powerWifiCache(const std::function<void(glance::WifiCache&)>& f) {
 }
 
 #if X4_QEMU
-void powerSimSet(bool battery, bool armed) {
+static std::atomic<bool> g_simCharging{false};
+static std::atomic<uint16_t> g_simMv{3950};
+void powerSimSet(bool battery, bool armed, bool charging, int mv) {
+  g_simCharging = charging;
+  g_simMv = uint16_t(mv > 0 && mv < 5000 ? mv : 3950);
   {
     std::lock_guard<std::mutex> l(g_rtcMu);
     g_rtc.simBattery = battery;
@@ -659,6 +657,8 @@ void powerSimSet(bool battery, bool armed) {
   hub().apiUsed = false;   // the test's own API calls must not hold the device awake (device-sim: api_idle)
 }
 bool powerSimBattery() { return g_rtc.simBattery; }
+bool powerSimCharging() { return g_simCharging; }
+uint16_t powerSimMv() { return g_simMv; }
 #endif
 
 }  // namespace x4::net

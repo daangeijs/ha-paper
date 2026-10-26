@@ -109,6 +109,8 @@ class FakeBoard : public Board {
   uint32_t millis() override { return now; }
   int64_t epochSeconds() override { return epoch ? epoch + (now - 1000) / 1000 : 0; }
   void restart() override { restarted = true; }
+  int powerOffs = 0;
+  void powerOff() override { ++powerOffs; }
   uint8_t heldKeys() override { return held; }
   void tap(int x, int y) { InputEvent e{}; e.kind = InputEvent::Kind::Tap; e.x = int16_t(x); e.y = int16_t(y); queue.push_back(e); }
   void key(Key k) { InputEvent e{}; e.kind = InputEvent::Kind::KeyDown; e.key = k; queue.push_back(e); }

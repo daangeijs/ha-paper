@@ -46,7 +46,8 @@ Expect bugs. Keep your backup.
 
 ## Install
 
-Put the X4 Pro in download mode first: hold **Left**, press **Reset**, release Left.
+Connect the X4 Pro over USB. No buttons: the flasher resets it into download mode over the cable. If it won't
+connect, replug USB and try again. After flashing, replug USB if it doesn't start.
 
 Pick one of three ways. Full details, serial port names per OS and troubleshooting:
 [docs/FLASHING.md](docs/FLASHING.md).
@@ -111,7 +112,11 @@ Open `http://ha-paper-XXXX.local` and sign in with Home Assistant. It has three 
 - **Advanced**: *Screens as YAML* (the whole layout as one `screens.yaml`, format in
   [spec/SCHEMA.md](spec/SCHEMA.md)), *API* (tokens and the endpoint list), *Device log*.
 
-Buttons: Power + Prev held 5 s restarts the display; Power + Next held 5 s opens the factory reset screen.
+Buttons: a short Power press puts the display in standby (press again to wake). Hold Power 2 s to turn it off: it
+shows *Turned off* and switches off; hold Power about 2 s to turn it on again. On USB it cannot cut its own power, so
+it sleeps on that screen until you press Power. Power + Prev held 5 s restarts the display; Power + Next held 5 s
+opens the factory reset screen. The small button on the top edge next to the microSD slot is Reset: on battery it
+switches the display off; hold Power to start it again.
 
 Power saving modes: *Always live*, *Sleep at night*, *Standby + night*, and *Glance* (the default): on battery it
 deep-sleeps and wakes every 15 minutes to redraw if something changed, and stays live for a few minutes after you
@@ -257,7 +262,8 @@ version. `make help` lists every target.
 
 **Releases.** Pushing a tag `vX.Y.Z` runs `.github/workflows/release.yml`: tests, a build, and a GitHub release with
 `firmware.bin`, `manifest.json` (version, SHA-256, size, notes), `www.bin`, the boot parts, `x4flash.py`,
-`SHA256SUMS` and the browser flasher zip. Tags with a `-` (`v0.2.0-beta.1`) become pre-releases. Check a release build
+`SHA256SUMS` and the browser flasher zip. Tags with a `-` (`v0.2.0-beta.1`) become pre-releases. Write the tag's section in
+[RELEASE_NOTES.md](RELEASE_NOTES.md) first: its bullets are the notes the display shows. Check a release build
 locally with `make dist VERSION=0.2.0`.
 
 ## Security notes

@@ -1,8 +1,9 @@
 {
-  "description": "Hardware-key factory reset (issue #21) and restart (Power + Left 5 s, issue #226; emulator src/core/recovery.ts). Each case starts from recoveryInit(), or recoveryOffer(offer) when `offer` (ms) is set (boot after a crash loop). Steps feed recoveryStep(state, t, keys) in order; keys = letters held or pressed since the last sample: P = Power, R = Right, L = Left, O = other (Home key, touch); \"\" = none. Each step expects the action and the phase after it. crash_loops: boot-ring reset reasons newest first → crashStreak / isCrashLoop.",
+  "description": "Hardware-key factory reset (issue #21) and restart (Power + Left 5 s, issue #226; emulator src/core/recovery.ts). Power alone (issue #258): released before power_off_hold_ms = press (standby / wake), held that long = off; a Power hold counts only after Power was seen released since boot. Each case starts from recoveryInit(), or recoveryOffer(offer) when `offer` (ms) is set (boot after a crash loop). Steps feed recoveryStep(state, t, keys) in order; keys = letters held or pressed since the last sample: P = Power, R = Right, L = Left, O = other (Home key, touch); \"\" = none. Each step expects the action and the phase after it. crash_loops: boot-ring reset reasons newest first → crashStreak / isCrashLoop.",
   "hold_ms": 5000,
   "confirm_ms": 10000,
   "restart_hold_ms": 5000,
+  "power_off_hold_ms": 2000,
   "cases": [
     { "name": "hold 5 s, release, Right resets", "steps": [
       { "t": 0, "keys": "PR", "action": "none", "phase": "hold" },
@@ -103,7 +104,48 @@
       { "t": 2600, "keys": "P", "action": "cancel", "phase": "idle" } ] },
     { "name": "crash-loop offer times out and the device boots on", "offer": 2000, "steps": [
       { "t": 11999, "keys": "", "action": "none", "phase": "confirm" },
-      { "t": 12000, "keys": "", "action": "timeout", "phase": "idle" } ] }
+      { "t": 12000, "keys": "", "action": "timeout", "phase": "idle" } ] },
+    { "name": "Power tapped: press on release (#258)", "steps": [
+      { "t": 0, "keys": "", "action": "none", "phase": "idle" },
+      { "t": 100, "keys": "P", "action": "none", "phase": "phold" },
+      { "t": 250, "keys": "", "action": "press", "phase": "idle" } ] },
+    { "name": "Power held 2 s: off while still held, the key-up does nothing (#258)", "steps": [
+      { "t": 0, "keys": "", "action": "none", "phase": "idle" },
+      { "t": 100, "keys": "P", "action": "none", "phase": "phold" },
+      { "t": 2099, "keys": "P", "action": "none", "phase": "phold" },
+      { "t": 2100, "keys": "P", "action": "off", "phase": "idle" },
+      { "t": 3000, "keys": "P", "action": "none", "phase": "idle" },
+      { "t": 3100, "keys": "", "action": "none", "phase": "idle" },
+      { "t": 4000, "keys": "P", "action": "none", "phase": "phold" } ] },
+    { "name": "Power held from power-on: nothing until it was released once (#258)", "steps": [
+      { "t": 300, "keys": "P", "action": "none", "phase": "idle" },
+      { "t": 5000, "keys": "P", "action": "none", "phase": "idle" },
+      { "t": 5100, "keys": "", "action": "none", "phase": "idle" },
+      { "t": 6000, "keys": "P", "action": "none", "phase": "phold" },
+      { "t": 6100, "keys": "", "action": "press", "phase": "idle" } ] },
+    { "name": "Power first, then Right: the reset hold, no press (#258)", "steps": [
+      { "t": 0, "keys": "", "action": "none", "phase": "idle" },
+      { "t": 100, "keys": "P", "action": "none", "phase": "phold" },
+      { "t": 600, "keys": "PR", "action": "none", "phase": "hold" },
+      { "t": 5599, "keys": "PR", "action": "none", "phase": "hold" },
+      { "t": 5600, "keys": "PR", "action": "show", "phase": "confirm" } ] },
+    { "name": "Power first, then Left: the restart hold (#258)", "steps": [
+      { "t": 0, "keys": "", "action": "none", "phase": "idle" },
+      { "t": 100, "keys": "P", "action": "none", "phase": "phold" },
+      { "t": 400, "keys": "PL", "action": "none", "phase": "rhold" },
+      { "t": 5400, "keys": "PL", "action": "restart", "phase": "idle" },
+      { "t": 5500, "keys": "", "action": "none", "phase": "idle" } ] },
+    { "name": "Power with a touch: neither press nor off (#258)", "steps": [
+      { "t": 0, "keys": "", "action": "none", "phase": "idle" },
+      { "t": 100, "keys": "P", "action": "none", "phase": "phold" },
+      { "t": 200, "keys": "PO", "action": "none", "phase": "idle" },
+      { "t": 2500, "keys": "P", "action": "none", "phase": "phold" },
+      { "t": 2600, "keys": "", "action": "press", "phase": "idle" } ] },
+    { "name": "Power hold across the millis wrap (#258)", "steps": [
+      { "t": 4294967000, "keys": "", "action": "none", "phase": "idle" },
+      { "t": 4294967100, "keys": "P", "action": "none", "phase": "phold" },
+      { "t": 1803, "keys": "P", "action": "none", "phase": "phold" },
+      { "t": 1804, "keys": "P", "action": "off", "phase": "idle" } ] }
   ],
   "crash_loops": [
     { "reasons": [], "streak": 0, "loop": false },

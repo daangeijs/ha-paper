@@ -7,7 +7,8 @@
 #   only x4qemu images trust: the suite's address check runs one real TLS handshake on the device (#79).
 #   CONTRACT_HA_TLS=1: the device links to that https address instead, so sign-in, WebSocket and the HA-dependent tests
 #   run over TLS, plus a TLS reset + hung-handshake relink test (#87). The suite keeps controlling the fake HA over http.
-# Usage: sim/qemu/contract.sh [--no-build]     exit code = vitest's. Logs: sim/qemu/.state/contract{,-tls}/{qemu,fake-ha}.log
+# Usage: sim/qemu/contract.sh [--no-build]     exit code = vitest's, 124 = guest hung (CONTRACT_STALL_S, #245).
+#   Logs: sim/qemu/.state/contract{,-tls}/{qemu,fake-ha}.log
 # X4_QEMU_ENV=x4qemu_debug: run the suite against the debug image (heap/spinlock checks, docs/ESP32_EMULATION.md).
 set -euo pipefail
 HERE="$(cd "$(dirname "$0")" && pwd)"
@@ -64,11 +65,31 @@ for i in $(seq 60); do
   sleep 1
 done
 echo "[contract] firmware up; running the contract suite (device → HA: $HA_DEV)"
+# Fail fast on a hung guest (#245): no new device log byte for STALL_S = print the tail, stop the suite, exit 124
+# (instead of every remaining test timing out). The longest quiet gap is printed on every run to keep STALL_S honest.
+STALL_S="${CONTRACT_STALL_S:-120}"   # green run 2026-10-26: longest gap 34 s
+killtree() { local c; for c in $(pgrep -P "$1"); do killtree "$c"; done; kill "$1" 2>/dev/null || true; }
 set +e
 (cd "$ROOT/emulator" && DEVICE_URL="http://127.0.0.1:$PORT" X4_FAKE_HA="http://127.0.0.1:$HA_PORT" X4_FAKE_HA_DEVICE="$HA_DEV" \
   X4_FAKE_HA_DEVICE_TLS="https://10.0.2.2:$HA_TLS_PORT" \
-  npx vitest run server/contract.test.ts "${VITEST_ARGS[@]+"${VITEST_ARGS[@]}"}")
-rc=$?
+  exec npx vitest run server/contract.test.ts "${VITEST_ARGS[@]+"${VITEST_ARGS[@]}"}") &
+vpid=$!
+last=-1; quiet=0; maxquiet=0; stalled=0
+while kill -0 "$vpid" 2>/dev/null; do
+  sleep 1
+  size=$(wc -c <"$STATE/qemu.log" | tr -d ' ')
+  if [[ "$size" != "$last" ]]; then last=$size; quiet=0; else quiet=$((quiet + 1)); fi
+  (( quiet > maxquiet )) && maxquiet=$quiet
+  if (( quiet >= STALL_S )); then
+    stalled=1
+    echo "[contract] FAIL: no device log output for ${STALL_S} s, QEMU guest hung (#245); a rerun is cheap"
+    killtree "$vpid"
+    break
+  fi
+done
+wait "$vpid"; rc=$?
+(( stalled )) && rc=124
 set -e
+echo "[contract] longest device log silence: ${maxquiet} s (stall limit ${STALL_S} s)"
 [[ $rc == 0 ]] || { echo "--- qemu.log (tail)"; tail -60 "$STATE/qemu.log"; }
 exit $rc

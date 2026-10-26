@@ -247,6 +247,15 @@ void bootFace(Canvas& c, I& a) {
   c.textCenter(kScreenW / 2, cy + 22 + 18 + 26, a.bootMsg, R(18), C(Ink::G1));
 }
 
+// Power held 2 s (#258): the boot-face layout; the panel keeps it while the board is off
+void offFace(Canvas& c, I& a) {
+  int cy = kScreenH / 2;
+  c.icon(Icon::BootHome64, kScreenW / 2 - 32, cy - 32 - 18 - 53);
+  TextOpts t; t.tracking = 0;
+  c.textCenter(kScreenW / 2, cy + 22, a.t(S::offTitle), B(44), t);
+  c.textCenter(kScreenW / 2, cy + 22 + 18 + 26, a.t(S::offHint), R(18), C(Ink::G1));
+}
+
 static int boldPair(Canvas& c, int x, int bl, const std::string& k, const std::string& v, int size) {
   int w = c.text(x, bl, k + " ", R(size));
   return w + c.text(x + w, bl, v, B(size));

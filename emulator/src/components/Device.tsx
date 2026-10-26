@@ -9,6 +9,39 @@ import { TRACK, TRACK_PAINT } from '../core/panel.ts';
 
 /** No value in Home Assistant (unavailable / unknown, #86): a 28 px ring, bottom on the value's baseline. */
 const GapRing = () => <span aria-hidden="true" style={{ flex: "none", display: "inline-block", width: "28px", height: "28px", border: "3px solid #111", borderRadius: "50%", boxSizing: "border-box" }} />;
+// History tile (#267): bars from zero or an auto-ranged line, gaps left blank, the open bucket solid ink (bars) or a
+// dot (line); axis ticks and low / high with their times below. Classic: 2 px rules, uppercase name; Modern: card,
+// capsule bars, a 3 px line. Geometry from core/historyChart.ts historyTile().
+function HistoryPlot({ w, sleek }: { w: any; sleek: boolean }) {
+  const small = sleek ? "15px" : "17px";
+  return (
+    <div style={{ flex: "1", minHeight: "0", padding: sleek ? "14px 18px 10px" : "10px 14px 8px", display: "flex", flexDirection: "column", gap: "4px" }}>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", gap: "10px" }}>
+        {sleek
+          ? <span style={{ minWidth: "0", fontSize: "16px", fontWeight: "600", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{w.label}</span>
+          : <div style={{ minWidth: "0", fontSize: "20px", fontWeight: "700", textTransform: "uppercase", lineHeight: "24px", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{w.label}</div>}
+        <span style={{ flex: "none", fontFamily: sleek ? "var(--fd)" : undefined, fontStretch: sleek ? "var(--fs)" : undefined, fontSize: sleek ? "calc(22px * var(--fk))" : "20px", fontWeight: "700", fontVariantNumeric: "tabular-nums" }}>{w.summary}</span>
+      </div>
+      <div data-x4-history={w.isLine ? 'line' : 'bars'} style={{ position: "relative", flex: "1", minHeight: "24px", marginTop: "4px", borderBottom: w.isBarChart && !w.hasState && w.zeroPct !== null ? "0" : "2px dotted #111" }}>
+        {w.isBarChart && !w.hasState && (<div style={{ position: "absolute", inset: "0", display: "flex", gap: w.barGap }}>
+          {(w.hBars).map((b: any, i_b: number) => (<div key={i_b} style={{ position: "relative", flex: "1", minWidth: "0" }}>
+            {!b.gap && <div style={{ position: "absolute", left: "0", right: "0", bottom: b.bottom, height: b.h, background: b.bg, borderRadius: sleek ? "4px" : "2px 2px 0 0" }}></div>}
+          </div>))}
+        </div>)}
+        {w.isBarChart && !w.hasState && w.zeroPct !== null && (<div style={{ position: "absolute", left: "0", right: "0", bottom: w.zeroPct, height: "2px", marginBottom: "-1px", background: "#111" }}></div>)}
+        {w.isLine && !w.hasState && (<svg viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden="true" style={{ position: "absolute", inset: "0", width: "100%", height: "100%", overflow: "visible" }}>
+          {(w.paths).map((d: string, i_p: number) => (<path key={i_p} d={d} fill="none" stroke="#111" strokeWidth={sleek ? 3 : 2} strokeLinejoin="round" strokeLinecap="round" vectorEffect="non-scaling-stroke" />))}
+        </svg>)}
+        {w.isLine && !w.hasState && !!w.dot && (<div style={{ position: "absolute", left: w.dot.left, bottom: w.dot.bottom, width: "12px", height: "12px", transform: "translate(-50%, 50%)", borderRadius: "50%", background: "#111", border: "2px solid #ECEBE5" }}></div>)}
+        {w.hasState && (<div style={{ position: "absolute", inset: "0", display: "flex", alignItems: "center", justifyContent: "center", fontSize: "18px", fontWeight: "700", textAlign: "center" }}>{w.stateText}</div>)}
+      </div>
+      <div style={{ position: "relative", flex: "none", height: "20px", fontSize: small, fontVariantNumeric: "tabular-nums" }}>
+        {(w.ticks).map((t: any, i_t: number) => (<span key={i_t} style={{ position: "absolute", left: t.left, transform: `translateX(${t.shift})`, whiteSpace: "nowrap" }}>{t.text}</span>))}
+      </div>
+      {!!(w.hasLowHigh) && (<div style={{ flex: "none", display: "flex", justifyContent: "space-between", flexWrap: "wrap", columnGap: "12px", fontSize: small, fontWeight: sleek ? "600" : "700", fontVariantNumeric: "tabular-nums", whiteSpace: "nowrap", overflow: "hidden" }}><span>{w.low}</span><span>{w.high}</span></div>)}
+    </div>
+  );
+}
 
 /** OTA version line (#215): core fitMiddle over the firmware's size steps; width estimated at 0.6 em per codepoint
  *  for bold sans (the firmware measures its glyphs). */
@@ -62,6 +95,15 @@ export function Device({ v }: { v: Vals }) {
                 <svg width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="#111" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M3 11l9-7 9 7"></path><path d="M5 10v10h14V10"></path><path d="M10 20v-6h4v6"></path></svg>
                 <div className="num" style={{ fontSize: "44px", fontWeight: "700", letterSpacing: "-0.5px" }}>{v.osName}</div>
                 <div style={{ fontSize: "18px", color: "#555" }}>{v.bootMsg}</div>
+              </div>
+            </>)}
+
+            {/* TURNED OFF (#258): boot-face layout, kept by the panel while the board is off */}
+            {!!(v.isOff) && (<>
+              <div style={{ height: "100%", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: "18px" }}>
+                <svg width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="#111" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M3 11l9-7 9 7"></path><path d="M5 10v10h14V10"></path><path d="M10 20v-6h4v6"></path></svg>
+                <div className="num" style={{ fontSize: "44px", fontWeight: "700", letterSpacing: "-0.5px" }}>{v.t('offTitle')}</div>
+                <div style={{ fontSize: "18px", color: "#555" }}>{v.t('offHint')}</div>
               </div>
             </>)}
 
@@ -289,8 +331,12 @@ export function Device({ v }: { v: Vals }) {
                             </Fragment>))}
                           </div>
                           <div style={{ display: "flex", justifyContent: "space-between", fontSize: "13px", color: "#111", fontVariantNumeric: "tabular-nums" }}><span>00</span><span>06</span><span>12</span><span>18</span><span>24</span></div>
+                          {!!(w.hasLowHigh) && (<div data-x4-lowhigh="" style={{ display: "flex", justifyContent: "space-between", columnGap: "12px", fontSize: "15px", fontWeight: "600", fontVariantNumeric: "tabular-nums", whiteSpace: "nowrap", overflow: "hidden" }}><span>{w.low}</span><span>{w.high}</span></div>)}
                         </div>
                       </>)}
+
+                      {/* sleek history chart (#267) */}
+                      {!!(w.sHistory) && <HistoryPlot w={w} sleek={true} />}
 
                       {/* sleek thermostat: 270° dial with set-point marker */}
                       {!!(w.sThermo) && (<>
@@ -467,14 +513,21 @@ export function Device({ v }: { v: Vals }) {
                             <div style={{ minWidth: "0", fontSize: "20px", fontWeight: "700", textTransform: "uppercase", lineHeight: "24px", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{w.label}</div>
                             <div style={{ flex: "none", fontSize: "18px", fontWeight: "700" }}>{w.summary}</div>
                           </div>
-                          <div style={{ flex: "1", minHeight: "0", display: "flex", alignItems: "flex-end", gap: "3px", borderBottom: "2px solid #111" }}>
+                          <div style={{ flex: "1", minHeight: "0", display: "flex", alignItems: "flex-end", gap: "3px", borderBottom: "2px solid #111", paddingTop: w.nowMark ? "14px" : "0" }}>
                             {(w.bars).map((b: any, i_b: number) => (<Fragment key={i_b}>
-                              <div style={{ flex: "1", height: `${b.h}%`, background: b.c, borderRadius: "2px 2px 0 0" }}></div>
+                              <div style={{ position: "relative", flex: "1", height: `${b.h}%`, background: b.c, borderRadius: "2px 2px 0 0" }}>
+                                {/* #260: a caret over the hour now (prices), a shape, so it reads on a 1-bit panel */}
+                                {!!(w.nowMark && b.now) && <div data-x4-now="" style={{ position: "absolute", left: "50%", top: "-14px", transform: "translateX(-50%)", width: "0", height: "0", borderLeft: "7px solid transparent", borderRight: "7px solid transparent", borderTop: "10px solid #111" }}></div>}
+                              </div>
                             </Fragment>))}
                           </div>
                           <div style={{ display: "flex", justifyContent: "space-between", fontSize: "18px", color: "#111", fontVariantNumeric: "tabular-nums" }}><span>00</span><span>06</span><span>12</span><span>18</span><span>24</span></div>
+                          {!!(w.hasLowHigh) && (<div data-x4-lowhigh="" style={{ display: "flex", justifyContent: "space-between", columnGap: "12px", fontSize: "18px", fontWeight: "700", fontVariantNumeric: "tabular-nums", whiteSpace: "nowrap", overflow: "hidden" }}><span>{w.low}</span><span>{w.high}</span></div>)}
                         </div>
                       </>)}
+
+                      {/* history chart (#267) */}
+                      {!!(w.isHistory) && <HistoryPlot w={w} sleek={false} />}
 
                       {/* thermostat tile */}
                       {!!(w.isThermo) && (<>
@@ -628,19 +681,20 @@ export function Device({ v }: { v: Vals }) {
                             <div style={{ fontSize: "22px", fontWeight: "700", letterSpacing: "0.5px" }}>{HOST}</div>
                             <div style={{ fontSize: "18px", color: "#111", marginTop: "-6px" }}>{w.orIp}</div>
                           </div>
-                          <div style={{ flex: "1", minWidth: "0", display: "flex", flexDirection: "column", gap: "10px" }}>
-                            <div style={{ display: "flex", alignItems: "center", gap: "8px", fontSize: "16px", fontWeight: "700" }}>
+                          <div style={{ flex: "1", minWidth: "0", display: "flex", flexDirection: "column" }}>
+                            <div style={{ display: "flex", alignItems: "center", gap: "8px", height: "22px", marginBottom: "12px", fontSize: "16px", fontWeight: "700" }}>
                               <span style={{ width: "22px", height: "22px", borderRadius: "50%", background: "#111", color: "#ECEBE5", display: "flex", alignItems: "center", justifyContent: "center", fontSize: "13px" }}>✓</span>
                               {w.connected}
                             </div>
-                            <div style={{ fontSize: "30px", fontWeight: "700", lineHeight: "1.1" }}>{w.title}</div>
+                            <div style={{ fontSize: "30px", fontWeight: "700", lineHeight: "1.1", marginBottom: "12px" }}>{w.title}</div>
+                            {/* #272: titles only, one 52 px row each between dotted rules */}
                             {(w.steps).map((st: any, i_st: number) => (<Fragment key={i_st}>
-                              <div className="hl" style={{ display: "flex", gap: "12px", alignItems: "flex-start", paddingTop: "8px", borderTop: "1px dotted #111" }}>
-                                <span style={{ flex: "none", width: "26px", height: "26px", border: "2px solid #111", borderRadius: "50%", boxSizing: "border-box", display: "flex", alignItems: "center", justifyContent: "center", fontSize: "14px", fontWeight: "700" }}>{st.n}</span>
-                                <span style={{ display: "flex", flexDirection: "column", minWidth: "0" }}><span style={{ fontSize: "19px", fontWeight: "700" }}>{st.text}</span><span style={{ fontSize: "14px", color: "#111", lineHeight: "1.35" }}>{st.sub}</span></span>
+                              <div className="hl" style={{ display: "flex", gap: "14px", alignItems: "center", height: "52px", boxSizing: "border-box", borderTop: "1px dotted #111", borderBottom: i_st === w.steps.length - 1 ? "1px dotted #111" : "none" }}>
+                                <span style={{ flex: "none", width: "28px", height: "28px", border: "2px solid #111", borderRadius: "50%", boxSizing: "border-box", display: "flex", alignItems: "center", justifyContent: "center", fontSize: "14px", fontWeight: "700" }}>{st.n}</span>
+                                <span style={{ minWidth: "0", fontSize: "22px", fontWeight: "700", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{st.text}</span>
                               </div>
                             </Fragment>))}
-                            <div style={{ display: "flex", alignItems: "center", gap: "12px", marginTop: "4px" }}>
+                            <div style={{ display: "flex", alignItems: "center", gap: "12px", marginTop: "18px" }}>
                               <button className="ink-btn ob" onClick={w.changeWifi} style={{ height: "44px", padding: "0 14px", border: "2px solid #111", borderRadius: "8px", background: "#ECEBE5", fontSize: "15px", fontWeight: "700" }}>{w.otherWifi}</button>
                               <span style={{ fontSize: "14px", color: "#111" }}>{w.waiting}</span>
                             </div>
@@ -917,9 +971,12 @@ export function Device({ v }: { v: Vals }) {
                           <div style={{ flex: "1", minWidth: "0", display: "flex", flexDirection: "column", gap: "10px" }}>
                             <div className="lbl" style={{ fontSize: "20px", fontWeight: "700", textTransform: "uppercase" }}>{v.t('firmware')}</div>
                             <div style={{ display: "flex", alignItems: "baseline", gap: "12px", minWidth: "0" }}><span className="num" style={{ fontSize: `${w.fwSize}px`, fontWeight: "700", letterSpacing: "-1px", lineHeight: "46px", minWidth: "0", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>v{w.fwShown}</span><span style={{ flex: "none", fontSize: "18px", color: "#111" }}>{v.t('installed')}</span></div>
-                            <div className="rt" style={{ borderTop: "2px solid #111", paddingTop: "10px", display: "flex", flexDirection: "column", gap: "4px" }}>
-                              <div style={{ fontSize: "26px", fontWeight: "700" }}>{w.statusTitle}</div>
-                              <div style={{ fontSize: "18px", lineHeight: "22px", color: "#111", display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", overflow: "hidden" }}>{w.statusSub}</div>
+                            <div className="rt" style={{ borderTop: "2px solid #111", paddingTop: "10px" }}>
+                              <div style={{ position: "relative", minHeight: "79px", display: "flex", flexDirection: "column", gap: "4px" }}>
+                                <div style={{ fontSize: "26px", fontWeight: "700", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{w.status.title}</div>
+                                <div style={{ fontSize: "18px", lineHeight: "22px", color: "#111", display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", overflow: "hidden" }}>{w.status.sub}</div>
+                                {!!(w.statusDirty) && (<><div className="dirty"></div></>)}
+                              </div>
                             </div>
                             {!!(w.hasNotes) && (<>
                               <div style={{ display: "flex", flexDirection: "column", gap: "4px", minHeight: "0", overflow: "hidden" }}>

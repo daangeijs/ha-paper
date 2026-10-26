@@ -245,6 +245,26 @@
       "en": "No data yet",
       "nl": "Nog geen gegevens"
     },
+    "histLow": {
+      "en": "Low {} · {}",
+      "nl": "Laag {} · {}"
+    },
+    "histHigh": {
+      "en": "High {} · {}",
+      "nl": "Hoog {} · {}"
+    },
+    "histNone": {
+      "en": "No history",
+      "nl": "Geen geschiedenis"
+    },
+    "histTooMany": {
+      "en": "Too many changes",
+      "nl": "Te veel wijzigingen"
+    },
+    "histNeedsStats": {
+      "en": "Needs long-term statistics",
+      "nl": "Heeft langetermijnstatistieken nodig"
+    },
     "usually": {
       "en": "Usually {}",
       "nl": "Meestal {}"
@@ -260,6 +280,10 @@
     "cancelled": {
       "en": "Cancelled",
       "nl": "Rijdt niet"
+    },
+    "routeTrack": {
+      "en": "Track {}",
+      "nl": "Spoor {}"
     },
     "routeNote1": {
       "en": "All on time",
@@ -616,22 +640,6 @@
     "swOpen": {
       "en": "Open {}",
       "nl": "Open {}"
-    },
-    "swOpenSub": {
-      "en": "On a phone or computer on {}.",
-      "nl": "Op een telefoon of computer op {}."
-    },
-    "swOpenSubIp": {
-      "en": "On a phone or computer on {}. If the name doesn’t open, use {}. The code opens that too.",
-      "nl": "Op een telefoon of computer op {}. Opent de naam niet, gebruik dan {}. De code opent dat ook."
-    },
-    "swSignInSub": {
-      "en": "The display gets its own key. Your password stays with Home Assistant.",
-      "nl": "Het scherm krijgt een eigen sleutel. Je wachtwoord blijft bij Home Assistant."
-    },
-    "swDoneSub": {
-      "en": "The display shows what it finds in your Home Assistant. Change anything in the browser.",
-      "nl": "Het scherm toont wat het in je Home Assistant vindt. Pas alles aan in de browser."
     },
     "swOtherWifi": {
       "en": "Use a different Wi-Fi",
@@ -1045,6 +1053,10 @@
       "en": "Warmth",
       "nl": "Warmte"
     },
+    "setLightTimeout": {
+      "en": "Light off",
+      "nl": "Licht uit"
+    },
     "setNight": {
       "en": "Night mode",
       "nl": "Nachtstand"
@@ -1125,6 +1137,10 @@
       "en": "How often the screen updates while the display is live.",
       "nl": "Hoe vaak het beeld wordt bijgewerkt terwijl het scherm live is."
     },
+    "infoLightTimeout": {
+      "en": "After this long without a press or tap, the front light turns off. The next press or tap only turns it back on.",
+      "nl": "Na zo lang zonder knopdruk of tik gaat de verlichting uit. De volgende druk of tik zet hem alleen weer aan."
+    },
     "infoStandby": {
       "en": "After this long without a press, the display shows a quiet standby face.",
       "nl": "Na zo lang zonder knopdruk toont het scherm een rustig stand-by-beeld."
@@ -1140,6 +1156,10 @@
     "afterMin": {
       "en": "after {} min",
       "nl": "na {} min"
+    },
+    "afterSec": {
+      "en": "after {} s",
+      "nl": "na {} s"
     },
     "hour12": {
       "en": "12-hour",
@@ -1317,6 +1337,34 @@
       "en": "Checking GitHub…",
       "nl": "GitHub bekijken…"
     },
+    "otaErrMemory": {
+      "en": "Not enough memory",
+      "nl": "Te weinig geheugen"
+    },
+    "otaErrNetwork": {
+      "en": "No connection",
+      "nl": "Geen verbinding"
+    },
+    "otaErrBusy": {
+      "en": "GitHub busy",
+      "nl": "GitHub is druk"
+    },
+    "otaErrNone": {
+      "en": "No releases yet",
+      "nl": "Nog geen versies"
+    },
+    "otaErrOther": {
+      "en": "Couldn’t check",
+      "nl": "Kijken lukte niet"
+    },
+    "otaTryMinute": {
+      "en": "Try again in a minute",
+      "nl": "Probeer het over een minuut opnieuw"
+    },
+    "otaTryLater": {
+      "en": "Try again later",
+      "nl": "Probeer het later opnieuw"
+    },
     "otaUpdatedTo": {
       "en": "Updated to v{}",
       "nl": "Bijgewerkt naar v{}"
@@ -1364,6 +1412,14 @@
     "bootStartingV": {
       "en": "Starting v{}…",
       "nl": "v{} start…"
+    },
+    "offTitle": {
+      "en": "Turned off",
+      "nl": "Uitgeschakeld"
+    },
+    "offHint": {
+      "en": "Hold Power to turn on",
+      "nl": "Houd aan/uit ingedrukt om aan te zetten"
     },
     "bootUpdateFailed": {
       "en": "Update failed — back on v{}",
@@ -2080,6 +2136,138 @@
     "seriesSolar": {
       "en": "Solar",
       "nl": "Zon"
+    },
+    "palHistory": {
+      "en": "History (4 wide)",
+      "nl": "Geschiedenis (4 breed)"
+    },
+    "historyName": {
+      "en": "History chart",
+      "nl": "Geschiedenisgrafiek"
+    },
+    "histWindow": {
+      "en": "Period",
+      "nl": "Periode"
+    },
+    "histBucket": {
+      "en": "Per bar",
+      "nl": "Per staaf"
+    },
+    "histAgg": {
+      "en": "Value",
+      "nl": "Waarde"
+    },
+    "histStyle": {
+      "en": "Chart",
+      "nl": "Grafiek"
+    },
+    "histRange": {
+      "en": "Range",
+      "nl": "Bereik"
+    },
+    "histAuto": {
+      "en": "Auto",
+      "nl": "Automatisch"
+    },
+    "histMin": {
+      "en": "Min",
+      "nl": "Min"
+    },
+    "histMax": {
+      "en": "Max",
+      "nl": "Max"
+    },
+    "aggMean": {
+      "en": "Average",
+      "nl": "Gemiddelde"
+    },
+    "aggMax": {
+      "en": "Highest",
+      "nl": "Hoogste"
+    },
+    "aggMin": {
+      "en": "Lowest",
+      "nl": "Laagste"
+    },
+    "aggLast": {
+      "en": "Last",
+      "nl": "Laatste"
+    },
+    "aggChange": {
+      "en": "Change",
+      "nl": "Verandering"
+    },
+    "styleBars": {
+      "en": "Bars",
+      "nl": "Staven"
+    },
+    "styleLine": {
+      "en": "Line",
+      "nl": "Lijn"
+    },
+    "histSource": {
+      "en": "Data",
+      "nl": "Gegevens"
+    },
+    "srcRecorder": {
+      "en": "History",
+      "nl": "Geschiedenis"
+    },
+    "srcAttribute": {
+      "en": "Attribute list",
+      "nl": "Attribuutlijst"
+    },
+    "srcForecast": {
+      "en": "Weather forecast",
+      "nl": "Weersverwachting"
+    },
+    "histAttrName": {
+      "en": "Attribute",
+      "nl": "Attribuut"
+    },
+    "histValueField": {
+      "en": "Value field",
+      "nl": "Waardeveld"
+    },
+    "histTimeField": {
+      "en": "Time field",
+      "nl": "Tijdveld"
+    },
+    "histShows": {
+      "en": "Shows",
+      "nl": "Toont"
+    },
+    "aheadNext": {
+      "en": "Ahead",
+      "nl": "Vooruit"
+    },
+    "aheadAround": {
+      "en": "Around now",
+      "nl": "Rond nu"
+    },
+    "aheadPast": {
+      "en": "Past",
+      "nl": "Verleden"
+    },
+    "histForecast": {
+      "en": "Forecast",
+      "nl": "Verwachting"
+    },
+    "fcHourly": {
+      "en": "Hourly",
+      "nl": "Per uur"
+    },
+    "fcDaily": {
+      "en": "Daily",
+      "nl": "Per dag"
+    },
+    "errHistNumbers": {
+      "en": "min and max must be numbers",
+      "nl": "min en max moeten getallen zijn"
+    },
+    "errHistOrder": {
+      "en": "min must be below max",
+      "nl": "min moet lager zijn dan max"
     },
     "palThermo": {
       "en": "Room thermostat (tall)",

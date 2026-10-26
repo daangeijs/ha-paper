@@ -3,6 +3,7 @@
 // exactly like in the emulator).
 #include "core/config.h"
 #include "core/catalog.h"
+#include "core/history.h"
 #include "core/json.h"
 #include <algorithm>
 #include <cstdlib>
@@ -225,9 +226,10 @@ const std::vector<Screen>& settingsScreens() {
     };
     auto setting = [&](const char* key, int cs = 1, int rs = 1) { return tile("setting", key, cs, rs); };
     std::vector<Screen> o;
-    o.push_back({"display", kSettingsApp, "Display", {setting("brightness"), setting("warmth"), setting("night"), setting("returnHome"),
-                                                       setting("standby"), setting("clock"), setting("interval"), setting("cleanEvery")}});
-    o.push_back({"style", kSettingsApp, "Display style", {setting("style"), setting("typeface", 2), setting("surface")}});
+    o.push_back({"display", kSettingsApp, "Display", {setting("brightness"), setting("warmth"), setting("lightTimeout"), setting("night"),
+                                                       setting("returnHome"), setting("standby"), setting("interval"), setting("cleanEvery")}});
+    // Display is full (8 cells): the clock format sits with the look since #220
+    o.push_back({"style", kSettingsApp, "Display style", {setting("style"), setting("typeface", 2), setting("surface"), setting("clock")}});
     // two rows tall: room for each setting's hint (#190)
     o.push_back({"power", kSettingsApp, "Power", {setting("powerSave", 2, 2), setting("wakeEvery", 1, 2), setting("liveMin", 1, 2)}});
     o.push_back({"updates", kSettingsApp, "Updates", {tile("ota", nullptr, 4, 2)}});
@@ -260,11 +262,13 @@ const std::vector<const char*>* entityDomains(const std::string& t) {
   static const std::vector<const char*> sw = {"switch", "light", "input_boolean", "fan"};
   static const std::vector<const char*> route = {"sensor"};
   static const std::vector<const char*> scene = {"scene", "script"};   // #146
+  static const std::vector<const char*> history = {"sensor", "input_number", "number"};   // #268
   if (t == "stat") return &stat;
   if (t == "scene") return &scene;
   if (t == "route") return &route;
   if (t == "gauge") return &gauge;
   if (t == "switch") return &sw;
+  if (t == "history") return &history;
   return nullptr;
 }
 
@@ -348,6 +352,7 @@ ParseResult parseYamlText(const std::string& text) {
   AppEntry skipped;   // the `settings` entry of an older file: built in now, its title goes nowhere (#159)
   Screen* cur = nullptr;
   bool inW = false;
+  int histories = 0;
   std::map<std::string, int> at;
   auto appList = [&]() -> const std::vector<AppEntry>& { return haveApps && !appsList.empty() ? appsList : defaultApps(); };
   auto lines = split(text, '\n');
@@ -459,6 +464,13 @@ ParseResult parseYamlText(const std::string& text) {
         WVal cs = get("cs"), rs = get("rs");
         if (truthy(cs) && !(cs.num && (cs.v == "1" || cs.v == "2" || cs.v == "3" || cs.v == "4"))) throw Fail{n, "cs must be 1–4"};
         if (truthy(rs) && !(rs.num && (rs.v == "1" || rs.v == "2"))) throw Fail{n, "rs must be 1 or 2"};
+        if (type.v == "history") {   // #268, emulator history.ts historyError
+          auto f = [&](const char* k) { WVal x = get(k); return hist::Field{x.present, x.v}; };
+          std::string err = hist::configError(f("window"), f("bucket"), f("agg"), f("style"), f("min"), f("max"),
+                                              truthy(cs) ? std::atoi(cs.v.c_str()) : 1);
+          if (!err.empty()) throw Fail{n, err};
+          if (++histories > hist::kMaxTiles) throw Fail{n, "At most " + std::to_string(hist::kMaxTiles) + " history tiles"};
+        }
         Widget w;
         w.type = type.v;
         w.cs = truthy(cs) ? std::atoi(cs.v.c_str()) : 1;

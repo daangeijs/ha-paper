@@ -4,6 +4,7 @@
 #include <cstdlib>
 #include "app/app_impl.h"
 #include "core/catalog.h"
+#include "core/history.h"
 #include "core/json.h"
 
 namespace x4 {
@@ -211,8 +212,10 @@ static void barsTile(Canvas& c, I& a, const Widget& w, Rect r) {
   if (c.textWidth(lab, B(kLabel), lo) + sumW + 10 > x1 - x0) summary.clear(), sumW = 0;   // narrow tile: label wins
   label(c, x0, top, lab, kLabel, Ink::Black, x1 - x0 - sumW - 10);
   if (!summary.empty()) c.textRight(x1, baseline(top, B(kLabel), 1.2), summary, B(18));
-  int axisTop = bottom - 21;
-  int chartTop = top + kLabelH + 6, chartBot = axisTop - 6 - 2;
+  // prices (#260): today's low / high under the axis, a caret over the hour now (room above the bars)
+  const bool pr = series == "prices";
+  int axisTop = bottom - 21 - (pr ? 27 : 0);
+  int chartTop = top + kLabelH + 6 + (pr ? 14 : 0), chartBot = axisTop - 6 - 2;
   c.hline(x0, chartBot, x1 - x0, 2, Ink::Black);
   if (ser.size() >= 24) {
     double mx = *std::max_element(ser.begin(), ser.end());
@@ -229,6 +232,16 @@ static void barsTile(Canvas& c, I& a, const Widget& w, Rect r) {
       Rect b = rc(bx, chartBot - bh, bx2 - bx, bh + 2), foot = rc(bx, chartBot - std::min(bh, 2), bx2 - bx, std::min(bh, 2));
       if (j == h) { c.box(b, 2, Ink::Black); c.fill(foot, Ink::Black); }
       else { Tone t = dark ? Tone::Hatch : Tone::Track; c.tone(b, 2, t); c.tone(foot, 0, t); }
+      if (pr && a.now.known && j == h)   // 14 × 10 caret, 4 px above the bar
+        for (int k = 0, cx = (bx + bx2) / 2; k < 10; ++k) { int hw = 7 - k * 6 / 9; c.hline(cx - hw, chartBot - bh - 14 + k, 2 * hw, 1, Ink::Black); }
+    }
+    hist::Extreme pLo, pHi;
+    if (pr && hist::dayLowHigh(ser.data(), 24, a.lang, pLo, pHi)) {
+      std::string l = a.t(S::histLow, fmtNum(pLo.v, "", 2), std::string(pLo.time)), g = a.t(S::histHigh, fmtNum(pHi.v, "", 2), std::string(pHi.time));
+      TextOpts lt = C(Ink::Black); lt.tabular = true;
+      int lbl = baseline(bottom - 21, B(18), 1.2);
+      c.text(x0, lbl, l, B(18), lt);
+      if (c.textWidth(l, B(18), lt) + 12 + c.textWidth(g, B(18), lt) <= x1 - x0) c.textRight(x1, lbl, g, B(18), lt);
     }
   } else {
     c.textCenter((x0 + x1) / 2, (chartTop + chartBot) / 2 + 8, "—", B(24), C(Ink::Black));
@@ -269,7 +282,7 @@ static void routeTile(Canvas& c, I& a, const Widget& w, Rect r) {
   int x0 = r.x + 14, x1 = r.x + r.w - 14, top = r.y + 10, bottom = r.y + r.h - 9;
   const EntityValue* raw = id.empty() ? nullptr : a.store.get(id);
   EntityGap gap = entityGap(raw);
-  RouteState st = entityAvailable(raw) ? routeState(raw, isCar) : RouteState();
+  RouteState st = entityAvailable(raw) ? routeState(raw, isCar, a.lang) : RouteState();
   const RouteState* rs = st.has ? &st : nullptr;
   int lvl = 1;
   std::vector<DepartureState> deps;
@@ -473,6 +486,9 @@ std::string settingValue(const I& a, const std::string& key) {
   const DisplaySettings& s = a.set;
   if (key == "brightness") return s.brightness == 0 ? std::string(a.t(S::off)) : std::to_string(s.brightness) + "%";
   if (key == "warmth") return std::to_string(s.warmth) + "%";
+  if (key == "lightTimeout")   // #220
+    return s.lightTimeout == 0 ? std::string(a.t(S::never)) : s.lightTimeout < 60 ? a.t(S::afterSec, std::to_string(s.lightTimeout))
+                                                                                   : a.t(S::afterMin, std::to_string(s.lightTimeout / 60));
   if (key == "night") {
     if (s.night == "off") return a.t(S::off);
     auto d = s.night.find('-');

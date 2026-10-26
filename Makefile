@@ -136,7 +136,7 @@ flash: require-port
 	cd $(FW) && $(PIO) run -e $(ENV) -t upload --upload-port $(PORT)
 	# uploadfs = www.bin into partition `www` (board_build.filesystem_partition); userdata is left alone
 	cd $(FW) && $(PIO) run -e $(ENV) -t uploadfs --upload-port $(PORT)
-	@echo "Flashed HA Paper $(VERSION). Press Reset (or power-cycle) if it does not start by itself."
+	@echo "Flashed HA Paper $(VERSION). Replug USB if it doesn't start."
 
 monitor: require-port
 	$(PYTHON) $(FW)/tools/monitor.py $(PORT) $(ARGS)
@@ -147,7 +147,7 @@ monitor-pio: require-port
 # firmware/tools/soak.py: one CSV row per poll + summary-YYYY-MM-DD.md (#46). The token comes from X4_TOKEN only.
 soak:
 	@if [ -z "$(URL)" ]; then echo "Set URL, e.g. X4_TOKEN=x4_… make soak URL=http://ha-paper-a1b2.local [HOURS=168]"; exit 2; fi
-	$(PYTHON) $(FW)/tools/soak.py --url "$(URL)" $(if $(HOURS),--hours $(HOURS),) $(if $(INTERVAL),--interval $(INTERVAL),) --out "$(if $(OUT),$(OUT),$(ROOT)/soak/$(shell echo '$(URL)' | sed -E 's#^[a-z]+://##; s#/.*##; s#:#-#'))"
+	$(PYTHON) $(FW)/tools/soak.py --url "$(URL)" $(if $(IP),--ip $(IP),) $(if $(HOURS),--hours $(HOURS),) $(if $(INTERVAL),--interval $(INTERVAL),) --out "$(if $(OUT),$(OUT),$(ROOT)/soak/$(shell echo '$(URL)' | sed -E 's#^[a-z]+://##; s#/.*##; s#:#-#'))"
 
 # firmware/tools/logs.py (#200). The token comes from X4_TOKEN only.
 logs:
@@ -160,7 +160,7 @@ restore: require-port
 	if [ "$$size" != "16777216" ]; then echo "$(FILE) is $$size bytes, expected a full 16 MB dump."; exit 1; fi
 	@if [ -f "$(FILE).sha256" ]; then $(SHA256) -c "$(FILE).sha256" || exit 1; fi
 	$(ESPTOOL) --chip esp32s3 -p $(PORT) -b $(BAUD) write-flash 0x0 "$(FILE)"
-	@echo "Stock firmware restored. Press Reset."
+	@echo "Stock firmware restored. Replug USB if it doesn't start."
 
 # Release artifacts (also used by .github/workflows/release.yml). No merged 0x0 image on purpose: merge-bin pads
 # the NVS gap at 0x9000 with 0xFF, so writing it would wipe the OEM hw_calib panel id.

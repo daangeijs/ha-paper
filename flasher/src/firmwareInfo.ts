@@ -81,6 +81,9 @@ export function activeOtaSlot(otadata: Uint8Array, slots: number): number | null
   return best === null || slots === 0 ? null : (best - 1) % slots;
 }
 
+/** esp_app_desc_t.project_name of HA Paper builds (firmware/src/hw/app_desc.cpp). */
+export const HA_PAPER_PROJECT = "ha-paper";
+
 export interface Installed {
   /** Short line for the device row. */
   label: string;
@@ -89,9 +92,9 @@ export interface Installed {
 }
 
 /**
- * Read what is installed. `ours` is the bundled firmware.bin's descriptor: a matching build hash means this exact
- * HA Paper version. HA Paper's own descriptor comes from the Arduino core (project "arduino-lib-builder"), so other
- * HA Paper versions are recognised by the "www" partition HA Paper's table has.
+ * Read what is installed. HA Paper builds since #242 carry project "ha-paper" and their version in the descriptor.
+ * Older builds carry the Arduino core's ("arduino-lib-builder"): `ours` (the bundled firmware.bin's descriptor) names
+ * that exact build by its hash, other ones are recognised by the "www" partition HA Paper's table has.
  */
 export async function readInstalled(flash: Pick<FlashReader, "readFlash">, ours?: { desc: AppDesc | null; version: string }): Promise<Installed> {
   const table = parsePartitionTable(await flash.readFlash(PARTITION_TABLE_OFFSET, PARTITION_TABLE_SIZE));
@@ -114,6 +117,7 @@ export async function readInstalled(flash: Pick<FlashReader, "readFlash">, ours?
 
 export function describe(desc: AppDesc | null, entries: PartitionEntry[], ours?: { desc: AppDesc | null; version: string }): string {
   if (!desc) return "No firmware";
+  if (desc.project === HA_PAPER_PROJECT) return `HA Paper ${desc.version}`;
   if (ours?.desc && ours.desc.elfSha256 === desc.elfSha256) return `HA Paper ${ours.version}`;
   if (entries.some((e) => e.label === "www" && e.type === 1)) return "HA Paper (other version)";
   if (desc.project === "xteink_app") return `Stock firmware ${desc.version}`;

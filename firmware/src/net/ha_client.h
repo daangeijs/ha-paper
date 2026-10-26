@@ -35,6 +35,8 @@ class HaClient {
   void stop();                       // unlink / factory reset
   // Close the WebSocket so a second TLS session gets its heap; reconnects on the next loop(). False: nothing open.
   bool yieldTls();
+  // Internal RAM under the floor (#248): close the WebSocket and stay off for waitMs (the TLS guard then decides).
+  bool shedHeap(uint32_t waitMs);
   void callService(const std::string& domain, const std::string& service, const std::string& jsonData);
   void setConfigEntities(const std::set<std::string>& ids, const LightSubs& lights);   // from the active config
   void setEntityOverrides(const std::map<std::string, std::string>& o);   // settings `entities` (net task)

@@ -63,3 +63,7 @@ by `make deviations` and `make test` fails when it is stale.
 - [Text size scale for a 217 ppi panel (issue #199)](deviations/199-text-scale.md)
 - [Remote input and framebuffer in the simulator (issue #214)](deviations/214-remote-input.md)
 - [OTA version line width is estimated (issue #215)](deviations/215-ota-version-width.md)
+- [Front light timeout; Clock tile moves to Display style (issue #220)](deviations/220-light-timeout.md)
+- [Settings › Updates status line during and after a check (issue #250)](deviations/250-ota-check-feedback.md)
+- [History tile: emulator draws it, firmware not yet (issue #267)](deviations/267-history-tile-rendering.md)
+- [History tile series from an attribute or a weather forecast (issue #283)](deviations/283-attribute-series.md)

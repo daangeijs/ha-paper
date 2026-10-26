@@ -21,6 +21,7 @@ namespace x4 {
 //                     dimmable from supported_color_modes)
 //   route tile entity (any sensor.*, the widget's `entity`, #145; spec/SCHEMA.md "Route sensors"):
 //                    train/bus: attr departures = list or JSON [{"time":"HH:MM","delay":min,"cancelled":bool,"info":text}],
+//                    else attr upcoming = [{planned, actual (ISO), delay, track, direction, status}] (NS departures, #275),
 //                    per_hour (bus), note (optional);  car: state = travel time min, attr typical = usual min (optional)
 // Any entity: attr display_precision (HA's, or the entity registry's via EntityAdapter::setPrecision) → core/logic fmtValue.
 // Missing/unknown values render as "—" (never fake numbers).

@@ -57,8 +57,9 @@ struct HomeData {
 HomeData deriveHome(const EntityStore& store);
 // Does a climate's preset_modes attribute (JSON text of a list) offer "away"? (emulator core/format.ts presetHasAway)
 bool presetHasAway(const std::string& modes);
-// A route tile's entity (spec/SCHEMA.md, #145): train/bus = attr departures, car = state minutes + attr typical.
-RouteState routeState(const EntityValue* e, bool car);
+// A route tile's entity (spec/SCHEMA.md, #145): train/bus = attr departures, else attr upcoming (NS departures, ISO
+// times → local via localtime(), #275), car = state minutes + attr typical. = emulator core/route.ts.
+RouteState routeState(const EntityValue* e, bool car, Lang lang = Lang::En);
 
 // What a lightList / zoneList tile shows (#127, spec/test-vectors/list-pick.json, emulator core/paging.ts): the picked
 // areas then entities (order follows the pick, unknown ids skipped); nothing picked = everything.

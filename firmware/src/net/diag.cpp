@@ -5,9 +5,12 @@
 #include <esp_core_dump.h>
 #include <esp_heap_caps.h>
 #include <esp_partition.h>
+#include <esp_rom_sys.h>
 #include <esp_system.h>
+#include <esp_task_wdt.h>
 #include <esp_timer.h>
 
+#include <cstdio>
 #include <cstring>
 #include <ctime>
 #include <mutex>
@@ -16,7 +19,10 @@
 #include "core/diag.h"
 #include "core/recovery.h"
 #include "hw/hw_diag.h"
+#include "core/json.h"
 #include "net/health.h"
+#include "net/log.h"
+#include "net/net_stats.h"
 #include "net/power.h"
 #include "net/storage.h"
 #include "net/util.h"
@@ -67,6 +73,20 @@ struct RtcDiag {
 constexpr uint32_t kRtcMagic = 0x58344447u ^ static_cast<uint32_t>(sizeof(RtcDiag));   // "X4DG" ^ size
 RTC_NOINIT_ATTR RtcDiag g_rtc;
 
+// Last task-watchdog timeout (#241), written by the TWDT interrupt. fresh = the boot after it has not taken it yet.
+struct RtcWdt {
+  uint32_t magic;
+  uint32_t fresh, uptimeS, freeInternal, largestInternal, minDma;
+  uint32_t tasksLen;
+  char tasks[64];
+  char lastLog[96];
+};
+constexpr uint32_t kWdtMagic = 0x58345744u ^ static_cast<uint32_t>(sizeof(RtcWdt));   // "X4WD" ^ size
+RTC_NOINIT_ATTR RtcWdt g_wdt;
+bool g_wdtCapturing = false;   // ISR only
+bool g_wdtFresh = false;       // this boot follows a task-watchdog timeout
+volatile uint32_t g_largestSample = 0;   // diagLoop, every 10 s: the ISR must not take the heap lock
+
 std::mutex g_mu;
 const char* g_reason = "UNKNOWN";
 bool g_rtcWasValid = false;
@@ -103,6 +123,77 @@ const char* reasonName(esp_reset_reason_t r) {
     case ESP_RST_CPU_LOCKUP: return "CPU_LOCKUP";
     default: return "UNKNOWN";
   }
+}
+
+// Raw chip reset cause (soc/reset_reasons.h, ESP32-S3 values; several causes share 0x01, 0x0B, 0x0C, 0x0D, 0x11).
+const char* hwName(uint32_t r) {
+  switch (r) {
+    case 0x01: return "POWERON";   // also chip brown-out / super watchdog
+    case 0x03: return "CORE_SW";
+    case 0x05: return "DEEP_SLEEP";
+    case 0x07: return "CORE_MWDT0";
+    case 0x08: return "CORE_MWDT1";
+    case 0x09: return "CORE_RTC_WDT";
+    case 0x0B: return "CPU_MWDT0";
+    case 0x0C: return "CPU_SW";
+    case 0x0D: return "CPU_RTC_WDT";
+    case 0x0F: return "SYS_BROWNOUT";
+    case 0x10: return "SYS_RTC_WDT";
+    case 0x11: return "CPU_MWDT1";
+    case 0x12: return "SYS_SUPER_WDT";
+    case 0x13: return "SYS_CLK_GLITCH";
+    case 0x14: return "EFUSE_CRC";
+    case 0x15: return "USB_UART";
+    case 0x16: return "USB_JTAG";
+    case 0x17: return "PWR_GLITCH";
+    default: {
+      static char hex[8];
+      snprintf(hex, sizeof hex, "0x%02x", static_cast<unsigned>(r & 0xFF));
+      return hex;
+    }
+  }
+}
+
+// TWDT task list chunks: "\n - ", name, " (CPU n)" per task (after an optional header) → "name (CPU n), …"
+void IRAM_ATTR wdtTaskChunk(void*, const char* msg) {
+  if (!msg) return;
+  if (msg[0] == '\n') {
+    g_wdtCapturing = msg[1] == ' ' && msg[2] == '-';
+    if (g_wdtCapturing && g_wdt.tasksLen && g_wdt.tasksLen < sizeof g_wdt.tasks - 2) {
+      g_wdt.tasks[g_wdt.tasksLen++] = ',';
+      g_wdt.tasks[g_wdt.tasksLen++] = ' ';
+    }
+    return;
+  }
+  if (!g_wdtCapturing) return;
+  for (; *msg && g_wdt.tasksLen < sizeof g_wdt.tasks - 1; msg++) g_wdt.tasks[g_wdt.tasksLen++] = *msg;
+  g_wdt.tasks[g_wdt.tasksLen] = '\0';
+}
+
+// Newest line of the previous boot's RTC log tail ("[W][TAG] message"), "" if none.
+std::string lastLogLine() {
+  logs::Query q;
+  q.limit = logs::kLimitMax;
+  Json j;
+  if (!parseJson(logsJson(q, true), j)) return "";
+  const Json* lines = j.get("lines");
+  if (!lines || !lines->isArr() || lines->arr.empty()) return "";
+  const Json& l = lines->arr.back();
+  const Json *lv = l.get("level"), *tag = l.get("tag"), *msg = l.get("msg");
+  return "[" + (lv ? lv->strOr("?") : "?") + "][" + (tag ? tag->strOr("") : "") + "] " + (msg ? msg->strOr("") : "");
+}
+
+diag::Wdt wdtReport() {
+  diag::Wdt w;
+  if (g_wdt.magic != kWdtMagic) return w;
+  w.set = true;
+  w.uptimeS = g_wdt.uptimeS;
+  w.freeInternal = g_wdt.freeInternal;
+  w.largestInternal = g_wdt.largestInternal;
+  w.minDma = g_wdt.minDma;
+  w.tasks = std::string(g_wdt.tasks, strnlen(g_wdt.tasks, sizeof g_wdt.tasks));
+  w.lastLog = std::string(g_wdt.lastLog, strnlen(g_wdt.lastLog, sizeof g_wdt.lastLog));
+  return w;
 }
 
 uint32_t minFreeInternal() { return heap_caps_get_minimum_free_size(MALLOC_CAP_INTERNAL); }
@@ -147,18 +238,41 @@ void coredumpSummary(diag::Coredump& c) {
 
 }  // namespace
 
+void IRAM_ATTR diagWdtFired() {
+  g_wdt.magic = 0;
+  g_wdt.tasksLen = 0;
+  g_wdt.tasks[0] = '\0';
+  g_wdt.lastLog[0] = '\0';
+  g_wdtCapturing = false;
+  esp_task_wdt_print_triggered_tasks(wdtTaskChunk, nullptr, nullptr);
+  g_wdt.uptimeS = static_cast<uint32_t>(esp_timer_get_time() / 1000000);
+  // lock-free: both only sum the per-heap counters (heap_caps.c / multi_heap.c)
+  g_wdt.freeInternal = heap_caps_get_free_size(MALLOC_CAP_INTERNAL);
+  g_wdt.minDma = heap_caps_get_minimum_free_size(MALLOC_CAP_DMA);
+  g_wdt.largestInternal = g_largestSample;   // largest_free_block takes the heap lock the starved task may hold
+  g_wdt.fresh = 1;
+  g_wdt.magic = kWdtMagic;
+}
+
 void diagEarlyBoot() {
   std::lock_guard<std::mutex> l(g_mu);
   // QEMU has no deep sleep: net/power.cpp simulates it with esp_restart() and leaves the wake cause in RTC memory
   const esp_reset_reason_t why = powerSimulatedWake() ? ESP_RST_DEEPSLEEP : esp_reset_reason();
   g_reason = reasonName(why);
+  const char* hw = hwName(static_cast<uint32_t>(esp_rom_get_reset_reason(0)));
+  if (why == ESP_RST_POWERON) g_wdt.magic = 0;   // RTC memory is random after a power-on
+  if (g_wdt.magic == kWdtMagic) {
+    g_wdt.tasks[sizeof g_wdt.tasks - 1] = g_wdt.lastLog[sizeof g_wdt.lastLog - 1] = '\0';
+    g_wdtFresh = g_wdt.fresh != 0;
+    g_wdt.fresh = 0;
+  }
   // A panic message only belongs to a crash reset; a stale marker after a power-on is noise.
   const bool panicked = g_panicMarker == kPanicMagic && diag::isCrash(g_reason) && why != ESP_RST_POWERON;
   if (panicked) g_panicMsg[sizeof(g_panicMsg) - 1] = '\0';
   g_panicMarker = 0;
   g_rtcWasValid = why != ESP_RST_POWERON && g_rtc.magic == kRtcMagic && diag::valid(g_rtc.ring) && g_rtc.sum == checksum(g_rtc.ring);
   if (!g_rtcWasValid) diag::clear(g_rtc.ring);
-  diag::push(g_rtc.ring, g_reason, firmwareVersion(), panicked ? g_panicMsg : nullptr);
+  diag::push(g_rtc.ring, g_reason, firmwareVersion(), panicked ? g_panicMsg : nullptr, hw);
   seal();
 }
 
@@ -168,6 +282,14 @@ const char* diagResetReason() {
 }
 
 void diagBegin() {
+  // The boot after a task-watchdog timeout: add that boot's last log line (logBegin() kept its RTC tail).
+  const bool wdtFresh = g_wdtFresh && g_wdt.magic == kWdtMagic;
+  if (wdtFresh) {
+    const std::string line = lastLogLine();
+    const size_t n = line.size() < sizeof g_wdt.lastLog - 1 ? line.size() : sizeof g_wdt.lastLog - 1;
+    memcpy(g_wdt.lastLog, line.data(), n);
+    g_wdt.lastLog[n] = '\0';
+  }
   std::lock_guard<std::mutex> l(g_mu);
   if (!g_rtcWasValid) {
     // RTC memory was lost (power off): the older boots come from the file.
@@ -181,16 +303,23 @@ void diagBegin() {
     char reason[diag::kPanicLen] = {0};
     if (esp_core_dump_get_panic_reason(reason, sizeof reason) == ESP_OK) strncpy(cur.panic, reason, sizeof cur.panic - 1);
   }
+  // The TWDT panic does not pass panic_abort: name the starved tasks instead.
+  if (wdtFresh && !strcmp(cur.reason, "TASK_WDT") && !cur.panic[0])
+    snprintf(cur.panic, sizeof cur.panic, "task_wdt: %s", g_wdt.tasks[0] ? g_wdt.tasks : "?");
   touchLocked();
   saveLocked();
   g_lastTouch = g_lastSave = millis();
   const diag::Boot* prev = diag::at(g_rtc.ring, 1);
   if (diag::isCrash(cur.reason))
-    LOG_WRN("DIAG", "reset reason %s%s%s · previous boot v%s ran %u s", cur.reason, cur.panic[0] ? " · " : "", cur.panic,
-            prev ? prev->version : "?", prev ? static_cast<unsigned>(prev->uptimeS) : 0u);
+    LOG_WRN("DIAG", "reset reason %s (hw %s)%s%s · previous boot v%s ran %u s", cur.reason, cur.hw, cur.panic[0] ? " · " : "",
+            cur.panic, prev ? prev->version : "?", prev ? static_cast<unsigned>(prev->uptimeS) : 0u);
   else
-    LOG_INF("DIAG", "reset reason %s · %u boots kept (%s)", cur.reason, static_cast<unsigned>(g_rtc.ring.count),
+    LOG_INF("DIAG", "reset reason %s (hw %s) · %u boots kept (%s)", cur.reason, cur.hw, static_cast<unsigned>(g_rtc.ring.count),
             g_rtcWasValid ? "RTC" : "file");
+  if (wdtFresh)
+    LOG_WRN("DIAG", "task watchdog at %u s · %s · internal %u free, largest %u, min dma %u · last log: %s",
+            static_cast<unsigned>(g_wdt.uptimeS), g_wdt.tasks[0] ? g_wdt.tasks : "?", static_cast<unsigned>(g_wdt.freeInternal),
+            static_cast<unsigned>(g_wdt.largestInternal), static_cast<unsigned>(g_wdt.minDma), g_wdt.lastLog);
 }
 
 void diagLoop() {
@@ -198,6 +327,7 @@ void diagLoop() {
   if (now - g_lastTouch < kTouchEveryMs) return;
   std::lock_guard<std::mutex> l(g_mu);
   g_lastTouch = now;
+  g_largestSample = heap_caps_get_largest_free_block(MALLOC_CAP_INTERNAL | MALLOC_CAP_8BIT);
   touchLocked();
   if (now - g_lastSave >= kSaveEveryMs) {
     g_lastSave = now;
@@ -217,6 +347,7 @@ std::string diagReportJson() {
   rep.firmware = firmwareVersion();
   rep.uptimeS = static_cast<uint64_t>(esp_timer_get_time() / 1000000);
   rep.resetReason = g_reason;
+  rep.wdt = wdtReport();
   rep.heap.freeInternal = heap_caps_get_free_size(MALLOC_CAP_INTERNAL);
   rep.heap.minFreeInternal = minFreeInternal();
   rep.heap.largestFreeInternal = heap_caps_get_largest_free_block(MALLOC_CAP_INTERNAL | MALLOC_CAP_8BIT);
@@ -229,6 +360,7 @@ std::string diagReportJson() {
   rep.sleepArmedBy = powerArmedBy();
   rep.batteryJson = powerBatteryJson();
   powerTrail(rep.trailBeforeBoot, rep.trail);
+  netStatsFill(rep.net);
   std::lock_guard<std::mutex> l(g_mu);
   touchLocked();
   return diag::reportJson(g_rtc.ring, rep);
@@ -240,6 +372,7 @@ void diagClear() {
     diag::clear(g_rtc.ring);
     seal();
     saveLocked();
+    g_wdt.magic = 0;
   }
   if (coredumpPresent()) {
     const esp_err_t e = esp_core_dump_image_erase();
@@ -271,3 +404,8 @@ bool coredumpRead(size_t offset, void* buf, size_t len) {
 }
 
 }  // namespace x4::net
+
+#if !X4_QEMU
+// IDF calls this from the TWDT interrupt after printing the starved tasks, right before the panic (hw/watchdog.h).
+extern "C" void IRAM_ATTR esp_task_wdt_isr_user_handler(void) { x4::net::diagWdtFired(); }
+#endif

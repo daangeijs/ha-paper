@@ -38,6 +38,52 @@ describe('redraw only what changed', () => {
   });
 });
 
+describe('front light timeout (#220)', () => {
+  const cfg = (p: object) => ({ ...new Emulator({}).state.cfg, returnHome: 0, brightness: 50, ...p });
+  it('off after the timeout, brightness unchanged; the first key only turns it back on', () => {
+    const { emu, logs } = harness({ idx: 0, cfg: cfg({ lightTimeout: 30 }) });
+    emu.lastInput = Date.now() - 29_000; emu.idleCheck();
+    expect(emu.state.lightOut).toBe(false);
+    emu.lastInput = Date.now() - 30_000; emu.idleCheck();
+    expect(emu.state.lightOut).toBe(true);
+    expect(emu.state.cfg.brightness).toBe(50);
+    expect(logs()).toContain('IDLE 30 s → front light off');
+    const before = { idx: emu.state.idx, full: emu.state.fullCount, partial: emu.state.partialCount };
+    (emu.renderVals() as any).hwNext();                      // consumed: no page turn, no redraw (not ambient yet)
+    expect(emu.state.lightOut).toBe(false);
+    expect({ idx: emu.state.idx, full: emu.state.fullCount, partial: emu.state.partialCount }).toEqual(before);
+    expect(logs()).toContain('BTN_NEXT → light on (input consumed)');
+    (emu.renderVals() as any).hwNext();
+    expect(emu.state.idx).not.toBe(before.idx);
+  });
+  it('an HA update does not turn it on; Never keeps it on; brightness 0 consumes nothing; Power is not consumed', () => {
+    const { emu } = harness({ cfg: cfg({ lightTimeout: 60 }) });
+    emu.lastInput = Date.now() - 60_000; emu.idleCheck();
+    emu.commit({ d: { ...emu.state.d, zones: { ...emu.state.d.zones, hall: { cur: 18.2, set: 17 } } } }, 'HA update');
+    expect(emu.state.lightOut).toBe(true);
+    const never = harness({ cfg: cfg({ lightTimeout: 0 }) }).emu;
+    never.lastInput = Date.now() - 86_400_000; never.idleCheck();
+    expect(never.state.lightOut).toBe(false);
+    const dark = harness({ cfg: cfg({ brightness: 0, lightTimeout: 30 }) }).emu;
+    dark.lastInput = Date.now() - 30_000; dark.idleCheck();
+    expect(dark.wakeChrome('BTN_NEXT')).toBe(false);
+    const pw = harness({ cfg: cfg({ lightTimeout: 30 }) }).emu;
+    pw.lastInput = Date.now() - 30_000; pw.idleCheck();
+    (pw.renderVals() as any).hwPower();
+    expect(pw.state.sleeping).toBe(true); expect(pw.state.lightOut).toBe(false);
+  });
+  it('Settings › Display steps 30 s → 1 → 2 → 5 min → Never', () => {
+    const { emu } = harness({ cfg: cfg({ lightTimeout: 30 }) });
+    const st = emu.state.screens.findIndex((s) => s.id === 'display');
+    (emu as any).state = { ...emu.state, idx: st, sub: 0 };
+    const vals: string[] = [];
+    for (let i = 0; i < 5; i++) { const w = emu.renderVals().widgets[2]; vals.push(w.value); w.inc(); }
+    expect(emu.renderVals().widgets[2].label).toBe('Light off');
+    expect(vals).toEqual(['after 30 s', 'after 1 min', 'after 2 min', 'after 5 min', 'Never']);
+    expect(emu.state.cfg.lightTimeout).toBe(0);
+  });
+});
+
 describe('ambient idle mode (#27)', () => {
   it('60 s idle hides pager, battery, app label and (with a clock tile) the bar clock; first key brings them back only', () => {
     const { emu, logs } = harness({ idx: 0, cfg: { ...new Emulator({}).state.cfg, returnHome: 0 } });
@@ -291,7 +337,7 @@ describe('display styles', () => {
     expect(emu.state.screens[st - 1].id).toBe('display');
     (emu as any).state = { ...emu.state, idx: st, sub: 0 };
     const ws = emu.renderVals().widgets;
-    expect(ws.map((w: any) => w.label)).toEqual(['Style', 'Typeface', 'Card surface']);
+    expect(ws.map((w: any) => w.label)).toEqual(['Style', 'Typeface', 'Card surface', 'Clock']);
     const full = emu.state.fullCount, partial = emu.state.partialCount;
     ws[0].inc();
     expect(emu.state.cfg.style).toBe('sleek'); expect(emu.state.fullCount).toBe(full + 1); expect(emu.state.partialCount).toBe(partial);
@@ -453,5 +499,24 @@ describe("Home Assistant's language (#98)", () => {
     v = emu.renderVals();
     expect(v.weekday).toMatch(/day$/);
     expect(emu.snapshot().language).toBeNull();
+  });
+});
+
+describe('Power hold (#258)', () => {
+  it('held 2 s → "Turned off" face, API unreachable, other keys ignored; Power boots it again', () => {
+    const { emu, logs } = harness();
+    emu.holdPowerSim();
+    expect(emu.state.mode).toBe('off');
+    expect(logs().some((m) => m.includes('turned off'))).toBe(true);
+    emu.nav(1, 'BTN_NEXT');
+    expect(emu.state.mode).toBe('off');
+    emu.power();
+    expect(emu.state.mode).toBe('boot');
+  });
+  it('a short press is still standby', () => {
+    const { emu } = harness();
+    emu.power();
+    expect(emu.state.sleeping).toBe(true);
+    expect(emu.state.mode).toBe('main');
   });
 });

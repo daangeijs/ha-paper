@@ -30,6 +30,9 @@ void otaLoopAlive();                      // every App loop() pass (UI heartbeat
 void otaBegin();                          // boot: detect PENDING_VERIFY
 void otaLoop();                           // net task: daily auto check, verify deadlines
 bool otaCheck(std::string& err);          // blocking; updates Hub status (Available / UpToDate)
+// Settings › Updates › Check and POST /ota/check (#250): marks the Hub status checking at once (GET /ota right after
+// the 202 says so, the display shows "Checking…") and queues otaCheck on the net task. false = checks off or one runs.
+bool otaRequestCheck();
 // Blocking download+install of the release found by otaCheck. Returns false (err) without touching the
 // running image; on success the device restarts.
 bool otaInstall(std::string& err);

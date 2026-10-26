@@ -17,13 +17,17 @@ import { DEMO_ROUTES, DELAY_SETS, TRAVEL, demoTravelScreen } from './demoTravel.
 import { LOGICAL, formatSource, mergeEntities, splitRef, type EntityOverrides } from '../core/entityMap.ts';
 import { batteryLabel, powerDecision, type OtaAuto, type PowerInputs } from '../core/power.ts';
 import { glanceStep, liveNow, snapshotDiff, snapshotOf, BOOT_HOLD_LIVE_MIN, type Snapshot } from '../core/glance.ts';
-import { recoveryInit, recoveryOffer, recoveryStep, RESET_HOLD_MS, RESET_CONFIRM_MS, RESTART_HOLD_MS, CRASH_LOOP_BOOTS, KEY_POWER, KEY_RIGHT, KEY_LEFT, KEY_OTHER, type RecoveryState, type RecoveryAction } from '../core/recovery.ts';
+import { recoveryInit, recoveryOffer, recoveryStep, RESET_HOLD_MS, RESET_CONFIRM_MS, RESTART_HOLD_MS, POWER_OFF_HOLD_MS, CRASH_LOOP_BOOTS, KEY_POWER, KEY_RIGHT, KEY_LEFT, KEY_OTHER, type RecoveryState, type RecoveryAction } from '../core/recovery.ts';
+import { attrSamples, bucketize, bucketStart, dayLowHigh, fromSamples, historySpec } from '../core/history.ts';
+import { demoForecast, demoHistory, historyChart, historyTile } from '../core/historyChart.ts';
 import { skin, lookOf, LOOKS, SK_FONTS, SURF, type Look } from '../core/skin.ts';
 import { sevOf, badge, carEta } from '../core/severity.ts';
 import { serializeRegion, changedRegions, type RegionMap } from '../core/regions.ts';
+import { otaLine, type OtaErr } from '../core/otaStatus.ts';
 import { subPages, flatPages, rects, PER_COL, PER_PAGE, lightGroupsOf, layoutGroups, listPages, pickLights, pickZones, type Rect } from '../core/paging.ts';
 import { bwAfter, SCREEN_W, TRACK, HATCH } from '../core/panel.ts';
 import { ambientDue, chromeFor, nightStale, AMBIENT_MS, type Chrome } from '../core/ambient.ts';
+import { DEFAULT_LIGHT_TIMEOUT, frontlightPct, lightTimedOut, lightWakeConsumes } from '../core/frontlight.ts';
 import { decidePartial, decideNav, minuteKeys, cleanDue, nextCleanMin, DEFAULT_CLEAN_EVERY, PowerHold } from '../core/refresh.ts';
 import { KeyedDebouncer, nextSetpoint, TADO_DEBOUNCE_MS } from '../core/debounce.ts';
 import { parseHaAddress } from '../core/haAddress.ts';
@@ -47,6 +51,8 @@ const ENT_NAME: Record<string, string> = Object.fromEntries(HA_ENTITIES.map((e) 
 const ENT_UNIT: Record<string, string> = Object.fromEntries(HA_ENTITIES.map((e) => [e.id, e.unit]));
 const ENT_DP: Record<string, number | undefined> = Object.fromEntries(EXTRA_ENTITIES.map((e) => [e.id, e.dp]));
 const LOCAL = ['clock', 'setting', 'ota', 'wifi', 'ha', 'about', 'info', 'setupWeb'];
+/** GET /ota message for a failed check (firmware net/ota.cpp; device-sim server/device.ts). */
+const SIM_CHECK_MSG: Record<OtaErr, string> = { memory: 'Not enough memory right now — try again in a minute', network: 'GitHub not reachable (HTTP -1)', busy: 'GitHub not reachable (HTTP 403)', none: 'No releases published yet', other: 'GitHub not reachable (HTTP 502)' };
 /** The showcase adds its demo Travel screen (mock timetables, demoTravel.ts) after Heating; real defaults have none (#145). */
 const withDemoTravel = (screens: Screen[]): Screen[] => { const i = screens.findIndex((x) => x.id === 'climate') + 1; return [...screens.slice(0, i), demoTravelScreen(), ...screens.slice(i)]; };
 const isLookKey = (k: string) => (LOOK_KEYS as readonly string[]).includes(k);
@@ -59,7 +65,7 @@ type LogLine = { t: string; msg: string; c: string };
 type TermLine = { t: string; c: string };
 
 export type EmuState = {
-  mode: 'boot' | 'main' | 'updating' | 'onboard'; sleeping: boolean; idx: number; sub: number; menu: Menu;
+  mode: 'boot' | 'main' | 'updating' | 'onboard' | 'off'; sleeping: boolean; idx: number; sub: number; menu: Menu;
   /** Deep sleep (power saving, src/core/power.ts): the panel keeps its last image, Wi-Fi and the API are off. `sleeping` is the standby face. */
   asleep: { wakeAt: number | null; clock: string; wasStandby: boolean; glance?: boolean } | null;
   /** Simulation › USB plugged: external power (charging below 100 %). */
@@ -80,10 +86,12 @@ export type EmuState = {
   panelPreview: boolean; bw: Rect[];
   pending: Record<string, true>; lastUpdate: Date | null; peekUntil: number;
   /** Ambient idle mode (#27): chrome hidden after 60 s without input. `nightSnap.at`: "HH:MM" only when the data was stale. */
+  /** Front light timed out (#220, core/frontlight.ts); the next key/tap only turns it back on. */
+  lightOut: boolean;
   ambient: boolean; nightSnap: { inside: string; batt: string; cheap: string; at: string } | null; dirty: string[];
   bootMsg: string;
-  ota: { fw: string; channel: 'stable' | 'beta'; auto: string; status: string; lastCheck: Date | null; avail: Release | null; msg: string; pendingVerify: boolean; prev: string | null };
-  releases: Record<'stable' | 'beta', Release>; failMode: 'ok' | 'hash' | 'boot'; upd: { version: string; pct: number; step: string } | null; travel: string;
+  ota: { fw: string; channel: 'stable' | 'beta'; auto: string; status: string; lastCheck: Date | null; avail: Release | null; msg: string; err: OtaErr | null; pendingVerify: boolean; prev: string | null };
+  releases: Record<'stable' | 'beta', Release>; failMode: 'ok' | 'hash' | 'boot'; checkFail: 'ok' | OtaErr; upd: { version: string; pct: number; step: string } | null; travel: string;
   wifi: { connected: string | null; saved: string[]; view: 'list' | 'pw' | 'connecting' | 'phone'; target: string; pw: string; show: boolean; kb: string; msg: string; lastScan: Date | null; scanning: boolean };
   flash: string | null; fullCount: number; partialCount: number; fastCount: number; sinceFull: number; navSinceClean: number;
   now: Date; log: LogLine[]; customN: number;
@@ -127,17 +135,17 @@ export class Emulator extends Component<EmulatorProps, EmuState> {
     this.state = {
       mode: 'boot', sleeping: false, asleep: null, usb: false, idx: 0, sub: 0, menu: false,
       ...withSettings({ apps: DEFAULT_APPS.map((a) => ({ ...a })), screens: withDemoTravel(defaultScreens()) }), name: 'Living room display', entities: {},
-      cfg: { brightness: 0, warmth: 40, night: '23-07', fullEvery: 8, cleanEvery: DEFAULT_CLEAN_EVERY, interval: 30, returnHome: 5, standby: 0, clock: '24', style: 'classic', typeface: 'archivo', surface: 'dither', haReport: true, ...DEFAULT_POWER },
+      cfg: { brightness: 0, warmth: 40, lightTimeout: DEFAULT_LIGHT_TIMEOUT, night: '23-07', fullEvery: 8, cleanEvery: DEFAULT_CLEAN_EVERY, interval: 30, returnHome: 5, standby: 0, clock: '24', style: 'classic', typeface: 'archivo', surface: 'dither', haReport: true, ...DEFAULT_POWER },
       setup: null,
       ha: { linked: false, revoked: false, view: 'status', server: MDNS_HA, user: 'X4 display', stage: 0, pair: '4F7K', running: false },
       onboard: null, resetArm: false, bootAt: new Date(), recovery: recoveryInit(),
       session: { signedIn: false }, tokens: [], configRev: 1, installId: newInstallId(),
       term: { lines: [{ t: 'Last login: Tue Oct 13 on ttys001', c: '#8d8a83' }, { t: '$ export X4=http://' + HOST, c: '#d9d6ce' }], file: null, exported: null, known: {} },
       simHour: null, haLang: langOf(props.lang), haCurrency: 'EUR', tz: '', render: 'gray4', paused: false, offline: false, zoneCount: 10, away: false, showRegions: true, panelPreview: true, bw: [],
-      pending: {}, lastUpdate: null, peekUntil: 0, ambient: false, nightSnap: null, dirty: [],
+      pending: {}, lastUpdate: null, peekUntil: 0, lightOut: false, ambient: false, nightSnap: null, dirty: [],
       bootMsg: 'Connecting to Home Assistant…',
-      ota: { fw: FW_INSTALLED, channel: 'stable', auto: 'notify', status: 'idle', lastCheck: null, avail: null, msg: '', pendingVerify: false, prev: null },
-      releases: JSON.parse(JSON.stringify(INITIAL_RELEASES)), failMode: 'ok', upd: null, travel: 'mixed',
+      ota: { fw: FW_INSTALLED, channel: 'stable', auto: 'notify', status: 'idle', lastCheck: null, avail: null, msg: '', err: null, pendingVerify: false, prev: null },
+      releases: JSON.parse(JSON.stringify(INITIAL_RELEASES)), failMode: 'ok', checkFail: 'ok', upd: null, travel: 'mixed',
       wifi: { connected: null, saved: [], view: 'list', target: '', pw: '', show: false, kb: 'lower', msg: '', lastScan: null, scanning: false },
       flash: null, fullCount: 0, partialCount: 0, fastCount: 0, sinceFull: 0, navSinceClean: 0,
       now: new Date(), log: [], customN: 0,
@@ -188,10 +196,11 @@ export class Emulator extends Component<EmulatorProps, EmuState> {
   nightHour(s: EmuState) { return isNightHour(this.hourOf(s), s.cfg.night); }
   nightActive(s: EmuState) { return this.nightHour(s) && !(s.peekUntil > s.now.getTime()) && !s.sleeping; }
 
-  input() { this.lastInput = Date.now(); this.idleHomed = false; }
+  input() { this.lastInput = Date.now(); this.idleHomed = false; if (this.state.lightOut) this.setState({ lightOut: false }); }
   idleCheck() {
     const s = this.state; if (s.mode !== 'main' || s.sleeping || s.asleep) return;
     const idleMs = Date.now() - this.lastInput, idleMin = idleMs / 60000;
+    if (!s.lightOut && !s.setup && lightTimedOut(idleMs, s.cfg.lightTimeout)) { this.setState({ lightOut: true }); this.log('IDLE ' + s.cfg.lightTimeout + ' s → front light off'); }
     if (s.cfg.standby && idleMin >= s.cfg.standby) { this.setState({ sleeping: true, menu: false }); this.fullRefresh('standby'); this.log('IDLE ' + s.cfg.standby + ' min → standby'); return; }
     const amb = !s.ambient && ambientDue({ idleMs, menu: !!s.menu, setup: !!s.setup }) && !this.nightActive(s);
     const home = s.screens.findIndex((x) => x.id === 'overview');
@@ -209,11 +218,18 @@ export class Emulator extends Component<EmulatorProps, EmuState> {
     const c = chromeFor(s.ambient, this.battery, clockTile);
     return s.setup ? { ...c, pager: false } : c;   // setup: "Step N of 2" in the title instead (#183)
   }
-  /** Ambient: the first touch or key (not Power) brings the chrome back and does nothing else. True when it took the input. */
+  /** Ambient / light timeout (#220): the first touch or key (not Power) brings the chrome back and the light on, and does
+   *  nothing else. True when it took the input. */
   wakeChrome(src: string): boolean {
     const s = this.state;
-    if (!s.ambient || s.mode !== 'main' || s.sleeping || s.asleep || this.nightActive(s) || s.recovery.phase === 'confirm') return false;
-    this.setState({ ambient: false }); this.partialRefresh('chrome', ['bar']); this.log(src + ' → chrome back (input consumed)');
+    if (s.mode !== 'main' || s.asleep || s.recovery.phase === 'confirm') return false;
+    const night = this.nightActive(s);
+    const light = lightWakeConsumes({ brightness: s.cfg.brightness, standby: s.sleeping, night, lightOut: s.lightOut, power: false });
+    const chrome = s.ambient && !s.sleeping && !night;
+    if (!light && !chrome) return false;
+    this.setState({ ambient: false, lightOut: false });
+    if (chrome) this.partialRefresh('chrome', ['bar']);
+    this.log(src + (light ? ' → light on' : ' → chrome back') + ' (input consumed)');
     return true;
   }
   /** Night face: the time of the last data, only when it is stale (> 30 min); '' otherwise. */
@@ -344,6 +360,7 @@ export class Emulator extends Component<EmulatorProps, EmuState> {
     // Before Wi-Fi the display is not on the home network: the browser can't reach it (unless a phone joined its setup hotspot).
     if (s.mode === 'boot' && !s.wifi.connected) throw new DeviceUnreachableError();
     if (s.asleep) throw new DeviceUnreachableError();   // deep sleep: Wi-Fi off
+    if (s.mode === 'off') throw new DeviceUnreachableError();   // turned off (#258)
     if (s.setup === 'wifi' && s.wifi.view !== 'phone') throw new DeviceUnreachableError();
     const tok = (k: StoredToken): TokenInfo => ({ id: k.id, name: k.name, scope: k.scope, created: k.created, last: k.last, masked: k.masked });
     return {
@@ -456,7 +473,7 @@ export class Emulator extends Component<EmulatorProps, EmuState> {
     const o = this.state.ota; const auto = display.otaAuto ?? o.auto; const channel = patch.ota_channel ?? o.channel;
     if (auto !== o.auto || channel !== o.channel) {
       this.log('WEB PUT /api/v1/settings · ota ' + channel + ' / ' + auto, 'ha');
-      this.setOta(channel !== o.channel ? { channel, auto, status: 'idle', avail: null, msg: '' } : { auto }, channel !== o.channel ? 'channel' : 'setting');
+      this.setOta(channel !== o.channel ? { channel, auto, status: 'idle', avail: null, msg: '', err: null } : { auto }, channel !== o.channel ? 'channel' : 'setting');
     }
     if (patch.entities !== undefined) {
       this.log('WEB PUT /api/v1/settings · entities ' + (Object.entries(patch.entities).map(([k, v]) => k + '=' + (v || '(auto)')).join(', ') || '{}'), 'ha');
@@ -577,6 +594,23 @@ export class Emulator extends Component<EmulatorProps, EmuState> {
     if (r.action !== 'restart') { this.log('combo ignored', 'warn'); this.setState({ recovery: r.state }); return; }
     this.recoveryDone(recoveryStep(r.state, t, 0).state, 'restart');
   }
+  /** Simulation: Power alone held 2 s (#258) → "Turned off" face, then off. Power turns it on again (a boot). */
+  holdPowerSim() {
+    const t = Date.now();
+    if (this.state.mode === 'updating') { this.log('BTN_POWER held · ignored while updating', 'warn'); return; }
+    let r = recoveryStep(this.state.recovery, t - POWER_OFF_HOLD_MS - 1, 0);   // Power was up before the hold
+    r = recoveryStep(r.state, t - POWER_OFF_HOLD_MS, KEY_POWER);
+    r = recoveryStep(r.state, t, KEY_POWER);
+    if (r.action !== 'off') { this.log('hold ignored', 'warn'); this.setState({ recovery: r.state }); return; }
+    this.setState({ recovery: recoveryStep(r.state, t, 0).state });
+    this.powerOff();
+  }
+  powerOff() {
+    this.log('BTN_POWER held ' + POWER_OFF_HOLD_MS / 1000 + ' s · turned off', 'warn');
+    this.setState({ mode: 'off', sleeping: false, asleep: null, menu: false, ambient: false });
+    this.fullRefresh('turned off');
+    this.log('POWER off by Power hold · latch released (Wi-Fi and the API are gone; the panel keeps the face)');
+  }
   /** Simulation: the boot ring shows ≥ 3 crash resets in a row → reboot straight into the reset screen. */
   crashLoopSim() {
     this.log('SIM crash loop · boot ring PANIC ×' + CRASH_LOOP_BOOTS + ' → reset screen offered at boot', 'warn');
@@ -665,6 +699,7 @@ export class Emulator extends Component<EmulatorProps, EmuState> {
     sc.widgets.forEach((w, i) => {
       const v = this.vm(w, d, s, i);
       if (v.isZoneList || v.isLightList) { out['h' + i] = v.summary; v.rows.forEach((r: any) => { if (r.key) out[r.key] = serializeRegion(r); }); }
+      else if (v.isOta) { const { status, ...tile } = v; out['t' + i] = serializeRegion(tile); out['s' + i] = serializeRegion(status); }
       else out['t' + i] = serializeRegion(v);
     });
     return out;
@@ -730,14 +765,16 @@ export class Emulator extends Component<EmulatorProps, EmuState> {
   setOta(patch: Partial<EmuState['ota']>, reason?: string) { this.commit({ ota: { ...this.state.ota, ...patch } }, reason || 'update status', true); }
   checkUpdate(src?: string) {
     const s = this.state; if (s.ota.status === 'checking') return;
-    if (s.offline) { this.setOta({ status: 'error', msg: 'No network — try again later' }); this.log('OTA check failed · offline', 'warn'); return; }
+    if (s.offline) { this.setOta({ status: 'error', err: 'network', msg: 'No network — try again later' }); this.log('OTA check failed · offline', 'warn'); return; }
     const url = s.ota.channel === 'beta' ? 'https://api.github.com/repos/' + REPO + '/releases?per_page=5' : 'https://api.github.com/repos/' + REPO + '/releases/latest';
     this.log((src || 'TOUCH') + ' → GET ' + url, 'ha');
-    this.setOta({ status: 'checking' });
+    this.setOta({ status: 'checking', err: null, msg: '' });
     this.later(() => {
       const st = this.state; const rel = st.releases[st.ota.channel];
+      // SIM "Next check" (#250): what the firmware maps a failed GitHub request to (core/otaStatus.ts otaErrOf)
+      if (st.checkFail !== 'ok') { this.setOta({ status: 'error', err: st.checkFail, msg: SIM_CHECK_MSG[st.checkFail] }); this.log('OTA check failed · ' + SIM_CHECK_MSG[st.checkFail], 'warn'); return; }
       const has = newer(rel.version, st.ota.fw);
-      this.setOta({ status: has ? 'available' : 'uptodate', avail: has ? { ...rel } : null, lastCheck: new Date(), msg: '' });
+      this.setOta({ status: has ? 'available' : 'uptodate', avail: has ? { ...rel } : null, lastCheck: new Date(), msg: '', err: null });
       this.log(has ? 'OTA · v' + rel.version + ' available (' + rel.size + ' MB, firmware.bin + manifest.json)' : 'OTA · up to date (latest ' + rel.version + ')', 'ha');
     }, 1400);
   }
@@ -889,6 +926,7 @@ export class Emulator extends Component<EmulatorProps, EmuState> {
   }
   wake(src: string) { this.setState({ sleeping: false, ambient: false }); this.fullRefresh('wake'); this.log(src + ' → wake'); }
   power() {
+    if (this.state.mode === 'off') { this.log('BTN_POWER → power on'); this.boot(); return; }
     if (this.state.asleep) { this.wakeUp('BTN_POWER'); return; }
     if (this.state.mode !== 'main') return;
     if (this.state.sleeping) { this.wake('BTN_POWER'); return; }
@@ -970,22 +1008,22 @@ export class Emulator extends Component<EmulatorProps, EmuState> {
     setCurrency(this.cur(s));
     const dirty = (k: string) => S.dirty.indexOf(k) >= 0;   // markers always render; hidden by CSS when !showRegions
     const pageDirty = dirty('page');
-    const base = { border: '2px solid #111', isGhost: false, isLinkCard: false, cs: w.cs || 1, rs: w.rs || 1, dirty: dirty('t' + i) || pageDirty, isStat: false, isClock: false, isPrice: false, isGauge: false, isBars: false, isThermo: false, isZoneList: false, isLightList: false, isLight: false, isScene: false, isSetting: false, isInfo: false, isOta: false, isRoute: false, isWifi: false, isHa: false, isAbout: false, isSetupWeb: false };
+    const base = { border: '2px solid #111', isGhost: false, isLinkCard: false, cs: w.cs || 1, rs: w.rs || 1, dirty: dirty('t' + i) || pageDirty, isStat: false, isClock: false, isPrice: false, isGauge: false, isBars: false, isThermo: false, isZoneList: false, isLightList: false, isLight: false, isScene: false, isSetting: false, isInfo: false, isOta: false, isRoute: false, isWifi: false, isHa: false, isAbout: false, isSetupWeb: false, isHistory: false };
     if (w.type === 'setupWeb') {
       const ssid = s.wifi.connected || tx('swYourWifi');
       return { ...base, isSetupWeb: true, ssid, connected: tx('swConnected', ssid), title: tx('swTitle'), orIp: tx('swOr', SIM_IP),
         otherWifi: tx('swOtherWifi'), waiting: tx('swWaiting'),
         steps: [
-          { n: '1', text: tx('swOpen', HOST), sub: tx('swOpenSubIp', ssid, SIM_IP) },
-          { n: '2', text: tx('signIn'), sub: tx('swSignInSub') },
-          { n: '3', text: tx('stepDone'), sub: tx('swDoneSub') },
+          { n: '1', text: tx('swOpen', HOST) },
+          { n: '2', text: tx('signIn') },
+          { n: '3', text: tx('stepDone') },
         ],
         changeWifi: () => { this.log('TOUCH use a different Wi-Fi'); this.setState((st) => ({ setup: 'wifi', wifi: { ...st.wifi, connected: null, view: 'list' } })); this.fullRefresh('setup: Wi-Fi'); } };
     }
     const h = this.hourOf(s);
     const sub = this.curSub(s);
     if (w.type === 'ghost') {
-      const g = w.of; const ent = g.type === 'stat' || g.type === 'switch' || ((g.type === 'gauge' || g.type === 'route' || g.type === 'scene') && g.entity) ? String(g.entity) : '';
+      const g = w.of; const ent = g.type === 'stat' || g.type === 'switch' || g.type === 'history' || ((g.type === 'gauge' || g.type === 'route' || g.type === 'scene') && g.entity) ? String(g.entity) : '';
       const gk = ({ price: 'priceNow', gauge: 'homeBattery', bars: 'todayPerHour', zoneList: 'rooms', lightList: 'lights', thermo: 'room', scene: 'scene', route: 'palRoute' } as Record<string, StrKey>)[g.type];
       const label = g.label || (ent ? (ENT[ent] && tx(ENT[ent].lk)) || ENT_NAME[ent] || ent : tx(gk || 'data'));
       return { ...base, isGhost: true, border: '2px dotted #111', label };
@@ -1138,33 +1176,25 @@ export class Emulator extends Component<EmulatorProps, EmuState> {
         note, noteWeight: lvl >= 3 ? 700 : 400 };
     }
     if (w.type === 'ota') {
-      const o = s.ota; const at = o.lastCheck ? tx('otaChecked', hm(o.lastCheck)) : tx('otaNotChecked');
-      const chan = tx(o.channel === 'beta' ? 'chanBetaLong' : 'chanStableLong');
-      const map: Record<string, [string, string]> = {
-        idle: [tx('otaCheck'), at + ' · ' + chan],
-        checking: [tx('otaCheckingGh'), REPO],
-        uptodate: [tx('otaUpToDate'), at + ' · ' + chan],
-        available: [tx('otaAvailable', o.avail ? o.avail.version : ''), (o.avail ? o.avail.size + ' MB · ' : '') + at],
-        updated: [tx('otaUpdatedTo', o.fw), tx('otaPrevKept', o.prev ?? '')],
-        blocked: [tx('otaLowBattery'), o.msg],
-        error: [tx('otaFailed'), o.msg],
-        verifying: [tx('otaVerifying'), tx('otaStartingNew')],
-      };
-      const [statusTitle, statusSub] = map[o.status] || map.idle;
+      const o = s.ota;
+      // #250: the status line is its own redraw region (s<i>): Check → "Checking…" → the result is a partial of that block only
+      const line = otaLine(lg, { status: o.status, error: o.err, version: o.avail ? o.avail.version : '', checked: o.lastCheck ? hm(o.lastCheck) : '', channel: o.channel, message: o.msg });
+      const [statusTitle, statusSub] = o.status === 'updated' ? [tx('otaUpdatedTo', o.fw), tx('otaPrevKept', o.prev ?? '')]
+        : o.status === 'verifying' ? [tx('otaVerifying'), tx('otaStartingNew')] : [line.title, line.sub];
       const canInstall = !!o.avail && o.status !== 'checking';
       const pick = (on: boolean) => ({ bg: on ? INK : PAPER, fg: on ? PAPER : INK });
       // #199: a git-describe name ("0.1.0-alpha.6-18-gbf929d4") drops its -g<hash> and steps 46 → 34 px (firmware
       // measures; About keeps the whole name)
       const fwShown = o.fw.length > 14 ? o.fw.replace(/-g[0-9a-f]+$/, '') : o.fw;
       const fwSize = fwShown.length <= 12 ? 46 : fwShown.length <= 17 ? 40 : 34;
-      return { ...base, isOta: true, fw: o.fw, fwShown, fwSize, statusTitle, statusSub,
+      return { ...base, isOta: true, fw: o.fw, fwShown, fwSize, status: { title: statusTitle, sub: statusSub }, statusDirty: dirty('s' + i),
         hasNotes: !!o.avail, notes: o.avail ? o.avail.notes.map((t) => ({ text: t })) : [],
         channels: ([['stable', 'chanStable'], ['beta', 'chanBeta']] as const).map(([k, lk]) => ({ label: tx(lk), ...pick(o.channel === k),
-          pick: () => { if (o.channel === k) return; this.log('OTA channel → ' + k); this.setOta({ channel: k, status: 'idle', avail: null, msg: '' }, 'channel'); } })),
+          pick: () => { if (o.channel === k) return; this.log('OTA channel → ' + k); this.setOta({ channel: k, status: 'idle', avail: null, msg: '', err: null }, 'channel'); } })),
         autos: ([['off', 'off'], ['notify', 'autoNotify'], ['night', 'autoNight']] as const).map(([k, lk]) => ({ label: tx(lk), ...pick(o.auto === k),
           pick: () => { this.log('OTA automatic → ' + k); this.setOta({ auto: k }, 'setting'); } })),
         autoHint: tx(o.auto === 'night' ? 'otaHintNight' : o.auto === 'notify' ? 'otaHintNotify' : 'otaHintManual'),
-        actionLabel: o.status === 'checking' ? tx('checking') : canInstall ? tx('otaInstallV', o.avail!.version) : tx('otaCheck'),
+        actionLabel: canInstall ? tx('otaInstallV', o.avail!.version) : tx('otaCheck'),   // steady: "Checking…" is in the status line
         actionBg: canInstall ? INK : PAPER, actionFg: canInstall ? PAPER : INK,
         actionHint: canInstall ? tx('aboutAMinute') + ' · ' + o.avail!.size + ' MB' : '',
         action: () => (canInstall ? this.install() : this.checkUpdate('TOUCH')) };
@@ -1207,12 +1237,29 @@ export class Emulator extends Component<EmulatorProps, EmuState> {
         let c;
         if (w.series === 'prices') c = j === h ? INK : j >= CHEAP && j < CHEAP + 3 ? HATCH : TRACK;
         else c = j === h ? INK : j < h ? HATCH : TRACK;
-        return { h: Math.max(2, Math.round((v / max) * 100)), c };
+        return { h: Math.max(2, Math.round((v / max) * 100)), c, now: j === h };
       });
       const label = w.label || (w.series === 'prices' ? tx('chartPrices', currency()) : tx(w.series === 'solar' ? 'chartSolar' : 'chartUsage'));
       const summary = w.series === 'prices' ? tx('pricesSummary', money(PRICES[h]), pad(CHEAP) + '–' + pad(CHEAP + 3))
         : tx('soFar', fmtNum(w.series === 'solar' ? d.solarToday : d.usedToday, 'kWh'));
-      return { ...base, isBars: true, label, summary, bars };
+      // #260: today's low / high on the drawn (hourly) bars, formatted like the history tile; a caret over the hour now
+      const lh = w.series === 'prices' ? dayLowHigh(PRICES, lg) : null;
+      return { ...base, isBars: true, label, summary, bars, nowMark: w.series === 'prices', hasLowHigh: !!lh,
+        low: lh ? tx('histLow', fmtNum(lh.low.v, '', 2), lh.low.time) : '', high: lh ? tx('histHigh', fmtNum(lh.high.v, '', 2), lh.high.time) : '' };
+    }
+    if (w.type === 'history') {   // #267: the demo has no recorder, so a daily curve per unit (core demoHistory)
+      const id = String(w.entity ?? ''); const spec = historySpec(w); const unit = ENT_UNIT[id] || ''; const dp = ENT_DP[id];
+      const t = new Date(s.now); if (s.simHour != null) t.setHours(s.simHour, 0, 0, 0);
+      const now = t.getTime(), tz = -t.getTimezoneOffset();
+      const st = s.ent[id]; const g = entityGap(st);
+      // #283: an attribute / forecast series gets a demo list (core demoForecast) through the real parser
+      const src = spec.source, srcUnit = src ? (/precip|rain/i.test(src.value) ? 'mm/h' : /temp/i.test(src.value) ? '°C' : '') : unit;
+      const series = src ? fromSamples(g || st == null ? [] : attrSamples(demoForecast(src.value, src.time, src.forecast === 'daily' ? 86_400_000 : src.forecast ? 3_600_000 : 300_000, now, tz, spec.aheadMs ?? 0), src, spec.bucketMs, now, tz), spec, now, tz)
+        : bucketize(g || st == null ? [] : demoHistory(id, unit, now - spec.windowMs - spec.bucketMs, now, tz), spec, now, tz);
+      const chart = historyChart(spec, series, 'ok', now, tz, lg, (v) => fmtNum(v, srcUnit, src ? 1 : dp));
+      const nowV = src ? series.values[Math.round((bucketStart(now, spec.bucketMs, tz) - series.start) / spec.bucketMs)] : null;   // a series' summary: its value now
+      return { ...base, isHistory: true, ...historyTile(chart), label: w.label || ENT_NAME[id] || id,
+        summary: g ? gapText(g) : st == null ? '—' : src ? (nowV == null ? '—' : fmtNum(nowV, srcUnit, 1) + (srcUnit ? ' ' + srcUnit : '')) : fmtValue(st, unit, dp) + (unit ? ' ' + unit : '') };
     }
     if (w.type === 'thermo') {
       // no zone picked yet / not in HA (#148): "—", the label or "Room", buttons do nothing (core setZone needs a zone)
@@ -1327,7 +1374,7 @@ export class Emulator extends Component<EmulatorProps, EmuState> {
     const dateText = dateLine(ui, now.getDay(), now.getDate(), now.getMonth());
     const nightOn = this.nightActive(s) && s.mode === 'main';
     const peeking = this.nightHour(s) && !nightOn && !s.sleeping;
-    const b = nightOn ? 0 : s.cfg.brightness, wm = s.cfg.warmth / 100;
+    const b = frontlightPct({ brightness: s.cfg.brightness, standby: false, night: nightOn, lightOut: s.lightOut && s.mode === 'main' }), wm = s.cfg.warmth / 100;
     const lr = Math.round(214 + 41 * wm), lg = Math.round(228 - 30 * wm), lb = Math.round(255 - 120 * wm);
     const sel = (on: boolean) => ({ bg: on ? '#1d1d1f' : '#fff', fg: on ? '#F6F5F2' : '#1d1d1f' });
     const black = (p.bodyColor ?? 'Black') !== 'White';
@@ -1371,7 +1418,7 @@ export class Emulator extends Component<EmulatorProps, EmuState> {
         this.log('HA WebSocket auth_invalid · POST /auth/token refresh → 400 invalid_grant (revoked in Profile › Security)', 'warn');
         this.setState({ ha: { ...s.ha, linked: false, revoked: true, view: 'status' }, offline: true }); this.partialRefresh('status bar', ['bar']);
       },
-      isOnboard: s.mode === 'onboard',
+      isOnboard: s.mode === 'onboard', isOff: s.mode === 'off',
       onboardSim: () => this.onboardSim(),
       onboardSteps: [
         ['Connect to Wi-Fi', 'Pick your network on the phone; no typing on this screen'],
@@ -1410,6 +1457,7 @@ export class Emulator extends Component<EmulatorProps, EmuState> {
       travelOpts: [['calm', 'All good'], ['mixed', 'One of each'], ['bad', 'Bad day']].map(([k, label]) => ({ label, ...sel(s.travel === k),
         pick: () => { this.log('SIM travel → ' + label); this.commit({ travel: k }, 'travel update'); } })),
       failOpts: ([['ok', 'Works'], ['hash', 'Bad download'], ['boot', 'Won’t start']] as const).map(([k, label]) => ({ label, ...sel(s.failMode === k), pick: () => { this.setState({ failMode: k }); this.log('SIM next update → ' + label); } })),
+      checkOpts: ([['ok', 'Works'], ['memory', 'Low memory'], ['busy', 'Rate limit'], ['network', 'No answer']] as const).map(([k, label]) => ({ label, ...sel(s.checkFail === k), pick: () => { this.setState({ checkFail: k }); this.log('SIM next check → ' + label); } })),
       isNight: nightOn, isPeek: peeking,
       // night face as a poster (#27): clock, date, three values; a footer only when asleep or the data was stale
       night, nightAsOf: night.at ? tx('asOf', night.at) : '',
@@ -1455,7 +1503,7 @@ export class Emulator extends Component<EmulatorProps, EmuState> {
       hwHome: () => this.recoveryKeys(KEY_OTHER, 'KEY_HOME') || this.wakeChrome('KEY_HOME') || this.home('KEY_HOME'), hwPower: () => this.recoveryKeys(KEY_POWER, 'BTN_POWER') || this.power(),
       recoveryOn: s.recovery.phase === 'confirm', recoveryCrash: s.recovery.crash,
       recoveryTouch: () => this.recoveryKeys(KEY_OTHER, 'TOUCH'),
-      holdReset: () => this.holdResetSim(), holdRestart: () => this.holdRestartSim(), crashLoop: () => this.crashLoopSim(),
+      holdReset: () => this.holdResetSim(), holdRestart: () => this.holdRestartSim(), holdPower: () => this.holdPowerSim(), crashLoop: () => this.crashLoopSim(),
       hwReset: () => { this.log('BTN_RESET', 'warn'); this.boot(); },
       forceFull: () => this.fullRefresh('manual'),
       statusLine: this.appDef(s, this.appOf(s)).title + ' · page ' + (pos + 1) + '/' + f.length + ' · "' + sc.title + '"' + (nSub > 1 ? ' ' + (sub + 1) + '/' + nSub : '') + ' · ' + (s.asleep ? (s.asleep.glance ? 'glance' : 'asleep') : s.sleeping ? 'standby' : nightOn ? 'night' : s.menu ? 'index' : s.ambient ? 'ambient' : s.mode) + ' · sim ' + clock,

@@ -60,6 +60,7 @@ struct App::Impl {
   std::string bootMsg = "Starting…";
   uint32_t bootUntil = 0;
   bool sleeping = false;
+  bool poweredOff = false;   // Power held 2 s (#258): "Turned off" face; hardware never returns from Board::powerOff
   Menu menu = Menu::None;
   Setup setup = Setup::None;
   int idx = 0, sub = 0;
@@ -76,6 +77,7 @@ struct App::Impl {
   RecoveryState recovery;        // hardware-key factory reset / crash-loop offer (core/recovery.h, #21)
   std::string otaMsg;            // local OTA message (blocked/no network)
   bool otaBlocked = false;
+  bool otaOffline = false;       // Check pressed without Wi-Fi (#250: "No connection")
   int lastOtaPct = -1;
   std::string lastOtaVer;   // install face version line (an upload's manifest can arrive after the image, #237)
 
@@ -99,6 +101,7 @@ struct App::Impl {
   std::vector<std::string> lastChanged;
 
   uint32_t lastInput = 0;
+  bool lightOut = false;   // front light timed out (#220); the next key/tap only turns it back on
   bool idleHomed = false;
   bool ambient = false;   // #27: chrome hidden after kAmbientMs without input; the next input only restores it
   Chrome chr;             // top-bar parts in the frame being built (chromeFor)
@@ -185,6 +188,7 @@ struct App::Impl {
   void doPeek(const char* src);
   void wake(const char* src);
   void power();
+  void powerOff();
   void tap(int x, int y);
   void input();
   void tick();
@@ -253,6 +257,7 @@ void nightFace(Canvas& c, I& a);
 void standbyFace(Canvas& c, I& a);
 void updatingFace(Canvas& c, I& a);
 void recoveryFace(Canvas& c, I& a);
+void offFace(Canvas& c, I& a);
 void noHaCard(Canvas& c, I& a, Rect card, const Screen& sc);
 Rect noHaCardRect(I& a, Rect area, const Screen& sc);
 void emptyScreen(Canvas& c, I& a, Rect r);
@@ -287,6 +292,10 @@ void linkCard(Canvas& c, I& a, Rect r);
 // lists: frame + header + rows as separate regions
 void listRegions(I& a, const Widget& w, int i, Rect r, std::vector<RegionDef>& out);
 void systemTile(Canvas& c, I& a, const Widget& w, int i, Rect r);   // ota, wifi, ha, about, setupWeb
+// Settings › Updates status line (#250): an overlay region over the ota tile, so Check → "Checking…" → the result
+// redraws only this block (partial refresh, no flash).
+Rect otaStatusRect(Rect tile);
+void otaStatus(Canvas& c, I& a, Rect tile);
 bool isSystemTile(const std::string& type);
 }  // namespace ui
 

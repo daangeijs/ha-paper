@@ -40,6 +40,7 @@
     { "name": "every known key", "body": { "display": { "brightness": 10, "otaAuto": "notify", "haReport": false }, "ota_channel": "beta", "tz": "UTC0", "name": "Hall", "entities": {} }, "error": null },
     { "name": "power keys (glance, #10)", "body": { "display": { "powerSave": "glance", "wakeEvery": 30, "liveMin": 5 } }, "error": null },
     { "name": "remote input switch (#214)", "body": { "display": { "debugInput": true } }, "error": null },
+    { "name": "front light timeout (#220)", "body": { "display": { "lightTimeout": 120 } }, "error": null },
     { "name": "tz null = unchanged", "body": { "tz": null }, "error": null },
     { "name": "unknown top-level key", "body": { "powerSave": "auto" }, "error": "unknown key: powerSave" },
     { "name": "unknown key after a known one", "body": { "name": "Hall", "entity_sources": {} }, "error": "unknown key: entity_sources" },

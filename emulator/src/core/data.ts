@@ -136,6 +136,8 @@ export type SettingDef = { label: string; lk: StrKey; info?: StrKey; fmt: (v: an
 const SETTING_DEFS: Record<string, Omit<SettingDef, 'label'>> = {
   brightness: { lk: 'setBrightness', fmt: (v, lg = 'en') => (v === 0 ? tr(lg, 'off') : v + '%'), step: 10, min: 0, max: 100 },
   warmth: { lk: 'setWarmth', fmt: (v) => v + '%', step: 10, min: 0, max: 100 },
+  // Front light timeout (#220), seconds; 0 = never.
+  lightTimeout: { lk: 'setLightTimeout', info: 'infoLightTimeout', fmt: (v, lg = 'en') => (v === 0 ? tr(lg, 'never') : v < 60 ? tr(lg, 'afterSec', v) : tr(lg, 'afterMin', v / 60)), steps: [30, 60, 120, 300, 0] },
   night: { lk: 'setNight', fmt: (v, lg = 'en') => (v === 'off' ? tr(lg, 'off') : v.split('-').map((x: string) => pad(+x)).join('–')), steps: ['off', '22-06', '23-07', '00-06'] },
   returnHome: { lk: 'setReturnHome', fmt: (v, lg = 'en') => (v === 0 ? tr(lg, 'never') : tr(lg, 'afterMin', v)), steps: [0, 1, 5, 15] },
   standby: { lk: 'setStandby', info: 'infoStandby', fmt: (v, lg = 'en') => (v === 0 ? tr(lg, 'never') : tr(lg, 'afterMin', v)), steps: [0, 10, 30, 60] },
@@ -177,6 +179,10 @@ export const EXTRA_ENTITIES: (HaEntity & { state: string })[] = [
   { id: 'scene.movie_night', name: 'Movie night', unit: '', state: 'unknown' },   // scene tile (#146): unknown until it first runs
   { id: 'script.good_night', name: 'Good night', unit: '', state: 'off' },
   { id: 'sensor.garden_temperature', name: 'Garden temperature', unit: '°C', state: 'unavailable' },   // a Zigbee sensor with a flat battery (#86)
+  // forecast series (#283): a rain nowcast with a `forecast` list of 5-minute {datetime, precipitation} entries ±2 h,
+  // and a weather entity answering weather.get_forecasts (fake HA; the emulator draws core demoForecast)
+  { id: 'binary_sensor.rain_expected', name: 'Rain expected', unit: '', state: 'on' },
+  { id: 'weather.home', name: 'Home weather', unit: '', state: 'cloudy' },
 ];
 const ENT_UNIT: Record<string, string> = { 'sensor.living_temperature': '°C' };
 /** Everything the mock HA offers to the picker: logical sensors, lights, extras. */
@@ -207,6 +213,7 @@ export const PALETTE = [
   { kind: 'chart', label: 'Prices (4 wide)', w: { type: 'bars', series: 'prices', cs: 4 } },
   { kind: 'chart', label: 'Usage (2 wide)', w: { type: 'bars', series: 'usage', cs: 2 } },
   { kind: 'chart', label: 'Solar (2 wide)', w: { type: 'bars', series: 'solar', cs: 2 } },
+  { kind: 'chart', label: 'History (4 wide)', w: { type: 'history', cs: 4 } },   // #267: any numeric sensor over a window
   { kind: 'climate', label: 'All rooms (full)', w: { type: 'zoneList', cs: 4, rs: 2 } },
   { kind: 'climate', label: 'Room thermostat (tall)', w: { type: 'thermo', rs: 2 } },
   { kind: 'light', label: 'All lights (full)', w: { type: 'lightList', cs: 4, rs: 2 } },
@@ -222,7 +229,7 @@ export const SCHEMA: { type: string; fields: string }[] = [
   { type: 'bars', fields: 'series: prices | usage | solar, label' }, { type: 'gauge', fields: 'home battery' }, { type: 'clock', fields: 'time and date' },
   { type: 'route', fields: 'label, mode: train | bus | car, entity: sensor.…' }, { type: 'lightList', fields: 'all lights by area (full screen)' },
   { type: 'switch', fields: 'entity: switch.… | light.… | input_boolean.… | fan.…' }, { type: 'zoneList', fields: 'all climate entities (full screen)' },
-  { type: 'thermo', fields: 'zone: climate object id, label' }, { type: 'scene', fields: 'entity: scene.… | script.…, label; none = all lights off' },
+  { type: 'thermo', fields: 'zone: climate object id, label' }, { type: 'history', fields: 'entity: sensor.… | input_number.… | number.…, window, bucket, agg, style, min, max, label; attribute, value, time, ahead (a list in an attribute); weather.…, forecast: hourly | daily' }, { type: 'scene', fields: 'entity: scene.… | script.…, label; none = all lights off' },
 ];
 
 export const ENDPOINTS: [string, string, string, string][] = [

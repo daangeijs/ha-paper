@@ -438,7 +438,37 @@ void X4Board::restart() {
   ESP.restart();
 }
 
-void X4Board::deepSleep(int64_t seconds) {
+void X4Board::deepSleep(int64_t seconds) { sleepNow(seconds, false); }
+
+void X4Board::powerOff() {
+  constexpr uint32_t kReleaseMaxMs = 10000, kSettleMs = 1000;
+  if (inputTask_) vTaskSuspend(static_cast<TaskHandle_t>(inputTask_));
+  g_light.off();
+  // Holding Power keeps the board powered by itself (that is how it turns on): wait for the release first.
+  const uint32_t t0 = ::millis();
+  while ((heldKeys() & kKeyPower) && ::millis() - t0 < kReleaseMaxMs) {
+    wdt::feedIfSubscribed();
+    ::delay(10);
+  }
+  LOG_INF("POWER", "off by Power hold · latch released");
+  Serial.flush();
+  for (const int8_t pin : {BoardConfig::ACTIVE.power.latch0, BoardConfig::ACTIVE.power.latch1}) {
+    if (pin < 0) continue;
+    const auto g = static_cast<gpio_num_t>(pin);
+    gpio_hold_dis(g);
+    gpio_set_level(g, 0);
+    gpio_hold_en(g);   // LOW through the deep sleep below
+  }
+  const uint32_t t1 = ::millis();
+  while (::millis() - t1 < kSettleMs) {   // battery: power is gone within this
+    wdt::feedIfSubscribed();
+    ::delay(10);
+  }
+  LOG_INF("POWER", "still powered %u ms after the latch release (USB) · deep sleep, only Power wakes", unsigned(kSettleMs));
+  sleepNow(0, true);
+}
+
+void X4Board::sleepNow(int64_t seconds, bool offHold) {
   // The input task owns I2C (touch, gauge, RTC): stop it before the rails go down.
   if (inputTask_) vTaskSuspend(static_cast<TaskHandle_t>(inputTask_));
   g_light.off();
@@ -452,20 +482,25 @@ void X4Board::deepSleep(int64_t seconds) {
   }
   freeink::PowerManager::powerDownRailsForSleep();   // touch rail (GPIO2) off, SD (GPIO5) off, panel RST held
   // GPIO1 (power latch) HIGH through deep sleep, or the X4 Pro cold-boots instead of waking (crosspoint HalPowerManager).
-  // Held since the first constructor (#225); asserted again in case anything touched it.
-  assertLatch(BoardConfig::ACTIVE.power.latch0);
-  assertLatch(BoardConfig::ACTIVE.power.latch1);
+  // Held since the first constructor (#225); asserted again in case anything touched it. Not after a Power-hold off
+  // (#258): the latch stays released (LOW).
+  if (!offHold) {
+    assertLatch(BoardConfig::ACTIVE.power.latch0);
+    assertLatch(BoardConfig::ACTIVE.power.latch1);
+  }
   // Wake: Power (GPIO3) or Right (GPIO7) pressed (ext1, any low). Left (GPIO0) stays out: it is the download strap.
+  // After a Power-hold off only Power wakes.
   const auto& in = BoardConfig::ACTIVE.input;
   uint64_t keys = 0;
   if (in.power >= 0) keys |= 1ULL << in.power;
-  if (in.down >= 0) keys |= 1ULL << in.down;
+  if (in.down >= 0 && !offHold) keys |= 1ULL << in.down;
   if (keys) freeink::PowerManager::armWakeOnPins(keys, !in.powerActiveHigh);
-  // Charger STAT (GPIO21, active-high: charging) → wake (ext0)
-  if (const int8_t stat = BoardConfig::ACTIVE.batteryChargeStatus; stat >= 0) esp_sleep_enable_ext0_wakeup(static_cast<gpio_num_t>(stat), 1);
+  // Charger STAT (GPIO21, active-high: charging) → wake (ext0); not after a Power-hold off (charging would wake it)
+  if (const int8_t stat = BoardConfig::ACTIVE.batteryChargeStatus; stat >= 0 && !offHold)
+    esp_sleep_enable_ext0_wakeup(static_cast<gpio_num_t>(stat), 1);
   if (seconds > 0) esp_sleep_enable_timer_wakeup(static_cast<uint64_t>(seconds) * 1000000ULL);
   LOG_INF("POWER", "deep sleep · timer %lld s · wake keys mask 0x%llx · latch GPIO%d %s, held", static_cast<long long>(seconds),
-          static_cast<unsigned long long>(keys), BoardConfig::ACTIVE.power.latch0, powerLatchHigh() ? "HIGH" : "LOW?!");
+          static_cast<unsigned long long>(keys), BoardConfig::ACTIVE.power.latch0, powerLatchHigh() ? "HIGH" : offHold ? "LOW" : "LOW?!");
   Serial.flush();
   freeink::PowerManager::deepSleep();
 }

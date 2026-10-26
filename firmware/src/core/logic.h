@@ -154,6 +154,14 @@ bool ambientDue(uint32_t idleMs, bool menuOpen, bool setup);
 struct Chrome { bool app = true, pager = true, battery = true, clock = true; };
 Chrome chromeFor(bool ambient, int batteryPct, bool clockTile);
 bool nightStale(int64_t nowSec, int64_t lastDataSec);   // 0 = unknown → false
+// Front light timeout (#220, emulator core/frontlight.ts, spec/test-vectors/frontlight.json). Seconds, 0 = never.
+constexpr int kLightTimeouts[] = {30, 60, 120, 300, 0};
+constexpr int kDefaultLightTimeout = 60;
+bool validLightTimeout(int sec);
+bool lightTimedOut(uint32_t idleMs, int timeoutSec);
+int frontlightPct(int brightness, bool standby, bool night, bool lightOut);
+// The first key/tap (not Power) after the timeout only turns the light back on.
+bool lightWakeConsumes(int brightness, bool standby, bool night, bool lightOut, bool power);
 // Swipe: |dx| > 60, mostly horizontal (|dx| > 1.5 |dy|), < 800 ms. Returns nav dir (+1 next / -1 prev) or 0.
 int swipeNav(int dx, int dy, uint32_t dtMs);
 

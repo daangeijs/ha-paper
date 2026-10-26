@@ -407,6 +407,16 @@ Chrome chromeFor(bool ambient, int batteryPct, bool clockTile) {
 
 bool nightStale(int64_t nowSec, int64_t lastDataSec) { return lastDataSec > 0 && nowSec > 0 && nowSec - lastDataSec > kStaleSec; }
 
+bool validLightTimeout(int sec) {
+  for (int t : kLightTimeouts) if (t == sec) return true;
+  return false;
+}
+bool lightTimedOut(uint32_t idleMs, int timeoutSec) { return timeoutSec > 0 && idleMs >= uint32_t(timeoutSec) * 1000u; }
+int frontlightPct(int brightness, bool standby, bool night, bool lightOut) { return standby || night || lightOut ? 0 : brightness; }
+bool lightWakeConsumes(int brightness, bool standby, bool night, bool lightOut, bool power) {
+  return lightOut && brightness > 0 && !standby && !night && !power;
+}
+
 int swipeNav(int dx, int dy, uint32_t dt) {
   if (std::abs(dx) > 60 && std::abs(dx) > std::abs(dy) * 1.5 && dt < 800) return dx < 0 ? 1 : -1;
   return 0;
