@@ -50,11 +50,12 @@ const EntityDef* findEntity(const std::string& id) {
 
 const std::vector<SettingDef>& settingDefs() {
   static const std::vector<SettingDef> v = {
-      {"brightness", S::setBrightness}, {"warmth", S::setWarmth}, {"lightTimeout", S::setLightTimeout}, {"night", S::setNight}, {"returnHome", S::setReturnHome},
+      {"brightness", S::setBrightness}, {"warmth", S::setWarmth}, {"lightTimeout", S::setLightTimeout}, {"returnHome", S::setReturnHome},
       {"standby", S::setStandby}, {"clock", S::setClock}, {"interval", S::setInterval}, {"cleanEvery", S::setCleanEvery},
       {"fullEvery", S::setCleanEvery},   // legacy tile key (#26, #44)
       {"style", S::setStyle}, {"typeface", S::setTypeface}, {"surface", S::setSurface},   // display styles (device setting)
       {"powerSave", S::setPowerSave}, {"wakeEvery", S::setWakeEvery}, {"liveMin", S::setLiveMin},   // glance (#10)
+      {"quiet", S::setQuiet},   // quiet hours (#295)
   };
   return v;
 }
@@ -62,15 +63,6 @@ const std::vector<SettingDef>& settingDefs() {
 const SettingDef* findSetting(const std::string& key) {
   for (auto& s : settingDefs()) if (key == s.key) return &s;
   return nullptr;
-}
-
-bool settingInfo(const std::string& key, S& out) {
-  static const struct { const char* key; S info; } v[] = {
-      {"lightTimeout", S::infoLightTimeout}, {"standby", S::infoStandby}, {"interval", S::infoInterval}, {"cleanEvery", S::infoCleanEvery}, {"fullEvery", S::infoCleanEvery},
-      {"powerSave", S::infoPowerSave}, {"wakeEvery", S::infoWakeEvery}, {"liveMin", S::infoLiveMin},
-  };
-  for (auto& s : v) if (key == s.key) { out = s.info; return true; }
-  return false;
 }
 
 bool isWidgetType(const std::string& t) {

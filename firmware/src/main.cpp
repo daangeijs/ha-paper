@@ -130,7 +130,8 @@ void setup() {
   auto& services = x4::net::deviceServices();
   services.begin();                                          // storage, Wi-Fi, web server, net task
   x4::net::diagBegin();                                      // boot ring → userdata /diag.json
-  // Glance timer wake (#10): no boot screen, the panel keeps what it shows until a visible value changed.
+  // Glance timer wake (#10): no boot screen, the panel keeps what it shows until a visible value changed. A key wake
+  // from glance sleep (#299) holds it too, until the data is in.
   const bool glanceWake = x4::net::powerBegin(services.bootSettings());
 #ifdef X4_TEST_CRASH_ON_BOOT
   // Test-only image (sim/qemu/ota-fw-test.sh): a broken update that resets before it is confirmed must be rolled
@@ -184,6 +185,7 @@ void setup() {
 
   g_app = new x4::App(g_display, g_board, services);
   g_app->setPanelHeld(glanceWake);
+  g_app->setBootWake(x4::net::powerWakeName());   // quiet hours (#295): a press, power-on or charger boot opens with a peek
 #if !X4_QEMU
   x4::net::powerOnSleep([](int64_t seconds) {
     g_display.sleep();             // panel deep-sleep command first: the rails go down next

@@ -65,7 +65,11 @@ class EntityAdapter {
   // "" when the Energy dashboard names no meters.
   std::string deviceDiscoveryTemplate() const;
   // recorder/statistics_during_period (period "hour", types ["change"], from local midnight) result JSON.
+  // Rows outside the local day of setNow() are dropped. Stamps that day for rollDay().
   void setHourlyStatistics(const std::string& json, EntityUpdates& out);
+  // #308: the local day of setNow() differs from the last statistics answer's → every id the statistics fed goes to 0
+  // (series: 24 zeros) and true: ask the recorder again now. Emulator statsDayRoll (core/energyHourly.ts).
+  bool rollDay(EntityUpdates& out);
   std::vector<std::string> statisticIds() const;   // energy meters to ask the recorder about
 
   // ---- data ----
@@ -104,6 +108,7 @@ class EntityAdapter {
   std::map<std::string, EntitySource> resolved_;
   PMap<EntityValue> raw_;                             // last HA state of every entity seen
   std::set<std::string> statsOwned_;                    // logical ids now fed by recorder statistics
+  int statsDay_ = 0;                                    // local yyyymmdd of the last statistics answer, 0 = none
   std::map<std::string, int> precision_;                // HA id → registry display_precision
   int64_t now_ = 0;
 };

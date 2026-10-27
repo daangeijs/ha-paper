@@ -1,4 +1,4 @@
-// UI runtime: port of the emulator state machine (Main.dc.html: boot, nav, home, commit/regions, tick, setZone, night,
+// UI runtime: port of the emulator state machine (Main.dc.html: boot, nav, home, commit/regions, tick, setZone, quiet hours,
 // standby, idle, setup). Rendering lives in ui_*.cpp; pure rules in core/.
 #include "app/app_impl.h"
 #include <algorithm>
@@ -84,6 +84,34 @@ void App::setSettings(const DisplaySettings& s) {
 
 void App::onNetStatusChanged() { impl_->netChanged(); }
 EntityStore& App::entities() { return impl_->store; }
+
+const App::Impl::HistSlot* App::Impl::histOf(const std::string& key) const {
+  for (auto& h : hist) if (h.key == key) return &h;
+  return nullptr;
+}
+
+bool App::setHistory(const std::string& key, const hist::Series* series, hist::State state) {
+  auto* I = impl_;
+  auto it = std::find_if(I->hist.begin(), I->hist.end(), [&](const Impl::HistSlot& h) { return h.key == key; });
+  if (it == I->hist.end()) {
+    // full: drop the series no tile of the current config shows any more
+    I->hist.erase(std::remove_if(I->hist.begin(), I->hist.end(), [I](const Impl::HistSlot& h) {
+      for (auto& sc : I->cfg.screens)
+        for (auto& w : sc.widgets) if (w.type == "history" && hist::seriesKey(hist::specOf(w)) == h.key) return false;
+      return true;
+    }), I->hist.end());
+    if (int(I->hist.size()) >= hist::kMaxTiles) return false;
+    if (I->hist.capacity() < size_t(hist::kMaxTiles)) I->hist.reserve(hist::kMaxTiles);
+    I->hist.emplace_back();
+    it = I->hist.end() - 1;
+    it->key = key;
+  }
+  it->state = state;
+  if (series) it->s = *series;
+  else it->s.n = 0;
+  I->commit("history", true);
+  return true;
+}
 const Config& App::config() const { return impl_->cfg; }
 const DisplaySettings& App::settings() const { return impl_->set; }
 App::Stats App::stats() const { return impl_->stats; }
@@ -129,11 +157,13 @@ std::string App::Impl::panelNote() const {
 }
 
 void App::setPanelHeld(bool held) { impl_->held = held; }
+void App::setBootWake(const std::string& wake) { impl_->bootWake = wake; }
 void App::settle() {
   auto* I = impl_;
   if (!I->held || I->mode != Mode::Main) return;
   I->ambient = I->setup == Setup::None;   // the glance face: ambient chrome, as live mode leaves it
-  I->snap.taken = false;                  // night face: values as of now, not as of the boot screen
+  I->snap.taken = false;                  // quiet face: values as of now, not as of the boot screen
+  I->asleepAt = I->localTime().clock;             // #299: the glance face goes back to sleep, so its clocks say so
   I->fullRefresh("glance · render");
 }
 void App::redraw(const std::string& reason) {
@@ -147,6 +177,13 @@ void App::prepareSleep() {
   I->idx = 0; I->sub = 0; I->menu = Menu::None; I->sleeping = false; I->peekUntil = 0; I->ambient = true;
   I->applyFrontlight();
   if (away) I->fullRefresh("sleep · home");
+}
+void App::markAsleep(bool on) {
+  auto* I = impl_;
+  std::string at = on ? I->localTime().clock : std::string();
+  if (at == I->asleepAt) return;
+  I->asleepAt = at;
+  if (I->mode == Mode::Main) I->commit("asleep", true);
 }
 std::vector<std::string> App::clockRegions() const {
   std::vector<std::string> out;
@@ -223,9 +260,9 @@ void App::loop() {
     // ambient (#27): the first touch or key (not Power) brings the chrome back and does nothing else
     // light timeout (#220): the same for the first input after the front light went off
     const bool pwr = ev.kind == InputEvent::Kind::KeyDown && ev.key == Key::Power;
-    const bool main = I->mode == Mode::Main, night = main && I->nightActive();
-    const bool light = main && lightWakeConsumes(I->set.brightness, I->sleeping, night, I->lightOut, pwr);
-    bool consume = light || (I->ambient && main && !I->sleeping && !night && !pwr);
+    const bool main = I->mode == Mode::Main, quiet = main && I->quietActive();
+    const bool light = main && lightWakeConsumes(I->set.brightness, I->sleeping, quiet, I->lightOut, pwr);
+    bool consume = light || (I->ambient && main && !I->sleeping && !quiet && !pwr);
     I->input();
     if (consume) { I->note(light ? "input → light on (consumed)" : "input → chrome back (consumed)"); I->commit("chrome"); }
     else switch (ev.kind) {
@@ -237,7 +274,7 @@ void App::loop() {
         break;
       case InputEvent::Kind::Tap: I->tap(ev.x, ev.y); break;
       case InputEvent::Kind::Swipe:
-        if (I->mode == Mode::Main && !I->sleeping && I->nightActive()) I->doPeek("SWIPE");
+        if (I->mode == Mode::Main && I->quietActive()) I->doPeek("SWIPE");
         else if (I->menu == Menu::None) I->nav(ev.dir < 0 ? 1 : -1, ev.dir < 0 ? "SWIPE ←" : "SWIPE →");
         break;
     }
@@ -253,7 +290,7 @@ void App::loop() {
                      "{\"entity_id\":\"climate." + id + "\",\"temperature\":" + toFixed(it->second, 1) + "}");
       I->pendingSince[id] = now;
     }
-    I->checkNight();
+    I->checkQuiet();
     I->tick();
     if (after(now, I->lastIdle + 1000)) { I->lastIdle = now; I->idleCheck(); }
     if (I->resetArm && after(now, I->resetArmUntil)) { I->resetArm = false; I->commit("1 tile", true); }
@@ -279,6 +316,10 @@ LocalTime App::Impl::localTime() {
   t.clock = (set.clock == "12" ? std::to_string(t.h % 12 ? t.h % 12 : 12) : pad2(t.h)) + ":" + pad2(t.m);
   t.hm = pad2(t.h) + ":" + pad2(t.m);
   t.date = dateLine(lang, tm.tm_wday, tm.tm_mday, tm.tm_mon);
+  struct tm u;
+  gmtime_r(&tt, &u);
+  t.epochMs = e * 1000;
+  t.tz = hist::tzMinutes(tm.tm_yday, tm.tm_year, t.minuteOfDay, u.tm_yday, u.tm_year, u.tm_hour * 60 + u.tm_min);
   return t;
 }
 
@@ -326,11 +367,11 @@ bool App::Impl::offline() const {
   auto& st = const_cast<Services&>(svc).status();
   return !(st.wifi == WifiState::Connected && st.ha == HaState::Connected);
 }
-bool App::Impl::nightHour() const { return now.known && isNightHour(now.h, set.night); }
-bool App::Impl::nightActive() const {
-  if (offscreen) return false;
+bool App::Impl::quietHour() const { return now.known && isNightHour(now.h, set.quiet); }
+bool App::Impl::quietActive() const {
+  if (offscreen || setup != Setup::None) return false;
   bool peeking = peekUntil != 0 && int32_t(peekUntil - const_cast<Board&>(board).millis()) > 0;
-  return nightHour() && !peeking && !sleeping;
+  return quietHour() && !peeking;
 }
 bool App::Impl::clockOnPage() const {
   if (setup != Setup::None || menu != Menu::None || cfg.screens.empty()) return false;
@@ -360,10 +401,10 @@ std::string App::Impl::appOf() const {
 
 // ======================= regions & refresh =======================
 // Display style: Classic or Sleek in one of four typefaces (docs/DISPLAY_STYLES_PLAN.md). The boot, OTA install,
-// standby and night faces keep the Classic look in both styles (package EINK_NOTES.md §3).
+// standby and quiet faces keep the Classic look in both styles (package EINK_NOTES.md §3).
 void App::Impl::applyLook() {
   Look l = lookFromSettings(set.style, set.typeface, set.surface);
-  if (mode != Mode::Main || sleeping || nightActive()) l.sleek = false;
+  if (mode != Mode::Main || sleeping || quietActive()) l.sleek = false;
   setActiveLook(l);
 }
 bool App::Impl::sleek() const { return activeLook().sleek; }
@@ -379,18 +420,18 @@ void App::Impl::build(std::vector<RegionDef>& out) {
   if (mode == Mode::Boot) { out.push_back({"boot", screen, [this](Canvas& c) { ui::bootFace(c, *this); }}); return; }
   if (mode == Mode::Updating) { out.push_back({"upd", screen, [this](Canvas& c) { ui::updatingFace(c, *this); }}); return; }
   // the clock text of the faces and the top bar is region "time", drawn on top (z 1): the minute tick redraws only it
+  // quiet hours (#295): before standby, which shows the same face inside the window; no "time" region (no clock)
+  if (quietActive()) {
+    if (!snap.taken) captureSnap();   // booted or woke in the window: values as of now
+    out.push_back({"quiet", screen, [this](Canvas& c) {
+      ui::quietFace(c, *this);
+      c.hit(rc(0, 0, kScreenW, kScreenH), [this] { doPeek("TOUCH quiet face"); });
+    }});
+    return;
+  }
   Rect face = ui::faceTimeRect(*this);
   if (sleeping) {
     out.push_back({"standby", screen, [this](Canvas& c) { ui::standbyFace(c, *this); }});
-    out.push_back({"time", face, [this](Canvas& c) { ui::faceTime(c, *this); }, 1});
-    return;
-  }
-  if (nightActive()) {
-    if (!snap.taken) captureSnap();   // booted at night: values as of now (emulator falls back to live values)
-    out.push_back({"night", screen, [this](Canvas& c) {
-      ui::nightFace(c, *this);
-      c.hit(rc(0, 0, kScreenW, kScreenH), [this] { doPeek("TOUCH night face"); });
-    }});
     out.push_back({"time", face, [this](Canvas& c) { ui::faceTime(c, *this); }, 1});
     return;
   }
@@ -515,7 +556,7 @@ bool App::renderScreen(const std::string& screenId, Framebuffer& out) {
 }
 std::string App::shownScreen() const {
   auto* I = impl_;
-  if (I->mode != Mode::Main || I->setup != Setup::None || I->menu != Menu::None || I->sleeping || I->nightActive() ||
+  if (I->mode != Mode::Main || I->setup != Setup::None || I->menu != Menu::None || I->sleeping || I->quietActive() ||
       I->recovery.phase == RecoveryPhase::Confirm || I->curSub() != 0 || !I->curScreen())
     return "";
   return I->curScreen()->id;
@@ -598,8 +639,8 @@ void App::Impl::partialRefresh(const std::string& reason, const RegionMap& next,
 
 void App::Impl::commit(const std::string& reason, bool quiet) {
   if (mode == Mode::Boot) return;
-  if (sleeping && reason != "clock") return;
-  if (nightActive() && reason != "clock") { note("night · redraw skipped (" + reason + ")"); return; }
+  if (quietActive()) { if (reason != "clock") note("quiet hours · redraw skipped (" + reason + ")"); return; }   // #295: no clock either
+  if (sleeping && reason != "clock" && reason != "asleep") return;
   // display style / typeface / card surface changed: every region looks different → one full refresh, no partial
   if (lookKey() != drawnLook) { fullRefresh("style"); return; }
   std::vector<RegionDef> nd;
@@ -640,7 +681,14 @@ void App::Impl::finishBoot() {
   bool noWifi = st.wifi == WifiState::NotConfigured || st.wifi == WifiState::SoftAP || st.wifi == WifiState::WrongPassword;
   setup = noWifi ? Setup::Wifi : (st.wifi == WifiState::Connected && st.ha == HaState::NeverLinked) ? Setup::Web : Setup::None;
   mode = Mode::Main; idx = 0; sub = 0; wview = WifiView::List;
-  nightKnown = false;
+  quietKnown = false;
+  // quiet hours (#295): a boot that a timer did not cause opens on the dashboard. Set whatever the hour: after a
+  // power-on the clock is often not known yet, and a peek outside the window changes nothing.
+  if (setup == Setup::None && peekOnBoot(bootWake)) {
+    peekUntil = ms() + kPeekMs; if (!peekUntil) peekUntil = 1;
+    note("boot (" + bootWake + ") · quiet hours show the dashboard for 60 s");
+  }
+  bootWake = "cold";
   lastMinute = localTime().known ? localTime().m : -1;
   if (setup == Setup::Wifi) { svc.wifiScan(); fullRefresh("setup: Wi-Fi"); }
   else if (setup == Setup::Web) fullRefresh("setup: browser");
@@ -650,8 +698,8 @@ void App::Impl::finishBoot() {
 void App::Impl::nav(int dir, const char* src) {
   if (setup != Setup::None && mode == Mode::Main) { note(std::string(src) + " · finish setup first"); return; }
   if (mode != Mode::Main) { note(std::string(src) + " ignored"); return; }
+  if (quietActive()) { doPeek(src); return; }
   if (sleeping) { wake(src); return; }
-  if (nightActive()) { doPeek(src); return; }
   if (cfg.screens.empty()) return;
   PageRef t = navTarget(cfg, idx, curSub(), dir, paging());
   bool same = t.screen == idx && menu == Menu::None;
@@ -669,10 +717,10 @@ void App::Impl::goTo(int i, const char* src) {
 }
 
 void App::Impl::home(const char* src) {
+  if (mode == Mode::Main && quietActive()) { doPeek(src); return; }
   if (sleeping) { wake(src); return; }
   if (mode != Mode::Main) return;
   if (setup != Setup::None) { note(std::string(src) + " · finish setup first"); return; }
-  if (nightActive()) { doPeek(src); return; }
   // Home = first screen of the first app that has screens
   int first = -1;
   for (auto& ap : appList()) if ((first = firstScreenOfApp(cfg, ap.id)) >= 0) break;
@@ -698,17 +746,20 @@ void App::Impl::openPage(int i, int q) { idx = i; sub = q; menu = Menu::None; na
 void App::Impl::doPeek(const char* src) {
   peekUntil = ms() + kPeekMs; if (!peekUntil) peekUntil = 1;
   idx = 0; sub = 0; menu = Menu::None;
-  prevNight = false;
+  sleeping = false;   // standby inside quiet hours shows the quiet face: a press there is a peek too
+  applyFrontlight();
+  prevQuiet = false;
   note(std::string(src) + " → dashboard for 60 s");
-  fullRefresh("wake from night");
+  fullRefresh("quiet hours · peek");
 }
 
 void App::Impl::wake(const char* src) { sleeping = false; applyFrontlight(); note(std::string(src) + " → wake"); fullRefresh("wake"); }
 
 void App::Impl::power() {
   if (mode != Mode::Main) return;
+  if (quietActive()) { doPeek("BTN_POWER"); return; }
   if (sleeping) { wake("BTN_POWER"); return; }
-  sleeping = true; menu = Menu::None;
+  sleeping = true; menu = Menu::None; peekUntil = 0;   // standby ends a peek: in quiet hours it shows the quiet face
   applyFrontlight();
   board.pause(kStandbyLightMs);   // #225: frontlight off settles before the refresh load, not both at once
   fullRefresh("standby");
@@ -739,7 +790,7 @@ void App::Impl::tap(int x, int y) {
   }
   if (!h) return;
   Hit hit = *h;   // hits may be rebuilt by the action
-  bool feedback = pressFeedback && hit.region != "night" && hit.r.w < kScreenW;
+  bool feedback = pressFeedback && hit.region != "quiet" && hit.r.w < kScreenW;
   auto flash = [&](const char* what) {   // press feedback: one partial of the control, serial only (not in log())
     const uint32_t t0 = ms();
     if (!held) display.partialRefresh(fb, hit.r);
@@ -822,13 +873,13 @@ void App::Impl::tick() {
     bool first = lastMinute == -1;
     lastMinute = lt.m;
     // scheduled clean (#26): at :00/:30 the minute tick becomes one full refresh if anything was partially drawn
-    if (!first && policy.cleanDue(board.epochSeconds() / 60, nightActive())) fullRefresh("clean screen");
+    if (!first && policy.cleanDue(board.epochSeconds() / 60, quietActive())) fullRefresh("clean screen");
     else if (!first) commit("clock", true);
   }
   // first data after (re)connecting: the "linked · live data" redraw happens at auth_ok, before subscribe_entities
   // answered — draw the snapshot once it has landed instead of showing "—" for a whole Live data interval (QEMU find).
   // The same after a new config or data source (#151): the new entity's state arrives a moment after the redraw.
-  if (fresh && after(t, freshAt) && !nightActive() && !sleeping) {   // night/standby: keep it pending
+  if (fresh && after(t, freshAt) && !quietActive() && !sleeping) {   // quiet face / standby: keep it pending
     if (after(t, freshUntil)) fresh = false;
     else if (store.revision() != lastRev) {
       lastTick = t; freshAt = t + 1000;
@@ -844,7 +895,7 @@ void App::Impl::tick() {
   if (after(t, lastTick + uint32_t(std::max(1, set.intervalSec)) * 1000)) {
     lastTick = t;
     if (store.revision() != lastRev) {
-      if (nightActive()) { note("HA update · night · not drawn"); }
+      if (quietActive()) { note("HA update · quiet hours · not drawn"); }
       else if (!sleeping) commit("HA update");
     }
   }
@@ -857,45 +908,40 @@ void App::Impl::idleCheck() {
   bool away = homeIdx >= 0 && (idx != homeIdx || sub != 0 || menu != Menu::None);
   uint32_t idle = ms() - lastInput;
   if (!lightOut && lightTimedOut(idle, set.lightTimeout)) { lightOut = true; applyFrontlight(); note("IDLE → front light off"); }
-  bool amb = !ambient && ambientDue(idle, menu != Menu::None, false) && !nightActive();
+  bool amb = !ambient && ambientDue(idle, menu != Menu::None, false) && !quietActive();
   IdleDecision d = ::x4::idleCheck(idle, idleMinutes(set.standby), idleMinutes(set.returnHome), idleHomed, away);
-  if (d.standby) { sleeping = true; menu = Menu::None; applyFrontlight(); note("IDLE → standby"); fullRefresh("standby"); return; }
+  if (d.standby) { sleeping = true; menu = Menu::None; peekUntil = 0; applyFrontlight(); note("IDLE → standby"); fullRefresh("standby"); return; }
   if (d.goHome) {
     idleHomed = true;
     if (amb) ambient = true;   // drawn by the screen change below
-    if (nightActive()) { idx = homeIdx; sub = 0; menu = Menu::None; return; }
+    if (quietActive()) { idx = homeIdx; sub = 0; menu = Menu::None; return; }
     goTo(homeIdx, "IDLE");
     return;
   }
   if (amb) { ambient = true; note("IDLE → ambient"); commit("ambient", true); }
 }
 
-void App::Impl::checkNight() {
+void App::Impl::checkQuiet() {
   now = localTime();
-  bool n = nightActive();
-  if (nightKnown && n != prevNight) {
+  bool n = quietActive();
+  if (quietKnown && n != prevQuiet) {
     if (n) {
       captureSnap();
       menu = Menu::None;
-      applyFrontlight();
-      note("NIGHT on · frontlight off · data redraws paused");
-      fullRefresh("night face");
+      note("QUIET on · back at " + quietBackAt(set.quiet, set.clock) + " · no data redraws, no clock");
+      fullRefresh("quiet face");
     } else if (!(peekUntil && int32_t(peekUntil - ms()) > 0)) {
-      snap = NightSnap();
-      applyFrontlight();
-      fullRefresh("night end");
+      snap = QuietSnap();
+      fullRefresh("quiet end");
     }
   }
-  prevNight = n; nightKnown = true;
+  prevQuiet = n; quietKnown = true;
 }
 
 void App::Impl::captureSnap() {
-  HomeData d = derive();
-  snap = NightSnap();
-  if (d.inside.ok) snap.inside = fmtNum(d.inside.v, "°C") + "°";
-  if (d.soc.ok) snap.batt = jsNumber(jsRound(d.soc.v)) + "%";
-  int c = d.cheapestStart(3);
-  if (c >= 0) snap.cheap = pad2(c) + ":00–" + pad2(c + 3) + ":00";
+  data = derive();
+  snap = QuietSnap();
+  snap.rows = ui::quietRows(*this);
   int64_t last = svc.status().haLastDataEpoch;
   if (nightStale(board.epochSeconds(), last)) {
     time_t tt = time_t(last); struct tm tm; localtime_r(&tt, &tm);
@@ -905,7 +951,7 @@ void App::Impl::captureSnap() {
 }
 
 void App::Impl::applyFrontlight() {
-  board.setFrontlight(uint8_t(frontlightPct(set.brightness, sleeping || poweredOff, mode == Mode::Main && nightActive(), lightOut)), set.warmth);
+  board.setFrontlight(uint8_t(frontlightPct(set.brightness, sleeping || poweredOff, lightOut)), set.warmth);
 }
 
 void App::Impl::settingsChanged() {
@@ -1106,7 +1152,7 @@ void App::Impl::setCfg(const std::string& key, int dir) {
   if (key == "brightness") { int v = std::max(0, std::min(100, set.brightness + dir * 10)); ch = v != set.brightness; set.brightness = uint8_t(v); }
   else if (key == "warmth") { int v = std::max(0, std::min(100, set.warmth + dir * 10)); ch = v != set.warmth; set.warmth = uint8_t(v); }
   else if (key == "lightTimeout") { std::string c = std::to_string(set.lightTimeout); ch = stepList({"30", "60", "120", "300", "0"}, c); if (ch) set.lightTimeout = std::atoi(c.c_str()); }
-  else if (key == "night") ch = stepList({"off", "22-06", "23-07", "00-06"}, set.night);
+  else if (key == "quiet") ch = stepList({"off", "22-06", "23-07", "00-06"}, set.quiet);   // #295
   else if (key == "returnHome") { std::string c = std::to_string(idleMinutes(set.returnHome)); ch = stepList({"0", "1", "5", "15"}, c); if (ch) set.returnHome = c == "0" ? "never" : c; }
   else if (key == "standby") { std::string c = std::to_string(idleMinutes(set.standby)); ch = stepList({"0", "10", "30", "60"}, c); if (ch) set.standby = c == "0" ? "never" : c; }
   else if (key == "clock") ch = stepList({"24", "12"}, set.clock);
@@ -1115,7 +1161,7 @@ void App::Impl::setCfg(const std::string& key, int dir) {
   else if (key == "style") ch = stepList({"classic", "sleek"}, set.style);
   else if (key == "typeface") ch = stepList({"archivo", "bricolage", "fraunces", "geist"}, set.typeface);
   else if (key == "surface") ch = stepList({"dither", "dots"}, set.surface);
-  else if (key == "powerSave") ch = stepList({"glance", "night", "standby", "off"}, set.powerSave);
+  else if (key == "powerSave") ch = stepList({"glance", "standby", "off"}, set.powerSave);
   else if (key == "wakeEvery") { std::string c = std::to_string(set.wakeEvery); ch = stepList({"15", "30", "60"}, c); if (ch) set.wakeEvery = std::atoi(c.c_str()); }
   else if (key == "liveMin") { std::string c = std::to_string(set.liveMin); ch = stepList({"1", "3", "5", "10"}, c); if (ch) set.liveMin = std::atoi(c.c_str()); }
   if (!ch) return;

@@ -28,8 +28,9 @@ enum class WifiView : uint8_t { List, Pw, Connecting, Phone };
 enum class Kb : uint8_t { Lower, Upper, Nums };
 enum class HaView : uint8_t { Status, Link };
 
-// Night face values, frozen at night start. asOf: "HH:MM" of the last data, only when it was stale (#27).
-struct NightSnap { bool taken = false; std::string inside = "—", batt = "—", cheap = "—", asOf; };
+// Quiet face values (#295): label + value of the Home page's first value tiles, frozen when the face goes up. asOf:
+// "HH:MM" of the last data, only when it was stale (#27).
+struct QuietSnap { bool taken = false; std::vector<std::pair<std::string, std::string>> rows; std::string asOf; };
 
 struct LocalTime {
   bool known = false;
@@ -37,6 +38,8 @@ struct LocalTime {
   std::string clock = "--:--";   // per 12/24-hour setting
   std::string date;              // "Tuesday 13 October"
   std::string hm = "—";          // always 24 h, for "updated HH:MM"
+  int64_t epochMs = 0;           // now, for the history chart span (#270)
+  int tz = 0;                    // local UTC offset, minutes
 };
 
 // One redraw region: key, rectangle, painter, z (higher drawn later).
@@ -65,8 +68,9 @@ struct App::Impl {
   Setup setup = Setup::None;
   int idx = 0, sub = 0;
   uint32_t peekUntil = 0;
-  bool prevNight = false, nightKnown = false;
-  NightSnap snap;
+  bool prevQuiet = false, quietKnown = false;
+  QuietSnap snap;
+  std::string bootWake = "cold";   // net powerWakeName(): a boot that a timer did not cause opens with a peek (#295)
   WifiView wview = WifiView::List;
   std::string wTarget, wPw, wMsg;
   bool wShow = false, wScanning = false;
@@ -118,11 +122,12 @@ struct App::Impl {
   std::string netSig;
 
   bool held = false;          // glance wake: nothing goes to the panel (App::setPanelHeld)
+  std::string asleepAt;       // #299: non-empty = going to deep sleep; clocks show this time as "updated"
   uint32_t panelMs = 0;       // last panel refresh call, ms (log line, #197/#200)
   uint32_t renderMs = 0;      // framebuffer draw before it, ms (log line, #212)
   uint32_t buildMs = 0, recordMs = 0;   // renderMs split (#213): region build, signature record; the rest is paint
   std::vector<std::pair<uint32_t, std::string>> paintMs;   // per region painted in the last render, ms (#213)
-  bool offscreen = false;     // App::renderScreen is building a preview: no night face
+  bool offscreen = false;     // App::renderScreen is building a preview: no quiet face
   bool userInput = false;     // a key / touch since boot (power: live mode)
   uint32_t userInputAt = 0;
   void panelFull();
@@ -135,6 +140,11 @@ struct App::Impl {
   bool fresh = false;
   uint32_t freshAt = 0, freshUntil = 0;
   void expectData(uint32_t delayMs, uint32_t windowMs) { fresh = true; freshAt = ms() + delayMs; freshUntil = freshAt + windowMs; }
+
+  // history tile series (#270), in PSRAM: one slot per hist::seriesKey, at most kMaxTiles
+  struct HistSlot { PStr key; hist::State state = hist::State::Loading; hist::Series s; };
+  std::vector<HistSlot, PsramAlloc<HistSlot>> hist;
+  const HistSlot* histOf(const std::string& key) const;
 
   // ---- derived per frame ----
   HomeData data;
@@ -154,8 +164,8 @@ struct App::Impl {
   bool neverLinked() const;
   bool revoked() const;
   bool offline() const;
-  bool nightHour() const;
-  bool nightActive() const;
+  bool quietHour() const;     // quiet hours (#295, core/logic.h): clock known and inside the window
+  bool quietActive() const;   // the quiet face is up: quietHour, not peeking, not in setup (standby too)
   bool clockOnPage() const;   // the current page shows a clock tile (ambient drops the bar clock)
   int curSub() const;
   const Screen* curScreen() const;
@@ -193,7 +203,7 @@ struct App::Impl {
   void input();
   void tick();
   void idleCheck();
-  void checkNight();
+  void checkQuiet();
   void netChanged();
   void applyFrontlight();
   void captureSnap();
@@ -247,13 +257,14 @@ void topBar(Canvas& c, I& a);
 // Minute-tick regions (issue #38): the clock text drawn on its own so the tick redraws only these boxes.
 Rect barTimeRect(I& a);                 // "time" in the top bar
 void barTime(Canvas& c, I& a);
-Rect faceTimeRect(I& a);                // "time" on the night / standby face
+Rect faceTimeRect(I& a);                // "time" on the standby face
 void faceTime(Canvas& c, I& a);
 Rect clockTimeRect(I& a, const Widget& w, Rect r);    // "k<i>" inside clock tile r
 void clockTime(Canvas& c, I& a, const Widget& w, Rect r);
 void menu(Canvas& c, I& a, Rect r);
 void bootFace(Canvas& c, I& a);
-void nightFace(Canvas& c, I& a);
+void quietFace(Canvas& c, I& a);
+std::vector<std::pair<std::string, std::string>> quietRows(I& a);   // label, value of the quiet face's tiles
 void standbyFace(Canvas& c, I& a);
 void updatingFace(Canvas& c, I& a);
 void recoveryFace(Canvas& c, I& a);

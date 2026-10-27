@@ -8,12 +8,18 @@
 #include <map>
 #include <set>
 #include <string>
+#include <utility>
+#include <vector>
 #include "core/entity_map.h"
 
 namespace x4 {
 
 // Attribute names read by core/home.cpp and core/entity_map.cpp (list in entities.h). A new reader → add it here.
 bool keepAttr(const char* key);
+// Per-entity extras (#292): the attribute a history tile charts, kept for that entity only. Replaces the set; true when
+// it changed. keepAttrFor: keepAttr, or one of these.
+bool setExtraAttrs(const std::vector<std::pair<std::string, std::string>>& entityAttr);
+bool keepAttrFor(const char* entity, const char* key);
 // Scalar as text ("" for null, "true"/"false", numbers as JSON); arrays/objects as JSON text.
 std::string scalarText(ArduinoJson::JsonVariantConst v);
 // Apply one event (a = added, full; c = changed, diff; r = removed) to `mirror`; every touched entity is appended to

@@ -7,7 +7,7 @@
 
 namespace x4 {
 
-enum class PowerSave : uint8_t { Off, Night, Standby, Glance };   // glance: default on battery (#10, #18)
+enum class PowerSave : uint8_t { Off, Standby, Glance };   // glance: default on battery (#10, #18); "night" left in #295
 enum class OtaAuto : uint8_t { Off, Notify, Night };
 enum class CpuProfile : uint8_t { Full, Auto };   // Full = 240 MHz; Auto = 80 MHz (cpuMhzFor, #177)
 enum class WifiPs : uint8_t { None, Min };        // None = no modem sleep; Min = modem sleep (DTIM)
@@ -25,8 +25,8 @@ struct PowerInputs {
   int32_t localSec = 0;          // seconds since local midnight
   PowerSave powerSave = PowerSave::Off;
   int wakeEvery = 15;            // minutes, standby timer wake
-  std::string night = "off";     // "23-07" | "off"
-  bool peeking = false;          // dashboard shown for 60 s after a key press at night
+  std::string quiet = "off";     // quiet hours "23-07" | "off" (#295)
+  bool peeking = false;          // dashboard shown for 60 s after a press in quiet hours
   bool standby = false;          // standby face is on
   bool charging = false;
   bool usb = false;              // USB host connected (USB-JTAG)
@@ -51,7 +51,7 @@ struct PowerDecision {
   CpuProfile cpuProfile = CpuProfile::Full;
   WifiPs wifiPs = WifiPs::None;
   bool external = false;
-  const char* reason = "";       // same words as the emulator ("unconfirmed image", "night", …)
+  const char* reason = "";       // same words as the emulator ("unconfirmed image", "quiet", …)
 };
 
 int64_t secsUntil(int32_t localSec, int32_t targetSec);   // next targetSec of the day; equal = a full day
@@ -66,7 +66,7 @@ constexpr int64_t kSleepNowMinS = 60, kSleepNowMaxS = 86400;
 struct SleepNowCheck { int status; std::string error; };   // 202 = sleep
 SleepNowCheck sleepNowCheck(bool isNumber, double seconds, const PowerInputs& i);
 
-const char* powerSaveName(PowerSave p);   // off | night | standby | glance
+const char* powerSaveName(PowerSave p);   // off | standby | glance
 bool parsePowerSave(const std::string& s, PowerSave& out);
 const char* cpuProfileName(CpuProfile p); // full | auto
 const char* wifiPsName(WifiPs p);         // none | min

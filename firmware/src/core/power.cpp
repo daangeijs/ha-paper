@@ -42,9 +42,9 @@ PowerDecision powerDecision(const PowerInputs& i) {
   if (i.powerSave == PowerSave::Off) return awake("power save off");
   if (i.powerSave == PowerSave::Glance && i.live) return awake("live");
 
-  const bool night = isNightHour(hour, i.night) && !i.peeking;
+  const bool quiet = isNightHour(hour, i.quiet) && !i.peeking;   // quiet hours (#295): no timer wakes in the window
   int64_t wait = kMaxSleepS;
-  if (night) { d.reason = "night"; wait = std::min(wait, secsUntil(i.localSec, nightEndHour(i.night) * 3600)); }
+  if (quiet) { d.reason = "quiet"; wait = std::min(wait, secsUntil(i.localSec, nightEndHour(i.quiet) * 3600)); }
   else if (i.powerSave == PowerSave::Standby && i.standby) { d.reason = "standby"; wait = std::min<int64_t>(wait, int64_t(i.wakeEvery) * 60); }
   else if (i.powerSave == PowerSave::Glance) { d.reason = "glance"; wait = std::min(wait, glanceWaitS(i.wakeEvery, i.glanceFails)); }
   else return awake("awake");
@@ -55,11 +55,10 @@ PowerDecision powerDecision(const PowerInputs& i) {
 }
 
 const char* powerSaveName(PowerSave p) {
-  return p == PowerSave::Night ? "night" : p == PowerSave::Standby ? "standby" : p == PowerSave::Glance ? "glance" : "off";
+  return p == PowerSave::Standby ? "standby" : p == PowerSave::Glance ? "glance" : "off";
 }
 bool parsePowerSave(const std::string& s, PowerSave& out) {
   if (s == "off") out = PowerSave::Off;
-  else if (s == "night") out = PowerSave::Night;
   else if (s == "standby") out = PowerSave::Standby;
   else if (s == "glance") out = PowerSave::Glance;
   else return false;

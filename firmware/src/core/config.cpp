@@ -226,12 +226,12 @@ const std::vector<Screen>& settingsScreens() {
     };
     auto setting = [&](const char* key, int cs = 1, int rs = 1) { return tile("setting", key, cs, rs); };
     std::vector<Screen> o;
-    o.push_back({"display", kSettingsApp, "Display", {setting("brightness"), setting("warmth"), setting("lightTimeout"), setting("night"),
+    o.push_back({"display", kSettingsApp, "Display", {setting("brightness"), setting("warmth"), setting("lightTimeout"),
                                                        setting("returnHome"), setting("standby"), setting("interval"), setting("cleanEvery")}});
-    // Display is full (8 cells): the clock format sits with the look since #220
+    // the clock format sits with the look since #220; night mode left for Power › Quiet hours (#295)
     o.push_back({"style", kSettingsApp, "Display style", {setting("style"), setting("typeface", 2), setting("surface"), setting("clock")}});
-    // two rows tall: room for each setting's hint (#190)
-    o.push_back({"power", kSettingsApp, "Power", {setting("powerSave", 2, 2), setting("wakeEvery", 1, 2), setting("liveMin", 1, 2)}});
+    // power saving two rows tall: room for its hint (#190); quiet hours (#295) are a power setting first
+    o.push_back({"power", kSettingsApp, "Power", {setting("powerSave", 2, 2), setting("quiet", 2), setting("wakeEvery"), setting("liveMin")}});
     o.push_back({"updates", kSettingsApp, "Updates", {tile("ota", nullptr, 4, 2)}});
     o.push_back({"wifi", kSettingsApp, "Wi-Fi", {tile("wifi", nullptr, 4, 2)}});
     o.push_back({"ha", kSettingsApp, "Home Assistant", {tile("ha", nullptr, 4, 2)}});
@@ -430,7 +430,9 @@ ParseResult parseYamlText(const std::string& text) {
           }
           type = get("type");
         }
-        if (auto* doms = entityDomains(type.v)) {
+        const std::vector<const char*>* doms = entityDomains(type.v);
+        if (type.v == "history") doms = &hist::historyDomains(hist::sourceOf(get("attribute").present, get("entity").v));   // #292
+        if (doms) {
           WVal e = get("entity");
           // gauge without entity = home battery; route without entity = an empty user route (old catalog ids, #145);
           // scene without entity = all lights off (#146)
@@ -466,8 +468,13 @@ ParseResult parseYamlText(const std::string& text) {
         if (truthy(rs) && !(rs.num && (rs.v == "1" || rs.v == "2"))) throw Fail{n, "rs must be 1 or 2"};
         if (type.v == "history") {   // #268, emulator history.ts historyError
           auto f = [&](const char* k) { WVal x = get(k); return hist::Field{x.present, x.v}; };
-          std::string err = hist::configError(f("window"), f("bucket"), f("agg"), f("style"), f("min"), f("max"),
-                                              truthy(cs) ? std::atoi(cs.v.c_str()) : 1);
+          hist::Fields hf;
+          hf.entity = get("entity").v;
+          hf.cs = truthy(cs) ? std::atoi(cs.v.c_str()) : 1;
+          hf.window = f("window"); hf.bucket = f("bucket"); hf.agg = f("agg"); hf.style = f("style"); hf.min = f("min");
+          hf.max = f("max"); hf.attribute = f("attribute"); hf.value = f("value"); hf.time = f("time"); hf.ahead = f("ahead");
+          hf.forecast = f("forecast"); hf.threshold = f("threshold"); hf.labels = f("labels");
+          std::string err = hist::configError(hf);
           if (!err.empty()) throw Fail{n, err};
           if (++histories > hist::kMaxTiles) throw Fail{n, "At most " + std::to_string(hist::kMaxTiles) + " history tiles"};
         }

@@ -4,13 +4,13 @@
 //  * fast: whole-frame differential update, no flash (~0.6 s). Every navigation: screen/app change, home, overlays
 //    open/close, open page, keyboard / Wi-Fi views. Every NAV_CLEAN-th navigation is a clean instead. B/W only since
 //    #212: grays thresholded like a partial (the gray pass cost ~0.5 s per page on the X4 Pro); the next clean restores them.
-//  * clean: one short flash (~1 s). Boot, wake, glance render, night face / night end, standby, setup steps, new config,
+//  * clean: one short flash (~1 s). Boot, wake, glance render, quiet face / quiet end, standby, setup steps, new config,
 //    style switch, OTA screen, and a scheduled "clean screen" at the first :00/:30 at least `cleanEvery` minutes
 //    (Settings › Clean screen: 30, 60 or 120) after the last clean, only when a partial or fast refresh was drawn
-//    since, and not while night mode is active (night end is a clean anyway).
+//    since, and not during quiet hours (quiet end is a clean anyway).
 //  * full: the multi-flash waveform, only for a manual POST /display/refresh.
-// Partial refresh (windowed, B/W only since #38) otherwise, never while in standby or during night mode (except the
-// clock). Clock unset (no SNTP yet): no schedule, so CLEAN_CAP partials or fast refreshes force a clean
+// Partial refresh (windowed, B/W only since #38) otherwise, never on the quiet face (#295: no clock either), nor in
+// standby (except its clock). Clock unset (no SNTP yet): no schedule, so CLEAN_CAP partials or fast refreshes force a clean
 // ("ghosting limit").
 
 export const CLEAN_SLOT_MIN = 30;
@@ -21,15 +21,16 @@ export const CLEAN_CAP = 30;
 /** Navigations per clean: the NAV_CLEAN-th navigation since the last clean is a clean, the others are fast (#197). */
 export const NAV_CLEAN = 10;
 
-export type RefreshInput = { reason: string; sleeping: boolean; night: boolean; sinceFull: number; clockKnown: boolean };
+export type RefreshInput = { reason: string; sleeping: boolean; quiet: boolean; sinceFull: number; clockKnown: boolean };
 export type RefreshDecision =
-  | { kind: 'skip'; why: 'standby' | 'night' }
+  | { kind: 'skip'; why: 'standby' | 'quiet' }
   | { kind: 'clean'; reason: 'ghosting limit' }
   | { kind: 'partial'; sinceFull: number };
 
-export function decidePartial({ reason, sleeping, night, sinceFull, clockKnown }: RefreshInput): RefreshDecision {
+/** `quiet`: the quiet face is up (core/quiet.ts); it has no clock, so nothing is drawn, the minute tick included. */
+export function decidePartial({ reason, sleeping, quiet, sinceFull, clockKnown }: RefreshInput): RefreshDecision {
+  if (quiet) return { kind: 'skip', why: 'quiet' };
   if (sleeping && reason !== 'clock') return { kind: 'skip', why: 'standby' };
-  if (night && reason !== 'clock') return { kind: 'skip', why: 'night' };
   const since = sinceFull + 1;
   if (!clockKnown && since >= CLEAN_CAP) return { kind: 'clean', reason: 'ghosting limit' };
   return { kind: 'partial', sinceFull: since };
@@ -61,15 +62,15 @@ export function nextCleanMin(lastFullMin: number, everyMin: number = DEFAULT_CLE
   return Math.ceil((lastFullMin + everyMin) / CLEAN_SLOT_MIN) * CLEAN_SLOT_MIN;
 }
 
-export type CleanInput = { sinceFull: number; lastFullMin: number; nowMin: number; everyMin: number; night: boolean };
-/** Scheduled clean due at `nowMin` (epoch minutes)? Only with partial / fast refreshes since the last clean and not at night (standby
- * keeps it); catches up after a gap. */
-export function cleanDue({ sinceFull, lastFullMin, nowMin, everyMin, night }: CleanInput): boolean {
-  return !night && sinceFull > 0 && nowMin >= nextCleanMin(lastFullMin, everyMin);
+export type CleanInput = { sinceFull: number; lastFullMin: number; nowMin: number; everyMin: number; quiet: boolean };
+/** Scheduled clean due at `nowMin` (epoch minutes)? Only with partial / fast refreshes since the last clean and not on the
+ * quiet face (standby keeps it); catches up after a gap. */
+export function cleanDue({ sinceFull, lastFullMin, nowMin, everyMin, quiet }: CleanInput): boolean {
+  return !quiet && sinceFull > 0 && nowMin >= nextCleanMin(lastFullMin, everyMin);
 }
 
 /**
- * Regions the minute tick redraws (issue #38): the clock text of the top bar / night face / standby face (`time`) and
+ * Regions the minute tick redraws (issue #38): the clock text of the top bar / standby face (`time`) and
  * the digit window of each clock tile (`k<i>`; Sleek: digits + day progress). The whole tile `t<i>` only when the date
  * line changes. Top bar + clock tile was 800 × 263 px = 55 % of the panel, which the driver turns into a whole-frame
  * B/W refresh; the two windows' bounding box stays well under half.

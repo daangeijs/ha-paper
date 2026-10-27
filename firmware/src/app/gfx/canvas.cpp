@@ -373,6 +373,20 @@ void Canvas::dottedHLine(int x, int y, int w, int th, Ink c) {
   rec_ = save;
 }
 
+void Canvas::line(int x0, int y0, int x1, int y1, int th, Ink c) {
+  rec("L%d,%d,%d,%d,%d,%d;", x0, y0, x1, y1, th, int(c));
+  if (!fb_) return;
+  const int dx = std::abs(x1 - x0), dy = -std::abs(y1 - y0), sx = x0 < x1 ? 1 : -1, sy = y0 < y1 ? 1 : -1, o = th / 2;
+  int err = dx + dy;
+  for (;;) {
+    for (int y = y0 - o; y < y0 - o + th; ++y) span(y, x0 - o, x0 - o + th, c);
+    if (x0 == x1 && y0 == y1) break;
+    int e2 = 2 * err;
+    if (e2 >= dy) { err += dy; x0 += sx; }
+    if (e2 <= dx) { err += dx; y0 += sy; }
+  }
+}
+
 void Canvas::circle(int cx, int cy, int r, Ink fc, int bw, Ink border) {
   Rect rr{int16_t(cx - r), int16_t(cy - r), int16_t(2 * r), int16_t(2 * r)};
   rec("C%d,%d,%d,%d,%d,%d;", cx, cy, r, int(fc), bw, int(border));
@@ -516,6 +530,24 @@ void Canvas::surfKnockout(int x, int baseline, int tw, const std::string& s, con
 void Canvas::arc(int cx, int cy, double radius, double stroke, double fromDeg, double sweepDeg, Ink c) {
   rec("A%d,%d,%d,%d,%d,%d,%d;", cx, cy, int(radius * 10), int(stroke * 10), int(fromDeg * 10), int(sweepDeg * 10), int(c));
   arcImpl(cx, cy, radius, stroke, fromDeg, sweepDeg, c, -1);
+}
+
+void Canvas::dashedHLine(int x, int y, int w, int th, int dash, int gapLen, Ink c) {
+  rec("h%d,%d,%d,%d,%d,%d;", x, y, w, th, dash, gapLen);
+  std::string* save = rec_; rec_ = nullptr;
+  for (int i = 0; i < w; i += dash + gapLen) fill(Rect{int16_t(x + i), int16_t(y), int16_t(std::min(dash, w - i)), int16_t(th)}, c);
+  rec_ = save;
+}
+
+void Canvas::toneUnder(int xa, int ya, int xb, int yb, int yBase, Tone t) {
+  rec("U%d,%d,%d,%d,%d,%d;", xa, ya, xb, yb, yBase, int(t));
+  if (!fb_ || xb < xa) return;
+  std::string* save = rec_; rec_ = nullptr;
+  for (int x = xa; x <= xb; ++x) {
+    const int y = xb == xa ? std::min(ya, yb) : ya + int(std::lround(double(yb - ya) * (x - xa) / (xb - xa)));
+    if (yBase > y) tone(Rect{int16_t(x), int16_t(y), 1, int16_t(yBase - y)}, 0, t);
+  }
+  rec_ = save;
 }
 
 void Canvas::dottedVLine(int x, int y, int h, int th, Ink c) {

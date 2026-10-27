@@ -1,4 +1,4 @@
-// Device: hardware frame (keys) + the 800 × 480 e-ink screen (boot, main UI, night, standby, OTA overlays).
+// Device: hardware frame (keys) + the 800 × 480 e-ink screen (boot, main UI, quiet face, standby, OTA overlays).
 // Markup converted mechanically from Main.dc.html lines 29–769 (RECREATE.md Option C mapping).
 import { Fragment, type CSSProperties } from 'react';
 import type { Vals } from '../emulator/Emulator.tsx';
@@ -22,17 +22,21 @@ function HistoryPlot({ w, sleek }: { w: any; sleek: boolean }) {
           : <div style={{ minWidth: "0", fontSize: "20px", fontWeight: "700", textTransform: "uppercase", lineHeight: "24px", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{w.label}</div>}
         <span style={{ flex: "none", fontFamily: sleek ? "var(--fd)" : undefined, fontStretch: sleek ? "var(--fs)" : undefined, fontSize: sleek ? "calc(22px * var(--fk))" : "20px", fontWeight: "700", fontVariantNumeric: "tabular-nums" }}>{w.summary}</span>
       </div>
-      <div data-x4-history={w.isLine ? 'line' : 'bars'} style={{ position: "relative", flex: "1", minHeight: "24px", marginTop: "4px", borderBottom: w.isBarChart && !w.hasState && w.zeroPct !== null ? "0" : "2px dotted #111" }}>
+      <div data-x4-history={w.histStyle} style={{ position: "relative", flex: "1", minHeight: "24px", marginTop: "4px", borderBottom: w.isBarChart && !w.hasState && w.zeroPct !== null ? "0" : "2px dotted #111" }}>
         {w.isBarChart && !w.hasState && (<div style={{ position: "absolute", inset: "0", display: "flex", gap: w.barGap }}>
           {(w.hBars).map((b: any, i_b: number) => (<div key={i_b} style={{ position: "relative", flex: "1", minWidth: "0" }}>
             {!b.gap && <div style={{ position: "absolute", left: "0", right: "0", bottom: b.bottom, height: b.h, background: b.bg, borderRadius: sleek ? "4px" : "2px 2px 0 0" }}></div>}
           </div>))}
         </div>)}
         {w.isBarChart && !w.hasState && w.zeroPct !== null && (<div style={{ position: "absolute", left: "0", right: "0", bottom: w.zeroPct, height: "2px", marginBottom: "-1px", background: "#111" }}></div>)}
+        {!w.hasState && (w.fills).map((cp: string, i_f: number) => (<div key={'f' + i_f} data-x4-fill="" style={{ position: "absolute", inset: "0", background: w.fillBg, clipPath: cp }}></div>))}
+        {!w.hasState && w.thresholdPct !== null && (<div data-x4-threshold="" style={{ position: "absolute", left: "0", right: "0", bottom: w.thresholdPct, height: "2px", marginBottom: "-1px", background: "repeating-linear-gradient(90deg, #111 0 6px, transparent 6px 10px)" }}></div>)}
         {w.isLine && !w.hasState && (<svg viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden="true" style={{ position: "absolute", inset: "0", width: "100%", height: "100%", overflow: "visible" }}>
-          {(w.paths).map((d: string, i_p: number) => (<path key={i_p} d={d} fill="none" stroke="#111" strokeWidth={sleek ? 3 : 2} strokeLinejoin="round" strokeLinecap="round" vectorEffect="non-scaling-stroke" />))}
+          {(w.paths).map((d: string, i_p: number) => (<path key={i_p} d={d} fill="none" stroke="#111" strokeWidth={sleek ? 3 : 2} strokeLinejoin={w.isStep ? "miter" : "round"} strokeLinecap={w.isStep ? "square" : "round"} vectorEffect="non-scaling-stroke" />))}
         </svg>)}
-        {w.isLine && !w.hasState && !!w.dot && (<div style={{ position: "absolute", left: w.dot.left, bottom: w.dot.bottom, width: "12px", height: "12px", transform: "translate(-50%, 50%)", borderRadius: "50%", background: "#111", border: "2px solid #ECEBE5" }}></div>)}
+        {!w.hasState && (w.dots).map((p: any, i_d: number) => (<div key={'d' + i_d} style={{ position: "absolute", left: p.left, bottom: p.bottom, width: w.dotPx + "px", height: w.dotPx + "px", transform: "translate(-50%, 50%)", borderRadius: "50%", background: "#111" }}></div>))}
+        {!w.isBarChart && !w.hasState && !!w.dot && (<div style={{ position: "absolute", left: w.dot.left, bottom: w.dot.bottom, width: "12px", height: "12px", transform: "translate(-50%, 50%)", borderRadius: "50%", background: "#111", border: "2px solid #ECEBE5" }}></div>)}
+        {!w.hasState && (w.labels).map((l: any, i_l: number) => (<span key={'l' + i_l} data-x4-label="" style={{ position: "absolute", left: l.left, bottom: `clamp(0px, calc(${l.bottom} - 9px), calc(100% - 18px))`, transform: `translateX(${l.shift})`, height: "18px", lineHeight: "18px", padding: "0 3px", background: "#ECEBE5", fontSize: small, fontWeight: sleek ? "600" : "700", fontVariantNumeric: "tabular-nums", whiteSpace: "nowrap" }}>{l.text}</span>))}
         {w.hasState && (<div style={{ position: "absolute", inset: "0", display: "flex", alignItems: "center", justifyContent: "center", fontSize: "18px", fontWeight: "700", textAlign: "center" }}>{w.stateText}</div>)}
       </div>
       <div style={{ position: "relative", flex: "none", height: "20px", fontSize: small, fontVariantNumeric: "tabular-nums" }}>
@@ -151,7 +155,8 @@ export function Device({ v }: { v: Vals }) {
                         <div style={{ width: "3px", height: "6px", background: "#111", borderRadius: "0 1px 1px 0" }}></div>
                       </div>
                     </div>)}
-                    {!!(v.chromeClock) && (<div style={{ position: "relative", flex: "none", fontSize: "22px", fontWeight: "700", fontVariantNumeric: "tabular-nums" }}>{v.clock}{!!(v.timeDirty) && (<><div className="dirty"></div></>)}</div>)}
+                    {!!(v.chromeClock) && !!(v.asleepMark) && (<div style={{ flex: "none", fontSize: "18px", fontWeight: "400" }}>{v.asleepMark}</div>)}
+                    {!!(v.chromeClock) && !(v.asleepMark) && (<div style={{ position: "relative", flex: "none", fontSize: "22px", fontWeight: "700", fontVariantNumeric: "tabular-nums" }}>{v.clock}{!!(v.timeDirty) && (<><div className="dirty"></div></>)}</div>)}
                   </div>
                   {/* zone 3: page navigation (fixed 176); hidden in ambient (#27) */}
                   {!!(v.chromePager) && (<div style={{ flex: "none", width: "176px", height: "44px", display: "flex", border: "2px solid #111", borderRadius: "8px", overflow: "hidden" }}>
@@ -200,7 +205,8 @@ export function Device({ v }: { v: Vals }) {
                       {!!(v.battLow) && (<><span style={{ fontSize: "14px", fontWeight: "700" }}>{v.devBatt}%</span></>)}
                       <div style={{ width: "24px", height: "12px", borderRadius: "4px", background: TRACK, overflow: "hidden" }}><div style={{ height: "100%", width: `${v.devBatt}%`, background: "#111" }}></div></div>
                     </div>)}
-                    {!!(v.chromeClock) && (<div style={{ position: "relative", flex: "none", fontFamily: "var(--fd)", fontStretch: "var(--fs)", fontSize: "calc(24px * var(--fk))", fontWeight: "700", fontVariantNumeric: "tabular-nums" }}>{v.clock}{!!(v.timeDirty) && (<><div className="dirty"></div></>)}</div>)}
+                    {!!(v.chromeClock) && !!(v.asleepMark) && (<div style={{ flex: "none", fontSize: "16px", fontWeight: "600" }}>{v.asleepMark}</div>)}
+                    {!!(v.chromeClock) && !(v.asleepMark) && (<div style={{ position: "relative", flex: "none", fontFamily: "var(--fd)", fontStretch: "var(--fs)", fontSize: "calc(24px * var(--fk))", fontWeight: "700", fontVariantNumeric: "tabular-nums" }}>{v.clock}{!!(v.timeDirty) && (<><div className="dirty"></div></>)}</div>)}
                   </div>
                   {!!(v.chromePager) && (<div style={{ flex: "none", height: "52px", boxSizing: "border-box", padding: "4px", borderRadius: "26px", background: "#DEDCD5", display: "flex", alignItems: "center", gap: "2px" }}>
                     <button className="ink-btn" aria-label="Previous page" onClick={v.tapPrev} style={{ width: "44px", height: "44px", border: "0", borderRadius: "50%", background: "#ECEBE5", display: "flex", alignItems: "center", justifyContent: "center" }}><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.6" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M15 5l-7 7 7 7" /></svg></button>
@@ -274,7 +280,7 @@ export function Device({ v }: { v: Vals }) {
                       {/* sleek clock: inverted hero card with day progress */}
                       {!!(w.sClock) && (<>
                         <div style={{ flex: "1", minHeight: "0", padding: "16px 20px 14px", display: "flex", flexDirection: "column", justifyContent: "space-between" }}>
-                          <div style={{ display: "flex", justifyContent: "space-between", gap: "10px", fontSize: "16px", fontWeight: "600", color: "#ECEBE5" }}><span>{v.weekday}</span><span>{v.dayMonth}</span></div>
+                          <div style={{ display: "flex", justifyContent: "space-between", gap: "10px", fontSize: "16px", fontWeight: "600", color: "#ECEBE5" }}><span>{v.clockHead}</span><span>{v.dayMonth}</span></div>
                           <div style={{ fontFamily: "var(--fd)", fontStretch: "var(--fs)", fontSize: `calc(${w.big}px * var(--fk))`, fontWeight: "700", lineHeight: "0.82", letterSpacing: "-3px", fontVariantNumeric: "tabular-nums" }}>{v.clock}</div>
                           <div style={{ display: "flex", flexDirection: "column", gap: "5px" }}>
                             <div style={{ height: "6px", borderRadius: "3px", background: "linear-gradient(#ECEBE5, #ECEBE5) 0 2px / 100% 2px no-repeat", overflow: "hidden" }}><div style={{ width: `${w.dayPct}%`, height: "100%", background: "#ECEBE5", borderRadius: "3px" }}></div></div>
@@ -457,7 +463,6 @@ export function Device({ v }: { v: Vals }) {
                       {!!(w.sSetting) && (<>
                         <div style={{ flex: "1", minHeight: "0", padding: "14px 12px 12px", display: "flex", flexDirection: "column", justifyContent: "space-between" }}>
                           <div style={{ fontSize: "16px", fontWeight: "600", padding: "0 4px" }}>{w.label}</div>
-                          {!!(w.hint) && (<div style={{ fontSize: "15px", lineHeight: "20px", padding: "0 4px" }}>{w.hint}</div>)}
                           <div style={{ height: "56px", borderRadius: "28px", background: "#ECEBE5", display: "flex", alignItems: "center", justifyContent: "space-between", padding: "0 6px", gap: "4px" }}>
                             <button className="ink-btn" aria-label={`Decrease ${w.label}`} onClick={w.dec} style={{ flex: "none", width: "44px", height: "44px", border: "0", borderRadius: "50%", background: "#DEDCD5", fontSize: "22px", fontWeight: "600", lineHeight: "1" }}>−</button>
                             <span style={{ minWidth: "0", fontFamily: "var(--fd)", fontStretch: "var(--fs)", fontSize: "calc(20px * var(--fk))", fontWeight: "700", fontVariantNumeric: "tabular-nums", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{w.value}</span>
@@ -480,7 +485,7 @@ export function Device({ v }: { v: Vals }) {
                       {!!(w.isClock) && (<>
                         <div style={{ flex: "1", padding: "12px 18px", display: "flex", flexDirection: "column", justifyContent: "center", gap: "4px" }}>
                           <div style={{ position: "relative", fontSize: "92px", fontWeight: "700", letterSpacing: "-4px", lineHeight: "0.95", fontVariantNumeric: "tabular-nums" }}>{v.clock}{!!(w.clockDirty) && (<><div className="dirty"></div></>)}</div>
-                          <div style={{ fontSize: "20px", fontWeight: "700" }}>{v.dateText}</div>
+                          <div style={{ fontSize: "20px", fontWeight: "700" }}>{v.clockSub}</div>
                         </div>
                       </>)}
 
@@ -652,7 +657,6 @@ export function Device({ v }: { v: Vals }) {
                         <div style={{ flex: "1", padding: "12px 14px", display: "flex", flexDirection: "column", justifyContent: "space-between" }}>
                           <div style={{ fontSize: "20px", fontWeight: "700", textTransform: "uppercase", lineHeight: "24px", display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", overflow: "hidden" }}>{w.label}</div>
                           <div style={{ fontSize: "26px", fontWeight: "700", fontVariantNumeric: "tabular-nums", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{w.value}</div>
-                          {!!(w.hint) && (<div style={{ fontSize: "18px", lineHeight: "22px", color: "#111" }}>{w.hint}</div>)}
                           <div style={{ display: "flex", gap: "8px" }}>
                             <button className="ink-btn" aria-label={`Decrease ${w.label}`} onClick={w.dec} style={{ flex: "1", height: "46px", border: "2px solid #111", borderRadius: "8px", background: "#ECEBE5", fontSize: "24px", fontWeight: "700" }}>−</button>
                             <button className="ink-btn" aria-label={`Increase ${w.label}`} onClick={w.inc} style={{ flex: "1", height: "46px", border: "2px solid #111", borderRadius: "8px", background: "#ECEBE5", fontSize: "24px", fontWeight: "700" }}>+</button>
@@ -957,7 +961,11 @@ export function Device({ v }: { v: Vals }) {
                           </>)}
                           {!!(w.isCar) && (<>
                             <div className="hl" style={{ flex: "1", minHeight: "0", display: "flex", flexDirection: "column", justifyContent: "center", gap: "4px", borderTop: "1px dotted #111" }}>
-                              <div style={{ display: "flex", alignItems: "baseline", gap: "6px" }}><span className="num" style={{ fontSize: "52px", fontWeight: "700", letterSpacing: "-1.5px", lineHeight: "1", fontVariantNumeric: "tabular-nums" }}>{w.eta}</span><span style={{ fontSize: "20px", fontWeight: "700" }}>min</span><span style={{ fontSize: "17px", color: "#111", marginLeft: "10px" }}>{v.t('arriveIfLeave', w.arrive)}</span></div>
+                              <div style={{ display: "flex", alignItems: "baseline", gap: "6px" }}><span className="num" style={{ fontSize: "52px", fontWeight: "700", letterSpacing: "-1.5px", lineHeight: "1", fontVariantNumeric: "tabular-nums" }}>{w.eta}</span><span style={{ fontSize: "20px", fontWeight: "700" }}>min</span>
+                                {/* #303: cs ≥ 3 shows the arrival time as a second big value; cs 2 keeps it in the line */}
+                                {w.carWide
+                                  ? (<><span aria-hidden="true" style={{ flex: "none", alignSelf: "stretch", margin: "0 20px 0 14px", borderLeft: "1px dotted #111" }}></span><span className="num" style={{ flex: "none", fontSize: "52px", fontWeight: "700", letterSpacing: "-1.5px", lineHeight: "1", fontVariantNumeric: "tabular-nums" }}>{w.arrive}</span><span style={{ minWidth: "0", fontSize: "17px", color: "#111", marginLeft: "10px", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{v.t('arriveCaption')}</span></>)
+                                  : <span style={{ fontSize: "17px", color: "#111", marginLeft: "10px" }}>{v.t('arriveIfLeave', w.arrive)}</span>}</div>
                               <div style={{ fontSize: "16px", color: "#111" }}>{w.vs}</div>
                             </div>
                           </>)}
@@ -1034,15 +1042,16 @@ export function Device({ v }: { v: Vals }) {
               </div>
             </>)}
 
-            {/* NIGHT FACE */}
-            {!!(v.isNight) && (<>
+            {/* QUIET FACE (#295): no clock (a sleeping panel would show a wrong time), the end of quiet hours, the date and
+                the Home page's first values, frozen when the face went up. Firmware app/ui_chrome.cpp quietFace. */}
+            {!!(v.isQuiet) && (<>
               <div style={{ position: "absolute", inset: "0", background: "#ECEBE5", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: "10px" }}>
-                <div className="num" style={{ position: "relative", fontSize: "150px", fontWeight: "700", letterSpacing: "-7px", lineHeight: "0.9", fontVariantNumeric: "tabular-nums" }}>{v.clock}{!!(v.timeDirty) && (<><div className="dirty"></div></>)}</div>
+                <div style={{ fontSize: "52px", fontWeight: "700", lineHeight: "1" }}>{v.quietBack}</div>
                 <div style={{ fontSize: "28px", fontWeight: "700" }}>{v.dateText}</div>
-                <div style={{ display: "flex", flexWrap: "wrap", justifyContent: "center", maxWidth: "760px", columnGap: "40px", rowGap: "10px", marginTop: "22px", fontSize: "26px" }}>
-                  <span>{v.t('inside')} <b>{v.night.inside}</b></span><span>{v.t('battery')} <b>{v.night.batt}</b></span><span>{v.t('cheapest')} <b>{v.night.cheap}</b></span>
-                </div>
-                {!!(v.asleepLine || v.nightAsOf) && (<div style={{ fontSize: "18px", color: "#111", marginTop: "10px" }}>{v.asleepLine || v.nightAsOf}</div>)}
+                {!!(v.quietRows.length) && (<div style={{ display: "flex", flexWrap: "wrap", justifyContent: "center", maxWidth: "760px", columnGap: "40px", rowGap: "10px", marginTop: "22px", fontSize: "26px" }}>
+                  {(v.quietRows).map((r: any, i_r: number) => (<Fragment key={i_r}><span>{r.label} <b>{r.value}</b></span></Fragment>))}
+                </div>)}
+                {!!(v.quietAsOf) && (<div style={{ fontSize: "18px", color: "#111", marginTop: "10px" }}>{v.quietAsOf}</div>)}
                 <button aria-label="Show dashboard" onClick={v.peek} style={{ position: "absolute", inset: "0", background: "none", border: "0" }}></button>
               </div>
             </>)}
@@ -1078,7 +1087,7 @@ export function Device({ v }: { v: Vals }) {
                 <div style={{ display: "grid", gridTemplateColumns: "auto auto", columnGap: "40px", rowGap: "10px", marginTop: "22px", fontSize: "26px" }}>
                   <span>{v.t('solar')} <b>{v.standbySolar}</b></span><span>{v.t('battery')} <b>{v.standbyBatt}</b></span><span>{v.t('price')} <b>{v.standbyPrice}</b></span><span>{v.t('heating')} <b>{v.standbyHeat}</b></span>
                 </div>
-                <div style={{ fontSize: "18px", color: "#111", marginTop: "10px" }}>{v.asleepLine || v.t('standbyFoot', v.lastUpdate)}</div>
+                <div style={{ fontSize: "18px", color: "#111", marginTop: "10px" }}>{v.asleepLine || v.asleepFootLine || v.t('standbyFoot', v.lastUpdate)}</div>
               </div>
             </>)}
 

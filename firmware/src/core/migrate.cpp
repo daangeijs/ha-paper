@@ -2,6 +2,8 @@
 
 #include <cmath>
 
+#include "core/logic.h"
+
 namespace x4::migrate {
 
 namespace {
@@ -9,7 +11,22 @@ namespace {
 // Step n upgrades a settings object from schema n to n + 1, in place. Index = from-version.
 using Step = void (*)(Json&);
 void settings0to1(Json&) {}   // files from before versioning, same shape; only stamped
-constexpr Step kSettingsSteps[] = {settings0to1};
+Json* member(Json& o, const std::string& k);
+Json text(const std::string& s) {
+  Json j;
+  j.type = Json::Type::String;
+  j.str = s;
+  return j;
+}
+// 1 → 2 (#295): quiet hours. New key `quiet` from `night` (kept for a rollback); "Sleep at night" becomes glance.
+void settings1to2(Json& d) {
+  if (!member(d, "quiet")) {
+    const Json* n = d.get("night");
+    d.obj.push_back({"quiet", text(quietFromNight(n && n->isStr() ? &n->str : nullptr))});
+  }
+  if (Json* p = member(d, "powerSave"); p && p->isStr() && p->str == "night") p->str = "glance";
+}
+constexpr Step kSettingsSteps[] = {settings0to1, settings1to2};
 static_assert(sizeof kSettingsSteps / sizeof kSettingsSteps[0] == kSettingsSchema, "one step per version");
 
 Json* member(Json& o, const std::string& k) {

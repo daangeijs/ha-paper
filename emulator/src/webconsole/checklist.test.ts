@@ -12,6 +12,11 @@ const en = (k: StrKey, ...a: (string | number)[]) => tr('en', k, ...a);
 const nl = (k: StrKey, ...a: (string | number)[]) => tr('nl', k, ...a);
 const base: CheckInput = { offline: false, filled: 9, total: 17, previewSeen: false };
 
+// Module level: biome's noComponentHookFactories (2.6) rejects a component defined inside the test.
+function FirstRunPage({ e, rep }: { e: Emulator; rep: SeedReportView }) {
+  return createElement(FirstRunCard, { rep, v: { web: useConsole(e.api, e.snapshot() as any), osName: 'HA Paper' }, open: false, setOpen: () => {}, hide: () => {}, fix: () => {} });
+}
+
 describe('first-run checklist (#91)', () => {
   it('four steps; done only when linked, seeded and the preview was opened', () => {
     const s = checklist(base, en);
@@ -41,8 +46,7 @@ describe('first-run checklist (#91)', () => {
     const e = new Emulator({});
     (e as any).state = { ...e.state, mode: 'main', setup: null, offline: false, ha: { ...e.state.ha, linked: true }, session: { signedIn: true, user: 'u', admin: true } };
     const rep: SeedReportView = { filled: 1, total: 2, dismissed: false, tiles: [{ tile: 'price', screen: 'energy', rule: 'energy' }, { tile: 'lights', screen: 'lights', why: 'none' }] };
-    const Page = () => createElement(FirstRunCard, { rep, v: { web: useConsole(e.api, e.snapshot() as any), osName: 'HA Paper' }, open: false, setOpen: () => {}, hide: () => {}, fix: () => {} });
-    const h = renderToString(createElement(Page));
+    const h = renderToString(createElement(FirstRunPage, { e, rep }));
     for (const t of ['Getting started', 'Linked to Home Assistant', '1 tile filled', 'Show values', 'Not found in your Home Assistant, so left out: lights.']) expect(h).toContain(t);
     for (const t of ['See what’s missing', 'All set', '<summary']) expect(h).not.toContain(t);   // nothing to pick; done not yet
   });

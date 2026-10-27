@@ -131,14 +131,13 @@ export const APPS: App[] = [
 export const APP: Record<string, App> = Object.fromEntries(APPS.map((a) => [a.id, a]));
 
 /** `label`: English (config, console defaults); the display and console show tr(lang, lk). */
-/** `info`: what the setting does (#190): the console's (i), the hint on a tall Settings tile on the device. */
+/** `info`: what the setting does (#190): the console's (i); the device tile shows title + value only (#310). */
 export type SettingDef = { label: string; lk: StrKey; info?: StrKey; fmt: (v: any, lang?: Lang) => string; step?: number; min?: number; max?: number; steps?: (string | number)[] };
 const SETTING_DEFS: Record<string, Omit<SettingDef, 'label'>> = {
   brightness: { lk: 'setBrightness', fmt: (v, lg = 'en') => (v === 0 ? tr(lg, 'off') : v + '%'), step: 10, min: 0, max: 100 },
   warmth: { lk: 'setWarmth', fmt: (v) => v + '%', step: 10, min: 0, max: 100 },
   // Front light timeout (#220), seconds; 0 = never.
   lightTimeout: { lk: 'setLightTimeout', info: 'infoLightTimeout', fmt: (v, lg = 'en') => (v === 0 ? tr(lg, 'never') : v < 60 ? tr(lg, 'afterSec', v) : tr(lg, 'afterMin', v / 60)), steps: [30, 60, 120, 300, 0] },
-  night: { lk: 'setNight', fmt: (v, lg = 'en') => (v === 'off' ? tr(lg, 'off') : v.split('-').map((x: string) => pad(+x)).join('–')), steps: ['off', '22-06', '23-07', '00-06'] },
   returnHome: { lk: 'setReturnHome', fmt: (v, lg = 'en') => (v === 0 ? tr(lg, 'never') : tr(lg, 'afterMin', v)), steps: [0, 1, 5, 15] },
   standby: { lk: 'setStandby', info: 'infoStandby', fmt: (v, lg = 'en') => (v === 0 ? tr(lg, 'never') : tr(lg, 'afterMin', v)), steps: [0, 10, 30, 60] },
   clock: { lk: 'setClock', fmt: (v, lg = 'en') => tr(lg, v === '24' ? 'hour24' : 'hour12'), steps: ['24', '12'] },
@@ -149,7 +148,9 @@ const SETTING_DEFS: Record<string, Omit<SettingDef, 'label'>> = {
   typeface: { lk: 'setTypeface', fmt: (v) => ({ archivo: 'Archivo', bricolage: 'Bricolage', fraunces: 'Fraunces', geist: 'Geist' } as Record<string, string>)[v] || String(v), steps: ['archivo', 'bricolage', 'fraunces', 'geist'] },
   surface: { lk: 'setSurface', fmt: (v, lg = 'en') => tr(lg, v === 'dots' ? 'surfDots' : 'surfDither'), steps: ['dither', 'dots'] },
   // Power (ROBUSTNESS_PLAN Phase 3, src/core/power.ts; glance #10). GET/PUT /settings `display`.
-  powerSave: { lk: 'setPowerSave', info: 'infoPowerSave', fmt: (v, lg = 'en') => { const k = ({ off: 'psOff', night: 'psNight', standby: 'psStandby', glance: 'psGlance' } as Record<string, StrKey>)[v]; return k ? tr(lg, k) : String(v); }, steps: ['glance', 'night', 'standby', 'off'] },
+  powerSave: { lk: 'setPowerSave', info: 'infoPowerSave', fmt: (v, lg = 'en') => { const k = ({ off: 'psOff', standby: 'psStandby', glance: 'psGlance' } as Record<string, StrKey>)[v]; return k ? tr(lg, k) : String(v); }, steps: ['glance', 'standby', 'off'] },
+  // Quiet hours (#295, core/quiet.ts): replaces Display › Night mode and the "Sleep at night" power mode.
+  quiet: { lk: 'setQuiet', info: 'infoQuiet', fmt: (v, lg = 'en') => (v === 'off' ? tr(lg, 'off') : v.split('-').map((x: string) => pad(+x)).join('–')), steps: ['off', '22-06', '23-07', '00-06'] },
   wakeEvery: { lk: 'setWakeEvery', info: 'infoWakeEvery', fmt: (v) => v + ' min', steps: [15, 30, 60] },
   liveMin: { lk: 'setLiveMin', info: 'infoLiveMin', fmt: (v) => v + ' min', steps: [1, 3, 5, 10] },
 };

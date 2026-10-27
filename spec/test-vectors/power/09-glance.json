@@ -1,12 +1,12 @@
 {
   "name": "09-glance",
-  "description": "Glance (#10, default on battery per #18): deep sleep between timer wakes every wakeEvery minutes; a key press keeps it live (live = within liveMin minutes); HA unreachable doubles the wait per failed wake (cap 2 h); night and the 03:00 OTA window still win; every guard of 01-07 holds. armBootsLeft > 0 (first-boot safety: confirmed boots with network still needed) blocks every deep sleep.",
+  "description": "Glance (#10, default on battery per #18): deep sleep between timer wakes every wakeEvery minutes; a key press keeps it live (live = within liveMin minutes); HA unreachable doubles the wait per failed wake (cap 2 h); quiet hours and the 03:00 OTA window still win; every guard of 01-07 holds. armBootsLeft > 0 (first-boot safety: confirmed boots with network still needed) blocks every deep sleep.",
   "base": {
     "nowEpoch": 1800000000,
     "localSec": 43200,
     "powerSave": "glance",
     "wakeEvery": 15,
-    "night": "23-07",
+    "quiet": "23-07",
     "peeking": false,
     "standby": false,
     "charging": false,
@@ -61,7 +61,7 @@
       }
     },
     {
-      "name": "live wins over night",
+      "name": "live wins over quiet hours",
       "input": {
         "live": true,
         "localSec": 7200
@@ -73,18 +73,18 @@
       }
     },
     {
-      "name": "glance at 02:00: night end, no wakes in the night",
+      "name": "glance at 02:00: quiet hours end, no wakes in the window",
       "input": {
         "localSec": 7200
       },
       "expect": {
         "deepSleepNow": true,
         "wakeAtEpoch": 1800018000,
-        "reason": "night"
+        "reason": "quiet"
       }
     },
     {
-      "name": "glance 22:50, every 15: 15 min (the 23:05 wake draws the night face)",
+      "name": "glance 22:50, every 15: 15 min (the 23:05 wake draws the quiet face)",
       "input": {
         "localSec": 82200
       },
@@ -145,7 +145,7 @@
         "localSec": 10200,
         "otaAuto": "night",
         "otaDue": true,
-        "night": "off"
+        "quiet": "off"
       },
       "expect": {
         "deepSleepNow": true,
@@ -252,7 +252,7 @@
       }
     },
     {
-      "name": "first-boot safety: 1 boot left blocks the night too",
+      "name": "first-boot safety: 1 boot left blocks quiet hours too",
       "input": {
         "armBootsLeft": 1,
         "localSec": 7200

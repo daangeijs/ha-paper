@@ -62,7 +62,7 @@ server/           device simulator (node:http, no runtime deps) + fake Home Assi
 6. **API errors**: in Advanced › API, create a *Read only* token, then run export → get → vim → `PUT` in the terminal → `HTTP 403`. Revoke the token → `status` → `HTTP 401`.
    In the YAML tab, change an entity to `sensor.sola_power` and press Push → "Not pushed. Line 11: Unknown entity …". This is the same 422 rule as `PUT /config`.
 7. **OTA**: Settings › Updates → Check → Install. With *Bad download* nothing changes. With *Won't start* the device reboots, fails, and rolls back to v0.3.0.
-8. **Night**: set the time to 23:00 → night face; data redraws are skipped ("night · redraw skipped"). Tapping the screen shows the dashboard for 60 s (moon icon).
+8. **Quiet hours**: set the time to 23:00 → quiet face ("Back at 07:00", the date, the Home page's first values); nothing is redrawn ("quiet hours · redraw skipped"). A tap or key shows the dashboard for 60 s (moon icon).
 
 ## Strings (English and Dutch, #98)
 

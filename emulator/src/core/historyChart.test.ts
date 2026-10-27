@@ -10,6 +10,36 @@ const spec = (w: Record<string, string | number>) => historySpec({ type: 'histor
 const ser = (values: (number | null)[], bucketMs = HOUR): Series => ({ start: NOW - values.length * bucketMs, bucketMs, values });
 
 describe('history chart', () => {
+  it('#304 area: the line plus a fill polygon per run of 2+ points down to 0; a lone point gets no fill', () => {
+    const c = historyChart(spec({ window: '6h', bucket: '1h', style: 'area' }), ser([10, 12, null, 14, null, 12]), 'ok', NOW, 0, 'en', fmt);
+    expect(c.style).toBe('area'); expect(c.lines.map((l) => l.length)).toEqual([2, 1, 1]);
+    const t = historyTile(c);
+    expect(t.isLine).toBe(true); expect(t.fills).toHaveLength(1);
+    expect(t.fills[0]).toMatch(/^polygon\(8\.33% 100\.00%, 8\.33% [\d.]+%, 25\.00% [\d.]+%, 25\.00% 100\.00%\)$/);
+  });
+  it('#304 step: a flat run per bucket between its edges, broken at a gap', () => {
+    const c = historyChart(spec({ window: '4h', bucket: '1h', style: 'step' }), ser([1, 2, null, 2]), 'ok', NOW, 0, 'en', fmt);
+    expect(c.lines.map((l) => l.map((p) => p.x))).toEqual([[0, 0.25, 0.25, 0.5], [0.75, 1]]);
+    expect(c.lines[0][1].y).toBe(c.lines[0][0].y);
+  });
+  it('#304 dots: one per bucket with data, the latest also as the big dot', () => {
+    const c = historyChart(spec({ window: '4h', bucket: '1h', style: 'dots' }), ser([1, null, 3, null]), 'ok', NOW, 0, 'en', fmt);
+    expect(c.lines).toEqual([]); expect(c.dots.map((p) => p.x)).toEqual([0.125, 0.625]); expect(c.dot?.x).toBe(0.625);
+  });
+  it('#304 threshold widens an auto range and is dashed; outside a fixed range it is not drawn', () => {
+    const c = historyChart(spec({ window: '4h', bucket: '1h', threshold: 20 }), ser([10, 11, 12, 11]), 'ok', NOW, 0, 'en', fmt);
+    expect(c.hi).toBeGreaterThan(20); expect(c.threshold).not.toBeNull();
+    expect(historyTile(c).thresholdPct).toMatch(/%$/);
+    const f = historyChart(spec({ window: '4h', bucket: '1h', threshold: 20, min: 0, max: 15 }), ser([10, 11, 12, 11]), 'ok', NOW, 0, 'en', fmt);
+    expect(f.threshold).toBeNull();
+  });
+  it('#304 labels: max, min, and last unless it shares their spot', () => {
+    const c = historyChart(spec({ window: '6h', bucket: '1h', labels: 'true' }), ser([10, 14, 9, 11, 12, 11.5]), 'ok', NOW, 0, 'en', fmt);
+    expect(c.labels.map((l) => [l.kind, l.i, l.text, l.side])).toEqual([['max', 1, '14.0', 'right'], ['min', 2, '9.0', 'right'], ['last', 5, '11.5', 'left']]);
+    const n = historyChart(spec({ window: '6h', bucket: '1h', labels: 'true' }), ser([10, 11, 9, 11, 12, 14]), 'ok', NOW, 0, 'en', fmt);
+    expect(n.labels.map((l) => l.kind)).toEqual(['max', 'min']);
+    expect(historyChart(spec({ window: '6h', bucket: '1h' }), ser([1, 2, 3, 4, 5, 6]), 'ok', NOW, 0, 'en', fmt).labels).toEqual([]);
+  });
   it('bars from zero; negatives below the zero line; a gap draws nothing; the latest bucket is marked', () => {
     const s = spec({ window: '6h', bucket: '1h', agg: 'max' });
     const c = historyChart(s, ser([2, -2, null, 4, 0, null]), 'ok', NOW, 0, 'en', fmt);

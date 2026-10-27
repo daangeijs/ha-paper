@@ -37,7 +37,7 @@ describe('device renders', () => {
     for (const view of ['list', 'pw', 'connecting', 'phone'] as const) html(emu({ setup: 'wifi', wifi: { ...emu().state.wifi, connected: null, view, target: 'HomeNet', pw: 'abc' } }));
     expect(html(emu({ setup: 'web' }))).toContain('Finish in your browser');
     const night = html(emu({ simHour: 23 }));
-    expect(night).not.toContain('Night mode until'); expect(night).not.toContain('tap anywhere');
+    expect(night).not.toContain('Night mode until'); expect(night).not.toContain('tap anywhere'); expect(night).toContain('Back at 07:00');
     expect(html(emu({ ambient: true }))).not.toContain('All pages in this app');
     expect(html(emu({ sleeping: true }))).toContain('Standby');
     expect(html(emu({ mode: 'updating', upd: { version: '0.4.0', pct: 40, step: 'Downloading firmware.bin' } }))).toContain('Updating to');
@@ -107,6 +107,23 @@ describe('history tile renders', () => {
     expect(h).toMatch(/Low 0\.0 · \d\d:\d\d/); expect(h).toMatch(/High \d+\.\d · \d\d:\d\d/);
     expect(h).toContain('data-x4-history="line"'); expect(h).toContain('Home weather');
     expect(graysIn(h)).toEqual([]);
+  });
+});
+
+// Car route (#303): cs ≥ 3 shows the arrival time as a second big value with a caption; cs 2 keeps the one line.
+describe('car route renders', () => {
+  const at = (cs: number, look: 'classic' | 'geist', lang: 'en' | 'nl' = 'en') => {
+    const base = emu();
+    const e = emu({ haLang: lang, screens: [{ id: 'car', app: 'home', title: 'Drive', widgets: [{ type: 'route', route: 'car', cs }] } as any, ...base.state.screens.filter((s) => s.app === 'settings')], idx: 0, sub: 0,
+      cfg: { ...base.state.cfg, ...(look === 'classic' ? { style: 'classic' } : { style: 'sleek', typeface: look }) } as EmuState['cfg'] });
+    const h = html(e); return h.slice(h.indexOf('data-x4-screen'));
+  };
+  for (const look of ['classic', 'geist'] as const) it(look + ': cs 4 big arrival + caption, cs 2 inline', () => {
+    const wide = at(4, look);
+    expect(wide).toContain('arrive if you leave now'); expect(wide).not.toMatch(/arrive \d\d:\d\d/);
+    expect(wide).toMatch(/font-size:52px[^>]*>\d\d:\d\d</);
+    expect(at(3, look, 'nl')).toContain('aankomst als je nu vertrekt');
+    expect(at(2, look)).toMatch(/arrive \d\d:\d\d if you leave now/);
   });
 });
 

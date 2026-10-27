@@ -150,13 +150,14 @@ export const defaultConfig = (): Config => {
 // The fixed Settings pages (#159), in order; = firmware core/config.cpp settingsScreens().
 const SETTINGS_SCREENS: Omit<Screen, 'app'>[] = [
   { id: 'display', title: 'Display', widgets: [
-    { type: 'setting', key: 'brightness' }, { type: 'setting', key: 'warmth' }, { type: 'setting', key: 'lightTimeout' }, { type: 'setting', key: 'night' },
+    { type: 'setting', key: 'brightness' }, { type: 'setting', key: 'warmth' }, { type: 'setting', key: 'lightTimeout' },
     { type: 'setting', key: 'returnHome' }, { type: 'setting', key: 'standby' }, { type: 'setting', key: 'interval' }, { type: 'setting', key: 'cleanEvery' } ] },
-  // Display is full (8 cells): the clock format sits with the look since #220.
+  // The clock format sits with the look since #220; night mode left for Power › Quiet hours (#295).
   // Display styles (x4-display-styles): the look is a device setting; these tiles only step it (same screen as firmware/src/core/config.cpp).
   { id: 'style', title: 'Display style', widgets: [{ type: 'setting', key: 'style' }, { type: 'setting', key: 'typeface', cs: 2 }, { type: 'setting', key: 'surface' }, { type: 'setting', key: 'clock' }] },
-  // Power saving (ROBUSTNESS_PLAN 3.1, glance #10, emulator DEVIATIONS 10). Two rows tall: room for each setting's hint (#190).
-  { id: 'power', title: 'Power', widgets: [{ type: 'setting', key: 'powerSave', cs: 2, rs: 2 }, { type: 'setting', key: 'wakeEvery', rs: 2 }, { type: 'setting', key: 'liveMin', rs: 2 }] },
+  // Power saving (ROBUSTNESS_PLAN 3.1, glance #10, emulator DEVIATIONS 10). Two rows tall (#190); no hint line since #310.
+  // Quiet hours (#295) sit here: on battery they are a power setting first.
+  { id: 'power', title: 'Power', widgets: [{ type: 'setting', key: 'powerSave', cs: 2, rs: 2 }, { type: 'setting', key: 'quiet', cs: 2 }, { type: 'setting', key: 'wakeEvery' }, { type: 'setting', key: 'liveMin' }] },
   { id: 'updates', title: 'Updates', widgets: [{ type: 'ota', cs: 4, rs: 2 }] },
   { id: 'wifi', title: 'Wi-Fi', widgets: [{ type: 'wifi', cs: 4, rs: 2 }] },
   { id: 'ha', title: 'Home Assistant', widgets: [{ type: 'ha', cs: 4, rs: 2 }] },

@@ -10,7 +10,7 @@ import {
   PAPER, INK, PRICES, USAGE, SOLAR, ZONE_LIST, ZONE_NAME, ROOMS, ROOM_NAME, LIGHT_LIST, LIGHT, CHEAP, MODE_ICON, NETWORKS, KB, REPO, HOST, SIM_IP, ICON, FW_INSTALLED, INITIAL_RELEASES, ENT, APP, SETTINGS, SETTING_CFG, EXTRA_ENTITIES, HA_ENTITIES, type HaData, type Derived, type Release,
 } from '../core/data.ts';
 import { currency, currencySymbol, money, setCurrency, tzFor, DEFAULT_TZ } from '../core/locale.ts';
-import { pad, kw, fmtNum, fmtValue, entityGap, hhmm, isNightHour, semver, newer, barsFor, hm, numFormat, numFormatOf, presetHasAway, setNumFormat } from '../core/format.ts';
+import { pad, kw, fmtNum, fmtValue, entityGap, hhmm, semver, newer, barsFor, hm, numFormat, numFormatOf, presetHasAway, setNumFormat } from '../core/format.ts';
 import { defaultScreens, withSettings, userConfig, SETTINGS_APP, SETUP_SCREENS, toYaml, parseYaml, cellsUsed, gridLayout, DEFAULT_APPS, GAUGE_DEFAULT_ENTITY, domainOf, entityGaps, zoneLabel, sceneAction, type AppDef, type Config, type Screen, type Widget } from '../core/config.ts';
 import { cfgToDisplay, displayToCfg, displayError, nameError, settingsPutError, LOOK_KEYS, DEFAULT_POWER, type Cfg, type DeviceSettings, type OtaAutoMode, type OtaChannel, type SettingsPatch } from '../core/settings.ts';
 import { DEMO_ROUTES, DELAY_SETS, TRAVEL, demoTravelScreen } from './demoTravel.ts';
@@ -27,6 +27,7 @@ import { otaLine, type OtaErr } from '../core/otaStatus.ts';
 import { subPages, flatPages, rects, PER_COL, PER_PAGE, lightGroupsOf, layoutGroups, listPages, pickLights, pickZones, type Rect } from '../core/paging.ts';
 import { bwAfter, SCREEN_W, TRACK, HATCH } from '../core/panel.ts';
 import { ambientDue, chromeFor, nightStale, AMBIENT_MS, type Chrome } from '../core/ambient.ts';
+import { DEFAULT_QUIET, PEEK_MS, inQuietHours, peekOnBoot, quietBackAt, quietTiles, type WakeKind } from '../core/quiet.ts';
 import { DEFAULT_LIGHT_TIMEOUT, frontlightPct, lightTimedOut, lightWakeConsumes } from '../core/frontlight.ts';
 import { decidePartial, decideNav, minuteKeys, cleanDue, nextCleanMin, DEFAULT_CLEAN_EVERY, PowerHold } from '../core/refresh.ts';
 import { KeyedDebouncer, nextSetpoint, TADO_DEBOUNCE_MS } from '../core/debounce.ts';
@@ -85,10 +86,11 @@ export type EmuState = {
   /** Panel preview (#25): areas a partial refresh left B/W on the panel since the last full refresh. */
   panelPreview: boolean; bw: Rect[];
   pending: Record<string, true>; lastUpdate: Date | null; peekUntil: number;
-  /** Ambient idle mode (#27): chrome hidden after 60 s without input. `nightSnap.at`: "HH:MM" only when the data was stale. */
+  /** Ambient idle mode (#27): chrome hidden after 60 s without input. `quietSnap` (#295): the Home page values the quiet
+   *  face shows, taken when it went up; `at`: "HH:MM" only when the data was stale. */
   /** Front light timed out (#220, core/frontlight.ts); the next key/tap only turns it back on. */
   lightOut: boolean;
-  ambient: boolean; nightSnap: { inside: string; batt: string; cheap: string; at: string } | null; dirty: string[];
+  ambient: boolean; quietSnap: { rows: { label: string; value: string }[]; at: string } | null; dirty: string[];
   bootMsg: string;
   ota: { fw: string; channel: 'stable' | 'beta'; auto: string; status: string; lastCheck: Date | null; avail: Release | null; msg: string; err: OtaErr | null; pendingVerify: boolean; prev: string | null };
   releases: Record<'stable' | 'beta', Release>; failMode: 'ok' | 'hash' | 'boot'; checkFail: 'ok' | OtaErr; upd: { version: string; pct: number; step: string } | null; travel: string;
@@ -108,7 +110,7 @@ export class Emulator extends Component<EmulatorProps, EmuState> {
   timers: ReturnType<typeof setTimeout>[] = [];
   powerHold = new PowerHold();   // power deadband (#85): tiles keep the last shown value inside it
   debounce = new KeyedDebouncer();
-  lastMinute = -1; prevNight: boolean | undefined = undefined; lastInput = Date.now(); idleHomed = false;
+  lastMinute = -1; prevQuiet: boolean | undefined = undefined; bootWake: WakeKind = 'cold'; lastInput = Date.now(); idleHomed = false;
   /** Epoch minute of the last full refresh: the scheduled clean (#26) runs at the first :00/:30 ≥ 30 min after it. */
   lastFullMin = Math.floor(Date.now() / 60000);
   /** Last web console / API request that reached the display (null = none since boot). */
@@ -124,6 +126,7 @@ export class Emulator extends Component<EmulatorProps, EmuState> {
    *  installed display (armed); set it to see the "not armed" rule. */
   armLeft = 0;
   swipe: { x: number; y: number; t: number } | null = null; swallowClick = false;
+  heldBootUntil = 0;   // #299 key wake without a boot screen: the boot window for "Right held at boot"
   clockT?: ReturnType<typeof setInterval>; tickT?: ReturnType<typeof setInterval>; dirtyT?: ReturnType<typeof setTimeout>;
   listeners = new Set<() => void>();
   api: DeviceApi;
@@ -135,14 +138,14 @@ export class Emulator extends Component<EmulatorProps, EmuState> {
     this.state = {
       mode: 'boot', sleeping: false, asleep: null, usb: false, idx: 0, sub: 0, menu: false,
       ...withSettings({ apps: DEFAULT_APPS.map((a) => ({ ...a })), screens: withDemoTravel(defaultScreens()) }), name: 'Living room display', entities: {},
-      cfg: { brightness: 0, warmth: 40, lightTimeout: DEFAULT_LIGHT_TIMEOUT, night: '23-07', fullEvery: 8, cleanEvery: DEFAULT_CLEAN_EVERY, interval: 30, returnHome: 5, standby: 0, clock: '24', style: 'classic', typeface: 'archivo', surface: 'dither', haReport: true, ...DEFAULT_POWER },
+      cfg: { brightness: 0, warmth: 40, lightTimeout: DEFAULT_LIGHT_TIMEOUT, quiet: DEFAULT_QUIET, fullEvery: 8, cleanEvery: DEFAULT_CLEAN_EVERY, interval: 30, returnHome: 5, standby: 0, clock: '24', style: 'classic', typeface: 'archivo', surface: 'dither', haReport: true, ...DEFAULT_POWER },
       setup: null,
       ha: { linked: false, revoked: false, view: 'status', server: MDNS_HA, user: 'X4 display', stage: 0, pair: '4F7K', running: false },
       onboard: null, resetArm: false, bootAt: new Date(), recovery: recoveryInit(),
       session: { signedIn: false }, tokens: [], configRev: 1, installId: newInstallId(),
       term: { lines: [{ t: 'Last login: Tue Oct 13 on ttys001', c: '#8d8a83' }, { t: '$ export X4=http://' + HOST, c: '#d9d6ce' }], file: null, exported: null, known: {} },
       simHour: null, haLang: langOf(props.lang), haCurrency: 'EUR', tz: '', render: 'gray4', paused: false, offline: false, zoneCount: 10, away: false, showRegions: true, panelPreview: true, bw: [],
-      pending: {}, lastUpdate: null, peekUntil: 0, lightOut: false, ambient: false, nightSnap: null, dirty: [],
+      pending: {}, lastUpdate: null, peekUntil: 0, lightOut: false, ambient: false, quietSnap: null, dirty: [],
       bootMsg: 'Connecting to Home Assistant…',
       ota: { fw: FW_INSTALLED, channel: 'stable', auto: 'notify', status: 'idle', lastCheck: null, avail: null, msg: '', err: null, pendingVerify: false, prev: null },
       releases: JSON.parse(JSON.stringify(INITIAL_RELEASES)), failMode: 'ok', checkFail: 'ok', upd: null, travel: 'mixed',
@@ -166,7 +169,7 @@ export class Emulator extends Component<EmulatorProps, EmuState> {
       this.idleCheck();
       this.powerTick();
       if (now.getMinutes() !== this.lastMinute) {
-        if (this.lastMinute !== -1 && this.state.mode === 'main' && !this.state.asleep && cleanDue({ sinceFull: this.state.sinceFull, lastFullMin: this.lastFullMin, nowMin: Math.floor(now.getTime() / 60000), everyMin: this.state.cfg.cleanEvery, night: this.nightActive(this.state) })) this.fullRefresh('clean screen');
+        if (this.lastMinute !== -1 && this.state.mode === 'main' && !this.state.asleep && cleanDue({ sinceFull: this.state.sinceFull, lastFullMin: this.lastFullMin, nowMin: Math.floor(now.getTime() / 60000), everyMin: this.state.cfg.cleanEvery, quiet: this.quietActive(this.state) })) this.fullRefresh('clean screen');
         else if (this.lastMinute !== -1 && this.state.mode === 'main' && !this.state.asleep) this.partialRefresh('clock', minuteKeys(this.keysOfType('clock'), this.hourOf(this.state) === 0 && now.getMinutes() === 0).filter((k) => k !== 'time' || this.chromeOf(this.state).clock));
         this.lastMinute = now.getMinutes();
       }
@@ -175,17 +178,17 @@ export class Emulator extends Component<EmulatorProps, EmuState> {
   }
   componentDidUpdate() {
     this.listeners.forEach((f) => f());
-    const s = this.state; if (s.mode !== 'main') { this.prevNight = undefined; return; }
-    const n = this.nightActive(s);
-    if (this.prevNight !== undefined && n !== this.prevNight) {
+    const s = this.state; if (s.mode !== 'main') { this.prevQuiet = undefined; return; }
+    const n = this.quietActive(s);
+    if (this.prevQuiet !== undefined && n !== this.prevQuiet) {
       if (n) {
-        const d = this.derive(s.d, s);
-        this.setState({ menu: false, nightSnap: { inside: fmtNum(d.zones.living.cur, '°C') + '°', batt: Math.round(d.soc) + '%', cheap: pad(CHEAP) + ':00–' + pad(CHEAP + 3) + ':00', at: this.staleAt(s) } });
-        this.fullRefresh('night face');
-        this.log('NIGHT on · frontlight off · data redraws paused · clock only');
-      } else this.log('NIGHT paused · dashboard visible');
+        this.setState({ menu: false, quietSnap: this.quietSnapOf(s) });
+        this.fullRefresh('quiet face');
+        this.log('QUIET on · back at ' + quietBackAt(s.cfg.quiet, s.cfg.clock) + ' · no data redraws, no clock');
+      } else if (s.peekUntil > s.now.getTime()) this.log('QUIET paused · dashboard visible');
+      else { this.setState({ quietSnap: null }); this.fullRefresh('quiet end'); }
     }
-    this.prevNight = n;
+    this.prevQuiet = n;
   }
   componentWillUnmount() { clearInterval(this.clockT); clearInterval(this.tickT); clearTimeout(this.dirtyT); this.timers.forEach(clearTimeout); this.debounce.clear(); }
 
@@ -193,8 +196,17 @@ export class Emulator extends Component<EmulatorProps, EmuState> {
   hourOf(s: EmuState) { return s.simHour == null ? s.now.getHours() : s.simHour; }
   hour() { return this.hourOf(this.state); }
   hm(dt: Date) { return hm(dt); }
-  nightHour(s: EmuState) { return isNightHour(this.hourOf(s), s.cfg.night); }
-  nightActive(s: EmuState) { return this.nightHour(s) && !(s.peekUntil > s.now.getTime()) && !s.sleeping; }
+  /** Quiet hours (#295, core/quiet.ts). The face is up inside the window unless peeking or in setup; standby too. */
+  quietHour(s: EmuState) { return inQuietHours(this.hourOf(s), s.cfg.quiet); }
+  quietActive(s: EmuState) { return this.quietHour(s) && !(s.peekUntil > s.now.getTime()) && !s.setup; }
+  /** The quiet face's values: the first value tiles of the Home page (core/quiet.ts quietTiles), as their tiles show them. */
+  quietSnapOf(s: EmuState): { rows: { label: string; value: string }[]; at: string } {
+    // Home = the first screen of the first app with screens (firmware App::Impl::home)
+    const sc = s.apps.map((a) => s.screens.find((x) => x.app === a.id)).find(Boolean) || s.screens[0];
+    if (!sc) return { rows: [], at: this.staleAt(s) };
+    const d = this.derive(s.d, s); const vals = this.tileValues(sc.id) || [];
+    return { rows: quietTiles(sc.widgets.map((w) => w.type)).map((i) => ({ label: String(this.vm(sc.widgets[i], d, s, i).label ?? ''), value: vals[i] || '—' })), at: this.staleAt(s) };
+  }
 
   input() { this.lastInput = Date.now(); this.idleHomed = false; if (this.state.lightOut) this.setState({ lightOut: false }); }
   idleCheck() {
@@ -202,14 +214,14 @@ export class Emulator extends Component<EmulatorProps, EmuState> {
     const idleMs = Date.now() - this.lastInput, idleMin = idleMs / 60000;
     if (!s.lightOut && !s.setup && lightTimedOut(idleMs, s.cfg.lightTimeout)) { this.setState({ lightOut: true }); this.log('IDLE ' + s.cfg.lightTimeout + ' s → front light off'); }
     if (s.cfg.standby && idleMin >= s.cfg.standby) { this.setState({ sleeping: true, menu: false }); this.fullRefresh('standby'); this.log('IDLE ' + s.cfg.standby + ' min → standby'); return; }
-    const amb = !s.ambient && ambientDue({ idleMs, menu: !!s.menu, setup: !!s.setup }) && !this.nightActive(s);
+    const amb = !s.ambient && ambientDue({ idleMs, menu: !!s.menu, setup: !!s.setup }) && !this.quietActive(s);
     const home = s.screens.findIndex((x) => x.id === 'overview');
     if (s.cfg.returnHome && idleMin >= s.cfg.returnHome && !this.idleHomed && home >= 0 && (s.idx !== home || s.sub !== 0 || s.menu)) {
       this.idleHomed = true; if (amb) this.setState({ ambient: true }); this.goTo(home, 'IDLE ' + s.cfg.returnHome + ' min');
       return;
     }
     if (amb) { this.setState({ ambient: true }); this.partialRefresh('ambient', ['bar']); this.log('IDLE ' + AMBIENT_MS / 1000 + ' s → ambient · pager, battery, app label hidden'); }
-    else if (s.ambient && idleMs < AMBIENT_MS && !this.nightActive(s)) { this.setState({ ambient: false }); this.partialRefresh('chrome', ['bar']); }
+    else if (s.ambient && idleMs < AMBIENT_MS && !this.quietActive(s)) { this.setState({ ambient: false }); this.partialRefresh('chrome', ['bar']); }
   }
   /** Top-bar parts shown now (core/ambient.ts): a page with a clock tile drops the bar clock in ambient. */
   chromeOf(s: EmuState): Chrome {
@@ -223,16 +235,16 @@ export class Emulator extends Component<EmulatorProps, EmuState> {
   wakeChrome(src: string): boolean {
     const s = this.state;
     if (s.mode !== 'main' || s.asleep || s.recovery.phase === 'confirm') return false;
-    const night = this.nightActive(s);
-    const light = lightWakeConsumes({ brightness: s.cfg.brightness, standby: s.sleeping, night, lightOut: s.lightOut, power: false });
-    const chrome = s.ambient && !s.sleeping && !night;
+    const quiet = this.quietActive(s);
+    const light = lightWakeConsumes({ brightness: s.cfg.brightness, standby: s.sleeping, quiet, lightOut: s.lightOut, power: false });
+    const chrome = s.ambient && !s.sleeping && !quiet;
     if (!light && !chrome) return false;
     this.setState({ ambient: false, lightOut: false });
     if (chrome) this.partialRefresh('chrome', ['bar']);
     this.log(src + (light ? ' → light on' : ' → chrome back') + ' (input consumed)');
     return true;
   }
-  /** Night face: the time of the last data, only when it is stale (> 30 min); '' otherwise. */
+  /** Quiet face: the time of the last data, only when it is stale (> 30 min); '' otherwise. */
   staleAt(s: EmuState): string { return s.lastUpdate && nightStale(s.now.getTime(), s.lastUpdate.getTime()) ? hm(s.lastUpdate) : ''; }
 
   // ---------- Power saving (ROBUSTNESS_PLAN Phase 3, src/core/power.ts) ----------
@@ -241,7 +253,7 @@ export class Emulator extends Component<EmulatorProps, EmuState> {
     const auto = (['off', 'notify', 'night'].includes(s.ota.auto) ? s.ota.auto : 'notify') as OtaAuto;
     return {
       nowEpoch: Math.floor(now / 1000), localSec: this.hourOf(s) * 3600 + d.getMinutes() * 60 + d.getSeconds(),
-      powerSave: s.cfg.powerSave, wakeEvery: s.cfg.wakeEvery, night: s.cfg.night, peeking: s.peekUntil > now, standby: s.sleeping,
+      powerSave: s.cfg.powerSave, wakeEvery: s.cfg.wakeEvery, quiet: s.cfg.quiet, peeking: s.peekUntil > now, standby: s.sleeping,
       charging: s.usb && this.battery < 100, usb: s.usb, chargedAgoMin: null, voltage: null, battery: this.battery,
       otaPendingVerify: s.ota.pendingVerify, otaBusy: s.mode === 'updating', otaAuto: auto, otaDue: !!s.ota.avail && auto === 'night',
       setup: !!s.setup, msSinceApi: this.lastApi === null ? null : now - this.lastApi,
@@ -298,7 +310,16 @@ export class Emulator extends Component<EmulatorProps, EmuState> {
   wakeUp(src: string) {
     const a = this.state.asleep; if (!a) return;
     this.setState({ asleep: null });
+    this.bootWake = src === 'TIMER' ? 'timer' : src === 'CHARGER' ? 'charger' : 'button';
     this.log(src + ' → wake from deep sleep (reset)');
+    // #299: a key wake from glance sleep (the dashboard is on the glass) skips the boot screen. The panel is held until
+    // the data is in, then one clean refresh (controller RAM is gone after deep sleep: no partial possible).
+    if (this.bootWake === 'button' && a.glance && !this.state.setup) {
+      this.input(); this.bootWake = 'cold'; this.heldBootUntil = Date.now() + 1600;   // Right held through it: still live 10 min
+      this.setState({ mode: 'main', sleeping: false, menu: false, ambient: false, idx: 0, sub: 0, peekUntil: Date.now() + PEEK_MS }); this.tick(true);
+      this.fullRefresh('button wake · held until data, no boot screen');
+      return;
+    }
     this.boot(this.tt('connecting'), () => { if (src === 'TIMER' && a.wasStandby) { this.setState({ sleeping: true }); this.fullRefresh('standby'); } });
   }
   /** Touch can't wake (rail off in deep sleep), nor Left / Home (not wake sources). True = the input was swallowed. */
@@ -672,8 +693,8 @@ export class Emulator extends Component<EmulatorProps, EmuState> {
     this.log('EPD fast refresh (' + reason + ')', 'eink');
   }
   partialRefresh(reason: string, keys?: string[]) {
-    const dec = decidePartial({ reason, sleeping: this.state.sleeping, night: this.nightActive(this.state), sinceFull: this.state.sinceFull, clockKnown: true });
-    if (dec.kind === 'skip') { if (dec.why === 'night') this.log('night · redraw skipped (' + reason + ')'); return; }
+    const dec = decidePartial({ reason, sleeping: this.state.sleeping, quiet: this.quietActive(this.state) && this.state.mode === 'main', sinceFull: this.state.sinceFull, clockKnown: true });
+    if (dec.kind === 'skip') { if (dec.why === 'quiet' && reason !== 'clock') this.log('quiet hours · redraw skipped (' + reason + ')'); return; }
     if (dec.kind === 'clean') { this.fullRefresh(dec.reason); return; }
     const since = dec.sinceFull;
     const k = keys || [];
@@ -722,7 +743,12 @@ export class Emulator extends Component<EmulatorProps, EmuState> {
       const st = this.state;
       // First install: no Wi-Fi → connect on the display; Wi-Fi but no Home Assistant → finish in the browser.
       const setup = !st.wifi.connected ? 'wifi' : !st.ha.linked && !st.ha.revoked ? 'web' : null;
-      this.setState({ mode: 'main', idx: 0, sub: 0, setup, offline: setup ? true : st.offline }); this.tick(true);
+      // quiet hours (#295): a boot from a press, power-on or charger opens on the dashboard; a timer wake does not. Set
+      // whatever the hour, like the firmware (its clock may not be known yet); outside the window a peek changes nothing.
+      const peek = !setup && peekOnBoot(this.bootWake);
+      if (peek && this.quietHour(st)) this.log('QUIET boot (' + this.bootWake + ') → dashboard for ' + PEEK_MS / 1000 + ' s');
+      this.bootWake = 'cold';
+      this.setState({ mode: 'main', idx: 0, sub: 0, setup, offline: setup ? true : st.offline, peekUntil: peek ? Date.now() + PEEK_MS : 0 }); this.tick(true);
       if (setup === 'wifi') { this.fullRefresh('setup: Wi-Fi'); this.log('SETUP no saved Wi-Fi · scan + SoftAP "HA-Paper-Setup" as fallback'); }
       else if (setup === 'web') { this.fullRefresh('setup: browser'); this.log('SETUP on ' + st.wifi.connected + ' · waiting for sign-in at http://' + HOST); }
       else { this.fullRefresh('home'); this.log('HA connected · subscribed to ' + (Object.keys(ENT).length + st.zoneCount + LIGHT_LIST.length) + ' entities', 'ha'); }
@@ -848,7 +874,7 @@ export class Emulator extends Component<EmulatorProps, EmuState> {
     if (s.asleep || (!force && (s.paused || s.offline || s.mode !== 'main'))) return;
     const patch = this.dataPatch(s);
     if (force || s.sleeping) { this.setState(patch); return; }
-    if (this.nightActive(s)) { this.setState(patch); this.log('HA update · night · not drawn'); return; }
+    if (this.quietActive(s)) { this.setState(patch); this.log('HA update · quiet hours · not drawn'); return; }
     this.commit(patch, 'HA update');
   }
   /** The next mock HA sample (one live tick, or the one fetch of a glance wake). */
@@ -897,10 +923,10 @@ export class Emulator extends Component<EmulatorProps, EmuState> {
     const s = this.state;
     if (s.asleep) { if (src === 'BTN_NEXT') this.wakeUp(src); else this.asleepIgnores(src); return; }
     if (s.setup && s.mode === 'main') { this.log(src + ' · finish setup first'); return; }
-    if (s.mode === 'boot' && src === 'BTN_NEXT') { this.holdLiveUntil = Date.now() + BOOT_HOLD_LIVE_MIN * 60_000; this.log(src + ' held at boot → live for ' + BOOT_HOLD_LIVE_MIN + ' min, no deep sleep'); return; }
+    if ((s.mode === 'boot' || Date.now() < this.heldBootUntil) && src === 'BTN_NEXT') { this.holdLiveUntil = Date.now() + BOOT_HOLD_LIVE_MIN * 60_000; this.log(src + ' held at boot → live for ' + BOOT_HOLD_LIVE_MIN + ' min, no deep sleep'); return; }
     if (s.mode !== 'main') { this.log(src + ' ignored (' + s.mode + ')', 'warn'); return; }
+    if (this.quietActive(s)) { this.doPeek(src); return; }
     if (s.sleeping) { this.wake(src); return; }
-    if (this.nightActive(s)) { this.doPeek(src); return; }
     const f = this.flat(s); const sub = this.curSub(s);
     let pos = f.findIndex(([i, p]) => i === s.idx && p === sub); if (pos < 0) pos = 0;
     const [idx, p] = f[(pos + dir + f.length) % f.length];
@@ -912,25 +938,27 @@ export class Emulator extends Component<EmulatorProps, EmuState> {
   home(src: string) {
     const s = this.state;
     if (this.asleepIgnores(src)) return;
+    if (s.mode === 'main' && this.quietActive(s)) { this.doPeek(src); return; }
     if (s.sleeping) { this.wake(src); return; }
     if (s.mode !== 'main') return;
     if (s.setup) { this.log(src + ' · finish setup first'); return; }
-    if (this.nightActive(s)) { this.doPeek(src); return; }
     const first = s.screens.findIndex((x) => x.app === (s.apps[0] || { id: 'home' }).id);
     if (s.idx === first && s.sub === 0 && !s.menu) { this.setMenu('apps', src + ' on Home'); return; }
     this.goTo(Math.max(0, first), src);
   }
   doPeek(src: string) {
-    this.setState({ peekUntil: Date.now() + 60000, idx: 0, sub: 0, menu: false, ambient: false });
-    this.fullRefresh('wake from night'); this.log(src + ' → dashboard for 60 s, then back to night face');
+    this.setState({ peekUntil: Date.now() + PEEK_MS, sleeping: false, idx: 0, sub: 0, menu: false, ambient: false });
+    this.fullRefresh('quiet hours · peek'); this.log(src + ' → dashboard for ' + PEEK_MS / 1000 + ' s, then back to the quiet face');
   }
   wake(src: string) { this.setState({ sleeping: false, ambient: false }); this.fullRefresh('wake'); this.log(src + ' → wake'); }
   power() {
     if (this.state.mode === 'off') { this.log('BTN_POWER → power on'); this.boot(); return; }
     if (this.state.asleep) { this.wakeUp('BTN_POWER'); return; }
     if (this.state.mode !== 'main') return;
+    if (this.quietActive(this.state)) { this.doPeek('BTN_POWER'); return; }
     if (this.state.sleeping) { this.wake('BTN_POWER'); return; }
-    this.setState({ sleeping: true, menu: false, ambient: false }); this.fullRefresh('standby'); this.log('BTN_POWER → standby (frontlight off, clock-only updates)');
+    // standby ends a peek: inside quiet hours it shows the quiet face (#295)
+    this.setState({ sleeping: true, menu: false, ambient: false, peekUntil: 0 }); this.fullRefresh('standby'); this.log('BTN_POWER → standby (frontlight off, clock-only updates)');
   }
 
   // ---------- HA service calls (mock) ----------
@@ -1158,7 +1186,7 @@ export class Emulator extends Component<EmulatorProps, EmuState> {
       if (R.mode === 'car') {
         const eta = carEta(R.typical!, lvlSet); const extra = eta - R.typical!;
         return { ...base, isRoute: true, isCar: true, isTransit: false, icon: MODE_ICON.car, title: w.label || R.title, sev: badge(lvlSet, true),
-          eta: String(eta), arrive: hhmm(nowMin + eta), vs: tx('usually', R.typical + ' min') + (extra > 0 ? ' · ' + tx('traffic', extra) : ''),
+          eta: String(eta), arrive: hhmm(nowMin + eta), carWide: base.cs >= 3, vs: tx('usually', R.typical + ' min') + (extra > 0 ? ' · ' + tx('traffic', extra) : ''),
           note: R.notes[lvlSet - 1], noteWeight: lvlSet >= 3 ? 700 : 400 };
       }
       const times: number[] = [];
@@ -1324,7 +1352,7 @@ export class Emulator extends Component<EmulatorProps, EmuState> {
     if (w.type === 'setting') {
       const def = SETTINGS[w.key]; const ck = (SETTING_CFG[w.key] || w.key) as keyof Cfg;
       // a two-row tile also says what the setting does (#190)
-      return { ...base, isSetting: true, label: tx(def.lk), value: def.fmt(s.cfg[ck], lg), hint: (w.rs || 1) >= 2 && def.info ? tx(def.info) : '', dec: () => this.setCfg(ck, -1), inc: () => this.setCfg(ck, 1) };
+      return { ...base, isSetting: true, label: tx(def.lk), value: def.fmt(s.cfg[ck], lg), dec: () => this.setCfg(ck, -1), inc: () => this.setCfg(ck, 1) };
     }
     if (w.type === 'info') {
       return { ...base, isInfo: true, label: 'About', lines: [
@@ -1372,16 +1400,16 @@ export class Emulator extends Component<EmulatorProps, EmuState> {
     // Deep sleep: the panel keeps the clock it drew last.
     const clock = s.asleep ? s.asleep.clock : (s.cfg.clock === '12' ? String(h % 12 || 12) : pad(h)) + ':' + pad(minutes);
     const dateText = dateLine(ui, now.getDay(), now.getDate(), now.getMonth());
-    const nightOn = this.nightActive(s) && s.mode === 'main';
-    const peeking = this.nightHour(s) && !nightOn && !s.sleeping;
-    const b = frontlightPct({ brightness: s.cfg.brightness, standby: false, night: nightOn, lightOut: s.lightOut && s.mode === 'main' }), wm = s.cfg.warmth / 100;
+    const quietOn = this.quietActive(s) && s.mode === 'main';
+    const peeking = this.quietHour(s) && !quietOn && !s.sleeping && s.mode === 'main';
+    const b = frontlightPct({ brightness: s.cfg.brightness, standby: false, lightOut: s.lightOut && s.mode === 'main' }), wm = s.cfg.warmth / 100;
     const lr = Math.round(214 + 41 * wm), lg = Math.round(228 - 30 * wm), lb = Math.round(255 - 120 * wm);
     const sel = (on: boolean) => ({ bg: on ? '#1d1d1f' : '#fff', fg: on ? '#F6F5F2' : '#1d1d1f' });
     const black = (p.bodyColor ?? 'Black') !== 'White';
     const f = this.flat(s); const sub = this.curSub(s); const nSub = this.subPages(sc, s);
     const pos = Math.max(0, f.findIndex(([i, q]) => i === s.idx && q === sub));
     const chrome = this.chromeOf(s);
-    const night = s.nightSnap || { inside: fmtNum(d.zones.living.cur, '°C') + '°', batt: Math.round(d.soc) + '%', cheap: pad(CHEAP) + ':00–' + pad(CHEAP + 3) + ':00', at: this.staleAt(s) };
+    const quiet = quietOn ? s.quietSnap || this.quietSnapOf(s) : { rows: [], at: '' };
 
     return {
       osName: this.osName,
@@ -1398,8 +1426,9 @@ export class Emulator extends Component<EmulatorProps, EmuState> {
       lookOpts: LOOKS.map(([k, label]) => ({ label, ...sel(look === k), pick: () => this.setLook(k) })),
       devBatt: this.battery,
       bodyColor: black ? '#232325' : '#E9E6DF', keyColor: black ? '#6a6a6e' : '#8a877f',
-      isBoot: s.mode === 'boot', isMain: s.mode === 'main', isSleeping: (s.sleeping || (!!s.asleep && !s.asleep.glance && !nightOn)) && s.mode === 'main',
+      isBoot: s.mode === 'boot', isMain: s.mode === 'main', isSleeping: (s.sleeping || (!!s.asleep && !s.asleep.glance)) && !quietOn && s.mode === 'main',
       asleepLine: !s.asleep || s.asleep.glance ? '' : s.asleep.wakeAt ? tx('asleepWakes', hm(new Date(s.asleep.wakeAt))) : tx('asleepLow'),
+      asleepFootLine: s.asleep ? tx('asleepFoot', s.asleep.clock) : '',
       term: this.termVm(s),
       markInput: () => this.input(),
       // ambient (#27): the first touch only brings the chrome back; its click never reaches a button
@@ -1438,8 +1467,8 @@ export class Emulator extends Component<EmulatorProps, EmuState> {
         s.ota.status === 'available' && s.ota.auto !== 'off' ? { d: ICON.update, fill: 'none', stroke: INK, label: 'Update ready' } : null,
         s.ota.status === 'error' ? { d: ICON.alert, fill: 'none', stroke: INK, label: 'Update did not finish' } : null,
         s.away ? { d: ICON.away, fill: 'none', stroke: INK, label: 'Heating in away mode' } : null,
-        this.nightHour(s) && !this.nightActive(s) && !s.sleeping ? { d: ICON.night, fill: INK, stroke: 'none', label: 'Night mode — night face returns shortly' } : null,
-        s.cfg.brightness > 0 && !this.nightActive(s) ? { d: ICON.light, fill: 'none', stroke: INK, label: 'Front light on' } : null,
+        peeking ? { d: ICON.night, fill: INK, stroke: 'none', label: 'Quiet hours — the quiet face returns shortly' } : null,
+        s.cfg.brightness > 0 && !quietOn ? { d: ICON.light, fill: 'none', stroke: INK, label: 'Front light on' } : null,
       ].filter(Boolean),
       battLow: this.battery < 20,
       swipeStart: (e: React.PointerEvent) => { this.swipe = { x: e.clientX, y: e.clientY, t: Date.now() }; },
@@ -1458,10 +1487,10 @@ export class Emulator extends Component<EmulatorProps, EmuState> {
         pick: () => { this.log('SIM travel → ' + label); this.commit({ travel: k }, 'travel update'); } })),
       failOpts: ([['ok', 'Works'], ['hash', 'Bad download'], ['boot', 'Won’t start']] as const).map(([k, label]) => ({ label, ...sel(s.failMode === k), pick: () => { this.setState({ failMode: k }); this.log('SIM next update → ' + label); } })),
       checkOpts: ([['ok', 'Works'], ['memory', 'Low memory'], ['busy', 'Rate limit'], ['network', 'No answer']] as const).map(([k, label]) => ({ label, ...sel(s.checkFail === k), pick: () => { this.setState({ checkFail: k }); this.log('SIM next check → ' + label); } })),
-      isNight: nightOn, isPeek: peeking,
-      // night face as a poster (#27): clock, date, three values; a footer only when asleep or the data was stale
-      night, nightAsOf: night.at ? tx('asOf', night.at) : '',
-      peek: () => { if (!this.asleepIgnores('TOUCH night face')) this.doPeek('TOUCH night face'); },
+      isQuiet: quietOn, isPeek: peeking,
+      // quiet face (#295): "Back at 07:00", the date, the Home page's first values; "as of" only when the data was stale
+      quietBack: tx('quietBack', quietBackAt(s.cfg.quiet, s.cfg.clock)), quietRows: quiet.rows, quietAsOf: quiet.at ? tx('asOf', quiet.at) : '',
+      peek: () => { if (!this.asleepIgnores('TOUCH quiet face')) this.doPeek('TOUCH quiet face'); },
       isMenu: !!s.menu, isGrid: !s.menu,
       appTitle: s.setup ? tx('setup') : this.appDef(s, this.appOf(s)).title,
       // setup (#183): "Step 2 of 2" as the title and no pager; the arrows went nowhere until setup was done
@@ -1475,6 +1504,10 @@ export class Emulator extends Component<EmulatorProps, EmuState> {
       flashing: !!s.flash, flashColor: s.flash || PAPER,
       lightOn: b > 0, lightColor: 'rgb(' + lr + ',' + lg + ',' + lb + ')', lightOpacity: s.sleeping ? 0 : (b / 100) * 0.5,
       clock, dateText,
+      // deep sleep (#299): the bar says asleep + when it updated; a clock tile labels its digits as the update time
+      asleepMark: s.asleep && !quietOn ? tx('asleepBar', s.asleep.clock) : '',
+      clockSub: s.asleep && !quietOn ? tx('clockAsleep') : dateText,
+      clockHead: s.asleep && !quietOn ? tx('clockAsleep') : tx(('day' + now.getDay()) as StrKey),
       offline: s.offline, online: !s.offline,
       lastUpdate: s.lastUpdate ? hm(s.lastUpdate) : '—',
       barDirty: s.dirty.indexOf('bar') >= 0, timeDirty: s.dirty.indexOf('time') >= 0,
@@ -1506,7 +1539,7 @@ export class Emulator extends Component<EmulatorProps, EmuState> {
       holdReset: () => this.holdResetSim(), holdRestart: () => this.holdRestartSim(), holdPower: () => this.holdPowerSim(), crashLoop: () => this.crashLoopSim(),
       hwReset: () => { this.log('BTN_RESET', 'warn'); this.boot(); },
       forceFull: () => this.fullRefresh('manual'),
-      statusLine: this.appDef(s, this.appOf(s)).title + ' · page ' + (pos + 1) + '/' + f.length + ' · "' + sc.title + '"' + (nSub > 1 ? ' ' + (sub + 1) + '/' + nSub : '') + ' · ' + (s.asleep ? (s.asleep.glance ? 'glance' : 'asleep') : s.sleeping ? 'standby' : nightOn ? 'night' : s.menu ? 'index' : s.ambient ? 'ambient' : s.mode) + ' · sim ' + clock,
+      statusLine: this.appDef(s, this.appOf(s)).title + ' · page ' + (pos + 1) + '/' + f.length + ' · "' + sc.title + '"' + (nSub > 1 ? ' ' + (sub + 1) + '/' + nSub : '') + ' · ' + (s.asleep ? (s.asleep.glance ? 'glance' : 'asleep') : quietOn ? 'quiet' : s.sleeping ? 'standby' : s.menu ? 'index' : s.ambient ? 'ambient' : s.mode) + ' · sim ' + clock,
       hourOpts: [null, 7, 13, 19, 23].map((hv) => ({ label: hv == null ? 'Live' : pad(hv) + ':00', ...sel(s.simHour === hv),
         pick: () => { this.log('SIM time → ' + (hv == null ? 'live' : pad(hv) + ':00')); this.setState({ simHour: hv, peekUntil: 0 }, () => this.tick(false)); } })),
       zoneOpts: [4, 10, 14].map((n) => ({ label: String(n), ...sel(s.zoneCount === n), pick: () => { this.setState({ zoneCount: n, sub: 0 }); this.log('SIM tado zones → ' + n); } })),

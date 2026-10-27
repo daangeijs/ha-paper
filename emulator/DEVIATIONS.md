@@ -67,3 +67,5 @@ by `make deviations` and `make test` fails when it is stale.
 - [Settings › Updates status line during and after a check (issue #250)](deviations/250-ota-check-feedback.md)
 - [History tile: emulator draws it, firmware not yet (issue #267)](deviations/267-history-tile-rendering.md)
 - [History tile series from an attribute or a weather forecast (issue #283)](deviations/283-attribute-series.md)
+- [Quiet hours replace night mode and "Sleep at night" (issue #295)](deviations/295-quiet-hours.md)
+- [Car route arrival time as a second big value (issue #303)](deviations/303-car-route-arrival.md)

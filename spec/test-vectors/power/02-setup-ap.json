@@ -6,7 +6,7 @@
     "localSec": 43200,
     "powerSave": "standby",
     "wakeEvery": 15,
-    "night": "23-07",
+    "quiet": "23-07",
     "peeking": false,
     "standby": true,
     "charging": false,
@@ -36,11 +36,11 @@
       }
     },
     {
-      "name": "setup at night",
+      "name": "setup in quiet hours",
       "input": {
         "setup": true,
         "localSec": 7200,
-        "powerSave": "night"
+        "powerSave": "glance"
       },
       "expect": {
         "deepSleepNow": false,

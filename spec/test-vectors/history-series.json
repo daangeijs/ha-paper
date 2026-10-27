@@ -1,5 +1,5 @@
 {
-  "_doc": "History tile series from an attribute or weather.get_forecasts (#283): emulator src/core/history.ts (historySource, historyError, historySpec, parseTime, attrSamples, fromSamples, chartSpan / axisTicks with aheadMs). Not yet run by the firmware (firmware/deviations/283-attribute-series.md). Times are epoch ms; tz = local UTC offset in minutes. config: like config/*.json. spec: historySpec (aheadMs and source only for these sources). parseTime: input, tz → ms or null. series: raw attribute → samples → buckets per agg, plus the span and the axis.",
+  "_doc": "History tile series from an attribute or weather.get_forecasts (#283): emulator src/core/history.ts (historySource, historyError, historySpec, parseTime, attrSamples, fromSamples, chartSpan / axisTicks with aheadMs). Firmware: core/history.cpp, core/history_series.cpp (#292), test_core test_history_series_vectors. Times are epoch ms; tz = local UTC offset in minutes. config: like config/*.json. spec: historySpec (aheadMs and source only for these sources). parseTime: input, tz → ms or null. series: raw attribute → samples → buckets per agg, plus the span and the axis.",
   "now": 1793025420000,
   "config": [
     {
@@ -661,7 +661,7 @@
     },
     {
       "name": "weather-hourly",
-      "description": "weather.get_forecasts hourly, temperature, 24 h in 2-hour bars on a 2-wide tile (local times with +01:00).",
+      "description": "weather.get_forecasts hourly, temperature, 24 h in 1-hour bars on a 2-wide tile (local times with +01:00).",
       "tz": 60,
       "widget": {"entity": "weather.home", "window": "24h", "cs": 2},
       "error": null,

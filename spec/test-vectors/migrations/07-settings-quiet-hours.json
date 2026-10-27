@@ -1,0 +1,43 @@
+{
+  "name": "07-settings-quiet-hours",
+  "description": "Step 1 → 2 (#295): quiet hours replace night mode and the \"Sleep at night\" power mode. New key quiet, appended: the night window when one was set, else the default 23-07 (on for existing installs too). night stays for an OTA rollback. powerSave night becomes glance. A quiet key already there (written by a newer firmware) wins.",
+  "cases": [
+    {
+      "name": "night window kept",
+      "op": "migrate",
+      "stored": { "schema": 1, "night": "22-06", "powerSave": "standby" },
+      "expect": { "status": "upgrade", "from": 1, "version": 2, "output": { "schema": 2, "night": "22-06", "powerSave": "standby", "quiet": "22-06" } }
+    },
+    {
+      "name": "night off: quiet hours on (the default)",
+      "op": "migrate",
+      "stored": { "schema": 1, "night": "off" },
+      "expect": { "status": "upgrade", "from": 1, "version": 2, "output": { "schema": 2, "night": "off", "quiet": "23-07" } }
+    },
+    {
+      "name": "Sleep at night becomes glance",
+      "op": "migrate",
+      "stored": { "schema": 1, "brightness": 30, "night": "23-07", "powerSave": "night", "wakeEvery": 30 },
+      "expect": { "status": "upgrade", "from": 1, "version": 2, "output": { "schema": 2, "brightness": 30, "night": "23-07", "powerSave": "glance", "wakeEvery": 30, "quiet": "23-07" } }
+    },
+    {
+      "name": "night not a window: the default",
+      "op": "migrate",
+      "stored": { "schema": 1, "night": 7 },
+      "expect": { "status": "upgrade", "from": 1, "version": 2, "output": { "schema": 2, "night": 7, "quiet": "23-07" } }
+    },
+    {
+      "name": "quiet already there: kept",
+      "op": "migrate",
+      "stored": { "schema": 1, "night": "22-06", "quiet": "off" },
+      "expect": { "status": "upgrade", "from": 1, "version": 2, "output": { "schema": 2, "night": "22-06", "quiet": "off" } }
+    },
+    {
+      "name": "save over a schema 1 file: upgraded, then merged",
+      "op": "persist",
+      "stored": { "schema": 1, "night": "00-06", "powerSave": "night" },
+      "known": { "quiet": "00-06", "powerSave": "glance", "brightness": 20 },
+      "expect": { "output": { "schema": 2, "night": "00-06", "powerSave": "glance", "quiet": "00-06", "brightness": 20 } }
+    }
+  ]
+}

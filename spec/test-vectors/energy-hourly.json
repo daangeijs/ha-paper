@@ -1,0 +1,954 @@
+{
+  "_doc": "Today's energy from recorder/statistics_during_period (#308): cases = hourlyStatistics(stats, metersOf(prefs), now, tz) (emulator src/core/energyHourly.ts = firmware EntityAdapter::setHourlyStatistics after setEnergyPrefs, setNow(now/1000)); out = logical id → state kWh and `today` (24 × kWh) for the hourly series. rolls = statsDayRoll after an answer to `stats` at answeredAt (firmware EntityAdapter::rollDay after setNow(now/1000)): roll = ask the recorder again now, out = what the roll emits (every id the answer fed, at 0).",
+  "cases": [
+    {
+      "name": "today-only",
+      "description": "Rows from yesterday evening are dropped; hours 0–9 fill, the rest stay 0.",
+      "tz": 60,
+      "posixTz": "CET-1CEST,M3.5.0,M10.5.0/3",
+      "prefs": {
+        "energy_sources": [
+          {"type": "solar", "stat_energy_from": "sensor.pv_energy"},
+          {
+            "type": "grid",
+            "flow_from": [
+              {"stat_energy_from": "sensor.meter_import"}
+            ],
+            "flow_to": [
+              {"stat_energy_to": "sensor.meter_export"}
+            ]
+          },
+          {"type": "battery", "stat_energy_from": "sensor.batt_out", "stat_energy_to": "sensor.batt_in"}
+        ]
+      },
+      "now": 1793179800000,
+      "stats": {
+        "sensor.pv_energy": [
+          {"start": 1793127600000, "end": 1793131200000, "change": 0.2},
+          {"start": 1793131200000, "end": 1793134800000, "change": 0},
+          {"start": 1793134800000, "end": 1793138400000, "change": 0},
+          {"start": 1793138400000, "end": 1793142000000, "change": 0},
+          {"start": 1793142000000, "end": 1793145600000, "change": 0},
+          {"start": 1793145600000, "end": 1793149200000, "change": 0},
+          {"start": 1793149200000, "end": 1793152800000, "change": 0},
+          {"start": 1793152800000, "end": 1793156400000, "change": 0},
+          {"start": 1793156400000, "end": 1793160000000, "change": 0},
+          {"start": 1793160000000, "end": 1793163600000, "change": 0},
+          {"start": 1793163600000, "end": 1793167200000, "change": 0},
+          {"start": 1793167200000, "end": 1793170800000, "change": 0.1},
+          {"start": 1793170800000, "end": 1793174400000, "change": 0.4},
+          {"start": 1793174400000, "end": 1793178000000, "change": 0.9}
+        ],
+        "sensor.meter_import": [
+          {"start": 1793127600000, "end": 1793131200000, "change": 0.8},
+          {"start": 1793131200000, "end": 1793134800000, "change": 0.7},
+          {"start": 1793134800000, "end": 1793138400000, "change": 0.6},
+          {"start": 1793138400000, "end": 1793142000000, "change": 0.5},
+          {"start": 1793142000000, "end": 1793145600000, "change": 0.3},
+          {"start": 1793145600000, "end": 1793149200000, "change": 0.25},
+          {"start": 1793149200000, "end": 1793152800000, "change": 0.2},
+          {"start": 1793152800000, "end": 1793156400000, "change": 0.2},
+          {"start": 1793156400000, "end": 1793160000000, "change": 0.2},
+          {"start": 1793160000000, "end": 1793163600000, "change": 0.3},
+          {"start": 1793163600000, "end": 1793167200000, "change": 0.6},
+          {"start": 1793167200000, "end": 1793170800000, "change": 0.5},
+          {"start": 1793170800000, "end": 1793174400000, "change": 0.2},
+          {"start": 1793174400000, "end": 1793178000000, "change": 0}
+        ],
+        "sensor.meter_export": [
+          {"start": 1793127600000, "end": 1793131200000, "change": 0},
+          {"start": 1793131200000, "end": 1793134800000, "change": 0},
+          {"start": 1793134800000, "end": 1793138400000, "change": 0},
+          {"start": 1793138400000, "end": 1793142000000, "change": 0},
+          {"start": 1793142000000, "end": 1793145600000, "change": 0},
+          {"start": 1793145600000, "end": 1793149200000, "change": 0},
+          {"start": 1793149200000, "end": 1793152800000, "change": 0},
+          {"start": 1793152800000, "end": 1793156400000, "change": 0},
+          {"start": 1793156400000, "end": 1793160000000, "change": 0},
+          {"start": 1793160000000, "end": 1793163600000, "change": 0},
+          {"start": 1793163600000, "end": 1793167200000, "change": 0},
+          {"start": 1793167200000, "end": 1793170800000, "change": 0},
+          {"start": 1793170800000, "end": 1793174400000, "change": 0},
+          {"start": 1793174400000, "end": 1793178000000, "change": 0.3}
+        ],
+        "sensor.batt_out": [
+          {"start": 1793127600000, "end": 1793131200000, "change": 0.1},
+          {"start": 1793131200000, "end": 1793134800000, "change": 0.1},
+          {"start": 1793134800000, "end": 1793138400000, "change": 0},
+          {"start": 1793138400000, "end": 1793142000000, "change": 0},
+          {"start": 1793142000000, "end": 1793145600000, "change": 0},
+          {"start": 1793145600000, "end": 1793149200000, "change": 0},
+          {"start": 1793149200000, "end": 1793152800000, "change": 0},
+          {"start": 1793152800000, "end": 1793156400000, "change": 0},
+          {"start": 1793156400000, "end": 1793160000000, "change": 0},
+          {"start": 1793160000000, "end": 1793163600000, "change": 0},
+          {"start": 1793163600000, "end": 1793167200000, "change": 0},
+          {"start": 1793167200000, "end": 1793170800000, "change": 0},
+          {"start": 1793170800000, "end": 1793174400000, "change": 0},
+          {"start": 1793174400000, "end": 1793178000000, "change": 0}
+        ],
+        "sensor.batt_in": [
+          {"start": 1793127600000, "end": 1793131200000, "change": 0},
+          {"start": 1793131200000, "end": 1793134800000, "change": 0},
+          {"start": 1793134800000, "end": 1793138400000, "change": 0},
+          {"start": 1793138400000, "end": 1793142000000, "change": 0},
+          {"start": 1793142000000, "end": 1793145600000, "change": 0},
+          {"start": 1793145600000, "end": 1793149200000, "change": 0},
+          {"start": 1793149200000, "end": 1793152800000, "change": 0},
+          {"start": 1793152800000, "end": 1793156400000, "change": 0},
+          {"start": 1793156400000, "end": 1793160000000, "change": 0},
+          {"start": 1793160000000, "end": 1793163600000, "change": 0},
+          {"start": 1793163600000, "end": 1793167200000, "change": 0},
+          {"start": 1793167200000, "end": 1793170800000, "change": 0},
+          {"start": 1793170800000, "end": 1793174400000, "change": 0},
+          {"start": 1793174400000, "end": 1793178000000, "change": 0.2}
+        ]
+      },
+      "out": {
+        "sensor.solar_today": {"state": 1.4},
+        "sensor.solar_hourly": {
+          "state": 1.4,
+          "today": [0, 0, 0, 0, 0, 0, 0, 0.1, 0.4, 0.9, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
+        },
+        "sensor.grid_import_today": {"state": 2.75},
+        "sensor.grid_export_today": {"state": 0.3},
+        "sensor.energy_today": {"state": 3.65},
+        "sensor.energy_usage_hourly": {
+          "state": 3.65,
+          "today": [0.3, 0.25, 0.2, 0.2, 0.2, 0.3, 0.6, 0.6, 0.6, 0.4, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
+        }
+      }
+    },
+    {
+      "name": "late-answer-after-midnight",
+      "description": "A request sent at 23:59 answered at 00:00:20 carries only yesterday: every total and bar is 0.",
+      "tz": 60,
+      "posixTz": "CET-1CEST,M3.5.0,M10.5.0/3",
+      "prefs": {
+        "energy_sources": [
+          {"type": "solar", "stat_energy_from": "sensor.pv_energy"},
+          {
+            "type": "grid",
+            "flow_from": [
+              {"stat_energy_from": "sensor.meter_import"}
+            ],
+            "flow_to": [
+              {"stat_energy_to": "sensor.meter_export"}
+            ]
+          },
+          {"type": "battery", "stat_energy_from": "sensor.batt_out", "stat_energy_to": "sensor.batt_in"}
+        ]
+      },
+      "now": 1793142020000,
+      "stats": {
+        "sensor.pv_energy": [
+          {"start": 1793127600000, "end": 1793131200000, "change": 0.2},
+          {"start": 1793131200000, "end": 1793134800000, "change": 0},
+          {"start": 1793134800000, "end": 1793138400000, "change": 0},
+          {"start": 1793138400000, "end": 1793142000000, "change": 0}
+        ],
+        "sensor.meter_import": [
+          {"start": 1793127600000, "end": 1793131200000, "change": 0.8},
+          {"start": 1793131200000, "end": 1793134800000, "change": 0.7},
+          {"start": 1793134800000, "end": 1793138400000, "change": 0.6},
+          {"start": 1793138400000, "end": 1793142000000, "change": 0.5}
+        ],
+        "sensor.meter_export": [
+          {"start": 1793127600000, "end": 1793131200000, "change": 0},
+          {"start": 1793131200000, "end": 1793134800000, "change": 0},
+          {"start": 1793134800000, "end": 1793138400000, "change": 0},
+          {"start": 1793138400000, "end": 1793142000000, "change": 0}
+        ],
+        "sensor.batt_out": [
+          {"start": 1793127600000, "end": 1793131200000, "change": 0.1},
+          {"start": 1793131200000, "end": 1793134800000, "change": 0.1},
+          {"start": 1793134800000, "end": 1793138400000, "change": 0},
+          {"start": 1793138400000, "end": 1793142000000, "change": 0}
+        ],
+        "sensor.batt_in": [
+          {"start": 1793127600000, "end": 1793131200000, "change": 0},
+          {"start": 1793131200000, "end": 1793134800000, "change": 0},
+          {"start": 1793134800000, "end": 1793138400000, "change": 0},
+          {"start": 1793138400000, "end": 1793142000000, "change": 0}
+        ]
+      },
+      "out": {
+        "sensor.solar_today": {"state": 0},
+        "sensor.solar_hourly": {
+          "state": 0,
+          "today": [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
+        },
+        "sensor.grid_import_today": {"state": 0},
+        "sensor.grid_export_today": {"state": 0},
+        "sensor.energy_today": {"state": 0},
+        "sensor.energy_usage_hourly": {
+          "state": 0,
+          "today": [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
+        }
+      }
+    },
+    {
+      "name": "empty-answer",
+      "description": "HA omits ids without rows (right after midnight): nothing is emitted.",
+      "tz": 60,
+      "posixTz": "CET-1CEST,M3.5.0,M10.5.0/3",
+      "prefs": {
+        "energy_sources": [
+          {"type": "solar", "stat_energy_from": "sensor.pv_energy"},
+          {
+            "type": "grid",
+            "flow_from": [
+              {"stat_energy_from": "sensor.meter_import"}
+            ],
+            "flow_to": [
+              {"stat_energy_to": "sensor.meter_export"}
+            ]
+          },
+          {"type": "battery", "stat_energy_from": "sensor.batt_out", "stat_energy_to": "sensor.batt_in"}
+        ]
+      },
+      "now": 1793142060000,
+      "stats": {},
+      "out": {}
+    },
+    {
+      "name": "iso-start",
+      "description": "ISO `start` (older HA) counts like ms.",
+      "tz": 60,
+      "posixTz": "CET-1CEST,M3.5.0,M10.5.0/3",
+      "prefs": {
+        "energy_sources": [
+          {"type": "grid", "stat_energy_from": "sensor.meter_import", "stat_energy_to": "sensor.meter_export"}
+        ]
+      },
+      "now": 1793160000000,
+      "stats": {
+        "sensor.meter_import": [
+          {"start": "2026-10-27T21:00:00.000Z", "end": 1793138400000, "change": 1},
+          {"start": "2026-10-27T22:00:00.000Z", "end": 1793142000000, "change": 1},
+          {"start": "2026-10-27T23:00:00.000Z", "end": 1793145600000, "change": 0.4},
+          {"start": "2026-10-28T00:00:00.000Z", "end": 1793149200000, "change": 0.3},
+          {"start": "2026-10-28T01:00:00.000Z", "end": 1793152800000, "change": 0.2}
+        ]
+      },
+      "out": {
+        "sensor.grid_import_today": {"state": 0.9},
+        "sensor.energy_today": {"state": 0.9},
+        "sensor.energy_usage_hourly": {
+          "state": 0.9,
+          "today": [0.4, 0.3, 0.2, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
+        }
+      }
+    },
+    {
+      "name": "india-midnight",
+      "description": "Local midnight is not UTC midnight: IST 00:00 = 18:30 UTC.",
+      "tz": 330,
+      "posixTz": "IST-5:30",
+      "prefs": {
+        "energy_sources": [
+          {"type": "grid", "stat_energy_from": "sensor.meter_import", "stat_energy_to": "sensor.meter_export"}
+        ]
+      },
+      "now": 1793131200000,
+      "stats": {
+        "sensor.meter_import": [
+          {"start": 1793122200000, "end": 1793125800000, "change": 0.5},
+          {"start": 1793125800000, "end": 1793129400000, "change": 0.4},
+          {"start": 1793129400000, "end": 1793133000000, "change": 0.3}
+        ]
+      },
+      "out": {
+        "sensor.grid_import_today": {"state": 0.7},
+        "sensor.energy_today": {"state": 0.7},
+        "sensor.energy_usage_hourly": {
+          "state": 0.7,
+          "today": [0.4, 0.3, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
+        }
+      }
+    }
+  ],
+  "rolls": [
+    {
+      "name": "same-day",
+      "description": "23:00 answer, 23:59 now: no roll.",
+      "tz": 60,
+      "posixTz": "CET-1CEST,M3.5.0,M10.5.0/3",
+      "answeredAt": 1793138400000,
+      "now": 1793141940000,
+      "prefs": {
+        "energy_sources": [
+          {"type": "solar", "stat_energy_from": "sensor.pv_energy"},
+          {
+            "type": "grid",
+            "flow_from": [
+              {"stat_energy_from": "sensor.meter_import"}
+            ],
+            "flow_to": [
+              {"stat_energy_to": "sensor.meter_export"}
+            ]
+          },
+          {"type": "battery", "stat_energy_from": "sensor.batt_out", "stat_energy_to": "sensor.batt_in"}
+        ]
+      },
+      "stats": {
+        "sensor.pv_energy": [
+          {"start": 1793127600000, "end": 1793131200000, "change": 0.2},
+          {"start": 1793131200000, "end": 1793134800000, "change": 0},
+          {"start": 1793134800000, "end": 1793138400000, "change": 0},
+          {"start": 1793138400000, "end": 1793142000000, "change": 0},
+          {"start": 1793142000000, "end": 1793145600000, "change": 0},
+          {"start": 1793145600000, "end": 1793149200000, "change": 0},
+          {"start": 1793149200000, "end": 1793152800000, "change": 0},
+          {"start": 1793152800000, "end": 1793156400000, "change": 0},
+          {"start": 1793156400000, "end": 1793160000000, "change": 0},
+          {"start": 1793160000000, "end": 1793163600000, "change": 0},
+          {"start": 1793163600000, "end": 1793167200000, "change": 0},
+          {"start": 1793167200000, "end": 1793170800000, "change": 0.1},
+          {"start": 1793170800000, "end": 1793174400000, "change": 0.4},
+          {"start": 1793174400000, "end": 1793178000000, "change": 0.9}
+        ],
+        "sensor.meter_import": [
+          {"start": 1793127600000, "end": 1793131200000, "change": 0.8},
+          {"start": 1793131200000, "end": 1793134800000, "change": 0.7},
+          {"start": 1793134800000, "end": 1793138400000, "change": 0.6},
+          {"start": 1793138400000, "end": 1793142000000, "change": 0.5},
+          {"start": 1793142000000, "end": 1793145600000, "change": 0.3},
+          {"start": 1793145600000, "end": 1793149200000, "change": 0.25},
+          {"start": 1793149200000, "end": 1793152800000, "change": 0.2},
+          {"start": 1793152800000, "end": 1793156400000, "change": 0.2},
+          {"start": 1793156400000, "end": 1793160000000, "change": 0.2},
+          {"start": 1793160000000, "end": 1793163600000, "change": 0.3},
+          {"start": 1793163600000, "end": 1793167200000, "change": 0.6},
+          {"start": 1793167200000, "end": 1793170800000, "change": 0.5},
+          {"start": 1793170800000, "end": 1793174400000, "change": 0.2},
+          {"start": 1793174400000, "end": 1793178000000, "change": 0}
+        ],
+        "sensor.meter_export": [
+          {"start": 1793127600000, "end": 1793131200000, "change": 0},
+          {"start": 1793131200000, "end": 1793134800000, "change": 0},
+          {"start": 1793134800000, "end": 1793138400000, "change": 0},
+          {"start": 1793138400000, "end": 1793142000000, "change": 0},
+          {"start": 1793142000000, "end": 1793145600000, "change": 0},
+          {"start": 1793145600000, "end": 1793149200000, "change": 0},
+          {"start": 1793149200000, "end": 1793152800000, "change": 0},
+          {"start": 1793152800000, "end": 1793156400000, "change": 0},
+          {"start": 1793156400000, "end": 1793160000000, "change": 0},
+          {"start": 1793160000000, "end": 1793163600000, "change": 0},
+          {"start": 1793163600000, "end": 1793167200000, "change": 0},
+          {"start": 1793167200000, "end": 1793170800000, "change": 0},
+          {"start": 1793170800000, "end": 1793174400000, "change": 0},
+          {"start": 1793174400000, "end": 1793178000000, "change": 0.3}
+        ],
+        "sensor.batt_out": [
+          {"start": 1793127600000, "end": 1793131200000, "change": 0.1},
+          {"start": 1793131200000, "end": 1793134800000, "change": 0.1},
+          {"start": 1793134800000, "end": 1793138400000, "change": 0},
+          {"start": 1793138400000, "end": 1793142000000, "change": 0},
+          {"start": 1793142000000, "end": 1793145600000, "change": 0},
+          {"start": 1793145600000, "end": 1793149200000, "change": 0},
+          {"start": 1793149200000, "end": 1793152800000, "change": 0},
+          {"start": 1793152800000, "end": 1793156400000, "change": 0},
+          {"start": 1793156400000, "end": 1793160000000, "change": 0},
+          {"start": 1793160000000, "end": 1793163600000, "change": 0},
+          {"start": 1793163600000, "end": 1793167200000, "change": 0},
+          {"start": 1793167200000, "end": 1793170800000, "change": 0},
+          {"start": 1793170800000, "end": 1793174400000, "change": 0},
+          {"start": 1793174400000, "end": 1793178000000, "change": 0}
+        ],
+        "sensor.batt_in": [
+          {"start": 1793127600000, "end": 1793131200000, "change": 0},
+          {"start": 1793131200000, "end": 1793134800000, "change": 0},
+          {"start": 1793134800000, "end": 1793138400000, "change": 0},
+          {"start": 1793138400000, "end": 1793142000000, "change": 0},
+          {"start": 1793142000000, "end": 1793145600000, "change": 0},
+          {"start": 1793145600000, "end": 1793149200000, "change": 0},
+          {"start": 1793149200000, "end": 1793152800000, "change": 0},
+          {"start": 1793152800000, "end": 1793156400000, "change": 0},
+          {"start": 1793156400000, "end": 1793160000000, "change": 0},
+          {"start": 1793160000000, "end": 1793163600000, "change": 0},
+          {"start": 1793163600000, "end": 1793167200000, "change": 0},
+          {"start": 1793167200000, "end": 1793170800000, "change": 0},
+          {"start": 1793170800000, "end": 1793174400000, "change": 0},
+          {"start": 1793174400000, "end": 1793178000000, "change": 0.2}
+        ]
+      },
+      "roll": false,
+      "out": {}
+    },
+    {
+      "name": "midnight",
+      "description": "23:00 answer, 00:00:05 now: roll, everything 0, ask again.",
+      "tz": 60,
+      "posixTz": "CET-1CEST,M3.5.0,M10.5.0/3",
+      "answeredAt": 1793138400000,
+      "now": 1793142005000,
+      "prefs": {
+        "energy_sources": [
+          {"type": "solar", "stat_energy_from": "sensor.pv_energy"},
+          {
+            "type": "grid",
+            "flow_from": [
+              {"stat_energy_from": "sensor.meter_import"}
+            ],
+            "flow_to": [
+              {"stat_energy_to": "sensor.meter_export"}
+            ]
+          },
+          {"type": "battery", "stat_energy_from": "sensor.batt_out", "stat_energy_to": "sensor.batt_in"}
+        ]
+      },
+      "stats": {
+        "sensor.pv_energy": [
+          {"start": 1793127600000, "end": 1793131200000, "change": 0.2},
+          {"start": 1793131200000, "end": 1793134800000, "change": 0},
+          {"start": 1793134800000, "end": 1793138400000, "change": 0},
+          {"start": 1793138400000, "end": 1793142000000, "change": 0},
+          {"start": 1793142000000, "end": 1793145600000, "change": 0},
+          {"start": 1793145600000, "end": 1793149200000, "change": 0},
+          {"start": 1793149200000, "end": 1793152800000, "change": 0},
+          {"start": 1793152800000, "end": 1793156400000, "change": 0},
+          {"start": 1793156400000, "end": 1793160000000, "change": 0},
+          {"start": 1793160000000, "end": 1793163600000, "change": 0},
+          {"start": 1793163600000, "end": 1793167200000, "change": 0},
+          {"start": 1793167200000, "end": 1793170800000, "change": 0.1},
+          {"start": 1793170800000, "end": 1793174400000, "change": 0.4},
+          {"start": 1793174400000, "end": 1793178000000, "change": 0.9}
+        ],
+        "sensor.meter_import": [
+          {"start": 1793127600000, "end": 1793131200000, "change": 0.8},
+          {"start": 1793131200000, "end": 1793134800000, "change": 0.7},
+          {"start": 1793134800000, "end": 1793138400000, "change": 0.6},
+          {"start": 1793138400000, "end": 1793142000000, "change": 0.5},
+          {"start": 1793142000000, "end": 1793145600000, "change": 0.3},
+          {"start": 1793145600000, "end": 1793149200000, "change": 0.25},
+          {"start": 1793149200000, "end": 1793152800000, "change": 0.2},
+          {"start": 1793152800000, "end": 1793156400000, "change": 0.2},
+          {"start": 1793156400000, "end": 1793160000000, "change": 0.2},
+          {"start": 1793160000000, "end": 1793163600000, "change": 0.3},
+          {"start": 1793163600000, "end": 1793167200000, "change": 0.6},
+          {"start": 1793167200000, "end": 1793170800000, "change": 0.5},
+          {"start": 1793170800000, "end": 1793174400000, "change": 0.2},
+          {"start": 1793174400000, "end": 1793178000000, "change": 0}
+        ],
+        "sensor.meter_export": [
+          {"start": 1793127600000, "end": 1793131200000, "change": 0},
+          {"start": 1793131200000, "end": 1793134800000, "change": 0},
+          {"start": 1793134800000, "end": 1793138400000, "change": 0},
+          {"start": 1793138400000, "end": 1793142000000, "change": 0},
+          {"start": 1793142000000, "end": 1793145600000, "change": 0},
+          {"start": 1793145600000, "end": 1793149200000, "change": 0},
+          {"start": 1793149200000, "end": 1793152800000, "change": 0},
+          {"start": 1793152800000, "end": 1793156400000, "change": 0},
+          {"start": 1793156400000, "end": 1793160000000, "change": 0},
+          {"start": 1793160000000, "end": 1793163600000, "change": 0},
+          {"start": 1793163600000, "end": 1793167200000, "change": 0},
+          {"start": 1793167200000, "end": 1793170800000, "change": 0},
+          {"start": 1793170800000, "end": 1793174400000, "change": 0},
+          {"start": 1793174400000, "end": 1793178000000, "change": 0.3}
+        ],
+        "sensor.batt_out": [
+          {"start": 1793127600000, "end": 1793131200000, "change": 0.1},
+          {"start": 1793131200000, "end": 1793134800000, "change": 0.1},
+          {"start": 1793134800000, "end": 1793138400000, "change": 0},
+          {"start": 1793138400000, "end": 1793142000000, "change": 0},
+          {"start": 1793142000000, "end": 1793145600000, "change": 0},
+          {"start": 1793145600000, "end": 1793149200000, "change": 0},
+          {"start": 1793149200000, "end": 1793152800000, "change": 0},
+          {"start": 1793152800000, "end": 1793156400000, "change": 0},
+          {"start": 1793156400000, "end": 1793160000000, "change": 0},
+          {"start": 1793160000000, "end": 1793163600000, "change": 0},
+          {"start": 1793163600000, "end": 1793167200000, "change": 0},
+          {"start": 1793167200000, "end": 1793170800000, "change": 0},
+          {"start": 1793170800000, "end": 1793174400000, "change": 0},
+          {"start": 1793174400000, "end": 1793178000000, "change": 0}
+        ],
+        "sensor.batt_in": [
+          {"start": 1793127600000, "end": 1793131200000, "change": 0},
+          {"start": 1793131200000, "end": 1793134800000, "change": 0},
+          {"start": 1793134800000, "end": 1793138400000, "change": 0},
+          {"start": 1793138400000, "end": 1793142000000, "change": 0},
+          {"start": 1793142000000, "end": 1793145600000, "change": 0},
+          {"start": 1793145600000, "end": 1793149200000, "change": 0},
+          {"start": 1793149200000, "end": 1793152800000, "change": 0},
+          {"start": 1793152800000, "end": 1793156400000, "change": 0},
+          {"start": 1793156400000, "end": 1793160000000, "change": 0},
+          {"start": 1793160000000, "end": 1793163600000, "change": 0},
+          {"start": 1793163600000, "end": 1793167200000, "change": 0},
+          {"start": 1793167200000, "end": 1793170800000, "change": 0},
+          {"start": 1793170800000, "end": 1793174400000, "change": 0},
+          {"start": 1793174400000, "end": 1793178000000, "change": 0.2}
+        ]
+      },
+      "roll": true,
+      "out": {
+        "sensor.solar_today": {"state": 0},
+        "sensor.solar_hourly": {
+          "state": 0,
+          "today": [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
+        },
+        "sensor.grid_import_today": {"state": 0},
+        "sensor.grid_export_today": {"state": 0},
+        "sensor.energy_today": {"state": 0},
+        "sensor.energy_usage_hourly": {
+          "state": 0,
+          "today": [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
+        }
+      }
+    },
+    {
+      "name": "deep-sleep-two-days",
+      "description": "Woken two days later: roll.",
+      "tz": 60,
+      "posixTz": "CET-1CEST,M3.5.0,M10.5.0/3",
+      "answeredAt": 1793131200000,
+      "now": 1793340000000,
+      "prefs": {
+        "energy_sources": [
+          {"type": "solar", "stat_energy_from": "sensor.pv_energy"},
+          {
+            "type": "grid",
+            "flow_from": [
+              {"stat_energy_from": "sensor.meter_import"}
+            ],
+            "flow_to": [
+              {"stat_energy_to": "sensor.meter_export"}
+            ]
+          },
+          {"type": "battery", "stat_energy_from": "sensor.batt_out", "stat_energy_to": "sensor.batt_in"}
+        ]
+      },
+      "stats": {
+        "sensor.pv_energy": [
+          {"start": 1793127600000, "end": 1793131200000, "change": 0.2},
+          {"start": 1793131200000, "end": 1793134800000, "change": 0},
+          {"start": 1793134800000, "end": 1793138400000, "change": 0},
+          {"start": 1793138400000, "end": 1793142000000, "change": 0},
+          {"start": 1793142000000, "end": 1793145600000, "change": 0},
+          {"start": 1793145600000, "end": 1793149200000, "change": 0},
+          {"start": 1793149200000, "end": 1793152800000, "change": 0},
+          {"start": 1793152800000, "end": 1793156400000, "change": 0},
+          {"start": 1793156400000, "end": 1793160000000, "change": 0},
+          {"start": 1793160000000, "end": 1793163600000, "change": 0},
+          {"start": 1793163600000, "end": 1793167200000, "change": 0},
+          {"start": 1793167200000, "end": 1793170800000, "change": 0.1},
+          {"start": 1793170800000, "end": 1793174400000, "change": 0.4},
+          {"start": 1793174400000, "end": 1793178000000, "change": 0.9}
+        ],
+        "sensor.meter_import": [
+          {"start": 1793127600000, "end": 1793131200000, "change": 0.8},
+          {"start": 1793131200000, "end": 1793134800000, "change": 0.7},
+          {"start": 1793134800000, "end": 1793138400000, "change": 0.6},
+          {"start": 1793138400000, "end": 1793142000000, "change": 0.5},
+          {"start": 1793142000000, "end": 1793145600000, "change": 0.3},
+          {"start": 1793145600000, "end": 1793149200000, "change": 0.25},
+          {"start": 1793149200000, "end": 1793152800000, "change": 0.2},
+          {"start": 1793152800000, "end": 1793156400000, "change": 0.2},
+          {"start": 1793156400000, "end": 1793160000000, "change": 0.2},
+          {"start": 1793160000000, "end": 1793163600000, "change": 0.3},
+          {"start": 1793163600000, "end": 1793167200000, "change": 0.6},
+          {"start": 1793167200000, "end": 1793170800000, "change": 0.5},
+          {"start": 1793170800000, "end": 1793174400000, "change": 0.2},
+          {"start": 1793174400000, "end": 1793178000000, "change": 0}
+        ],
+        "sensor.meter_export": [
+          {"start": 1793127600000, "end": 1793131200000, "change": 0},
+          {"start": 1793131200000, "end": 1793134800000, "change": 0},
+          {"start": 1793134800000, "end": 1793138400000, "change": 0},
+          {"start": 1793138400000, "end": 1793142000000, "change": 0},
+          {"start": 1793142000000, "end": 1793145600000, "change": 0},
+          {"start": 1793145600000, "end": 1793149200000, "change": 0},
+          {"start": 1793149200000, "end": 1793152800000, "change": 0},
+          {"start": 1793152800000, "end": 1793156400000, "change": 0},
+          {"start": 1793156400000, "end": 1793160000000, "change": 0},
+          {"start": 1793160000000, "end": 1793163600000, "change": 0},
+          {"start": 1793163600000, "end": 1793167200000, "change": 0},
+          {"start": 1793167200000, "end": 1793170800000, "change": 0},
+          {"start": 1793170800000, "end": 1793174400000, "change": 0},
+          {"start": 1793174400000, "end": 1793178000000, "change": 0.3}
+        ],
+        "sensor.batt_out": [
+          {"start": 1793127600000, "end": 1793131200000, "change": 0.1},
+          {"start": 1793131200000, "end": 1793134800000, "change": 0.1},
+          {"start": 1793134800000, "end": 1793138400000, "change": 0},
+          {"start": 1793138400000, "end": 1793142000000, "change": 0},
+          {"start": 1793142000000, "end": 1793145600000, "change": 0},
+          {"start": 1793145600000, "end": 1793149200000, "change": 0},
+          {"start": 1793149200000, "end": 1793152800000, "change": 0},
+          {"start": 1793152800000, "end": 1793156400000, "change": 0},
+          {"start": 1793156400000, "end": 1793160000000, "change": 0},
+          {"start": 1793160000000, "end": 1793163600000, "change": 0},
+          {"start": 1793163600000, "end": 1793167200000, "change": 0},
+          {"start": 1793167200000, "end": 1793170800000, "change": 0},
+          {"start": 1793170800000, "end": 1793174400000, "change": 0},
+          {"start": 1793174400000, "end": 1793178000000, "change": 0}
+        ],
+        "sensor.batt_in": [
+          {"start": 1793127600000, "end": 1793131200000, "change": 0},
+          {"start": 1793131200000, "end": 1793134800000, "change": 0},
+          {"start": 1793134800000, "end": 1793138400000, "change": 0},
+          {"start": 1793138400000, "end": 1793142000000, "change": 0},
+          {"start": 1793142000000, "end": 1793145600000, "change": 0},
+          {"start": 1793145600000, "end": 1793149200000, "change": 0},
+          {"start": 1793149200000, "end": 1793152800000, "change": 0},
+          {"start": 1793152800000, "end": 1793156400000, "change": 0},
+          {"start": 1793156400000, "end": 1793160000000, "change": 0},
+          {"start": 1793160000000, "end": 1793163600000, "change": 0},
+          {"start": 1793163600000, "end": 1793167200000, "change": 0},
+          {"start": 1793167200000, "end": 1793170800000, "change": 0},
+          {"start": 1793170800000, "end": 1793174400000, "change": 0},
+          {"start": 1793174400000, "end": 1793178000000, "change": 0.2}
+        ]
+      },
+      "roll": true,
+      "out": {
+        "sensor.solar_today": {"state": 0},
+        "sensor.solar_hourly": {
+          "state": 0,
+          "today": [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
+        },
+        "sensor.grid_import_today": {"state": 0},
+        "sensor.grid_export_today": {"state": 0},
+        "sensor.energy_today": {"state": 0},
+        "sensor.energy_usage_hourly": {
+          "state": 0,
+          "today": [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
+        }
+      }
+    },
+    {
+      "name": "utc-midnight-not-local",
+      "description": "00:30 CET answer (23:30 UTC the day before), 01:10 CET now: same local day, no roll.",
+      "tz": 60,
+      "posixTz": "CET-1CEST,M3.5.0,M10.5.0/3",
+      "answeredAt": 1793143800000,
+      "now": 1793146200000,
+      "prefs": {
+        "energy_sources": [
+          {"type": "solar", "stat_energy_from": "sensor.pv_energy"},
+          {
+            "type": "grid",
+            "flow_from": [
+              {"stat_energy_from": "sensor.meter_import"}
+            ],
+            "flow_to": [
+              {"stat_energy_to": "sensor.meter_export"}
+            ]
+          },
+          {"type": "battery", "stat_energy_from": "sensor.batt_out", "stat_energy_to": "sensor.batt_in"}
+        ]
+      },
+      "stats": {
+        "sensor.pv_energy": [
+          {"start": 1793127600000, "end": 1793131200000, "change": 0.2},
+          {"start": 1793131200000, "end": 1793134800000, "change": 0},
+          {"start": 1793134800000, "end": 1793138400000, "change": 0},
+          {"start": 1793138400000, "end": 1793142000000, "change": 0},
+          {"start": 1793142000000, "end": 1793145600000, "change": 0},
+          {"start": 1793145600000, "end": 1793149200000, "change": 0},
+          {"start": 1793149200000, "end": 1793152800000, "change": 0},
+          {"start": 1793152800000, "end": 1793156400000, "change": 0},
+          {"start": 1793156400000, "end": 1793160000000, "change": 0},
+          {"start": 1793160000000, "end": 1793163600000, "change": 0},
+          {"start": 1793163600000, "end": 1793167200000, "change": 0},
+          {"start": 1793167200000, "end": 1793170800000, "change": 0.1},
+          {"start": 1793170800000, "end": 1793174400000, "change": 0.4},
+          {"start": 1793174400000, "end": 1793178000000, "change": 0.9}
+        ],
+        "sensor.meter_import": [
+          {"start": 1793127600000, "end": 1793131200000, "change": 0.8},
+          {"start": 1793131200000, "end": 1793134800000, "change": 0.7},
+          {"start": 1793134800000, "end": 1793138400000, "change": 0.6},
+          {"start": 1793138400000, "end": 1793142000000, "change": 0.5},
+          {"start": 1793142000000, "end": 1793145600000, "change": 0.3},
+          {"start": 1793145600000, "end": 1793149200000, "change": 0.25},
+          {"start": 1793149200000, "end": 1793152800000, "change": 0.2},
+          {"start": 1793152800000, "end": 1793156400000, "change": 0.2},
+          {"start": 1793156400000, "end": 1793160000000, "change": 0.2},
+          {"start": 1793160000000, "end": 1793163600000, "change": 0.3},
+          {"start": 1793163600000, "end": 1793167200000, "change": 0.6},
+          {"start": 1793167200000, "end": 1793170800000, "change": 0.5},
+          {"start": 1793170800000, "end": 1793174400000, "change": 0.2},
+          {"start": 1793174400000, "end": 1793178000000, "change": 0}
+        ],
+        "sensor.meter_export": [
+          {"start": 1793127600000, "end": 1793131200000, "change": 0},
+          {"start": 1793131200000, "end": 1793134800000, "change": 0},
+          {"start": 1793134800000, "end": 1793138400000, "change": 0},
+          {"start": 1793138400000, "end": 1793142000000, "change": 0},
+          {"start": 1793142000000, "end": 1793145600000, "change": 0},
+          {"start": 1793145600000, "end": 1793149200000, "change": 0},
+          {"start": 1793149200000, "end": 1793152800000, "change": 0},
+          {"start": 1793152800000, "end": 1793156400000, "change": 0},
+          {"start": 1793156400000, "end": 1793160000000, "change": 0},
+          {"start": 1793160000000, "end": 1793163600000, "change": 0},
+          {"start": 1793163600000, "end": 1793167200000, "change": 0},
+          {"start": 1793167200000, "end": 1793170800000, "change": 0},
+          {"start": 1793170800000, "end": 1793174400000, "change": 0},
+          {"start": 1793174400000, "end": 1793178000000, "change": 0.3}
+        ],
+        "sensor.batt_out": [
+          {"start": 1793127600000, "end": 1793131200000, "change": 0.1},
+          {"start": 1793131200000, "end": 1793134800000, "change": 0.1},
+          {"start": 1793134800000, "end": 1793138400000, "change": 0},
+          {"start": 1793138400000, "end": 1793142000000, "change": 0},
+          {"start": 1793142000000, "end": 1793145600000, "change": 0},
+          {"start": 1793145600000, "end": 1793149200000, "change": 0},
+          {"start": 1793149200000, "end": 1793152800000, "change": 0},
+          {"start": 1793152800000, "end": 1793156400000, "change": 0},
+          {"start": 1793156400000, "end": 1793160000000, "change": 0},
+          {"start": 1793160000000, "end": 1793163600000, "change": 0},
+          {"start": 1793163600000, "end": 1793167200000, "change": 0},
+          {"start": 1793167200000, "end": 1793170800000, "change": 0},
+          {"start": 1793170800000, "end": 1793174400000, "change": 0},
+          {"start": 1793174400000, "end": 1793178000000, "change": 0}
+        ],
+        "sensor.batt_in": [
+          {"start": 1793127600000, "end": 1793131200000, "change": 0},
+          {"start": 1793131200000, "end": 1793134800000, "change": 0},
+          {"start": 1793134800000, "end": 1793138400000, "change": 0},
+          {"start": 1793138400000, "end": 1793142000000, "change": 0},
+          {"start": 1793142000000, "end": 1793145600000, "change": 0},
+          {"start": 1793145600000, "end": 1793149200000, "change": 0},
+          {"start": 1793149200000, "end": 1793152800000, "change": 0},
+          {"start": 1793152800000, "end": 1793156400000, "change": 0},
+          {"start": 1793156400000, "end": 1793160000000, "change": 0},
+          {"start": 1793160000000, "end": 1793163600000, "change": 0},
+          {"start": 1793163600000, "end": 1793167200000, "change": 0},
+          {"start": 1793167200000, "end": 1793170800000, "change": 0},
+          {"start": 1793170800000, "end": 1793174400000, "change": 0},
+          {"start": 1793174400000, "end": 1793178000000, "change": 0.2}
+        ]
+      },
+      "roll": false,
+      "out": {}
+    },
+    {
+      "name": "never-answered",
+      "description": "No statistics answer yet: nothing to roll.",
+      "tz": 60,
+      "posixTz": "CET-1CEST,M3.5.0,M10.5.0/3",
+      "answeredAt": null,
+      "now": 1793142005000,
+      "prefs": {
+        "energy_sources": [
+          {"type": "solar", "stat_energy_from": "sensor.pv_energy"},
+          {
+            "type": "grid",
+            "flow_from": [
+              {"stat_energy_from": "sensor.meter_import"}
+            ],
+            "flow_to": [
+              {"stat_energy_to": "sensor.meter_export"}
+            ]
+          },
+          {"type": "battery", "stat_energy_from": "sensor.batt_out", "stat_energy_to": "sensor.batt_in"}
+        ]
+      },
+      "stats": {
+        "sensor.pv_energy": [
+          {"start": 1793127600000, "end": 1793131200000, "change": 0.2},
+          {"start": 1793131200000, "end": 1793134800000, "change": 0},
+          {"start": 1793134800000, "end": 1793138400000, "change": 0},
+          {"start": 1793138400000, "end": 1793142000000, "change": 0},
+          {"start": 1793142000000, "end": 1793145600000, "change": 0},
+          {"start": 1793145600000, "end": 1793149200000, "change": 0},
+          {"start": 1793149200000, "end": 1793152800000, "change": 0},
+          {"start": 1793152800000, "end": 1793156400000, "change": 0},
+          {"start": 1793156400000, "end": 1793160000000, "change": 0},
+          {"start": 1793160000000, "end": 1793163600000, "change": 0},
+          {"start": 1793163600000, "end": 1793167200000, "change": 0},
+          {"start": 1793167200000, "end": 1793170800000, "change": 0.1},
+          {"start": 1793170800000, "end": 1793174400000, "change": 0.4},
+          {"start": 1793174400000, "end": 1793178000000, "change": 0.9}
+        ],
+        "sensor.meter_import": [
+          {"start": 1793127600000, "end": 1793131200000, "change": 0.8},
+          {"start": 1793131200000, "end": 1793134800000, "change": 0.7},
+          {"start": 1793134800000, "end": 1793138400000, "change": 0.6},
+          {"start": 1793138400000, "end": 1793142000000, "change": 0.5},
+          {"start": 1793142000000, "end": 1793145600000, "change": 0.3},
+          {"start": 1793145600000, "end": 1793149200000, "change": 0.25},
+          {"start": 1793149200000, "end": 1793152800000, "change": 0.2},
+          {"start": 1793152800000, "end": 1793156400000, "change": 0.2},
+          {"start": 1793156400000, "end": 1793160000000, "change": 0.2},
+          {"start": 1793160000000, "end": 1793163600000, "change": 0.3},
+          {"start": 1793163600000, "end": 1793167200000, "change": 0.6},
+          {"start": 1793167200000, "end": 1793170800000, "change": 0.5},
+          {"start": 1793170800000, "end": 1793174400000, "change": 0.2},
+          {"start": 1793174400000, "end": 1793178000000, "change": 0}
+        ],
+        "sensor.meter_export": [
+          {"start": 1793127600000, "end": 1793131200000, "change": 0},
+          {"start": 1793131200000, "end": 1793134800000, "change": 0},
+          {"start": 1793134800000, "end": 1793138400000, "change": 0},
+          {"start": 1793138400000, "end": 1793142000000, "change": 0},
+          {"start": 1793142000000, "end": 1793145600000, "change": 0},
+          {"start": 1793145600000, "end": 1793149200000, "change": 0},
+          {"start": 1793149200000, "end": 1793152800000, "change": 0},
+          {"start": 1793152800000, "end": 1793156400000, "change": 0},
+          {"start": 1793156400000, "end": 1793160000000, "change": 0},
+          {"start": 1793160000000, "end": 1793163600000, "change": 0},
+          {"start": 1793163600000, "end": 1793167200000, "change": 0},
+          {"start": 1793167200000, "end": 1793170800000, "change": 0},
+          {"start": 1793170800000, "end": 1793174400000, "change": 0},
+          {"start": 1793174400000, "end": 1793178000000, "change": 0.3}
+        ],
+        "sensor.batt_out": [
+          {"start": 1793127600000, "end": 1793131200000, "change": 0.1},
+          {"start": 1793131200000, "end": 1793134800000, "change": 0.1},
+          {"start": 1793134800000, "end": 1793138400000, "change": 0},
+          {"start": 1793138400000, "end": 1793142000000, "change": 0},
+          {"start": 1793142000000, "end": 1793145600000, "change": 0},
+          {"start": 1793145600000, "end": 1793149200000, "change": 0},
+          {"start": 1793149200000, "end": 1793152800000, "change": 0},
+          {"start": 1793152800000, "end": 1793156400000, "change": 0},
+          {"start": 1793156400000, "end": 1793160000000, "change": 0},
+          {"start": 1793160000000, "end": 1793163600000, "change": 0},
+          {"start": 1793163600000, "end": 1793167200000, "change": 0},
+          {"start": 1793167200000, "end": 1793170800000, "change": 0},
+          {"start": 1793170800000, "end": 1793174400000, "change": 0},
+          {"start": 1793174400000, "end": 1793178000000, "change": 0}
+        ],
+        "sensor.batt_in": [
+          {"start": 1793127600000, "end": 1793131200000, "change": 0},
+          {"start": 1793131200000, "end": 1793134800000, "change": 0},
+          {"start": 1793134800000, "end": 1793138400000, "change": 0},
+          {"start": 1793138400000, "end": 1793142000000, "change": 0},
+          {"start": 1793142000000, "end": 1793145600000, "change": 0},
+          {"start": 1793145600000, "end": 1793149200000, "change": 0},
+          {"start": 1793149200000, "end": 1793152800000, "change": 0},
+          {"start": 1793152800000, "end": 1793156400000, "change": 0},
+          {"start": 1793156400000, "end": 1793160000000, "change": 0},
+          {"start": 1793160000000, "end": 1793163600000, "change": 0},
+          {"start": 1793163600000, "end": 1793167200000, "change": 0},
+          {"start": 1793167200000, "end": 1793170800000, "change": 0},
+          {"start": 1793170800000, "end": 1793174400000, "change": 0},
+          {"start": 1793174400000, "end": 1793178000000, "change": 0.2}
+        ]
+      },
+      "roll": false,
+      "out": {}
+    },
+    {
+      "name": "india-midnight",
+      "description": "23:30 IST answer, 00:01 IST now (same UTC day): roll.",
+      "tz": 330,
+      "posixTz": "IST-5:30",
+      "answeredAt": 1793124000000,
+      "now": 1793125860000,
+      "prefs": {
+        "energy_sources": [
+          {"type": "solar", "stat_energy_from": "sensor.pv_energy"},
+          {
+            "type": "grid",
+            "flow_from": [
+              {"stat_energy_from": "sensor.meter_import"}
+            ],
+            "flow_to": [
+              {"stat_energy_to": "sensor.meter_export"}
+            ]
+          },
+          {"type": "battery", "stat_energy_from": "sensor.batt_out", "stat_energy_to": "sensor.batt_in"}
+        ]
+      },
+      "stats": {
+        "sensor.pv_energy": [
+          {"start": 1793127600000, "end": 1793131200000, "change": 0.2},
+          {"start": 1793131200000, "end": 1793134800000, "change": 0},
+          {"start": 1793134800000, "end": 1793138400000, "change": 0},
+          {"start": 1793138400000, "end": 1793142000000, "change": 0},
+          {"start": 1793142000000, "end": 1793145600000, "change": 0},
+          {"start": 1793145600000, "end": 1793149200000, "change": 0},
+          {"start": 1793149200000, "end": 1793152800000, "change": 0},
+          {"start": 1793152800000, "end": 1793156400000, "change": 0},
+          {"start": 1793156400000, "end": 1793160000000, "change": 0},
+          {"start": 1793160000000, "end": 1793163600000, "change": 0},
+          {"start": 1793163600000, "end": 1793167200000, "change": 0},
+          {"start": 1793167200000, "end": 1793170800000, "change": 0.1},
+          {"start": 1793170800000, "end": 1793174400000, "change": 0.4},
+          {"start": 1793174400000, "end": 1793178000000, "change": 0.9}
+        ],
+        "sensor.meter_import": [
+          {"start": 1793127600000, "end": 1793131200000, "change": 0.8},
+          {"start": 1793131200000, "end": 1793134800000, "change": 0.7},
+          {"start": 1793134800000, "end": 1793138400000, "change": 0.6},
+          {"start": 1793138400000, "end": 1793142000000, "change": 0.5},
+          {"start": 1793142000000, "end": 1793145600000, "change": 0.3},
+          {"start": 1793145600000, "end": 1793149200000, "change": 0.25},
+          {"start": 1793149200000, "end": 1793152800000, "change": 0.2},
+          {"start": 1793152800000, "end": 1793156400000, "change": 0.2},
+          {"start": 1793156400000, "end": 1793160000000, "change": 0.2},
+          {"start": 1793160000000, "end": 1793163600000, "change": 0.3},
+          {"start": 1793163600000, "end": 1793167200000, "change": 0.6},
+          {"start": 1793167200000, "end": 1793170800000, "change": 0.5},
+          {"start": 1793170800000, "end": 1793174400000, "change": 0.2},
+          {"start": 1793174400000, "end": 1793178000000, "change": 0}
+        ],
+        "sensor.meter_export": [
+          {"start": 1793127600000, "end": 1793131200000, "change": 0},
+          {"start": 1793131200000, "end": 1793134800000, "change": 0},
+          {"start": 1793134800000, "end": 1793138400000, "change": 0},
+          {"start": 1793138400000, "end": 1793142000000, "change": 0},
+          {"start": 1793142000000, "end": 1793145600000, "change": 0},
+          {"start": 1793145600000, "end": 1793149200000, "change": 0},
+          {"start": 1793149200000, "end": 1793152800000, "change": 0},
+          {"start": 1793152800000, "end": 1793156400000, "change": 0},
+          {"start": 1793156400000, "end": 1793160000000, "change": 0},
+          {"start": 1793160000000, "end": 1793163600000, "change": 0},
+          {"start": 1793163600000, "end": 1793167200000, "change": 0},
+          {"start": 1793167200000, "end": 1793170800000, "change": 0},
+          {"start": 1793170800000, "end": 1793174400000, "change": 0},
+          {"start": 1793174400000, "end": 1793178000000, "change": 0.3}
+        ],
+        "sensor.batt_out": [
+          {"start": 1793127600000, "end": 1793131200000, "change": 0.1},
+          {"start": 1793131200000, "end": 1793134800000, "change": 0.1},
+          {"start": 1793134800000, "end": 1793138400000, "change": 0},
+          {"start": 1793138400000, "end": 1793142000000, "change": 0},
+          {"start": 1793142000000, "end": 1793145600000, "change": 0},
+          {"start": 1793145600000, "end": 1793149200000, "change": 0},
+          {"start": 1793149200000, "end": 1793152800000, "change": 0},
+          {"start": 1793152800000, "end": 1793156400000, "change": 0},
+          {"start": 1793156400000, "end": 1793160000000, "change": 0},
+          {"start": 1793160000000, "end": 1793163600000, "change": 0},
+          {"start": 1793163600000, "end": 1793167200000, "change": 0},
+          {"start": 1793167200000, "end": 1793170800000, "change": 0},
+          {"start": 1793170800000, "end": 1793174400000, "change": 0},
+          {"start": 1793174400000, "end": 1793178000000, "change": 0}
+        ],
+        "sensor.batt_in": [
+          {"start": 1793127600000, "end": 1793131200000, "change": 0},
+          {"start": 1793131200000, "end": 1793134800000, "change": 0},
+          {"start": 1793134800000, "end": 1793138400000, "change": 0},
+          {"start": 1793138400000, "end": 1793142000000, "change": 0},
+          {"start": 1793142000000, "end": 1793145600000, "change": 0},
+          {"start": 1793145600000, "end": 1793149200000, "change": 0},
+          {"start": 1793149200000, "end": 1793152800000, "change": 0},
+          {"start": 1793152800000, "end": 1793156400000, "change": 0},
+          {"start": 1793156400000, "end": 1793160000000, "change": 0},
+          {"start": 1793160000000, "end": 1793163600000, "change": 0},
+          {"start": 1793163600000, "end": 1793167200000, "change": 0},
+          {"start": 1793167200000, "end": 1793170800000, "change": 0},
+          {"start": 1793170800000, "end": 1793174400000, "change": 0},
+          {"start": 1793174400000, "end": 1793178000000, "change": 0.2}
+        ]
+      },
+      "roll": true,
+      "out": {
+        "sensor.solar_today": {"state": 0},
+        "sensor.solar_hourly": {
+          "state": 0,
+          "today": [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
+        },
+        "sensor.grid_import_today": {"state": 0},
+        "sensor.grid_export_today": {"state": 0},
+        "sensor.energy_today": {"state": 0},
+        "sensor.energy_usage_hourly": {
+          "state": 0,
+          "today": [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
+        }
+      }
+    }
+  ]
+}

@@ -3,6 +3,7 @@
 #include <unity.h>
 #include <algorithm>
 #include "core/glance.h"
+#include "core/history_chart.h"
 #include <algorithm>
 #include <cstdlib>
 #include <functional>
@@ -27,11 +28,13 @@ struct Rig {
   fake::FakeBoard b;
   fake::FakeServices s;
   App app{d, b, s};
-  explicit Rig(bool linked = true, int hh = 13, int mm = 0, int zones = 10, DisplaySettings ds = DisplaySettings()) {
+  // wake: net powerWakeName() of the boot. "timer" by default: a rig is a running device, not a press inside quiet hours
+  explicit Rig(bool linked = true, int hh = 13, int mm = 0, int zones = 10, DisplaySettings ds = DisplaySettings(), const char* wake = "timer") {
     b.epoch = kEpoch1300 + int64_t(hh - 13) * 3600 + mm * 60;
     s.st.pairingCode = "4F7K";
     if (linked) { s.linked(); demo::load(app.entities(), hh, mm, zones); }
     app.setPressFeedback(false);
+    app.setBootWake(wake);
     app.begin(defaultConfig(), ds);
     step(1800);
     d.clear();
@@ -200,24 +203,24 @@ void test_five_taps_one_call() {
   TEST_ASSERT_EQUAL_INT(1, int(r.s.calls.size()));
 }
 
-// ---- night 23–07: night face, no data redraws, tap = 60 s peek ----
-void test_night_mode_and_peek() {
-  Rig r(true, 22, 59);
+// ---- quiet hours 23–07 (#295): quiet face, no redraws at all (no clock), the light left to its timeout, tap = peek ----
+void test_quiet_hours_and_peek() {
+  DisplaySettings ds; ds.brightness = 40;
+  Rig r(true, 22, 59, 10, ds);
   TEST_ASSERT_TRUE(r.has("bar"));
-  r.step(61000);                                          // 23:00 → night face (full refresh)
-  TEST_ASSERT_TRUE(r.has("night"));
+  r.step(61000);                                          // 23:00 → quiet face (full refresh)
+  TEST_ASSERT_TRUE(r.has("quiet"));
   TEST_ASSERT_FALSE(r.has("bar"));
+  TEST_ASSERT_FALSE(r.has("time"));
+  TEST_ASSERT_TRUE(r.sig("quiet").find("Back at 07:00") != std::string::npos);
   TEST_ASSERT_TRUE(r.d.fulls() >= 1);
-  TEST_ASSERT_EQUAL_INT(0, r.b.light);
-  r.snap("night");
+  TEST_ASSERT_EQUAL_INT(0, r.b.light);                    // the 60 s light timeout ran out before 23:00, not quiet hours
+  r.snap("quiet");
   r.d.clear();
-  r.setNum("sensor.home_power", "2000");                  // data arrives: not drawn at night
+  r.setNum("sensor.home_power", "2000");                  // data arrives: not drawn in quiet hours
   r.setNum("sensor.solar_power", "0");
-  r.step(31000);
-  int full = r.d.fulls();
-  TEST_ASSERT_EQUAL_INT(0, full);
-  // clock still ticks once a minute (partial on the night face only)
-  for (auto& ev : r.d.events) TEST_ASSERT_FALSE(ev.full);
+  r.step(61000);                                          // nor the minute tick: the face has no clock
+  TEST_ASSERT_TRUE(r.d.events.empty());
   r.d.clear();
   r.tap(400, 240);                                        // tap anywhere → dashboard for 60 s
   TEST_ASSERT_EQUAL_INT(1, r.d.fulls());
@@ -225,12 +228,42 @@ void test_night_mode_and_peek() {
   TEST_ASSERT_TRUE(r.barHas("Home"));
   TEST_ASSERT_TRUE(r.sig("bar").find("I6,") != std::string::npos);   // moon icon while peeking
   TEST_ASSERT_TRUE(r.sig("t4").find(":2.00;") != std::string::npos);   // fresh data shown on the peek
-  r.snap("night_peek");
+  TEST_ASSERT_EQUAL_INT(40, r.b.light);                   // the tap turned the light on (front light timeout)
+  r.snap("quiet_peek");
   r.step(59000);
   TEST_ASSERT_TRUE(r.has("bar"));
   r.step(1500);
-  TEST_ASSERT_TRUE(r.has("night"));                       // back to the night face
+  TEST_ASSERT_TRUE(r.has("quiet"));                       // back to the quiet face
   TEST_ASSERT_EQUAL_INT(2, r.d.fulls());
+}
+
+// ---- quiet hours (#295): any press or boot shows the dashboard; standby in the window = the quiet face ----
+void test_quiet_hours_boot_power_standby() {
+  {   // power-on / button wake at 23:30: the dashboard first, the quiet face 60 s later
+    Rig r(true, 23, 30, 10, DisplaySettings(), "cold");
+    TEST_ASSERT_TRUE(r.has("bar"));
+    r.step(61000);
+    TEST_ASSERT_TRUE(r.has("quiet"));
+  }
+  {   // a timer wake (glance, OTA) goes straight to the quiet face
+    Rig r(true, 23, 30);
+    TEST_ASSERT_TRUE(r.has("quiet"));
+    r.key(Key::Power);                                    // Power on the quiet face → dashboard, not standby
+    TEST_ASSERT_TRUE(r.has("bar"));
+    TEST_ASSERT_FALSE(r.has("standby"));
+    r.key(Key::Power);                                    // Power while peeking → standby → the quiet face
+    TEST_ASSERT_TRUE(r.has("quiet"));
+    TEST_ASSERT_FALSE(r.has("standby"));
+    r.key(Key::Next);                                     // any key: the dashboard again
+    TEST_ASSERT_TRUE(r.has("bar"));
+  }
+  {   // standby by day stays the standby face; at 23:00 it becomes the quiet face
+    Rig r(true, 22, 59);
+    r.key(Key::Power);
+    TEST_ASSERT_TRUE(r.has("standby"));
+    r.step(61000);
+    TEST_ASSERT_TRUE(r.has("quiet"));
+  }
 }
 
 // ---- refresh policy (#26, #197): fast on screen change, partial otherwise, scheduled clean at :00/:30 ----
@@ -374,20 +407,20 @@ void test_settings_built_in() {
   TEST_ASSERT_EQUAL_STRING("about", c.screens.back().id.c_str());
 }
 
-// ---- no scheduled clean while night mode is active (#26); night end is a full anyway ----
+// ---- no scheduled clean on the quiet face (#26, #295); quiet end is a full anyway ----
 void test_no_clean_at_night() {
-  DisplaySettings ds = fast(); ds.night = "23-07";
+  DisplaySettings ds = fast(); ds.quiet = "23-07";
   Rig r(true, 22, 0, 10, ds);
   r.setNum("sensor.home_power", "2345"); r.step(5100);
   r.d.clear();
   r.step(30 * 60000);                                     // 22:30:xx: clean
   TEST_ASSERT_EQUAL_INT(1, r.d.fulls());
-  r.step(31 * 60000);                                     // 23:00 → night face (full), then clock partials
-  TEST_ASSERT_TRUE(r.has("night"));
+  r.step(31 * 60000);                                     // 23:00 → quiet face (full), then nothing
+  TEST_ASSERT_TRUE(r.has("quiet"));
   r.d.clear();
   r.step(90 * 60000);                                     // 00:31: 00:00 and 00:30 pass without a flash
   TEST_ASSERT_EQUAL_INT(0, r.d.fulls());
-  TEST_ASSERT_GREATER_THAN(80, r.d.partials());
+  TEST_ASSERT_EQUAL_INT(0, r.d.partials());
 }
 
 // ---- keys, app switcher, back-to-Home and standby timers ----
@@ -823,7 +856,7 @@ void test_tile_values() {
   TEST_ASSERT_EQUAL_STRING("Onbekend", v[4].c_str());
 }
 
-// #268: a history tile parses; until #270 draws it, both styles show the unknown-tile face (no crash)
+// #268, #270: a history tile parses and both styles draw it (no unknown-tile face); no single console value
 void test_history_tile_placeholder() {
   Rig r;
   EntityValue t; t.state = "12.3"; t.attrs["unit_of_measurement"] = "°C";
@@ -832,12 +865,14 @@ void test_history_tile_placeholder() {
                         "      - {type: history, entity: sensor.outdoor_temperature, cs: 4}\n"
                         "      - {type: history, entity: sensor.outdoor_temperature, window: 7d, agg: max, cs: 2}\n"));
   r.step(200);
-  TEST_ASSERT_TRUE(r.sig("t0").find(":?;") != std::string::npos);
+  TEST_ASSERT_TRUE(r.sig("t0").find(":?;") == std::string::npos);
+  TEST_ASSERT_TRUE(r.sig("t0").find(":12.3 °C;") != std::string::npos);
   TEST_ASSERT_EQUAL_STRING("", r.app.tileValues("a")[0].c_str());
   DisplaySettings ds = r.app.settings(); ds.style = "sleek";
   r.app.setSettings(ds);
   r.step(200);
-  TEST_ASSERT_TRUE(r.sig("t1").find(":?;") != std::string::npos);
+  TEST_ASSERT_TRUE(r.sig("t1").find(":?;") == std::string::npos);
+  TEST_ASSERT_TRUE(r.sig("t1").find(":12.3 °C;") != std::string::npos);
 }
 
 // ---- preview.png of another screen (#168): drawn off-screen, the panel and its frame untouched ----
@@ -1234,11 +1269,10 @@ void test_minute_tick_window() {
     TEST_MESSAGE(msg);
     TEST_ASSERT_TRUE_MESSAGE(share > 0 && share < (sl ? 0.40 : 0.30), msg);
   }
-  Rig n(true, 23, 30);   // night face: only the big clock
+  Rig n(true, 23, 30);   // quiet face (#295): no clock, the minute tick draws nothing
   n.d.clear();
   n.step(60000);
-  double share = lastPartialShare(n);
-  TEST_ASSERT_TRUE(share > 0 && share < 0.25);
+  TEST_ASSERT_EQUAL_INT(0, n.d.partials());
 }
 
 // ---- issue #220: front light timeout — off after N s without input; the first key/tap only turns it back on ----
@@ -1342,22 +1376,24 @@ void test_ambient_idle() {
   TEST_ASSERT_TRUE(r.has("standby"));
 }
 
-// ---- issue #27: night face as a poster; "as of HH:MM" only when the data was stale at night start ----
+// ---- quiet face (#295, poster since #27): the Home page's first values; "as of HH:MM" only when the data was stale ----
 void test_night_poster() {
   Rig fresh(true, 22, 59);
   fresh.s.st.haLastDataEpoch = fresh.b.epochSeconds() - 60;
   fresh.step(61000);
-  TEST_ASSERT_TRUE(fresh.has("night"));
-  std::string n = fresh.sig("night");
-  TEST_ASSERT_TRUE(n.find("Night mode") == std::string::npos);
-  TEST_ASSERT_TRUE(n.find("tap anywhere") == std::string::npos);
+  TEST_ASSERT_TRUE(fresh.has("quiet"));
+  std::string n = fresh.sig("quiet");
   TEST_ASSERT_TRUE(n.find("as of") == std::string::npos);
-  TEST_ASSERT_TRUE(n.find("Inside") != std::string::npos && n.find("Cheapest") != std::string::npos);
+  TEST_ASSERT_TRUE(n.find("Cheapest") == std::string::npos);   // no fixed energy terms
+  TEST_ASSERT_TRUE_MESSAGE(n.find(":Price ;") != std::string::npos && n.find(":Inside ;") != std::string::npos && n.find(":Solar ;") != std::string::npos, n.c_str());
   Rig stale(true, 22, 59);
   stale.s.st.haLastDataEpoch = stale.b.epochSeconds() - 45 * 60;   // 22:14
   stale.step(61000);
-  TEST_ASSERT_TRUE(stale.sig("night").find("as of 22:14") != std::string::npos);
-  stale.snap("night_stale");
+  TEST_ASSERT_TRUE(stale.sig("quiet").find("as of 22:14") != std::string::npos);
+  stale.snap("quiet_stale");
+  DisplaySettings h12; h12.clock = "12"; h12.quiet = "22-06";
+  Rig r12(true, 23, 0, 10, h12);
+  TEST_ASSERT_TRUE(r12.sig("quiet").find("Back at 6:00") != std::string::npos);
 }
 
 // ---- #145: user routes. Title = label, else HA's name; an old catalog route asks for a sensor; a gap is #86's ----
@@ -1383,6 +1419,22 @@ void test_user_routes() {
   r.snap("user_routes");
 }
 
+// ---- #303: a car route at cs >= 3 shows the arrival time as a second big value; cs 2 keeps the one line ----
+void test_car_route_arrival() {
+  Rig r;
+  const char* y = "version: 1\nscreens:\n  - id: travel\n    app: travel\n    title: Travel\n    widgets:\n"
+                  "      - {type: route, mode: car, entity: sensor.demo_drive, cs: 4}\n"
+                  "      - {type: route, mode: car, entity: sensor.demo_drive, cs: 2}\n";
+  ParseResult p = parseYamlText(y);
+  TEST_ASSERT_TRUE(p.ok);
+  r.app.setConfig(p.config); r.step(200);
+  std::string wide = r.sig("t0"), narrow = r.sig("t1");
+  TEST_ASSERT_TRUE(wide.find("arrive if you leave now") != std::string::npos);
+  TEST_ASSERT_TRUE(wide.find("arrive 1") == std::string::npos);
+  TEST_ASSERT_TRUE(narrow.find("if you leave now") != std::string::npos);
+  TEST_ASSERT_TRUE(narrow.find("arrive if you leave now") == std::string::npos);
+}
+
 // ---- issue #38: everything a partial refresh can redraw is black/white (boot face + Sleek card surface exempt) ----
 void test_bw_only_lint() {
   auto pages = [](Rig& r, const char* look) {
@@ -1404,7 +1456,7 @@ void test_bw_only_lint() {
   { Rig r(true, 13, 0, 10, dots); pages(r, "sleek"); }
   for (DisplaySettings ds : {fast(), dots}) {
     { Rig r(true, 23, 30, 10, ds); Canvas::grayPuts = 0; r.app.requestFullRefresh(); r.step(60000);
-      TEST_ASSERT_EQUAL_UINT32_MESSAGE(0, Canvas::grayPuts, "night"); }
+      TEST_ASSERT_EQUAL_UINT32_MESSAGE(0, Canvas::grayPuts, "quiet"); }
     { Rig r(true, 13, 0, 10, ds); r.step(61000); Canvas::grayPuts = 0; r.app.requestFullRefresh(); r.step(50);
       TEST_ASSERT_EQUAL_UINT32_MESSAGE(0, Canvas::grayPuts, "ambient"); }
     { Rig r(true, 13, 0, 10, ds); r.key(Key::Power); Canvas::grayPuts = 0; r.app.requestFullRefresh(); r.step(60000);
@@ -1420,14 +1472,60 @@ void test_bw_only_lint() {
   TEST_ASSERT_TRUE(Canvas::grayPuts > 0);
 }
 
+// ---- history tile (#270): drawn from App::setHistory; a sub-pixel change draws nothing; states; 1-bit ----
+void test_history_tile() {
+  Rig r(true);
+  ParseResult p = parseConfig("version: 1\nscreens:\n  - id: h\n    title: History\n    widgets:\n"
+                              "      - {type: history, entity: sensor.home_power, window: 6h, agg: max, cs: 2}\n"
+                              "      - {type: history, entity: sensor.home_power, window: 1h, cs: 2}\n");
+  TEST_ASSERT_TRUE(p.ok);
+  r.app.setConfig(p.config);
+  r.step(2000);
+  const hist::Spec bars = hist::specOf(p.config.screens[0].widgets[0]), line = hist::specOf(p.config.screens[0].widgets[1]);
+  TEST_ASSERT_TRUE(r.sig("t0").find(";S") == std::string::npos);   // loading: frame, axis, zero line, no bars
+  TEST_ASSERT_TRUE(r.sig("t1").find(";d") != std::string::npos);   // a line: the dotted baseline
+  static hist::Series s;
+  const int64_t now = r.b.epochSeconds() * 1000;
+  auto fill = [&](const hist::Spec& sp, double base) {
+    s.start = hist::chartSpan(sp.windowMs, sp.bucketMs, now, 0).start; s.bucketMs = sp.bucketMs; s.n = sp.n;
+    for (int i = 0; i < s.n; ++i) s.v[i] = i == 3 ? hist::kNone : base + i * 10;
+  };
+  fill(bars, 100);
+  int parts = r.d.partials();
+  Canvas::grayPuts = 0;
+  TEST_ASSERT_TRUE(r.app.setHistory(hist::seriesKey(bars), &s, hist::State::Ok));
+  TEST_ASSERT_EQUAL_INT(parts + 1, r.d.partials());
+  TEST_ASSERT_EQUAL_UINT32(0, Canvas::grayPuts);
+  std::string t0 = r.sig("t0");
+  TEST_ASSERT_TRUE(t0.find("Low ") != std::string::npos && t0.find("High ") != std::string::npos);
+  s.v[5] += 0.01;   // far below a pixel, and the low / high are other buckets: nothing to draw
+  r.app.setHistory(hist::seriesKey(bars), &s, hist::State::Ok);
+  TEST_ASSERT_EQUAL_INT(parts + 1, r.d.partials());
+  TEST_ASSERT_EQUAL_STRING(t0.c_str(), r.sig("t0").c_str());
+  s.v[s.n - 1] += 200;   // the high moves and every bar rescales
+  r.app.setHistory(hist::seriesKey(bars), &s, hist::State::Ok);
+  TEST_ASSERT_EQUAL_INT(parts + 2, r.d.partials());
+  fill(line, 200);
+  r.app.setHistory(hist::seriesKey(line), &s, hist::State::Ok);
+  TEST_ASSERT_TRUE(r.sig("t1").find("L") != std::string::npos);   // a polyline
+  r.app.setHistory(hist::seriesKey(line), nullptr, hist::State::TooMany);
+  TEST_ASSERT_TRUE(r.sig("t1").find("Too many changes") != std::string::npos);
+  // the store holds at most kMaxTiles series; keys no tile shows any more make room
+  for (int i = 0; i < hist::kMaxTiles - 2; ++i) TEST_ASSERT_TRUE(r.app.setHistory("sensor.x" + std::to_string(i), nullptr, hist::State::Loading));
+  TEST_ASSERT_TRUE(r.app.setHistory("sensor.new", nullptr, hist::State::Loading));
+  TEST_ASSERT_TRUE(r.sig("t1").find("Too many changes") != std::string::npos);
+}
+
 int main(int, char**) {
   UNITY_BEGIN();
   RUN_TEST(test_never_linked_ghosts);
+  RUN_TEST(test_history_tile);
   RUN_TEST(test_pager_counts_and_long_lists);
   RUN_TEST(test_no_visible_change_no_refresh);
   RUN_TEST(test_one_changed_row_only);
   RUN_TEST(test_five_taps_one_call);
-  RUN_TEST(test_night_mode_and_peek);
+  RUN_TEST(test_quiet_hours_and_peek);
+  RUN_TEST(test_quiet_hours_boot_power_standby);
   RUN_TEST(test_full_every_and_screen_change);
   RUN_TEST(test_nav_fast_every_tenth_clean);
   RUN_TEST(test_tap_after_page_change_registers);
@@ -1465,6 +1563,7 @@ int main(int, char**) {
   RUN_TEST(test_night_poster);
   RUN_TEST(test_bw_only_lint);
   RUN_TEST(test_user_routes);
+  RUN_TEST(test_car_route_arrival);
   RUN_TEST(test_key_factory_reset);
   RUN_TEST(test_key_restart);
   RUN_TEST(test_power_hold_off);

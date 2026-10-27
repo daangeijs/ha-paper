@@ -1,6 +1,7 @@
 #include "core/logic.h"
 #include "core/json.h"
 #include <algorithm>
+#include <cctype>
 #include <cmath>
 #include <cstdlib>
 #include <utility>
@@ -340,8 +341,8 @@ int64_t nextCleanMin(int64_t lastFullMin, int everyMin) {
   return (t + kCleanSlotMin - 1) / kCleanSlotMin * kCleanSlotMin;
 }
 
-bool cleanDue(int sinceFull, int64_t lastFullMin, int64_t nowMin, int everyMin, bool night) {
-  return !night && sinceFull > 0 && nowMin >= nextCleanMin(lastFullMin, everyMin);
+bool cleanDue(int sinceFull, int64_t lastFullMin, int64_t nowMin, int everyMin, bool quiet) {
+  return !quiet && sinceFull > 0 && nowMin >= nextCleanMin(lastFullMin, everyMin);
 }
 
 RefreshPolicy::Kind RefreshPolicy::requestPartial(bool clockKnown) {
@@ -359,10 +360,10 @@ RefreshPolicy::Kind RefreshPolicy::requestNav(bool clockKnown) {
   return Kind::Fast;
 }
 
-bool RefreshPolicy::cleanDue(int64_t nowMin, bool night) {
+bool RefreshPolicy::cleanDue(int64_t nowMin, bool quiet) {
   if (nowMin < 0) return false;
   if (lastFullMin_ < 0 || nowMin < lastFullMin_) { lastFullMin_ = nowMin; return false; }
-  return ::x4::cleanDue(sinceFull_, lastFullMin_, nowMin, everyMin_, night);
+  return ::x4::cleanDue(sinceFull_, lastFullMin_, nowMin, everyMin_, quiet);
 }
 
 static bool parseWindow(const std::string& v, int& a, int& b) {
@@ -380,6 +381,32 @@ bool isNightHour(int h, const std::string& v) {
 }
 
 int nightEndHour(const std::string& v) { int a, b; return parseWindow(v, a, b) ? b : -1; }
+
+bool validQuiet(const std::string& v) {
+  if (v == "off") return true;
+  auto hh = [&](size_t i) { return isdigit(static_cast<unsigned char>(v[i])) && isdigit(static_cast<unsigned char>(v[i + 1])) && (v[i] - '0') * 10 + (v[i + 1] - '0') < 24; };
+  return v.size() == 5 && v[2] == '-' && hh(0) && hh(3);
+}
+
+std::string quietFromNight(const std::string* night) { return night && *night != "off" && validQuiet(*night) ? *night : kDefaultQuiet; }
+
+std::string quietBackAt(const std::string& window, const std::string& clock) {
+  const int h = nightEndHour(window);
+  if (h < 0) return "";
+  if (clock == "12") return std::to_string(h % 12 ? h % 12 : 12) + ":00";
+  return std::string(1, char('0' + h / 10)) + char('0' + h % 10) + ":00";
+}
+
+std::vector<int> quietTiles(const std::vector<std::string>& types) {
+  std::vector<int> out;
+  for (int i = 0; i < int(types.size()) && int(out.size()) < kQuietTiles; ++i) {
+    const std::string& t = types[size_t(i)];
+    if (t == "stat" || t == "gauge" || t == "price" || t == "thermo") out.push_back(i);
+  }
+  return out;
+}
+
+bool peekOnBoot(const std::string& wake) { return wake != "timer"; }
 
 int idleMinutes(const std::string& s) {
   if (s.empty() || s == "never" || s == "off") return 0;
@@ -412,9 +439,9 @@ bool validLightTimeout(int sec) {
   return false;
 }
 bool lightTimedOut(uint32_t idleMs, int timeoutSec) { return timeoutSec > 0 && idleMs >= uint32_t(timeoutSec) * 1000u; }
-int frontlightPct(int brightness, bool standby, bool night, bool lightOut) { return standby || night || lightOut ? 0 : brightness; }
-bool lightWakeConsumes(int brightness, bool standby, bool night, bool lightOut, bool power) {
-  return lightOut && brightness > 0 && !standby && !night && !power;
+int frontlightPct(int brightness, bool standby, bool lightOut) { return standby || lightOut ? 0 : brightness; }
+bool lightWakeConsumes(int brightness, bool standby, bool quiet, bool lightOut, bool power) {
+  return lightOut && brightness > 0 && !standby && !quiet && !power;
 }
 
 int swipeNav(int dx, int dy, uint32_t dt) {

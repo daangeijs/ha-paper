@@ -1,12 +1,12 @@
 {
-  "name": "07-night-end",
-  "description": "Night (power saving At night or Standby + night): sleep until the night window ends, never longer than 8 h.",
+  "name": "07-quiet-end",
+  "description": "Quiet hours (#295, every power saving mode but Always live): sleep until the window ends, never longer than 8 h; no timer wakes inside it. Peeking (a press in the window: dashboard for 60 s) keeps it awake.",
   "base": {
     "nowEpoch": 1800000000,
     "localSec": 43200,
     "powerSave": "standby",
     "wakeEvery": 15,
-    "night": "23-07",
+    "quiet": "23-07",
     "peeking": false,
     "standby": true,
     "charging": false,
@@ -25,7 +25,7 @@
     {
       "name": "23:30, 23-07: wake at 07:00",
       "input": {
-        "powerSave": "night",
+        "powerSave": "standby",
         "standby": false,
         "localSec": 84600
       },
@@ -33,58 +33,72 @@
         "deepSleepNow": true,
         "wakeAtEpoch": 1800027000,
         "buttonWakeOnly": false,
-        "reason": "night"
+        "reason": "quiet"
+      }
+    },
+    {
+      "name": "glance at 23:30, 23-07: wake at 07:00, not every 15 min",
+      "input": {
+        "powerSave": "glance",
+        "standby": false,
+        "localSec": 84600
+      },
+      "expect": {
+        "deepSleepNow": true,
+        "wakeAtEpoch": 1800027000,
+        "buttonWakeOnly": false,
+        "reason": "quiet"
       }
     },
     {
       "name": "22:00, 22-06: exactly 8 h",
       "input": {
-        "powerSave": "night",
+        "powerSave": "standby",
         "standby": false,
-        "night": "22-06",
+        "quiet": "22-06",
         "localSec": 79200
       },
       "expect": {
         "deepSleepNow": true,
         "wakeAtEpoch": 1800028800,
         "buttonWakeOnly": false,
-        "reason": "night"
+        "reason": "quiet"
       }
     },
     {
       "name": "22:00, 22-07: capped at 8 h",
       "input": {
-        "powerSave": "night",
+        "powerSave": "standby",
         "standby": false,
-        "night": "22-07",
+        "quiet": "22-07",
         "localSec": 79200
       },
       "expect": {
         "deepSleepNow": true,
         "wakeAtEpoch": 1800028800,
         "buttonWakeOnly": false,
-        "reason": "night"
+        "reason": "quiet"
       }
     },
     {
       "name": "05:59:30, 00-06: 30 s",
       "input": {
-        "powerSave": "night",
+        "powerSave": "standby",
         "standby": false,
-        "night": "00-06",
+        "quiet": "00-06",
         "localSec": 21570
       },
       "expect": {
         "deepSleepNow": true,
         "wakeAtEpoch": 1800000030,
         "buttonWakeOnly": false,
-        "reason": "night"
+        "reason": "quiet"
       }
     },
     {
-      "name": "peeking at the dashboard at night",
+      "name": "peeking at the dashboard in quiet hours",
       "input": {
-        "powerSave": "night",
+        "powerSave": "standby",
         "standby": false,
         "peeking": true,
         "localSec": 3600
@@ -96,9 +110,10 @@
       }
     },
     {
-      "name": "At night only: standby by day stays awake",
+      "name": "Standby mode, standby face off, by day: awake",
       "input": {
-        "powerSave": "night"
+        "powerSave": "standby",
+        "standby": false
       },
       "expect": {
         "deepSleepNow": false,
@@ -107,7 +122,7 @@
       }
     },
     {
-      "name": "power saving off at night",
+      "name": "power saving off in quiet hours",
       "input": {
         "powerSave": "off",
         "localSec": 3600
@@ -121,11 +136,12 @@
       }
     },
     {
-      "name": "night window off",
+      "name": "quiet hours off",
       "input": {
-        "powerSave": "night",
-        "night": "off",
-        "localSec": 3600
+        "powerSave": "standby",
+        "quiet": "off",
+        "localSec": 3600,
+        "standby": false
       },
       "expect": {
         "deepSleepNow": false,

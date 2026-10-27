@@ -6,7 +6,7 @@
     "localSec": 43200,
     "powerSave": "standby",
     "wakeEvery": 15,
-    "night": "23-07",
+    "quiet": "23-07",
     "peeking": false,
     "standby": true,
     "charging": false,
@@ -23,7 +23,7 @@
   },
   "cases": [
     {
-      "name": "night, install due: wake at 03:00, not 07:00",
+      "name": "quiet hours, install due: wake at 03:00, not 07:00",
       "input": {
         "localSec": 3600,
         "otaAuto": "night",
@@ -33,7 +33,7 @@
         "deepSleepNow": true,
         "wakeAtEpoch": 1800007200,
         "buttonWakeOnly": false,
-        "reason": "night"
+        "reason": "quiet"
       }
     },
     {
@@ -59,7 +59,7 @@
         "deepSleepNow": true,
         "wakeAtEpoch": 1800013800,
         "buttonWakeOnly": false,
-        "reason": "night"
+        "reason": "quiet"
       }
     },
     {
@@ -73,7 +73,7 @@
         "deepSleepNow": true,
         "wakeAtEpoch": 1800021600,
         "buttonWakeOnly": false,
-        "reason": "night"
+        "reason": "quiet"
       }
     },
     {
@@ -98,11 +98,11 @@
         "deepSleepNow": true,
         "wakeAtEpoch": 1800000060,
         "buttonWakeOnly": false,
-        "reason": "night"
+        "reason": "quiet"
       }
     },
     {
-      "name": "04:00, still due: next 03:00 is 23 h away, night end first",
+      "name": "04:00, still due: next 03:00 is 23 h away, quiet end first",
       "input": {
         "localSec": 14400,
         "otaAuto": "night",
@@ -112,7 +112,7 @@
         "deepSleepNow": true,
         "wakeAtEpoch": 1800010800,
         "buttonWakeOnly": false,
-        "reason": "night"
+        "reason": "quiet"
       }
     }
   ]

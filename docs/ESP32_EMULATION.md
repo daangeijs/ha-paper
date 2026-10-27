@@ -205,8 +205,8 @@ Debugging: `SIM_QEMU_ARGS="-monitor tcp:127.0.0.1:4555,server,nowait" sim/qemu/r
 exception. The Arduino bootloader logs errors only.
 
 Gotchas: firmware that calls `analogRead()` links IDF's ADC self-calibration constructor, which spins on QEMU's missing
-SAR ADC before `setup()` (x4qemu does not link InputManager/BatteryMonitor). QEMU keeps real SNTP time, so night mode can
-be active — the contract run sets `night: off`, `fullEvery: 30`, `intervalSec: 5`.
+SAR ADC before `setup()` (x4qemu does not link InputManager/BatteryMonitor). QEMU keeps real SNTP time, so quiet hours can
+be active — the contract run sets `quiet: off`, `fullEvery: 30`, `intervalSec: 5`.
 
 ## 6. Recommended combined strategy
 

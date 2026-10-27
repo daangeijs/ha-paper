@@ -6,7 +6,7 @@
     "localSec": 43200,
     "powerSave": "standby",
     "wakeEvery": 15,
-    "night": "23-07",
+    "quiet": "23-07",
     "peeking": false,
     "standby": true,
     "charging": false,
@@ -37,7 +37,7 @@
       }
     },
     {
-      "name": "charging at night",
+      "name": "charging in quiet hours",
       "input": {
         "charging": true,
         "localSec": 3600

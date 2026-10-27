@@ -209,6 +209,23 @@ void test_diff_on_adapter_raw() {
   TEST_ASSERT_EQUAL(2, int(ad.raw().at("light.desk").attrs.size()));
 }
 
+// #292: a history tile's attribute is kept for its entity only
+void test_extra_attr_per_entity() {
+  TEST_ASSERT_TRUE(setExtraAttrs({{"sensor.rain", "nowcast"}}));
+  TEST_ASSERT_FALSE(setExtraAttrs({{"sensor.rain", "nowcast"}}));
+  PMap<EntityValue> mirror;
+  EntityUpdates touched;
+  JsonDocument d;
+  deserializeJson(d, R"({"a":{"sensor.rain":{"s":"0","a":{"nowcast":[{"t":1,"v":2}],"icon":"x"}},
+                             "sensor.other":{"s":"1","a":{"nowcast":[1,2,3]}}}})");
+  applyEntityEvent(d.as<JsonObjectConst>(), mirror, touched);
+  TEST_ASSERT_EQUAL_STRING("[{\"t\":1,\"v\":2}]", mirror.at("sensor.rain").attrs.at("nowcast").c_str());
+  TEST_ASSERT_EQUAL(1, int(mirror.at("sensor.rain").attrs.size()));
+  TEST_ASSERT_EQUAL(0, int(mirror.at("sensor.other").attrs.size()));
+  TEST_ASSERT_TRUE(setExtraAttrs({}));
+  TEST_ASSERT_FALSE(keepAttrFor("sensor.rain", "nowcast"));
+}
+
 // #85: display_precision from config/entity_registry/get_entries survives full "a" events and reaches logical ids.
 void test_registry_precision() {
   JsonDocument d;
@@ -290,5 +307,6 @@ int main(int, char**) {
   RUN_TEST(test_diff_on_adapter_raw);
   RUN_TEST(test_registry_precision);
   RUN_TEST(test_resubscribe_only_on_change);
+  RUN_TEST(test_extra_attr_per_entity);
   return UNITY_END();
 }

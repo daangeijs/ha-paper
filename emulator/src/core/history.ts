@@ -6,8 +6,9 @@ import { tr, type Lang, type StrKey } from './strings.ts';
 export const HISTORY_DOMAINS = ['sensor', 'input_number', 'number'];
 export const HISTORY_AGGS = ['mean', 'max', 'min', 'last', 'change'] as const;
 export type HistoryAgg = (typeof HISTORY_AGGS)[number];
-export const HISTORY_STYLES = ['bars', 'line', 'auto'] as const;
-export type HistoryStyle = 'bars' | 'line';
+export const HISTORY_STYLES = ['bars', 'line', 'area', 'step', 'dots', 'auto'] as const;
+/** area: a line with a dithered fill under it; step: a step line (setpoints, prices); dots: one dot per bucket (#304). */
+export type HistoryStyle = 'bars' | 'line' | 'area' | 'step' | 'dots';
 export const MAX_HISTORY_TILES = 6;
 export const MIN_BARS = 2, MAX_BARS = 96, BARS_PER_COL = 12;
 const MIN = 60_000, HOUR = 60 * MIN, DAY = 24 * HOUR;
@@ -76,10 +77,12 @@ export function historyError(w: W): string | null {
     if (a % b !== 0) return 'history: bucket ' + (w.bucket ?? b / MIN + 'm') + ' does not divide ahead ' + w.ahead;
   }
   if (w.agg !== undefined && !(HISTORY_AGGS as readonly string[]).includes(String(w.agg))) return 'history: agg must be ' + HISTORY_AGGS.join(', ');
-  if (w.style !== undefined && !(HISTORY_STYLES as readonly string[]).includes(String(w.style))) return 'history: style must be bars, line or auto';
+  if (w.style !== undefined && !(HISTORY_STYLES as readonly string[]).includes(String(w.style))) return 'history: style must be bars, line, area, step, dots or auto';
   const lo = w.min === undefined ? undefined : numOf(w.min), hi = w.max === undefined ? undefined : numOf(w.max);
   if (lo === null || hi === null) return 'history: min and max must be numbers';
   if (lo !== undefined && hi !== undefined && lo >= hi) return 'history: min must be below max';
+  if (w.threshold !== undefined && numOf(w.threshold) === null) return 'history: threshold must be a number';
+  if (w.labels !== undefined && w.labels !== 'true' && w.labels !== 'false') return 'history: labels must be true or false';
   return null;
 }
 
@@ -89,12 +92,15 @@ export type SourceSpec = { kind: 'attribute' | 'forecast'; attribute: string; va
 export type HistorySpec = {
   entity: string; windowMs: number; bucketMs: number; n: number; agg: HistoryAgg; style: HistoryStyle;
   min: number | null; max: number | null;
+  /** #304: a dashed reference line at this value; min / max / last values on the chart. Set only when configured. */
+  threshold?: number; labels?: true;
   /** Part of the window after now (#283): 0 / absent = the bucket holding now is the last one (recorder); > 0 = it
    *  starts the last `aheadMs` of the window. Only attribute / forecast series; set only for them. */
   aheadMs?: number; source?: SourceSpec;
 };
-/** Auto style: a line for means, bars for max / min / last / change (Daan, #264). */
-export const resolveStyle = (agg: HistoryAgg, style?: unknown): HistoryStyle => (style === 'bars' || style === 'line' ? style : agg === 'mean' ? 'line' : 'bars');
+/** Auto style: a line for means, bars for max / min / last / change (Daan, #264). Other styles as written (#304). */
+export const resolveStyle = (agg: HistoryAgg, style?: unknown): HistoryStyle =>
+  (style !== 'auto' && (HISTORY_STYLES as readonly unknown[]).includes(style) ? (style as HistoryStyle) : agg === 'mean' ? 'line' : 'bars');
 /** A validated history widget with every default filled in. */
 export function historySpec(w: W): HistorySpec {
   const windowMs = parseSpan(w.window ?? WINDOW_DEFAULT) as number, src = historySource(w);
@@ -102,6 +108,8 @@ export function historySpec(w: W): HistorySpec {
   const bucketMs = w.bucket !== undefined ? (parseSpan(w.bucket) as number) : (defaultBucket(windowMs, Number(w.cs) || 1, fc ? FORECAST_STEP[fc] : 0) as number);
   const agg = (w.agg ?? 'mean') as HistoryAgg;
   const out: HistorySpec = { entity: String(w.entity), windowMs, bucketMs, n: windowMs / bucketMs, agg, style: resolveStyle(agg, w.style), min: w.min === undefined ? null : numOf(w.min), max: w.max === undefined ? null : numOf(w.max) };
+  if (w.threshold !== undefined) out.threshold = numOf(w.threshold) as number;
+  if (w.labels === 'true') out.labels = true;
   if (src === 'recorder') return out;
   // an attribute or forecast series looks ahead by default (a nowcast, a forecast): the whole window from now
   out.aheadMs = w.ahead !== undefined ? (aheadOf(w.ahead) as number) : windowMs;
@@ -250,10 +258,12 @@ function firstHeld(pts: Point[], a: number, e: number): number | null {
 
 // ---------- chart ----------
 
-/** Y range. Bars start from zero (the range always holds 0); lines auto-range over the data with 10 % padding.
- *  A configured min / max replaces its side. No data: 0–1. A flat line: value ± 1. */
-export function yScale(values: (number | null)[], style: HistoryStyle, min: number | null = null, max: number | null = null): { lo: number; hi: number } {
+/** Y range. Bars start from zero (the range always holds 0); other styles auto-range over the data with 10 % padding.
+ *  A threshold (#304) counts as data when there is data. A configured min / max replaces its side. No data: 0–1. A
+ *  flat line: value ± 1. */
+export function yScale(values: (number | null)[], style: HistoryStyle, min: number | null = null, max: number | null = null, threshold: number | null = null): { lo: number; hi: number } {
   const d = values.filter((v): v is number => v !== null);
+  if (d.length && threshold !== null) d.push(threshold);
   let lo = d.length ? Math.min(...d) : 0, hi = d.length ? Math.max(...d) : 1;
   if (d.length && style === 'bars') { lo = Math.min(0, lo); hi = Math.max(0, hi); if (lo === hi) hi = 1; }
   else if (d.length && lo === hi) { lo -= 1; hi += 1; }

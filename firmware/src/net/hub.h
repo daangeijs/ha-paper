@@ -16,6 +16,7 @@
 #include "app/services.h"
 #include "core/config.h"
 #include "core/entities.h"
+#include "core/history_fetch.h"
 #include "core/home.h"
 #include "hw/platform.h"
 #include "net/storage.h"
@@ -33,6 +34,10 @@ struct Hub {
   std::vector<std::pair<std::string, EntityValue>> entityOut;
   bool clearEntities = false;
   uint32_t entitiesApplied = 0;   // entity updates handed to the App so far (diagnostics: GET /__qemu/state)
+  // history tile series (#269) → App::setHistory; one entry per series key, PSRAM
+  struct HistoryOut { PStr key; hist::FetchState state; bool has; hist::Series s; };
+  std::vector<HistoryOut, PsramAlloc<HistoryOut>> historyOut;
+  PStr historyInfo = "[]";        // [{key, active, state, source, fetched, bytes, points}] (GET /__qemu/state, log)
 
   // ---- config / settings (web → main loop) ----
   Config config;              // what the display shows now

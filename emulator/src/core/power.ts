@@ -1,12 +1,14 @@
 // Power decision (docs/ROBUSTNESS_PLAN.md Phase 3): may the display deep-sleep now, when must it wake, and how hard
 // should CPU and Wi-Fi work while awake. Pure; the emulator, the device simulator and the firmware
 // (firmware/src/core/power.cpp, a 1:1 port) all run it. Vectors: spec/test-vectors/power/*.json.
-import { isNightHour } from './format.ts';
+import { inQuietHours, quietEndHour } from './quiet.ts';
 
 // glance (#10, decided in #18: the default on battery): deep sleep between timer wakes; each wake fetches a snapshot and
 // redraws only when a visible value changed (core/glance.ts). A key press wakes into live mode for `liveMin` minutes.
-export type PowerSave = 'off' | 'night' | 'standby' | 'glance';
-export const POWER_SAVES: PowerSave[] = ['off', 'night', 'standby', 'glance'];
+// Quiet hours (#295, core/quiet.ts) win over standby and glance: no timer wakes in the window. "Sleep at night" is gone
+// (settings schema 2 moves it to glance).
+export type PowerSave = 'off' | 'standby' | 'glance';
+export const POWER_SAVES: PowerSave[] = ['off', 'standby', 'glance'];
 // Standby timer wake, minutes. Budget from TRMNL's measurements (usetrmnl/trmnl-firmware README, power): ~100 µA in
 // deep sleep, ~10.5 s and 0.67 C (0.19 mAh) per wake + update. Every 15 min: 96 × 0.19 + 2.4 ≈ 20 mAh/day, ~55 days
 // on 1100 mAh. Our own wake cost is unmeasured (Wi-Fi + TLS to HA + a gray refresh).
@@ -25,8 +27,8 @@ export type PowerInputs = {
   localSec: number;            // seconds since local midnight
   powerSave: PowerSave;
   wakeEvery: number;           // minutes, standby timer wake
-  night: string;               // night window "23-07" | "off"
-  peeking: boolean;            // dashboard shown for 60 s after a key press at night
+  quiet: string;               // quiet hours "23-07" | "off"
+  peeking: boolean;            // dashboard shown for 60 s after a press in quiet hours
   standby: boolean;            // standby face is on
   charging: boolean;
   usb: boolean;                // USB host connected (USB-JTAG)
@@ -50,7 +52,7 @@ export type WifiPs = 'none' | 'min';
  *  fixed 80 MHz, the lowest clock that keeps APB at 80 MHz (UART, SPI to the panel, I2C and Wi-Fi unchanged). */
 export const CPU_MHZ: Record<CpuProfile, number> = { full: 240, auto: 80 };
 export type PowerReason = 'unconfirmed image' | 'ota running' | 'external power' | 'battery unknown' | 'low battery' | 'setup mode'
-  | 'recent api' | 'ota window' | 'power save off' | 'awake' | 'night' | 'standby' | 'live' | 'glance' | 'not armed';
+  | 'recent api' | 'ota window' | 'power save off' | 'awake' | 'quiet' | 'standby' | 'live' | 'glance' | 'not armed';
 
 export type PowerDecision = {
   deepSleepNow: boolean;
@@ -73,9 +75,6 @@ export function secsUntil(localSec: number, targetSec: number): number {
   const d = (((targetSec - localSec) % 86400) + 86400) % 86400;
   return d === 0 ? 86400 : d;
 }
-
-/** End hour of a night window "23-07" (-1 when off). */
-export function nightEndHour(night: string): number { return night === 'off' ? -1 : Number(night.split('-')[1]); }
 
 export function isExternalPower(i: Pick<PowerInputs, 'charging' | 'usb' | 'chargedAgoMin' | 'voltage'>): boolean {
   return i.charging || i.usb || (i.chargedAgoMin !== null && i.chargedAgoMin < RECENT_CHARGE_MIN && i.voltage !== null && i.voltage >= FULL_VOLTAGE);
@@ -110,10 +109,10 @@ export function powerDecision(i: PowerInputs): PowerDecision {
   if (i.powerSave === 'off') return out('power save off');
   if (i.powerSave === 'glance' && i.live) return out('live');
 
-  const night = isNightHour(hour, i.night) && !i.peeking;
+  const quiet = inQuietHours(hour, i.quiet) && !i.peeking;
   let wait = MAX_SLEEP_S;
   let reason: PowerReason;
-  if (night) { reason = 'night'; wait = Math.min(wait, secsUntil(i.localSec, nightEndHour(i.night) * 3600)); }
+  if (quiet) { reason = 'quiet'; wait = Math.min(wait, secsUntil(i.localSec, quietEndHour(i.quiet) * 3600)); }
   else if (i.powerSave === 'standby' && i.standby) { reason = 'standby'; wait = Math.min(wait, i.wakeEvery * 60); }
   else if (i.powerSave === 'glance') { reason = 'glance'; wait = Math.min(wait, glanceWaitS(i.wakeEvery, i.glanceFails ?? 0)); }
   else return out('awake');

@@ -107,7 +107,7 @@ display.
 Open `http://ha-paper-XXXX.local` and sign in with Home Assistant. It has three tabs:
 
 - **Screens**: edit screens and tiles, with a live preview of what the panel shows.
-- **Device settings**: display style, night and power settings, Wi-Fi, the Home Assistant link, diagnostics (copy the JSON for a bug
+- **Device settings**: display style, power settings and quiet hours, Wi-Fi, the Home Assistant link, diagnostics (copy the JSON for a bug
   report; it contains your HA URL but no passwords).
 - **Advanced**: *Screens as YAML* (the whole layout as one `screens.yaml`, format in
   [spec/SCHEMA.md](spec/SCHEMA.md)), *API* (tokens and the endpoint list), *Device log*.
@@ -118,9 +118,17 @@ it sleeps on that screen until you press Power. Power + Prev held 5 s restarts t
 opens the factory reset screen. The small button on the top edge next to the microSD slot is Reset: on battery it
 switches the display off; hold Power to start it again.
 
-Power saving modes: *Always live*, *Sleep at night*, *Standby + night*, and *Glance* (the default): on battery it
+Power saving modes: *Always live*, *Standby*, and *Glance* (the default): on battery it
 deep-sleeps and wakes every 15 minutes to redraw if something changed, and stays live for a few minutes after you
-press a button. On USB the display is always live.
+press a button. On USB the display is always live. *Quiet hours* (default 23:00–07:00) show "Back at 07:00" with a few
+values from your Home page; on battery the display does not wake on its own until then, and a press shows the dashboard.
+
+*Glance* vs *Always live*: e-paper keeps its last picture without power, so a sleeping display still looks on. In
+glance the chip is in deep sleep between wakes: no Wi-Fi, no web console, no USB serial, so the device is not on the
+network and a computer does not see it. Before it sleeps the top bar says "Asleep · updated 07:45" instead of the clock,
+and a Clock tile labels its time "Updated · asleep". A press on Power or Right wakes it: the screen stays as it is for
+a few seconds while Wi-Fi and Home Assistant connect, then redraws once (no start-up screen). Want a live clock and an
+always reachable device on battery? Pick *Always live*, at the cost of battery life.
 
 ## API
 

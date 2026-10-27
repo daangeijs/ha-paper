@@ -48,6 +48,7 @@ class DeviceServices : public Services {
 
  private:
   static void netTask(void*);
+  void historyTiles(App& app, bool configChanged);   // #269
   Config bootConfig_;
   DisplaySettings bootSettings_;
   NetStatus published_;
@@ -55,6 +56,8 @@ class DeviceServices : public Services {
   uint32_t lastPowerMs_ = 0, lastPairCheckMs_ = 0;
   uint32_t lastValuesMs_ = 0;   // last GET /screens/{id}/values formatting (#122)
   uint32_t lastFulls_ = 0;   // App full refresh count seen by pump() (net/ha_report "last full refresh")
+  std::string histApp_;      // app whose history tiles are fetched (#269)
+  bool histPosted_ = false;
 };
 
 DeviceServices& deviceServices();

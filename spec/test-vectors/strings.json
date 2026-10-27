@@ -125,6 +125,22 @@
       "en": "as of {}",
       "nl": "stand van {}"
     },
+    "quietBack": {
+      "en": "Back at {}",
+      "nl": "Terug om {}"
+    },
+    "asleepBar": {
+      "en": "Asleep · updated {}",
+      "nl": "Slaapt · bijgewerkt {}"
+    },
+    "clockAsleep": {
+      "en": "Updated · asleep",
+      "nl": "Bijgewerkt · slaapt"
+    },
+    "asleepFoot": {
+      "en": "Asleep · updated {} · press power to wake",
+      "nl": "Slaapt · bijgewerkt {} · druk op aan/uit"
+    },
     "sigWeak": {
       "en": "Weak",
       "nl": "Zwak"
@@ -272,6 +288,10 @@
     "arriveIfLeave": {
       "en": "arrive {} if you leave now",
       "nl": "aankomst {} als je nu vertrekt"
+    },
+    "arriveCaption": {
+      "en": "arrive if you leave now",
+      "nl": "aankomst als je nu vertrekt"
     },
     "traffic": {
       "en": "+{} min traffic",
@@ -1057,10 +1077,6 @@
       "en": "Light off",
       "nl": "Licht uit"
     },
-    "setNight": {
-      "en": "Night mode",
-      "nl": "Nachtstand"
-    },
     "setReturnHome": {
       "en": "Back to Home",
       "nl": "Terug naar start"
@@ -1117,13 +1133,21 @@
       "en": "Live after a press",
       "nl": "Live na een druk"
     },
+    "setQuiet": {
+      "en": "Quiet hours",
+      "nl": "Stille uren"
+    },
     "infoCleanEvery": {
       "en": "E-paper leaves faint traces of old images. Every so often the display flashes black and white once to clear them.",
       "nl": "E-paper houdt vage resten van oude beelden vast. Af en toe knippert het scherm één keer zwart en wit om ze weg te halen."
     },
     "infoPowerSave": {
-      "en": "How the display saves battery when not on USB. Always live stays connected and updates within seconds (days of battery). Sleep at night rests during night hours. Standby + night also rests after a while without a press. Glance sleeps, wakes on its own to update, and stays live for a few minutes after you press a button (weeks of battery).",
-      "nl": "Hoe het scherm batterij spaart als het niet aan USB hangt. Altijd live blijft verbonden en werkt binnen seconden bij (dagen batterij). Nachtrust rust ’s nachts. Stand-by + nacht rust ook na een tijdje zonder knopdruk. Oogopslag slaapt, wordt vanzelf wakker om bij te werken en blijft een paar minuten live nadat je op een knop drukt (weken batterij)."
+      "en": "How the display saves battery when not on USB. Always live stays connected and updates within seconds (days of battery). Standby sleeps while the standby screen is on. Glance sleeps, wakes on its own to update, and stays live for a few minutes after you press a button (weeks of battery).",
+      "nl": "Hoe het scherm batterij spaart als het niet aan USB hangt. Altijd live blijft verbonden en werkt binnen seconden bij (dagen batterij). Stand-by slaapt zolang het stand-by-beeld aan staat. Oogopslag slaapt, wordt vanzelf wakker om bij te werken en blijft een paar minuten live nadat je op een knop drukt (weken batterij)."
+    },
+    "infoQuiet": {
+      "en": "Between these hours the display rests. On battery it sleeps and does not wake on its own. On USB it stays connected, but the screen does not change. A press shows the dashboard.",
+      "nl": "Tussen deze uren rust het scherm. Op batterij slaapt het en wordt het niet vanzelf wakker. Aan USB blijft het verbonden, maar verandert het beeld niet. Een knopdruk toont het dashboard."
     },
     "infoWakeEvery": {
       "en": "In Glance and Standby: how often the display wakes on its own to update the screen.",
@@ -1205,13 +1229,9 @@
       "en": "Always live",
       "nl": "Altijd live"
     },
-    "psNight": {
-      "en": "Sleep at night",
-      "nl": "Nachtrust"
-    },
     "psStandby": {
-      "en": "Standby + night",
-      "nl": "Stand-by + nacht"
+      "en": "Standby",
+      "nl": "Stand-by"
     },
     "psGlance": {
       "en": "Glance",
@@ -1294,8 +1314,8 @@
       "nl": "Melden"
     },
     "autoNight": {
-      "en": "Night",
-      "nl": "Nacht"
+      "en": "Install",
+      "nl": "Installeren"
     },
     "otaHintOff": {
       "en": "Off in this build",
@@ -2205,6 +2225,38 @@
       "en": "Line",
       "nl": "Lijn"
     },
+    "styleArea": {
+      "en": "Area",
+      "nl": "Vlak"
+    },
+    "styleStep": {
+      "en": "Steps",
+      "nl": "Trappen"
+    },
+    "styleDots": {
+      "en": "Dots",
+      "nl": "Punten"
+    },
+    "histThreshold": {
+      "en": "Line at",
+      "nl": "Lijn op"
+    },
+    "histThresholdNone": {
+      "en": "none",
+      "nl": "geen"
+    },
+    "histLabels": {
+      "en": "Values",
+      "nl": "Waarden"
+    },
+    "histLabelsOn": {
+      "en": "On chart",
+      "nl": "In grafiek"
+    },
+    "histLabelsOff": {
+      "en": "Off",
+      "nl": "Uit"
+    },
     "histSource": {
       "en": "Data",
       "nl": "Gegevens"
@@ -2268,6 +2320,18 @@
     "errHistOrder": {
       "en": "min must be below max",
       "nl": "min moet lager zijn dan max"
+    },
+    "errHistThreshold": {
+      "en": "threshold must be a number",
+      "nl": "threshold moet een getal zijn"
+    },
+    "errHistLabels": {
+      "en": "labels must be true or false",
+      "nl": "labels moet true of false zijn"
+    },
+    "errHistStyle": {
+      "en": "style must be bars, line, area, step, dots or auto",
+      "nl": "style moet bars, line, area, step, dots of auto zijn"
     },
     "palThermo": {
       "en": "Room thermostat (tall)",

@@ -13,7 +13,7 @@
 
 namespace x4::migrate {
 
-constexpr int kSettingsSchema = 1;   // userdata /settings.json "schema"; 0 = file from before versioning (no key)
+constexpr int kSettingsSchema = 2;   // userdata /settings.json "schema"; 0 = file from before versioning (no key)
 constexpr int kDeviceSchema = 1;     // NVS x4dev/schema, one number for x4wifi/x4ha/x4tok/x4dev/x4ota; 0 = no key
 
 enum class Status { Current, Upgrade, Newer, Unknown, Invalid };

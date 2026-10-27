@@ -18,8 +18,6 @@ const std::vector<EntityDef>& entities();
 const EntityDef* findEntity(const std::string& id);
 const std::vector<SettingDef>& settingDefs();
 const SettingDef* findSetting(const std::string& key);
-// What a setting does (#190; emulator SETTING_DEFS `info`): false when it has no hint.
-bool settingInfo(const std::string& key, S& out);
 bool isWidgetType(const std::string& t);
 // Local widgets (stay real when Home Assistant was never linked).
 bool isLocalWidget(const std::string& t);

@@ -430,6 +430,60 @@ void test_route_departures_vectors() {
   TEST_ASSERT_GREATER_THAN(20, n);
 }
 
+// #308: today's energy from recorder statistics and the local day change, spec/test-vectors/energy-hourly.json
+static void checkStatOut(JsonObjectConst want, const EntityUpdates& out, const std::string& name) {
+  TEST_ASSERT_EQUAL_INT_MESSAGE(int(want.size()), int(out.size()), name.c_str());
+  for (JsonPairConst kv : want) {
+    std::string m = name + " " + kv.key().c_str();
+    const EntityValue* v = find(out, kv.key().c_str());
+    TEST_ASSERT_NOT_NULL_MESSAGE(v, m.c_str());
+    TEST_ASSERT_DOUBLE_WITHIN_MESSAGE(1e-6, kv.value()["state"].as<double>(), std::atof(v->state.c_str()), m.c_str());
+    JsonArrayConst today = kv.value()["today"];
+    auto it = v->attrs.find("today");
+    TEST_ASSERT_EQUAL_MESSAGE(!today.isNull(), it != v->attrs.end(), m.c_str());
+    if (today.isNull()) continue;
+    Json got; TEST_ASSERT_TRUE_MESSAGE(parseJson(it->second, got) && got.isArr(), m.c_str());
+    TEST_ASSERT_EQUAL_INT_MESSAGE(24, int(got.arr.size()), m.c_str());
+    for (size_t i = 0; i < 24; ++i) TEST_ASSERT_DOUBLE_WITHIN_MESSAGE(1e-6, today[i].as<double>(), got.arr[i].num, m.c_str());
+  }
+}
+
+void test_energy_hourly_vectors() {
+  std::ifstream f(std::string(X4_REPO_ROOT) + "/spec/test-vectors/energy-hourly.json", std::ios::binary);
+  std::stringstream ss; ss << f.rdbuf();
+  JsonDocument doc;
+  TEST_ASSERT_TRUE_MESSAGE(deserializeJson(doc, ss.str()) == DeserializationError::Ok, "spec/test-vectors/energy-hourly.json");
+  int n = 0;
+  for (JsonObjectConst c : doc["cases"].as<JsonArrayConst>()) {
+    std::string name = c["name"] | "", prefs, stats;
+    setenv("TZ", c["posixTz"] | "", 1); tzset();
+    serializeJson(c["prefs"], prefs); serializeJson(c["stats"], stats);
+    EntityAdapter a; a.setEnergyPrefs(prefs);
+    a.setNow(c["now"].as<int64_t>() / 1000);
+    EntityUpdates out;
+    a.setHourlyStatistics(stats, out);
+    checkStatOut(c["out"], out, name);
+    ++n;
+  }
+  for (JsonObjectConst r : doc["rolls"].as<JsonArrayConst>()) {
+    std::string name = std::string("roll ") + (r["name"] | ""), prefs, stats;
+    setenv("TZ", r["posixTz"] | "", 1); tzset();
+    serializeJson(r["prefs"], prefs); serializeJson(r["stats"], stats);
+    EntityAdapter a; a.setEnergyPrefs(prefs);
+    EntityUpdates out;
+    if (!r["answeredAt"].isNull()) { a.setNow(r["answeredAt"].as<int64_t>() / 1000); a.setHourlyStatistics(stats, out); }
+    out.clear();
+    a.setNow(r["now"].as<int64_t>() / 1000);
+    TEST_ASSERT_EQUAL_MESSAGE(r["roll"].as<bool>(), a.rollDay(out), name.c_str());
+    checkStatOut(r["out"], out, name);
+    out.clear();
+    TEST_ASSERT_FALSE_MESSAGE(a.rollDay(out), (name + " once").c_str());   // stamped: no second roll the same day
+    ++n;
+  }
+  setUp();
+  TEST_ASSERT_EQUAL_INT(11, n);
+}
+
 int main(int, char**) {
   UNITY_BEGIN();
   RUN_TEST(test_energy_prefs_vectors);
@@ -442,5 +496,6 @@ int main(int, char**) {
   RUN_TEST(test_render_template_answer_over_64k);
   RUN_TEST(test_away_presets_and_no_living_guess);
   RUN_TEST(test_route_departures_vectors);
+  RUN_TEST(test_energy_hourly_vectors);
   return UNITY_END();
 }

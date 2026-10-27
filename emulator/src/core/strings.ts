@@ -28,6 +28,11 @@ export const STRINGS = {
   updated: ['Updated', 'Bijgewerkt'],
   standbyFoot: ['Standby · updated {} · press power to wake', 'Stand-by · bijgewerkt {} · druk op aan/uit'],
   asOf: ['as of {}', 'stand van {}'],
+  quietBack: ['Back at {}', 'Terug om {}'],   // quiet face (#295): the time quiet hours end
+  // deep sleep outside quiet hours (#299): no live-looking clock on a sleeping panel
+  asleepBar: ['Asleep · updated {}', 'Slaapt · bijgewerkt {}'],   // top bar, replaces the clock
+  clockAsleep: ['Updated · asleep', 'Bijgewerkt · slaapt'],       // clock tile: the digits are the update time
+  asleepFoot: ['Asleep · updated {} · press power to wake', 'Slaapt · bijgewerkt {} · druk op aan/uit'],   // standby face
   sigWeak: ['Weak', 'Zwak'], sigFair: ['Fair', 'Redelijk'], sigGood: ['Good', 'Goed'], sigExcellent: ['Excellent', 'Uitstekend'],
 
   // display chrome and our own card headings
@@ -61,6 +66,7 @@ export const STRINGS = {
   histNeedsStats: ['Needs long-term statistics', 'Heeft langetermijnstatistieken nodig'],
   usually: ['Usually {}', 'Meestal {}'],
   arriveIfLeave: ['arrive {} if you leave now', 'aankomst {} als je nu vertrekt'],
+  arriveCaption: ['arrive if you leave now', 'aankomst als je nu vertrekt'],
   traffic: ['+{} min traffic', '+{} min file'],
   cancelled: ['Cancelled', 'Rijdt niet'],
   routeTrack: ['Track {}', 'Spoor {}'],   // route departure info from an `upcoming` list (#275)
@@ -267,7 +273,6 @@ export const STRINGS = {
   setBrightness: ['Front light', 'Verlichting'],
   setWarmth: ['Warmth', 'Warmte'],
   setLightTimeout: ['Light off', 'Licht uit'],
-  setNight: ['Night mode', 'Nachtstand'],
   setReturnHome: ['Back to Home', 'Terug naar start'],
   setStandby: ['Standby', 'Stand-by'],
   setClock: ['Clock', 'Klok'],
@@ -281,11 +286,14 @@ export const STRINGS = {
   setPowerSave: ['On battery', 'Op batterij'],
   setWakeEvery: ['Check every', 'Kijk elke'],
   setLiveMin: ['Live after a press', 'Live na een druk'],
-  // what a setting does (#190): the (i) in the browser, the hint line on the device's Settings › Power page
+  setQuiet: ['Quiet hours', 'Stille uren'],
+  // what a setting does (#190): the (i) in the browser (no hint line on the device, #310)
   infoCleanEvery: ['E-paper leaves faint traces of old images. Every so often the display flashes black and white once to clear them.',
     'E-paper houdt vage resten van oude beelden vast. Af en toe knippert het scherm één keer zwart en wit om ze weg te halen.'],
-  infoPowerSave: ['How the display saves battery when not on USB. Always live stays connected and updates within seconds (days of battery). Sleep at night rests during night hours. Standby + night also rests after a while without a press. Glance sleeps, wakes on its own to update, and stays live for a few minutes after you press a button (weeks of battery).',
-    'Hoe het scherm batterij spaart als het niet aan USB hangt. Altijd live blijft verbonden en werkt binnen seconden bij (dagen batterij). Nachtrust rust ’s nachts. Stand-by + nacht rust ook na een tijdje zonder knopdruk. Oogopslag slaapt, wordt vanzelf wakker om bij te werken en blijft een paar minuten live nadat je op een knop drukt (weken batterij).'],
+  infoPowerSave: ['How the display saves battery when not on USB. Always live stays connected and updates within seconds (days of battery). Standby sleeps while the standby screen is on. Glance sleeps, wakes on its own to update, and stays live for a few minutes after you press a button (weeks of battery).',
+    'Hoe het scherm batterij spaart als het niet aan USB hangt. Altijd live blijft verbonden en werkt binnen seconden bij (dagen batterij). Stand-by slaapt zolang het stand-by-beeld aan staat. Oogopslag slaapt, wordt vanzelf wakker om bij te werken en blijft een paar minuten live nadat je op een knop drukt (weken batterij).'],
+  infoQuiet: ['Between these hours the display rests. On battery it sleeps and does not wake on its own. On USB it stays connected, but the screen does not change. A press shows the dashboard.',
+    'Tussen deze uren rust het scherm. Op batterij slaapt het en wordt het niet vanzelf wakker. Aan USB blijft het verbonden, maar verandert het beeld niet. Een knopdruk toont het dashboard.'],
   infoWakeEvery: ['In Glance and Standby: how often the display wakes on its own to update the screen.',
     'In Oogopslag en Stand-by: hoe vaak het scherm vanzelf wakker wordt om het beeld bij te werken.'],
   infoLiveMin: ['In Glance: how long the display stays live after you press a button.', 'In Oogopslag: hoe lang het scherm live blijft nadat je op een knop drukt.'],
@@ -305,7 +313,7 @@ export const STRINGS = {
   every2h: ['every 2 h', 'elke 2 u'],
   styleClassic: ['Classic', 'Klassiek'], styleSleek: ['Sleek', 'Strak'],
   surfDots: ['Dots', 'Stippen'], surfDither: ['Dither', 'Raster'],
-  psOff: ['Always live', 'Altijd live'], psNight: ['Sleep at night', 'Nachtrust'], psStandby: ['Standby + night', 'Stand-by + nacht'], psGlance: ['Glance', 'Oogopslag'],
+  psOff: ['Always live', 'Altijd live'], psStandby: ['Standby', 'Stand-by'], psGlance: ['Glance', 'Oogopslag'],
   // Settings › Updates
   firmware: ['Firmware', 'Firmware'],
   installed: ['installed', 'geïnstalleerd'],
@@ -323,7 +331,7 @@ export const STRINGS = {
   otaWhatsNew: ['What’s new', 'Wat is nieuw'],
   otaChannel: ['Channel', 'Kanaal'], otaAutomatic: ['Automatic', 'Automatisch'],
   chanStable: ['Stable', 'Stabiel'], chanBeta: ['Beta', 'Bèta'],
-  autoNotify: ['Notify', 'Melden'], autoNight: ['Night', 'Nacht'],
+  autoNotify: ['Notify', 'Melden'], autoNight: ['Install', 'Installeren'],
   otaHintOff: ['Off in this build', 'Uit in deze versie'],
   otaHintNight: ['Installs at 03:00 when battery > 50%', 'Installeert om 03:00 bij batterij > 50%'],
   otaHintNotify: ['Checks daily, shows an icon in the top bar', 'Kijkt dagelijks, icoon in de bovenbalk'],
@@ -513,12 +521,17 @@ export const STRINGS = {
   histRange: ['Range', 'Bereik'], histAuto: ['Auto', 'Automatisch'], histMin: ['Min', 'Min'], histMax: ['Max', 'Max'],
   aggMean: ['Average', 'Gemiddelde'], aggMax: ['Highest', 'Hoogste'], aggMin: ['Lowest', 'Laagste'], aggLast: ['Last', 'Laatste'], aggChange: ['Change', 'Verandering'],
   styleBars: ['Bars', 'Staven'], styleLine: ['Line', 'Lijn'],
+  // #304: more chart styles, a reference line, values on the chart
+  styleArea: ['Area', 'Vlak'], styleStep: ['Steps', 'Trappen'], styleDots: ['Dots', 'Punten'],
+  histThreshold: ['Line at', 'Lijn op'], histThresholdNone: ['none', 'geen'], histLabels: ['Values', 'Waarden'], histLabelsOn: ['On chart', 'In grafiek'], histLabelsOff: ['Off', 'Uit'],
   // history tile data source (console, #283)
   histSource: ['Data', 'Gegevens'], srcRecorder: ['History', 'Geschiedenis'], srcAttribute: ['Attribute list', 'Attribuutlijst'], srcForecast: ['Weather forecast', 'Weersverwachting'],
   histAttrName: ['Attribute', 'Attribuut'], histValueField: ['Value field', 'Waardeveld'], histTimeField: ['Time field', 'Tijdveld'],
   histShows: ['Shows', 'Toont'], aheadNext: ['Ahead', 'Vooruit'], aheadAround: ['Around now', 'Rond nu'], aheadPast: ['Past', 'Verleden'],
   histForecast: ['Forecast', 'Verwachting'], fcHourly: ['Hourly', 'Per uur'], fcDaily: ['Daily', 'Per dag'],
   errHistNumbers: ['min and max must be numbers', 'min en max moeten getallen zijn'], errHistOrder: ['min must be below max', 'min moet lager zijn dan max'],
+  errHistThreshold: ['threshold must be a number', 'threshold moet een getal zijn'], errHistLabels: ['labels must be true or false', 'labels moet true of false zijn'],
+  errHistStyle: ['style must be bars, line, area, step, dots or auto', 'style moet bars, line, area, step, dots of auto zijn'],
   palThermo: ['Room thermostat (tall)', 'Kamerthermostaat (hoog)'],
   palSolarNow: ['Solar now', 'Zon nu'], palInsideTemp: ['Inside temp', 'Binnentemperatuur'],
   palClock: ['Clock (2 wide)', 'Klok (2 breed)'], palPrices: ['Prices (4 wide)', 'Prijzen (4 breed)'], palUsage: ['Usage (2 wide)', 'Verbruik (2 breed)'], palSolar: ['Solar (2 wide)', 'Zon (2 breed)'],

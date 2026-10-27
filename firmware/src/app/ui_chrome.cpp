@@ -1,4 +1,4 @@
-// Top bar, app switcher / page overview, boot, night, standby, OTA install faces, "needs Home Assistant" card.
+// Top bar, app switcher / page overview, boot, quiet, standby, OTA install faces, "needs Home Assistant" card.
 // Geometry follows the emulator markup (Main.dc.html lines 50–760).
 #include <algorithm>
 #include <ctime>
@@ -73,11 +73,13 @@ Rect barTimeRect(I& a) {
   if (sleek()) return sleekBarTimeRect(a);
   TextOpts ct; ct.tabular = true;
   int right = a.chr.pager ? kScreenW - 6 - kZonePager - 12 : kScreenW - 6, w = Canvas().textWidth("00:00", B(22), ct);
+  if (!a.asleepAt.empty()) w = Canvas().textWidth(a.t(S::asleepBar, a.asleepAt), R(18));   // #299
   return rc(right - w, 8, w, 40);
 }
 void barTime(Canvas& c, I& a) {
   if (sleek()) { sleekBarTime(c, a); return; }
   Rect r = barTimeRect(a);
+  if (!a.asleepAt.empty()) { c.textRight(r.x + r.w, 35, a.t(S::asleepBar, a.asleepAt), R(18)); return; }   // #299: not live
   TextOpts ct; ct.tabular = true;
   c.textRight(r.x + r.w, 37, a.now.clock, B(22), ct);
 }
@@ -163,8 +165,8 @@ void topBar(Canvas& c, I& a) {
     if (st.ota == OtaState::Available && a.set.otaAuto != "off") icons.push_back(Icon::StatusUpdate);
     if (st.ota == OtaState::Failed) icons.push_back(Icon::StatusAlert);
     if (a.data.away) icons.push_back(Icon::StatusAway);
-    if (a.nightHour() && !a.nightActive() && !a.sleeping) icons.push_back(Icon::StatusNight);
-    if (a.set.brightness > 0 && !a.nightActive()) icons.push_back(Icon::StatusLight);
+    if (a.quietHour() && !a.quietActive() && !a.sleeping) icons.push_back(Icon::StatusNight);   // peeking in quiet hours
+    if (a.set.brightness > 0 && !a.quietActive()) icons.push_back(Icon::StatusLight);
     for (auto it = icons.rbegin(); it != icons.rend(); ++it) {
       // HA unreachable (#86): "since 14:05" (the last data) right of the icon; the tiles keep their last values
       if (*it == Icon::StatusOffline && st.haLastDataEpoch > 0) {
@@ -262,19 +264,20 @@ static int boldPair(Canvas& c, int x, int bl, const std::string& k, const std::s
 }
 static int pairW(Canvas& c, const std::string& k, const std::string& v, int size) { return c.textWidth(k + " ", R(size)) + c.textWidth(v, B(size)); }
 
-// Night + standby: the big clock is region "time" (faceTime), the rest of the face only changes with the data.
-static const int kNightTop = 128, kStandbyTop = 112;
+// Standby: the big clock is region "time" (faceTime), the rest of the face only changes with the data.
+static const int kStandbyTop = 112;
 static TextOpts faceClockOpts() { TextOpts ct; ct.tracking = -7; ct.tabular = true; return ct; }
-static int faceBl(I& a) { return (a.sleeping ? kStandbyTop : kNightTop) + 108; }
+static int faceBl(I&) { return kStandbyTop + 108; }
 
 Rect faceTimeRect(I& a) {
   int w = Canvas().textWidth("00:00", B(150), faceClockOpts()) + 16, ch = Canvas::capHeight(B(150)), bl = faceBl(a);
   return rc(kScreenW / 2 - w / 2, bl - ch - 6, w, ch + 12);
 }
-void faceTime(Canvas& c, I& a) { c.textCenter(kScreenW / 2, faceBl(a), a.now.clock, B(150), faceClockOpts()); }
+void faceTime(Canvas& c, I& a) {
+  c.textCenter(kScreenW / 2, faceBl(a), a.asleepAt.empty() ? a.now.clock : a.asleepAt, B(150), faceClockOpts());
+}
 
-// #199: stats at 26 px (names R26, values B26), date B28, footer R18. Standby (4 stats) is a centred 2×2 grid; night
-// (3 stats) is one row, or wraps into centred rows when a row is wider than the screen (CSS flex-wrap in the emulator).
+// #199: stats at 26 px (names R26, values B26), date B28, footer R18. Standby (4 stats) is a centred 2×2 grid.
 static const int kFaceStatGap = 40, kFaceRowH = 36;
 static void bigClockFace(Canvas& c, I& a, int top, const std::vector<std::pair<std::string, std::string>>& stats, const std::string& foot,
                          bool grid) {
@@ -302,10 +305,62 @@ static void bigClockFace(Canvas& c, I& a, int top, const std::vector<std::pair<s
   c.textCenter(kScreenW / 2, sb + 12 + 26, foot, R(18), C(Ink::Black));
 }
 
-// Night face as a poster (#27): clock, date, three values; "as of HH:MM" only when the data was stale at night start.
-void nightFace(Canvas& c, I& a) {
-  bigClockFace(c, a, kNightTop, {{a.t(S::inside), a.snap.inside}, {a.t(S::battery), a.snap.batt}, {a.t(S::cheapest), a.snap.cheap}},
-               a.snap.asOf.empty() ? std::string() : a.t(S::asOf, a.snap.asOf), false);
+// Quiet face (#295, emulator Device.tsx QUIET FACE): "Back at 07:00" instead of a clock (a deep-sleeping panel would
+// keep a wrong time all night), the date, the Home page's first values as their tiles show them, frozen when the face
+// went up, wrapping into centred rows (CSS flex-wrap); "as of HH:MM" only when the data was stale. One column, centred.
+static std::string tileName(I& a, const Widget& w) {
+  if (!w.field("label").empty()) return w.field("label");
+  const std::string id = w.field("entity");
+  if (w.type == "stat") return statText(id, a.data, a.now.h, a.statEntity(id), a.lang).label;
+  if (w.type == "price") return a.t(S::price);
+  if (w.type == "gauge") return !id.empty() && id != kGaugeDefaultEntity ? friendlyName(id, a.store.get(id)) : std::string(a.t(S::homeBattery));
+  if (w.type == "thermo") {
+    const ZoneState* z = a.data.zone(w.field("zone"));
+    return z ? z->name : w.field("zone").empty() ? std::string(a.t(S::room)) : w.field("zone");
+  }
+  return ghostLabel(w, a.lang);
+}
+
+std::vector<std::pair<std::string, std::string>> quietRows(I& a) {
+  std::vector<std::pair<std::string, std::string>> out;
+  int first = -1;   // Home = the first screen of the first app with screens (App::Impl::home)
+  for (auto& ap : a.appList()) if ((first = firstScreenOfApp(a.cfg, ap.id)) >= 0) break;
+  if (first < 0) return out;
+  const Screen& sc = a.cfg.screens[size_t(first)];
+  std::vector<std::string> types;
+  for (auto& w : sc.widgets) types.push_back(w.type);
+  for (int i : quietTiles(types)) out.push_back({tileName(a, sc.widgets[size_t(i)]), tileValue(a, sc.widgets[size_t(i)])});
+  return out;
+}
+
+void quietFace(Canvas& c, I& a) {
+  const auto& rows = a.snap.rows;
+  const std::string foot = a.snap.asOf.empty() ? std::string() : a.t(S::asOf, a.snap.asOf);
+  std::vector<std::pair<int, int>> lines;   // [first, last] row index per line
+  std::vector<int> lw;
+  for (int i = 0, n = int(rows.size()); i < n;) {
+    int j = i, w = pairW(c, rows[size_t(i)].first, rows[size_t(i)].second, 26);
+    while (j + 1 < n && w + kFaceStatGap + pairW(c, rows[size_t(j + 1)].first, rows[size_t(j + 1)].second, 26) <= kScreenW - 40)
+      w += kFaceStatGap + pairW(c, rows[size_t(j + 1)].first, rows[size_t(j + 1)].second, 26), ++j;
+    lines.push_back({i, j}), lw.push_back(w);
+    i = j + 1;
+  }
+  // flex column, gap 10: 52 px line, date 34, rows (margin 22, 31 px lines, gap 10), footer (margin 10, 22)
+  const int nl = int(lines.size());
+  const int h = 52 + 10 + 34 + (nl ? 10 + 22 + nl * 31 + (nl - 1) * 10 : 0) + (foot.empty() ? 0 : 10 + 10 + 22);
+  int y = (kScreenH - h) / 2;
+  c.textCenter(kScreenW / 2, baseline(y, B(52), 1.0), a.t(S::quietBack, quietBackAt(a.set.quiet, a.set.clock)), B(52));
+  y += 52 + 10;
+  c.textCenter(kScreenW / 2, baseline(y, B(28), 1.2), a.now.date, B(28));
+  y += 34;
+  if (nl) y += 10 + 22;
+  for (int k = 0; k < nl; ++k) {
+    int x = kScreenW / 2 - lw[size_t(k)] / 2, bl = baseline(y, B(26), 1.2);
+    for (int i = lines[size_t(k)].first; i <= lines[size_t(k)].second; ++i)
+      x += boldPair(c, x, bl, rows[size_t(i)].first, rows[size_t(i)].second, 26) + kFaceStatGap;
+    y += 31 + (k + 1 < nl ? 10 : 0);
+  }
+  if (!foot.empty()) c.textCenter(kScreenW / 2, baseline(y + 10 + 10, R(18), 1.2), foot, R(18), C(Ink::Black));
 }
 
 void standbyFace(Canvas& c, I& a) {
@@ -322,7 +377,7 @@ void standbyFace(Canvas& c, I& a) {
   int64_t e = a.svc.status().haLastDataEpoch;
   if (e > 0) { time_t t = time_t(e); struct tm tm; localtime_r(&t, &tm); upd = pad2(tm.tm_hour) + ":" + pad2(tm.tm_min); }
   bigClockFace(c, a, kStandbyTop, {{a.t(S::solar), solar}, {a.t(S::battery), batt}, {a.t(S::price), price}, {a.t(S::heating), heat}},
-               a.t(S::standbyFoot, upd), true);
+               a.asleepAt.empty() ? a.t(S::standbyFoot, upd) : a.t(S::asleepFoot, a.asleepAt), true);
 }
 
 void updatingFace(Canvas& c, I& a) {

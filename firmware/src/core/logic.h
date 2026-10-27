@@ -1,5 +1,5 @@
 // Pure UI logic from the emulator (Main.dc.html): formatting, severity, grid rects, paging, region diff,
-// refresh policy, night window, setpoint debounce, idle timers, swipe. No Arduino, no rendering.
+// refresh policy, quiet hours, setpoint debounce, idle timers, swipe. No Arduino, no rendering.
 #pragma once
 #include <cstdint>
 #include <functional>
@@ -98,13 +98,13 @@ Rect unionRect(const RegionMap& m, const std::vector<std::string>& keys);
 
 // Refresh policy (#26, #197, spec/test-vectors/refresh.json). Panel-wide kinds: Fast (whole frame, no flash, B/W only
 // since #212) for navigation, every kNavClean-th navigation a Clean (one short flash); the app's other panel-wide redraws (boot, wake,
-// standby, night, style, config) are Cleans too. Partials are windowed and B/W only (#38). A scheduled clean runs at the
-// first :00/:30 at least `cleanEvery` minutes (30/60/120) after the last clean, only with partial / fast refreshes
-// since and not while night mode is active. Clock unset: no schedule, so kCleanCap partials or fasts force a clean
+// standby, quiet face, style, config) are Cleans too. Partials are windowed and B/W only (#38). A scheduled clean runs at
+// the first :00/:30 at least `cleanEvery` minutes (30/60/120) after the last clean, only with partial / fast refreshes
+// since and not on the quiet face. Clock unset: no schedule, so kCleanCap partials or fasts force a clean
 // ("ghosting limit"). Times are epoch minutes.
 constexpr int kCleanSlotMin = 30, kCleanCap = 30, kDefaultCleanEvery = 30, kNavClean = 10;
 int64_t nextCleanMin(int64_t lastFullMin, int everyMin);
-bool cleanDue(int sinceFull, int64_t lastFullMin, int64_t nowMin, int everyMin, bool night);
+bool cleanDue(int sinceFull, int64_t lastFullMin, int64_t nowMin, int everyMin, bool quiet);
 class RefreshPolicy {
  public:
   enum class Kind { None, Partial, Fast, Clean };
@@ -115,7 +115,7 @@ class RefreshPolicy {
   Kind requestNav(bool clockKnown);       // Fast; Clean on the kNavClean-th navigation or at the clock-unset cap
   void countPartial() { ++sinceFull_; }   // tap feedback: counts toward the clean, never forces one
   // Scheduled clean due now? A clean taken without a clock (or a clock stepped back) restarts the wait from nowMin.
-  bool cleanDue(int64_t nowMin, bool night);
+  bool cleanDue(int64_t nowMin, bool quiet);
   void onFull(int64_t nowMin) { sinceFull_ = navSinceClean_ = 0; lastFullMin_ = nowMin; }   // nowMin < 0: clock unset
  private:
   int everyMin_ = kDefaultCleanEvery, sinceFull_ = 0, navSinceClean_ = 0;
@@ -139,17 +139,29 @@ class PowerHold {
   std::map<std::string, double> shown_;
 };
 
-// ---------- night / idle / swipe ----------
-bool isNightHour(int hour, const std::string& window);   // "23-07", "off"
+// ---------- quiet hours / idle / swipe ----------
+// Quiet hours (#295, emulator core/quiet.ts, spec/test-vectors/quiet.json): one window that replaced night mode and the
+// "Sleep at night" power mode. Inside it (clock known, not peeking, not in setup) the quiet face is up: "Back at 07:00",
+// the date and the Home page's first values, no clock; no data redraws; standby shows it too. On battery the power
+// rules sleep to the window end. A key or tap = the dashboard for kPeekMs, also as the first screen of a boot that a
+// timer did not cause. The front light follows its timeout.
+bool isNightHour(int hour, const std::string& window);   // in the window ("23-07" wraps midnight; "off" never)
 int nightEndHour(const std::string& window);              // -1 for off
 constexpr uint32_t kPeekMs = 60000;
+constexpr const char* kDefaultQuiet = "23-07";
+constexpr int kQuietTiles = 3;
+bool validQuiet(const std::string& v);                                          // "off" or "HH-HH", hours 00–23
+std::string quietFromNight(const std::string* night);                           // settings 1 → 2: window or default
+std::string quietBackAt(const std::string& window, const std::string& clock);   // "07:00" / "7:00" (12 h); "" off
+std::vector<int> quietTiles(const std::vector<std::string>& types);             // first 3 stat/gauge/price/thermo
+bool peekOnBoot(const std::string& wake);                                       // cold|timer|button|charger|other
 int idleMinutes(const std::string& setting);              // "5" → 5, "never"/"0"/"" → 0
 struct IdleDecision { bool standby = false; bool goHome = false; };
 IdleDecision idleCheck(uint32_t idleMs, int standbyMin, int returnHomeMin, bool alreadyHomed, bool awayFromHome);
-// Ambient idle mode + night face poster (issue #27, emulator core/ambient.ts, spec/test-vectors/ambient.json).
+// Ambient idle mode + quiet face staleness (issue #27, emulator core/ambient.ts, spec/test-vectors/ambient.json).
 constexpr uint32_t kAmbientMs = 60000;
 constexpr int kBattLow = 20;              // below: battery stays in ambient, top bar adds "NN%"
-constexpr int64_t kStaleSec = 30 * 60;    // night face "as of HH:MM" only when data is older
+constexpr int64_t kStaleSec = 30 * 60;    // quiet face "as of HH:MM" only when data is older
 bool ambientDue(uint32_t idleMs, bool menuOpen, bool setup);
 struct Chrome { bool app = true, pager = true, battery = true, clock = true; };
 Chrome chromeFor(bool ambient, int batteryPct, bool clockTile);
@@ -159,9 +171,9 @@ constexpr int kLightTimeouts[] = {30, 60, 120, 300, 0};
 constexpr int kDefaultLightTimeout = 60;
 bool validLightTimeout(int sec);
 bool lightTimedOut(uint32_t idleMs, int timeoutSec);
-int frontlightPct(int brightness, bool standby, bool night, bool lightOut);
-// The first key/tap (not Power) after the timeout only turns the light back on.
-bool lightWakeConsumes(int brightness, bool standby, bool night, bool lightOut, bool power);
+int frontlightPct(int brightness, bool standby, bool lightOut);   // quiet hours leave it to the timeout (#295)
+// The first key/tap (not Power) after the timeout only turns the light back on; on the quiet face it shows the dashboard.
+bool lightWakeConsumes(int brightness, bool standby, bool quiet, bool lightOut, bool power);
 // Swipe: |dx| > 60, mostly horizontal (|dx| > 1.5 |dy|), < 800 ms. Returns nav dir (+1 next / -1 prev) or 0.
 int swipeNav(int dx, int dy, uint32_t dtMs);
 

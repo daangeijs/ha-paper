@@ -1,5 +1,5 @@
 // Pure core tests: config parser parity (vectors generated from the emulator's own parseYaml), severity, grid, paging,
-// region diff, refresh policy, night window, idle, swipe, debounce, formatting.
+// region diff, refresh policy, quiet hours, idle, swipe, debounce, formatting.
 #include <unity.h>
 #include <cstdio>
 #include <cctype>
@@ -20,6 +20,8 @@
 #include "core/ha_address.h"
 #include "core/ha_report.h"
 #include "core/history.h"
+#include "core/history_chart.h"
+#include "core/history_series.h"
 #include "core/input_spec.h"
 #include "core/home.h"
 #include "core/json.h"
@@ -261,13 +263,13 @@ void test_frontlight_spec_vectors() {
     TEST_ASSERT_EQUAL(c.get("expect")->b, lightTimedOut(uint32_t(c.get("idleMs")->num), int(c.get("timeoutSec")->num))); ++n;
   }
   for (auto& c : j.get("level")->arr) {
-    TEST_ASSERT_EQUAL_INT(int(c.get("expect")->num), frontlightPct(int(c.get("brightness")->num), c.get("standby")->b, c.get("night")->b, c.get("lightOut")->b)); ++n;
+    TEST_ASSERT_EQUAL_INT(int(c.get("expect")->num), frontlightPct(int(c.get("brightness")->num), c.get("standby")->b, c.get("lightOut")->b)); ++n;
   }
   for (auto& c : j.get("consume")->arr) {
-    TEST_ASSERT_EQUAL(c.get("expect")->b, lightWakeConsumes(int(c.get("brightness")->num), c.get("standby")->b, c.get("night")->b,
+    TEST_ASSERT_EQUAL(c.get("expect")->b, lightWakeConsumes(int(c.get("brightness")->num), c.get("standby")->b, c.get("quiet")->b,
                                                             c.get("lightOut")->b, c.get("power")->b)); ++n;
   }
-  TEST_ASSERT_EQUAL_INT(10 + 16 + 32, n);
+  TEST_ASSERT_EQUAL_INT(10 + 8 + 32, n);
 }
 
 // ---------- refresh policy (spec/test-vectors/refresh.json, emulator src/core/refresh.ts) ----------
@@ -276,9 +278,9 @@ void test_refresh_spec_vectors() {
   if (t.empty()) { TEST_IGNORE_MESSAGE("spec/test-vectors/refresh.json not present"); return; }
   Json j; TEST_ASSERT_TRUE(parseJson(t, j));
   int n = 0;
-  for (auto& c : j.get("partial")->arr) {   // standby/night skips live in App::commit, not the policy
+  for (auto& c : j.get("partial")->arr) {   // standby / quiet-face skips live in App::commit, not the policy
     const Json& in = *c.get("input");
-    if (in.get("sleeping")->b || in.get("night")->b) continue;
+    if (in.get("sleeping")->b || in.get("quiet")->b) continue;
     RefreshPolicy p;
     for (int i = 0; i < int(in.get("sinceFull")->num); ++i) p.countPartial();
     auto k = p.requestPartial(in.get("clockKnown")->b);
@@ -308,7 +310,7 @@ void test_refresh_spec_vectors() {
   auto min = [](const Json& c, const char* k) { return int64_t(c.get(k)->num); };
   for (auto& c : j.get("nextClean")->arr) { TEST_ASSERT_TRUE(nextCleanMin(min(c, "lastFullMin"), int(c.get("everyMin")->num)) == min(c, "expect")); ++n; }
   for (auto& c : j.get("cleanDue")->arr) {
-    bool due = cleanDue(int(c.get("sinceFull")->num), min(c, "lastFullMin"), min(c, "nowMin"), int(c.get("everyMin")->num), c.get("night")->b);
+    bool due = cleanDue(int(c.get("sinceFull")->num), min(c, "lastFullMin"), min(c, "nowMin"), int(c.get("everyMin")->num), c.get("quiet")->b);
     TEST_ASSERT_EQUAL_MESSAGE(c.get("expect")->b, due, c.get("name")->str.c_str());
     ++n;
   }
@@ -322,7 +324,7 @@ void test_refresh_spec_vectors() {
   p.onFull(-1); p.countPartial();
   TEST_ASSERT_FALSE(p.cleanDue(29864950, false));   // 13:10 first seen
   TEST_ASSERT_FALSE(p.cleanDue(29864970, false));   // 13:30: only 20 min
-  TEST_ASSERT_FALSE(p.cleanDue(29865000, true));    // 14:00 at night: no
+  TEST_ASSERT_FALSE(p.cleanDue(29865000, true));    // 14:00 on the quiet face: no
   TEST_ASSERT_TRUE(p.cleanDue(29865000, false));    // 14:00
   p.setCleanEvery(60);
   TEST_ASSERT_FALSE(p.cleanDue(29865000, false));   // hourly: 14:30 at the earliest
@@ -452,6 +454,33 @@ void test_refresh_policy() {
 }
 
 // ---------- behaviour ----------
+// quiet hours (#295, spec/test-vectors/quiet.json, emulator src/core/quiet.ts)
+void test_quiet_spec_vectors() {
+  std::string t = readFile(std::string(X4_REPO_ROOT) + "/spec/test-vectors/quiet.json");
+  if (t.empty()) { TEST_IGNORE_MESSAGE("spec/test-vectors/quiet.json not present"); return; }
+  Json j; TEST_ASSERT_TRUE(parseJson(t, j));
+  TEST_ASSERT_EQUAL_STRING(kDefaultQuiet, j.get("default")->str.c_str());
+  TEST_ASSERT_EQUAL_UINT32(kPeekMs, uint32_t(j.get("peekMs")->num));
+  for (auto& s : j.get("steps")->arr) TEST_ASSERT_TRUE(validQuiet(s.str));
+  int n = 0;
+  for (auto& c : j.get("inWindow")->arr) { TEST_ASSERT_EQUAL(c.get("expect")->b, isNightHour(int(c.get("hour")->num), c.get("window")->str)); ++n; }
+  for (auto& c : j.get("backAt")->arr) {
+    TEST_ASSERT_EQUAL_STRING(c.get("expect")->str.c_str(), quietBackAt(c.get("window")->str, c.get("clock")->str).c_str()); ++n;
+  }
+  for (auto& c : j.get("tiles")->arr) {
+    std::vector<std::string> types;
+    for (auto& x : c.get("types")->arr) types.push_back(x.str);
+    std::vector<int> want;
+    for (auto& x : c.get("expect")->arr) want.push_back(int(x.num));
+    TEST_ASSERT_TRUE_MESSAGE(quietTiles(types) == want, c.get("name")->str.c_str()); ++n;
+  }
+  for (auto& c : j.get("peekOnBoot")->arr) { TEST_ASSERT_EQUAL(c.get("expect")->b, peekOnBoot(c.get("wake")->str)); ++n; }
+  TEST_ASSERT_EQUAL_INT(8 + 7 + 4 + 5, n);
+  TEST_ASSERT_FALSE(validQuiet("7-23"));
+  TEST_ASSERT_FALSE(validQuiet("24-07"));
+  TEST_ASSERT_FALSE(validQuiet("23:07"));
+}
+
 void test_night_window() {
   TEST_ASSERT_TRUE(isNightHour(23, "23-07"));
   TEST_ASSERT_TRUE(isNightHour(0, "23-07"));
@@ -875,7 +904,7 @@ static void applyPowerInput(const Json& o, PowerInputs& i) {
     else if (k == "localSec") i.localSec = int32_t(v.num);
     else if (k == "powerSave") TEST_ASSERT_TRUE(parsePowerSave(v.str, i.powerSave));
     else if (k == "wakeEvery") i.wakeEvery = int(v.num);
-    else if (k == "night") i.night = v.str;
+    else if (k == "quiet") i.quiet = v.str;
     else if (k == "peeking") i.peeking = flag();
     else if (k == "standby") i.standby = flag();
     else if (k == "charging") i.charging = flag();
@@ -1826,7 +1855,7 @@ void test_history_vectors() {
   TEST_ASSERT_TRUE(parseJson(readFile(std::string(X4_REPO_ROOT) + "/spec/test-vectors/history.json"), j));
   const int64_t now = int64_t(j.get("now")->num);
   int cases = runVectorFile(std::string(X4_REPO_ROOT) + "/spec/test-vectors/history.json");
-  TEST_ASSERT_EQUAL_INT(16, cases);   // the config cases (parseConfig, like config/*.json)
+  TEST_ASSERT_EQUAL_INT(19, cases);   // the config cases (parseConfig, like config/*.json)
   for (auto& c : j.get("defaultBucket")->arr) {
     int64_t b = hist::defaultBucket(hist::parseSpan(c.get("window")->str), int(c.get("cs")->num));
     const Json* want = c.get("bucket");
@@ -1848,15 +1877,18 @@ void test_history_vectors() {
     TEST_ASSERT_EQUAL_INT64(int64_t(o.get("bucketMs")->num), s.bucketMs);
     TEST_ASSERT_EQUAL_INT(int(o.get("n")->num), s.n);
     TEST_ASSERT_EQUAL_STRING(o.get("agg")->str.c_str(), hist::aggName(s.agg));
-    TEST_ASSERT_EQUAL_STRING(o.get("style")->str.c_str(), s.style == hist::Style::Bars ? "bars" : "line");
+    TEST_ASSERT_EQUAL_STRING(o.get("style")->str.c_str(), hist::styleName(s.style));
     assertNear(*o.get("min"), s.min, "spec min");
     assertNear(*o.get("max"), s.max, "spec max");
+    TEST_ASSERT_EQUAL_MESSAGE(!o.get("threshold"), !hist::has(s.threshold), "spec threshold");   // #304
+    if (o.get("threshold")) assertNear(*o.get("threshold"), s.threshold, "spec threshold");
+    TEST_ASSERT_EQUAL_MESSAGE(o.get("labels") != nullptr, s.labels, "spec labels");
     ++cases;
   }
   for (auto& c : j.get("style")->arr) {
     hist::Agg a; TEST_ASSERT_TRUE(hist::aggOf(c.get("agg")->str, a));
     hist::Style s = hist::resolveStyle(a, c.get("style")->strOr(""));
-    TEST_ASSERT_EQUAL_STRING(c.get("out")->str.c_str(), s == hist::Style::Bars ? "bars" : "line");
+    TEST_ASSERT_EQUAL_STRING(c.get("out")->str.c_str(), hist::styleName(s));
     ++cases;
   }
   for (auto& c : j.get("stats")->get("period")->arr) {
@@ -1972,6 +2004,231 @@ void test_history_vectors() {
   std::printf("history vectors: %d cases\n", cases);
 }
 
+// history tile series from an attribute or a weather forecast (spec/test-vectors/history-series.json, #283, #292)
+static Widget historyWidget(const Json& w) {
+  Widget x; x.type = "history";
+  for (auto& kv : w.obj) {
+    std::string v = kv.second.isNum() ? jsNumber(kv.second.num) : kv.second.str;
+    if (kv.first == "cs") x.cs = std::atoi(v.c_str()); else x.fields[kv.first] = v;
+  }
+  return x;
+}
+
+void test_history_series_vectors() {
+  const std::string path = std::string(X4_REPO_ROOT) + "/spec/test-vectors/history-series.json";
+  Json j;
+  TEST_ASSERT_TRUE(parseJson(readFile(path), j));
+  const int64_t now = int64_t(j.get("now")->num);
+  int cases = runVectorFile(path);
+  TEST_ASSERT_EQUAL_INT(11, cases);
+  for (auto& c : j.get("source")->arr) {
+    Widget w = historyWidget(*c.get("widget"));
+    TEST_ASSERT_EQUAL_STRING(c.get("source")->str.c_str(), hist::kindName(hist::sourceOf(w.fields.count("attribute") > 0, w.field("entity"))));
+    ++cases;
+  }
+  for (auto& c : j.get("parseTime")->arr) {
+    const Json& in = *c.get("input");
+    const int tz = int(c.get("tz")->num);
+    int64_t t = in.isStr() ? hist::parseTime(in.str.data(), in.str.size(), tz) : in.isNum() ? hist::parseTimeNum(in.num) : hist::kNoTime;
+    const std::string what = "parseTime " + dumpJson(in);
+    if (c.get("out")->isNull()) TEST_ASSERT_TRUE_MESSAGE(t == hist::kNoTime, what.c_str());
+    else TEST_ASSERT_EQUAL_INT64_MESSAGE(int64_t(c.get("out")->num), t, what.c_str());
+    ++cases;
+  }
+  static hist::Series s;
+  static hist::ListScanner sc;
+  hist::SampleList samples;
+  for (auto& c : j.get("series")->arr) {
+    const std::string name = "series " + c.get("name")->str;
+    const int tz = int(c.get("tz")->num);
+    Widget w = historyWidget(*c.get("widget"));
+    hist::Spec sp = hist::specOf(w);
+    const Json& o = *c.get("spec");
+    TEST_ASSERT_EQUAL_INT64_MESSAGE(int64_t(o.get("windowMs")->num), sp.windowMs, name.c_str());
+    TEST_ASSERT_EQUAL_INT64_MESSAGE(int64_t(o.get("bucketMs")->num), sp.bucketMs, name.c_str());
+    TEST_ASSERT_EQUAL_INT_MESSAGE(int(o.get("n")->num), sp.n, name.c_str());
+    TEST_ASSERT_EQUAL_STRING_MESSAGE(o.get("agg")->str.c_str(), hist::aggName(sp.agg), name.c_str());
+    TEST_ASSERT_EQUAL_STRING_MESSAGE(o.get("style")->str.c_str(), hist::styleName(sp.style), name.c_str());
+    TEST_ASSERT_EQUAL_INT64_MESSAGE(int64_t(o.get("aheadMs")->num), sp.aheadMs, name.c_str());
+    const Json& src = *o.get("source");
+    TEST_ASSERT_EQUAL_STRING_MESSAGE(src.get("kind")->str.c_str(), hist::kindName(sp.kind), name.c_str());
+    TEST_ASSERT_EQUAL_STRING_MESSAGE(src.get("attribute")->str.c_str(), sp.attribute.c_str(), name.c_str());
+    TEST_ASSERT_EQUAL_STRING_MESSAGE(src.get("value")->str.c_str(), sp.value.c_str(), name.c_str());
+    TEST_ASSERT_EQUAL_STRING_MESSAGE(src.get("time")->str.c_str(), sp.time.c_str(), name.c_str());
+    TEST_ASSERT_EQUAL_STRING_MESSAGE(src.get("forecast") ? src.get("forecast")->str.c_str() : "", sp.kind == hist::Kind::Forecast ? (sp.daily ? "daily" : "hourly") : "", name.c_str());
+    const Json& raw = *c.get("raw");
+    const std::string text = raw.isStr() ? raw.str : dumpJson(raw);   // the mirror keeps a list as JSON text
+    hist::attrSamples(sc, text.data(), text.size(), sp, now, tz, samples);
+    const auto& want = c.get("samples")->arr;
+    TEST_ASSERT_EQUAL_INT_MESSAGE(int(want.size()), int(samples.size()), (name + " samples").c_str());
+    for (size_t k = 0; k < samples.size(); ++k) {
+      TEST_ASSERT_EQUAL_INT64_MESSAGE(int64_t(want[k].get("t")->num), samples[k].t, (name + " sample t").c_str());
+      assertNear(*want[k].get("v"), samples[k].v, name + " sample v");
+    }
+    hist::Span span = hist::chartSpan(sp.windowMs, sp.bucketMs, now, tz, sp.aheadMs);
+    TEST_ASSERT_EQUAL_INT64_MESSAGE(int64_t(c.get("span")->get("start")->num), span.start, name.c_str());
+    TEST_ASSERT_EQUAL_INT64_MESSAGE(int64_t(c.get("span")->get("end")->num), span.end, name.c_str());
+    for (auto& kv : c.get("out")->obj) {
+      hist::Spec a = sp;
+      TEST_ASSERT_TRUE(hist::aggOf(kv.first, a.agg));
+      hist::fromSamples(samples.data(), samples.size(), a, now, tz, s);
+      TEST_ASSERT_EQUAL_INT64(span.start, s.start);
+      assertSeries(kv.second, s, name + " " + kv.first);
+      ++cases;
+    }
+    for (auto& ax : c.get("axis")->arr) {
+      hist::Tick t[hist::kMaxTicks];
+      int n = hist::axisTicks(sp.windowMs, sp.bucketMs, now, tz, langOf(ax.get("lang")->str), t, sp.aheadMs);
+      const auto& wt = ax.get("ticks")->arr;
+      TEST_ASSERT_EQUAL_INT_MESSAGE(int(wt.size()), n, (name + " axis").c_str());
+      for (int k = 0; k < n; ++k) {
+        TEST_ASSERT_TRUE_MESSAGE(std::fabs(wt[k].get("x")->num - t[k].x) <= 1e-9, (name + " axis x").c_str());
+        TEST_ASSERT_EQUAL_STRING_MESSAGE(wt[k].get("text")->str.c_str(), t[k].text, (name + " axis").c_str());
+      }
+      ++cases;
+    }
+  }
+  for (auto& c : j.get("axis")->arr) {
+    hist::Spec sp;
+    sp.windowMs = hist::parseSpan(c.get("window")->str); sp.bucketMs = hist::parseSpan(c.get("bucket")->str);
+    const Json* ah = c.get("ahead");
+    sp.aheadMs = !ah || ah->isNull() ? 0 : ah->isNum() ? int64_t(ah->num) : std::max<int64_t>(0, hist::parseSpan(ah->str));
+    const int tz = int(c.get("tz")->num);
+    hist::Span span = hist::chartSpan(sp.windowMs, sp.bucketMs, now, tz, sp.aheadMs);
+    const std::string what = "axis " + c.get("window")->str + " ahead " + (ah ? dumpJson(*ah) : "-");
+    TEST_ASSERT_EQUAL_INT64_MESSAGE(int64_t(c.get("span")->get("start")->num), span.start, what.c_str());
+    hist::Tick t[hist::kMaxTicks];
+    int n = hist::axisTicks(sp.windowMs, sp.bucketMs, now, tz, Lang::En, t, sp.aheadMs);   // the out is English
+    const auto& wt = c.get("out")->arr;
+    TEST_ASSERT_EQUAL_INT_MESSAGE(int(wt.size()), n, what.c_str());
+    for (int k = 0; k < n; ++k) {
+      TEST_ASSERT_TRUE_MESSAGE(std::fabs(wt[k].get("x")->num - t[k].x) <= 1e-9, what.c_str());
+      TEST_ASSERT_EQUAL_STRING_MESSAGE(wt[k].get("text")->str.c_str(), t[k].text, what.c_str());
+    }
+    ++cases;
+  }
+  std::printf("history series vectors: %d cases\n", cases);
+}
+
+// history chart geometry (history.json "chart", emulator historyChart.ts, #270)
+void test_history_chart_vectors() {
+  Json j;
+  TEST_ASSERT_TRUE(parseJson(readFile(std::string(X4_REPO_ROOT) + "/spec/test-vectors/history.json"), j));
+  const int64_t now = int64_t(j.get("now")->num);
+  static hist::Series s;
+  int cases = 0;
+  for (auto& c : j.get("chart")->arr) {
+    const std::string name = "chart " + c.get("name")->str;
+    hist::Spec sp;
+    sp.windowMs = hist::parseSpan(c.get("window")->str); sp.bucketMs = hist::parseSpan(c.get("bucket")->str);
+    sp.n = int(c.get("n")->num); sp.style = hist::resolveStyle(hist::Agg::Mean, c.get("style")->str);
+    sp.min = numOrNan(c.get("min")); sp.max = numOrNan(c.get("max"));
+    sp.threshold = numOrNan(c.get("threshold")); sp.labels = c.get("labels")->b;
+    const int tz = int(c.get("tz")->num);
+    const Lang lang = langOf(c.get("lang")->str);
+    const std::string stn = c.get("state")->str;
+    hist::State st = stn == "ok" ? hist::State::Ok : stn == "loading" ? hist::State::Loading : stn == "tooMany" ? hist::State::TooMany
+                     : stn == "needsStats" ? hist::State::NeedsStats : hist::State::None;
+    const Json* vals = c.get("values");
+    if (!vals->isNull()) {
+      s.start = hist::chartSpan(sp.windowMs, sp.bucketMs, now, tz).start; s.bucketMs = sp.bucketMs; s.n = int(vals->arr.size());
+      for (int i = 0; i < s.n; ++i) s.v[i] = numOrNan(&vals->arr[i]);
+    }
+    hist::Chart ch;
+    hist::chart(sp, vals->isNull() ? nullptr : &s, st, now, tz, lang, ch);
+    const Json* o = c.get("out");
+    TEST_ASSERT_EQUAL_STRING_MESSAGE(o->get("state")->str.c_str(), hist::stateName(ch.state), name.c_str());
+    TEST_ASSERT_EQUAL_STRING_MESSAGE(o->get("stateText")->str.c_str(), hist::stateText(ch.state, lang), name.c_str());
+    assertNear(*o->get("lo"), ch.r.lo, name + " lo");
+    assertNear(*o->get("hi"), ch.r.hi, name + " hi");
+    assertNear(*o->get("zero"), ch.zero, name + " zero");
+    const auto& bars = o->get("bars")->arr;
+    if (sp.style == hist::Style::Bars) {
+      TEST_ASSERT_EQUAL_INT_MESSAGE(int(bars.size()), ch.n, name.c_str());
+      for (int i = 0; i < ch.n; ++i) {
+        TEST_ASSERT_EQUAL_MESSAGE(bars[i].isNull(), ch.gap(i), name.c_str());
+        if (bars[i].isNull()) continue;
+        assertNear(*bars[i].get("b"), ch.barB(i), name + " b");
+        assertNear(*bars[i].get("t"), ch.barT(i), name + " t");
+        TEST_ASSERT_EQUAL_MESSAGE(bars[i].get("now")->b, i == ch.latest, name.c_str());
+      }
+    } else TEST_ASSERT_EQUAL_INT(0, int(bars.size()));
+    if (sp.style != hist::Style::Bars) {   // segments: the points between gaps (step: bucket edges, #304)
+      std::vector<std::vector<std::pair<double, double>>> segs;
+      std::vector<std::pair<double, double>> dots;
+      bool open = false;
+      for (int i = 0; i < ch.n; ++i) {
+        if (ch.gap(i)) { open = false; continue; }
+        if (sp.style == hist::Style::Dots) { dots.push_back({ch.x(i), ch.y(ch.v[i])}); continue; }
+        if (!open) segs.emplace_back();
+        if (sp.style == hist::Style::Step) {
+          segs.back().push_back({ch.edge(i), ch.y(ch.v[i])});
+          segs.back().push_back({ch.edge(i + 1), ch.y(ch.v[i])});
+        } else segs.back().push_back({ch.x(i), ch.y(ch.v[i])});
+        open = true;
+      }
+      const auto& od = o->get("dots")->arr;
+      TEST_ASSERT_EQUAL_INT_MESSAGE(int(od.size()), int(dots.size()), name.c_str());
+      for (size_t k = 0; k < dots.size(); ++k) {
+        assertNear(*od[k].get("x"), dots[k].first, name + " dots x");
+        assertNear(*od[k].get("y"), dots[k].second, name + " dots y");
+      }
+      const auto& lines = o->get("lines")->arr;
+      TEST_ASSERT_EQUAL_INT_MESSAGE(int(lines.size()), int(segs.size()), name.c_str());
+      for (size_t k = 0; k < segs.size(); ++k) {
+        TEST_ASSERT_EQUAL_INT(int(lines[k].arr.size()), int(segs[k].size()));
+        for (size_t p = 0; p < segs[k].size(); ++p) {
+          assertNear(*lines[k].arr[p].get("x"), segs[k][p].first, name + " x");
+          assertNear(*lines[k].arr[p].get("y"), segs[k][p].second, name + " y");
+        }
+      }
+      const Json* dot = o->get("dot");
+      TEST_ASSERT_EQUAL_MESSAGE(dot->isNull(), ch.latest < 0 || ch.gap(ch.latest), name.c_str());
+      if (!dot->isNull()) { assertNear(*dot->get("x"), ch.x(ch.latest), name + " dot"); assertNear(*dot->get("y"), ch.y(ch.v[ch.latest]), name + " dot"); }
+    }
+    assertNear(*o->get("threshold"), ch.threshold, name + " threshold");   // #304
+    const auto& labs = o->get("labels")->arr;
+    TEST_ASSERT_EQUAL_INT_MESSAGE(int(labs.size()), ch.nLabels, name.c_str());
+    for (int k = 0; k < ch.nLabels; ++k) {
+      static const char* const kinds[] = {"max", "min", "last"};
+      const hist::Label& l = ch.labels[k];
+      TEST_ASSERT_EQUAL_STRING_MESSAGE(labs[k].get("kind")->str.c_str(), kinds[int(l.kind)], name.c_str());
+      TEST_ASSERT_EQUAL_INT_MESSAGE(int(labs[k].get("i")->num), l.i, name.c_str());
+      TEST_ASSERT_EQUAL_STRING_MESSAGE(labs[k].get("side")->str.c_str(), l.right ? "right" : "left", name.c_str());
+      assertNear(*labs[k].get("x"), ch.x(l.i), name + " label x");
+      assertNear(*labs[k].get("y"), ch.y(ch.v[l.i]), name + " label y");
+      TEST_ASSERT_EQUAL_STRING_MESSAGE(labs[k].get("text")->str.c_str(), fmtNum(ch.v[l.i], c.get("unit")->str).c_str(), name.c_str());
+    }
+    const auto& ticks = o->get("ticks")->arr;
+    TEST_ASSERT_EQUAL_INT_MESSAGE(int(ticks.size()), ch.nTicks, name.c_str());
+    for (int k = 0; k < ch.nTicks; ++k) {
+      assertNear(*ticks[k].get("x"), ch.ticks[k].x, name + " tick");
+      TEST_ASSERT_EQUAL_STRING(ticks[k].get("text")->str.c_str(), ch.ticks[k].text);
+    }
+    const std::string unit = c.get("unit")->str;
+    std::string low = ch.lowHigh ? tr(lang, S::histLow, fmtNum(ch.low.v, unit), ch.low.time) : "";
+    std::string high = ch.lowHigh ? tr(lang, S::histHigh, fmtNum(ch.high.v, unit), ch.high.time) : "";
+    TEST_ASSERT_EQUAL_STRING_MESSAGE(o->get("low")->str.c_str(), low.c_str(), name.c_str());
+    TEST_ASSERT_EQUAL_STRING_MESSAGE(o->get("high")->str.c_str(), high.c_str(), name.c_str());
+    TEST_ASSERT_EQUAL_INT_MESSAGE(int(o->get("lowI")->num), ch.lowHigh ? ch.low.i : -1, name.c_str());
+    TEST_ASSERT_EQUAL_INT_MESSAGE(int(o->get("highI")->num), ch.lowHigh ? ch.high.i : -1, name.c_str());
+    TEST_ASSERT_EQUAL_STRING_MESSAGE(o->get("key")->str.c_str(), hist::chartKey(ch).c_str(), name.c_str());
+    ++cases;
+  }
+  TEST_ASSERT_EQUAL_INT(18, cases);
+  // a stale series (other bucket after a config change) is drawn as loading, not misread
+  hist::Spec sp; sp.windowMs = hist::kDay; sp.bucketMs = hist::kHour; sp.n = 24;
+  s.n = 12; s.bucketMs = 2 * hist::kHour;
+  hist::Chart ch;
+  hist::chart(sp, &s, hist::State::Ok, now, 60, Lang::En, ch);
+  TEST_ASSERT_EQUAL(hist::State::Loading, ch.state);
+  // tz from broken-down times: CEST, a :30 zone across midnight, a year boundary west of UTC
+  TEST_ASSERT_EQUAL_INT(120, hist::tzMinutes(100, 126, 14 * 60, 100, 126, 12 * 60));
+  TEST_ASSERT_EQUAL_INT(330, hist::tzMinutes(101, 126, 3 * 60, 100, 126, 21 * 60 + 30));
+  TEST_ASSERT_EQUAL_INT(-300, hist::tzMinutes(364, 125, 20 * 60, 0, 126, 1 * 60));
+  std::printf("history chart vectors: %d cases\n", cases);
+}
+
 void test_history_store_psram() {   // the bucket store goes through PsramAlloc (PSRAM on the device), never internal RAM
   static_assert(sizeof(hist::Series) <= 800, "Series grew");
   long before = psramLiveBytes();
@@ -2006,6 +2263,7 @@ int main(int, char**) {
   RUN_TEST(test_region_diff);
   RUN_TEST(test_refresh_policy);
   RUN_TEST(test_night_window);
+  RUN_TEST(test_quiet_spec_vectors);
   RUN_TEST(test_idle_swipe_debounce);
   RUN_TEST(test_formatting);
   RUN_TEST(test_home_data_missing_is_dash);
@@ -2039,5 +2297,7 @@ int main(int, char**) {
   RUN_TEST(test_input_spec);
   RUN_TEST(test_history_vectors);
   RUN_TEST(test_history_store_psram);
+  RUN_TEST(test_history_chart_vectors);
+  RUN_TEST(test_history_series_vectors);
   return UNITY_END();
 }

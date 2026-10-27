@@ -166,7 +166,7 @@ export const bucketsFor = (window: string, h?: Widget): string[] => {
   return BUCKETS.filter((b) => { const ms = parseSpan(b) as number; return ms >= min && w % ms === 0 && w / ms >= MIN_BARS && w / ms <= MAX_BARS; });
 };
 /** Set (or with undefined / '' clear) one history key. A new window drops a bucket that no longer fits it. */
-export function setHistoryKey(ws: Widget[], i: number, key: 'window' | 'bucket' | 'agg' | 'style' | 'min' | 'max' | (typeof SOURCE_KEYS)[number], v: string | undefined): Widget[] {
+export function setHistoryKey(ws: Widget[], i: number, key: 'window' | 'bucket' | 'agg' | 'style' | 'min' | 'max' | 'threshold' | 'labels' | (typeof SOURCE_KEYS)[number], v: string | undefined): Widget[] {
   const out = cloneWs(ws); const w = out[i]; const t = v?.trim();
   if (t) w[key] = t; else delete w[key];
   if ((key === 'window' || key === 'forecast') && w.bucket !== undefined && !bucketsFor(String(w.window ?? WINDOW_DEFAULT), w).includes(String(w.bucket))) delete w.bucket;

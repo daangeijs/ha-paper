@@ -10,12 +10,12 @@
     {
       "name": "save over truncated JSON: fresh file",
       "op": "persist", "raw": "{\"brightness\": 3", "known": { "brightness": 50 },
-      "expect": { "output": { "schema": 1, "brightness": 50 } }
+      "expect": { "output": { "schema": 2, "brightness": 50 } }
     },
     {
       "name": "save over unknown schema: schema replaced in place, other keys kept",
       "op": "persist", "stored": { "clock": "12", "schema": "2", "x": 1 }, "known": { "clock": "24" },
-      "expect": { "output": { "clock": "24", "schema": 1, "x": 1 } }
+      "expect": { "output": { "clock": "24", "schema": 2, "x": 1 } }
     }
   ]
 }

@@ -32,7 +32,7 @@ export function SidePanel({ v }: { v: Vals }) {
     <div style={{ background: "#F6F5F2", border: "1px solid #C4C0B7", borderRadius: "12px", padding: "20px", display: "flex", flexDirection: "column", gap: "12px" }}>
       <div style={{ fontSize: "15px", fontWeight: "600" }}>Simulation</div>
       <div style={{ display: "flex", flexDirection: "column", gap: "6px" }}>
-        <div style={{ fontSize: "12px", color: "#5c5a55" }}>Time of day (solar, usage, prices · 23:00 starts night mode)</div>
+        <div style={{ fontSize: "12px", color: "#5c5a55" }}>Time of day (solar, usage, prices · 23:00 starts quiet hours)</div>
         <div style={{ display: "flex", border: "1px solid #A8A49B", borderRadius: "6px", overflow: "hidden" }}>
           {(v.hourOpts).map((o: any, i_o: number) => (<Fragment key={i_o}>
             <button onClick={o.pick} style={{ flex: "1", height: "34px", border: "0", borderRight: "1px solid #A8A49B", background: o.bg, color: o.fg, font: "500 13px 'IBM Plex Mono', monospace" }}>{o.label}</button>

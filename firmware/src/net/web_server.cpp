@@ -1720,6 +1720,7 @@ void WebServer::begin() {
       // a queued config / settings / refresh not drawn yet: under QEMU a full refresh renders for seconds (#71)
       d["busy"] = hub().configPending || hub().settingsPending || hub().refreshPending || hub().applying;
       d["ambient"] = hub().ambient;
+      d["history"] = serialized(std::string(hub().historyInfo));   // #269: per series key: state, source, bytes
       d["screen"] = hub().shownScreen;                    // screen the panel shows plainly ("" = menu, setup, face)
       d["number_format"] = hub().status.numberFormat;   // HA profile number_format (#110)
     }

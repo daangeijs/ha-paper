@@ -4,9 +4,13 @@
 #include <ArduinoJson.h>
 #include <WiFi.h>
 
+#include <esp_heap_caps.h>
+#include <sys/time.h>
+
 #include <ctime>
 #include <algorithm>
 #include <cstring>
+#include <new>
 
 #include "Logging.h"
 #include "core/ha_stream.h"
@@ -14,6 +18,7 @@
 #include "core/seed.h"
 #include "core/strings.h"
 #include "net/device_services.h"
+#include "hw/watchdog.h"
 #include "net/health.h"
 #include "net/time_sync.h"
 #include "net/ha_auth.h"
@@ -35,6 +40,20 @@ const char* kDiscoveryTemplate =
     "{{ {'climate': states.climate | map(attribute='entity_id') | list, 'lights': ns.l} | tojson }}";
 
 constexpr uint32_t kSeedWaitMs = 20000;   // give up waiting for device discovery / a lost answer
+
+int64_t epochMs() {
+  timeval tv;
+  gettimeofday(&tv, nullptr);
+  return int64_t(tv.tv_sec) * 1000 + tv.tv_usec / 1000;
+}
+int tzMinutesNow() {   // local UTC offset now (no tm_gmtoff on newlib)
+  const time_t t = time(nullptr);
+  struct tm l, u;
+  localtime_r(&t, &l);
+  gmtime_r(&t, &u);
+  const int days = l.tm_year != u.tm_year ? (l.tm_year > u.tm_year ? 1 : -1) : l.tm_yday - u.tm_yday;
+  return days * 1440 + (l.tm_hour - u.tm_hour) * 60 + (l.tm_min - u.tm_min);
+}
 
 // Entities the web console can put on a stat / gauge / switch / scene widget (core/config.cpp entityDomains) or pick
 // for a zoneList (climate, #127), with the HA area (entity or device) for the lightList picker. At most 800, cut fairly
@@ -335,6 +354,7 @@ void HaClient::connect() {
   std::string base = u.path == "/" ? "" : u.path;
   while (!base.empty() && base.back() == '/') base.pop_back();
   state_ = St::Connecting;
+  ws_.setStream(this);
   if (!ws_.connect(u, base + "/api/websocket", 10000)) {
     wifiMgr().haReached(false);
     return fail("connect");
@@ -390,7 +410,20 @@ void HaClient::loop() {
     // signed: poll() above may have stamped lastRxMs() after `now` was taken (unsigned wrap → false "silent")
     if (static_cast<int32_t>(millis() - ws_.lastRxMs()) > 90000) return fail("silent for 90 s");
     if (resubscribe_) subscribeAll();
+    if (idPrefs_ == 0 && millis() - lastDayCheckMs_ >= 5000) {   // #308: midnight → today's bars restart at 0, ask now
+      lastDayCheckMs_ = millis();
+      const time_t t = time(nullptr);
+      adapter_.setNow(t > 1700000000 ? static_cast<int64_t>(t) : 0);
+      PsramScope ps;
+      EntityUpdates out;
+      if (adapter_.rollDay(out)) {
+        LOG_INF("HA", "local day changed: today's energy reset, statistics asked again");
+        pushOut(out);
+        requestStatistics();
+      }
+    }
     if (idPrefs_ == 0 && static_cast<int32_t>(millis() - lastStatsMs_) > 600000) requestStatistics();   // every 10 min
+    if (hist_) historyLoop();
     if (seeding_ && millis() - seedAskMs_ > kSeedWaitMs) maybeSeed(true);
     if (!outbox_.empty()) {
       for (auto& s : outbox_) {
@@ -527,6 +560,7 @@ void HaClient::onReady() {
   entitySubs_.clear();   // a new socket: nothing is subscribed yet
   resubWhy_ = "connect";
   subscribeAll();
+  if (hist_) hist_->reset();   // answers of the last socket are not coming: fetch every tile again
 }
 
 void HaClient::resubscribeFor(const char* why) {
@@ -681,6 +715,8 @@ void HaClient::onMessage(const std::string& msg) {
     } else if (id == idStats_) {
       std::string text;
       serializeJson(r, text);
+      const time_t t = time(nullptr);   // rows of another local day are dropped (#308): an answer that crossed midnight
+      adapter_.setNow(t > 1700000000 ? static_cast<int64_t>(t) : 0);
       PsramScope ps;
       EntityUpdates out;
       adapter_.setHourlyStatistics(text, out);
@@ -854,7 +890,16 @@ void HaClient::onMessage(const std::string& msg) {
     PsramScope ps;   // attribute text (scalarText) and the price DOM (hourlyPrices) stay out of internal RAM (#149)
     EntityUpdates touched;
     applyEntityEvent(ev.as<JsonObjectConst>(), adapter_.raw(), touched);
-    for (auto& t : touched) push(t.first, t.second);
+    for (auto& t : touched) {
+      if (hist_ && hist_->watches(t.first)) {   // live append to the open bucket (#269)
+        const auto& st = t.second.state;
+        int64_t at = t.second.updatedEpoch * 1000;
+        if (at <= 0) at = epochMs();
+        hist_->live(t.first, hist::pointOf(st.data(), st.size(), 0).v, at);
+      }
+      if (hist_ && hist_->wantsAttr(t.first)) historyAttr(t.first);   // #292: an attribute list changed
+      push(t.first, t.second);
+    }
     if (heapMinFree() < low0 && heapMinFree() < 48 * 1024)   // #149: which message took the internal low-water down
       LOG_WRN("HEAP", "entity event (%u B, %u entities): internal low-water %u → %u B, largest block %u B",
               unsigned(msg.size()), unsigned(touched.size()), unsigned(low0), unsigned(heapMinFree()), unsigned(heapLargestFree()));
@@ -873,6 +918,137 @@ void HaClient::onMessage(const std::string& msg) {
               unsigned(heap_caps_get_free_size(MALLOC_CAP_INTERNAL)), unsigned(heapLargestFree()), unsigned(heapMinFree()));
     }
   }
+}
+
+// ---- history tiles (#269, core/history_fetch.h) ----
+void HaClient::setHistoryTiles(const std::vector<hist::Fetcher::Want>& want, bool configChanged) {
+  if (!hist_ && want.empty()) return;
+  PsramScope ps;
+  if (!hist_) {
+    void* m = heap_caps_malloc(sizeof(hist::Fetcher), MALLOC_CAP_SPIRAM | MALLOC_CAP_8BIT);
+    hist_ = m ? new (m) hist::Fetcher() : new hist::Fetcher();
+  }
+  hist_->setTiles(want, configChanged);
+  histInfo_ = true;
+  // #292: keep each attribute tile's attribute for its entity; one already mirrored without it is asked again
+  // (subscribe_entities sends its full state first)
+  const auto keys = hist_->attrKeys();
+  if (!setExtraAttrs(keys) || state_ != St::Ready || entitySubs_.empty()) return;
+  std::string ids;
+  for (auto& k : keys) {
+    auto it = adapter_.raw().find(k.first);
+    if (it == adapter_.raw().end() || it->second.attrs.count(k.second) || ids.find("\"" + k.first + "\"") != std::string::npos) continue;
+    ids += (ids.empty() ? "\"" : ",\"") + k.first + "\"";
+  }
+  if (ids.empty()) return;
+  const uint32_t id = nextId_++;
+  ws_.sendText("{\"id\":" + std::to_string(id) + ",\"type\":\"subscribe_entities\",\"entity_ids\":[" + ids + "]}");
+  entitySubs_.push_back(id);   // dropped with the others at the next resubscribe
+  LOG_INF("HIST", "attribute tiles: subscribe %s again for their attribute", ids.c_str());
+}
+
+void HaClient::historyAttr(const std::string& entity) {
+  auto it = adapter_.raw().find(entity);
+  if (it == adapter_.raw().end()) return;   // not mirrored yet: the tile stays Loading
+  PsramScope ps;
+  const auto& attrs = it->second.attrs;
+  hist_->feedAttr(entity, epochMs(), tzMinutesNow(), [&](const std::string& a) -> const PStr* {
+    auto f = attrs.find(a);
+    return f == attrs.end() ? nullptr : &f->second;
+  });
+}
+
+void HaClient::historyLoop() {
+  const int64_t now = epochMs();
+  if (now < 1700000000000LL) return;   // no clock yet: spans need it
+  if (hist_->timedOut(now)) {
+    LOG_WRN("HIST", "request %u unanswered for 60 s · given up", unsigned(hist_->requestId()));
+    hist_->abandon();
+  }
+  hist_->tick(now);
+  {
+    PsramScope ps;
+    for (auto& e : hist_->pendingAttr()) historyAttr(e);   // #292: new tiles, a bucket boundary
+  }
+  if (!hist_->inFlight()) {
+    std::string j;
+    bool ask;
+    {
+      PsramScope ps;
+      ask = hist_->next(now, tzMinutesNow(), nextId_, j);
+    }
+    if (ask) {
+      const char* t = strstr(j.c_str(), "\"type\":\"");
+      LOG_INF("HIST", "ask %u: %.100s", unsigned(nextId_), t ? t + 8 : j.c_str());
+      nextId_++;
+      histInfo_ = true;
+      ws_.sendText(j);
+    }
+  }
+  historyPublish();
+}
+
+void HaClient::historyPublish() {
+  PsramScope ps;
+  bool any = false;
+  hist_->publish(epochMs(), [&](const std::string& key, const hist::Series* s, hist::FetchState st) {
+    any = true;
+    Hub& h = hub();
+    std::lock_guard<std::recursive_mutex> l(h.mu);
+    auto it = std::find_if(h.historyOut.begin(), h.historyOut.end(), [&](const Hub::HistoryOut& o) { return o.key == PStr(key); });
+    if (it == h.historyOut.end()) it = h.historyOut.emplace(h.historyOut.end());
+    it->key = key;
+    it->state = st;
+    it->has = s != nullptr;
+    if (s) it->s = *s;
+  });
+  if (!any && !histInfo_) return;
+  histInfo_ = false;
+  std::string j = "[";
+  for (auto& t : hist_->info()) {
+    char b[112];   // the key apart: an attribute tile's key is ~90 chars (#292)
+    j += std::string(j.size() > 1 ? "," : "") + "{\"key\":\"" + jsonEscape(t.key) + "\"";
+    snprintf(b, sizeof b, ",\"active\":%s,\"state\":\"%s\",\"source\":\"%s\",\"fetched\":%lld,\"bytes\":%u,\"points\":%u}",
+             t.active ? "true" : "false", hist::fetchStateName(t.state), hist::sourceName(t.source),
+             static_cast<long long>(t.fetchedAt / 1000), unsigned(t.bytes), unsigned(t.points));
+    j += b;
+  }
+  j += "]";
+  std::lock_guard<std::recursive_mutex> l(hub().mu);
+  hub().historyInfo = j;
+}
+
+bool HaClient::want(uint32_t id) { return hist_ && hist_->owns(id); }
+
+void HaClient::begin(uint32_t id, uint64_t) {
+  histLow0_ = heapMinFree();
+  hist_->begin(id);
+}
+
+void HaClient::chunk(const char* p, size_t n) {
+  wdt::feedIfSubscribed();
+  hist_->feed(p, n);
+}
+
+void HaClient::end(uint32_t id, uint64_t len) {
+  {
+    PsramScope ps;
+    hist_->end(epochMs(), static_cast<uint32_t>(len));
+  }
+  histInfo_ = true;
+  LOG_INF("HEAP", "history %u %u B: internal low-water %u → %u B", unsigned(id), unsigned(len), unsigned(histLow0_),
+          unsigned(heapMinFree()));
+}
+
+void HaClient::dropped(uint32_t id, uint64_t len) {
+  if (!hist_ || !hist_->owns(id)) return;   // not a history answer: WsClient logged it
+  {
+    PsramScope ps;
+    hist_->dropped(id, epochMs(), static_cast<uint32_t>(std::min<uint64_t>(len, UINT32_MAX)));
+  }
+  histInfo_ = true;
+  LOG_WRN("HIST", "answer %u over the frame cap (%llu B): too many changes, not asked again", unsigned(id),
+          static_cast<unsigned long long>(len));
 }
 
 }  // namespace x4::net

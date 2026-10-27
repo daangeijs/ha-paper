@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Glance mode (#10) with the REAL firmware (env:x4qemu) in QEMU. QEMU has no deep sleep: net/power.cpp keeps the RTC
 # record, leaves a fake wake cause in RTC_NOINIT memory and calls esp_restart() after at most 8 s (any timer).
-#   1. v1 boots, links to the fake HA (--tick 0: values only change when the test says so), API token, night off
+#   1. v1 boots, links to the fake HA (--tick 0: values only change when the test says so), API token, quiet hours off
 #   2. POST /__qemu/power?source=battery&armed=1 (QEMU default is USB = always live; armed skips the first-boot count)
 #      → after the live window: "deep sleep (glance)" → simulated wake "timer" → no boot screen, one HA snapshot
 #   3. a wake with nothing changed draws nothing ("0 region(s) changed · no refresh")
@@ -65,12 +65,12 @@ SIM_STATE="$STATE" SIM_HTTP_PORT="$PORT" "$HERE/run.sh" --fw "$B1" --fresh >>"$L
 for _ in $(seq 90); do up && break; sleep 1; done
 up || { echo "FAIL: no boot"; tail -30 "$LOG"; exit 1; }
 
-echo "== v1 up · sign in through the fake HA + API token · night off, glance, live 1 min"
+echo "== v1 up · sign in through the fake HA + API token · quiet hours off, glance, live 1 min"
 SESSION=$(cd "$ROOT/emulator" && node scripts/device-signin.ts "$DEV" "$HA" "http://10.0.2.2:$HA_PORT")
 TOKEN=$(curl -s -X POST -b "x4_session=$SESSION" -H "Origin: $DEV" -H 'Content-Type: application/json' -d '{"name":"glance-test","scope":"write"}' "$DEV/api/v1/tokens" | sed -E 's/.*"token":"([^"]+)".*/\1/')
 [[ -n "$TOKEN" && "$TOKEN" != *"{"* ]] || { echo "FAIL: POST /tokens: $TOKEN"; exit 1; }
 auth=(-H "Authorization: Bearer $TOKEN")
-r=$(curl -s -m 5 "${auth[@]}" -X PUT -H 'Content-Type: application/json' -d '{"display":{"night":"off","powerSave":"glance","wakeEvery":15,"liveMin":1}}' "$DEV/api/v1/settings")
+r=$(curl -s -m 5 "${auth[@]}" -X PUT -H 'Content-Type: application/json' -d '{"display":{"quiet":"off","powerSave":"glance","wakeEvery":15,"liveMin":1}}' "$DEV/api/v1/settings")
 [[ "$r" == *'"powerSave":"glance"'* ]] || { echo "FAIL: PUT settings: $r"; exit 1; }
 for _ in $(seq 60); do curl -s -m 3 "${auth[@]}" "$DEV/api/v1/status" | grep -q '"home_assistant":"linked"' && break; sleep 1; done
 curl -s -m 3 -X POST -H 'Content-Type: application/json' -d '{"entity_id":"sensor.home_power","state":"420","attributes":{"unit_of_measurement":"W"}}' "$HA/__fake/state" >/dev/null

@@ -5,22 +5,22 @@
     {
       "name": "first save, no file",
       "op": "persist", "known": { "brightness": 0, "style": "classic" },
-      "expect": { "output": { "schema": 1, "brightness": 0, "style": "classic" } }
+      "expect": { "output": { "schema": 2, "brightness": 0, "style": "classic" } }
     },
     {
       "name": "save over an unversioned file: upgraded, then merged",
       "op": "persist", "stored": { "brightness": 10, "legacy": "x" }, "known": { "brightness": 20, "surface": "dots" },
-      "expect": { "output": { "schema": 1, "brightness": 20, "legacy": "x", "surface": "dots" } }
+      "expect": { "output": { "schema": 2, "brightness": 20, "legacy": "x", "quiet": "23-07", "surface": "dots" } }
     },
     {
       "name": "save over a current file keeps key order",
-      "op": "persist", "stored": { "schema": 1, "warmth": 40, "brightness": 10 }, "known": { "brightness": 20, "warmth": 50 },
-      "expect": { "output": { "schema": 1, "warmth": 50, "brightness": 20 } }
+      "op": "persist", "stored": { "schema": 2, "warmth": 40, "brightness": 10 }, "known": { "brightness": 20, "warmth": 50 },
+      "expect": { "output": { "schema": 2, "warmth": 50, "brightness": 20 } }
     },
     {
       "name": "a key added later (#32 haReport) is appended without a schema bump",
-      "op": "persist", "stored": { "schema": 1, "brightness": 10, "surface": "dots" }, "known": { "brightness": 10, "surface": "dots", "haReport": false },
-      "expect": { "output": { "schema": 1, "brightness": 10, "surface": "dots", "haReport": false } }
+      "op": "persist", "stored": { "schema": 2, "brightness": 10, "surface": "dots" }, "known": { "brightness": 10, "surface": "dots", "haReport": false },
+      "expect": { "output": { "schema": 2, "brightness": 10, "surface": "dots", "haReport": false } }
     }
   ]
 }

@@ -166,6 +166,14 @@ export function ScreensTab({ v }: { v: ConsoleView }) {
                       <span style={{ fontSize: "13px", color: "#5c5a55" }}>–</span>
                       <input inputMode="decimal" aria-label={v.web.t('histMax')} placeholder={v.web.t('histMax') + ' · ' + v.web.t('histAuto').toLowerCase()} value={v.web.histMax} onChange={v.web.setHistMax} style={{ width: "84px", height: "32px", boxSizing: "border-box", border: "1px solid #c9c6be", borderRadius: "6px", padding: "0 8px", fontSize: "13px" }} />
                     </fieldset>
+                    <fieldset aria-label={v.web.t('histThreshold')} style={{ display: "flex", alignItems: "center", gap: "8px", flexWrap: "wrap", margin: "0", padding: "0", minWidth: "0", border: "0" }}>
+                      <span style={{ minWidth: "64px", fontSize: "13px", color: "#5c5a55" }}>{v.web.t('histThreshold')}</span>
+                      <input inputMode="decimal" aria-label={v.web.t('histThreshold')} placeholder={v.web.t('histThresholdNone')} value={v.web.histThreshold} onChange={v.web.setHistThreshold} style={{ width: "84px", height: "32px", boxSizing: "border-box", border: "1px solid #c9c6be", borderRadius: "6px", padding: "0 8px", fontSize: "13px" }} />
+                    </fieldset>
+                    <fieldset aria-label={v.web.t('histLabels')} style={{ display: "flex", alignItems: "center", gap: "8px", flexWrap: "wrap", margin: "0", padding: "0", minWidth: "0", border: "0" }}>
+                      <span style={{ minWidth: "64px", fontSize: "13px", color: "#5c5a55" }}>{v.web.t('histLabels')}</span>
+                      {(v.web.histLabelOpts).map((o: any) => (<Fragment key={o.label}><button onClick={o.pick} aria-pressed={o.bg === '#1d1d1f'} style={{ height: "32px", padding: "0 10px", border: "1px solid #c9c6be", borderRadius: "6px", background: o.bg, color: o.fg, fontSize: "13px" }}>{o.label}</button></Fragment>))}
+                    </fieldset>
                     {!!(v.web.histErr) && (<div role="alert" style={{ fontSize: "13px", lineHeight: "1.4", color: "#B3261E" }}>{v.web.histErr}</div>)}
                   </div>
                 )}

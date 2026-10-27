@@ -59,11 +59,11 @@ int64_t parseSpan(const std::string& v) {
   return n * double(unit) > 1e15 ? int64_t(1e15) : int64_t(n) * unit;   // huge = out of every range
 }
 
-int64_t defaultBucket(int64_t win, int cs) {
+int64_t defaultBucket(int64_t win, int cs, int64_t minMs) {
   int64_t last = -1;
   for (auto* s : kLadder) {
     int64_t b = parseSpan(s);
-    if (win % b != 0 || win / b < kMinBars || win / b > kMaxBars) continue;
+    if (b < minMs || win % b != 0 || win / b < kMinBars || win / b > kMaxBars) continue;
     if (win / b <= int64_t(kBarsPerCol) * cs) return b;
     last = b;
   }
@@ -76,39 +76,89 @@ bool aggOf(const std::string& v, Agg& out) {
 }
 const char* aggName(Agg a) { return kAggs[int(a)]; }
 
+namespace {
+const char* const kStyles[] = {"bars", "line", "area", "step", "dots"};
+}
 Style resolveStyle(Agg a, const std::string& style) {
-  if (style == "bars") return Style::Bars;
-  if (style == "line") return Style::Line;
+  for (int i = 0; i < 5; ++i) if (style == kStyles[i]) return Style(i);
   return a == Agg::Mean ? Style::Line : Style::Bars;
 }
+const char* styleName(Style s) { return kStyles[int(s)]; }
 
-std::string configError(const Field& window, const Field& bucket, const Field& agg, const Field& style, const Field& min,
-                        const Field& max, int cs) {
-  std::string winText = window.present ? window.v : kWindowDefault;
+Kind sourceOf(bool hasAttribute, const std::string& entity) {
+  return hasAttribute ? Kind::Attribute : entity.compare(0, 8, "weather.") == 0 ? Kind::Forecast : Kind::Recorder;
+}
+const char* kindName(Kind k) {
+  static const char* const N[] = {"recorder", "attribute", "forecast"};
+  return N[int(k)];
+}
+const std::vector<const char*>& historyDomains(Kind k) {
+  static const std::vector<const char*> rec = {"sensor", "input_number", "number"}, attr = {"sensor", "binary_sensor", "weather"},
+                                        fc = {"weather"};
+  return k == Kind::Recorder ? rec : k == Kind::Attribute ? attr : fc;
+}
+
+namespace {
+bool fieldName(const std::string& v) {   // /^[A-Za-z_][A-Za-z0-9_]*$/
+  if (v.empty() || isDigit(v[0])) return false;
+  for (char c : v) if (!(isDigit(c) || c == '_' || (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z'))) return false;
+  return true;
+}
+int64_t aheadOf(const std::string& v) { return v == "0" ? 0 : parseSpan(v); }   // -1 = not a valid value
+int64_t forecastStep(Kind k, const Field& fc) { return k != Kind::Forecast ? 0 : fc.present && fc.v == "daily" ? kDay : kHour; }
+}  // namespace
+
+std::string configError(const Fields& f) {
+  std::string winText = f.window.present ? f.window.v : kWindowDefault;
   int64_t win = parseSpan(winText);
   if (win < 0 || win < kWindowMin || win > kWindowMax) return "history: window must be like 30m, 6h or 7d (10m–7d)";
-  if (bucket.present) {
-    int64_t b = -1;
-    for (auto* s : kLadder) if (bucket.v == s) b = parseSpan(s);
+  const Kind src = sourceOf(f.attribute.present, f.entity);
+  if (src == Kind::Recorder) {
+    const std::pair<const char*, const Field*> keys[] = {{"attribute", &f.attribute}, {"value", &f.value}, {"time", &f.time},
+                                                         {"ahead", &f.ahead}, {"forecast", &f.forecast}};
+    for (auto& k : keys) if (k.second->present) return std::string("history: ") + k.first + " needs an attribute or a weather entity";
+  }
+  const std::pair<const char*, const Field*> names[] = {{"attribute", &f.attribute}, {"value", &f.value}, {"time", &f.time}};
+  for (auto& k : names)
+    if (k.second->present && !fieldName(k.second->v)) return std::string("history: ") + k.first + " must be an attribute name (letters, digits, _)";
+  if (f.forecast.present && (src != Kind::Forecast || (f.forecast.v != "hourly" && f.forecast.v != "daily")))
+    return "history: forecast must be hourly or daily, on a weather entity without attribute";
+  const int64_t step = forecastStep(src, f.forecast);
+  if (f.bucket.present && step && std::max<int64_t>(parseSpan(f.bucket.v), 0) < step)
+    return std::string("history: ") + (step == kDay ? "a daily forecast needs a bucket of 1d" : "an hourly forecast needs a bucket of 1h") + " or more";
+  int64_t b = -1;
+  if (f.bucket.present) {
+    for (auto* s : kLadder) if (f.bucket.v == s) b = parseSpan(s);
     if (b <= 0) {
       std::string all;
       for (auto* s : kLadder) all += (all.empty() ? "" : " ") + std::string(s);
       return "history: bucket must be one of " + all;
     }
-    if (win % b != 0) return "history: bucket " + bucket.v + " does not divide window " + winText;
+    if (win % b != 0) return "history: bucket " + f.bucket.v + " does not divide window " + winText;
     int64_t n = win / b;
     if (n < kMinBars || n > kMaxBars)
-      return "history: " + winText + " / " + bucket.v + " = " + std::to_string(n) + (n == 1 ? " bar (" : " bars (") +
+      return "history: " + winText + " / " + f.bucket.v + " = " + std::to_string(n) + (n == 1 ? " bar (" : " bars (") +
              std::to_string(kMinBars) + "–" + std::to_string(kMaxBars) + ")";
-  } else if (defaultBucket(win, cs) < 0) {
+  } else if ((b = defaultBucket(win, f.cs, step)) < 0) {
     return "history: no bucket fits window " + winText + "; set bucket";
   }
+  if (f.ahead.present) {
+    const int64_t a = aheadOf(f.ahead.v);
+    if (a < 0 || a > win) return "history: ahead must be 0 or like 30m or 2h, at most the window";
+    if (a % b != 0)
+      return "history: bucket " + (f.bucket.present ? f.bucket.v : std::to_string(b / kMin) + "m") + " does not divide ahead " + f.ahead.v;
+  }
   Agg a;
-  if (agg.present && !aggOf(agg.v, a)) return "history: agg must be mean, max, min, last, change";
-  if (style.present && style.v != "bars" && style.v != "line" && style.v != "auto") return "history: style must be bars, line or auto";
-  double lo = min.present ? numOf(min.v) : 0, hi = max.present ? numOf(max.v) : 0;
-  if ((min.present && !has(lo)) || (max.present && !has(hi))) return "history: min and max must be numbers";
-  if (min.present && max.present && lo >= hi) return "history: min must be below max";
+  if (f.agg.present && !aggOf(f.agg.v, a)) return "history: agg must be mean, max, min, last, change";
+  bool styleOk = f.style.v == "auto";
+  for (const char* k : kStyles) styleOk = styleOk || f.style.v == k;
+  if (f.style.present && !styleOk)
+    return "history: style must be bars, line, area, step, dots or auto";
+  double lo = f.min.present ? numOf(f.min.v) : 0, hi = f.max.present ? numOf(f.max.v) : 0;
+  if ((f.min.present && !has(lo)) || (f.max.present && !has(hi))) return "history: min and max must be numbers";
+  if (f.min.present && f.max.present && lo >= hi) return "history: min must be below max";
+  if (f.threshold.present && !has(numOf(f.threshold.v))) return "history: threshold must be a number";
+  if (f.labels.present && f.labels.v != "true" && f.labels.v != "false") return "history: labels must be true or false";
   return "";
 }
 
@@ -116,15 +166,34 @@ Spec specOf(const Widget& w) {
   auto f = [&](const char* k) { auto it = w.fields.find(k); return it == w.fields.end() ? Field{} : Field{true, it->second}; };
   Spec s;
   s.entity = w.field("entity");
-  Field win = f("window"), b = f("bucket"), ag = f("agg"), st = f("style"), lo = f("min"), hi = f("max");
+  Field win = f("window"), b = f("bucket"), ag = f("agg"), st = f("style"), lo = f("min"), hi = f("max"), at = f("attribute"),
+        fc = f("forecast"), ah = f("ahead"), va = f("value"), ti = f("time"), th = f("threshold");
+  s.kind = sourceOf(at.present, s.entity);
+  s.daily = s.kind == Kind::Forecast && fc.present && fc.v == "daily";
   s.windowMs = parseSpan(win.present ? win.v : kWindowDefault);
-  s.bucketMs = b.present ? parseSpan(b.v) : defaultBucket(s.windowMs, w.cs ? w.cs : 1);
+  s.bucketMs = b.present ? parseSpan(b.v) : defaultBucket(s.windowMs, w.cs ? w.cs : 1, forecastStep(s.kind, fc));
   s.n = s.bucketMs > 0 ? int(s.windowMs / s.bucketMs) : 0;
   if (!ag.present || !aggOf(ag.v, s.agg)) s.agg = Agg::Mean;
   s.style = resolveStyle(s.agg, st.v);
   s.min = lo.present ? numOf(lo.v) : kNone;
   s.max = hi.present ? numOf(hi.v) : kNone;
+  s.threshold = th.present ? numOf(th.v) : kNone;
+  s.labels = f("labels").v == "true";
+  if (s.kind == Kind::Recorder) return s;
+  // an attribute or forecast series looks ahead by default (a nowcast, a forecast): the whole window from now
+  s.aheadMs = ah.present ? std::max<int64_t>(aheadOf(ah.v), 0) : s.windowMs;
+  s.attribute = s.kind == Kind::Forecast ? "forecast" : at.v;
+  s.value = va.present ? va.v : s.kind == Kind::Forecast ? "temperature" : "value";
+  s.time = ti.present ? ti.v : "datetime";
   return s;
+}
+
+const char* sourceUnit(const Spec& s) {
+  if (s.kind == Kind::Recorder) return "";
+  std::string v;
+  for (char c : s.value) v += char(c >= 'A' && c <= 'Z' ? c + 32 : c);
+  return v.find("precip") != std::string::npos || v.find("rain") != std::string::npos ? "mm/h"
+         : v.find("temp") != std::string::npos ? "°C" : "";
 }
 
 Period statsPeriod(int64_t b) { return b < 5 * kMin ? Period::None : b < kHour ? Period::FiveMinute : b < kDay ? Period::Hour : Period::Day; }
@@ -139,14 +208,14 @@ int64_t bucketStart(int64_t t, int64_t bucketMs, int tz) {
   return floorDiv(t + off, bucketMs) * bucketMs - off;
 }
 
-Span chartSpan(int64_t windowMs, int64_t bucketMs, int64_t now, int tz) {
-  int64_t end = bucketStart(now, bucketMs, tz) + bucketMs;
-  return {end - windowMs, end};
+Span chartSpan(int64_t windowMs, int64_t bucketMs, int64_t now, int tz, int64_t aheadMs) {
+  const int64_t b = bucketStart(now, bucketMs, tz), start = aheadMs ? b - (windowMs - aheadMs) : b + bucketMs - windowMs;
+  return {start, start + windowMs};
 }
 
 void fromStatistics(const StatRow* rows, size_t nRows, int64_t windowMs, int64_t bucketMs, Agg agg, int64_t now, int tz,
-                    Series& out) {
-  Span sp = chartSpan(windowMs, bucketMs, now, tz);
+                    Series& out, int64_t aheadMs) {
+  Span sp = chartSpan(windowMs, bucketMs, now, tz, aheadMs);
   out.start = sp.start; out.bucketMs = bucketMs; out.n = int(std::min<int64_t>(windowMs / bucketMs, kMaxBars));
   for (int i = 0; i < out.n; ++i) {   // rows in input order per bucket, as the TS accumulates them
     double sum = 0, w = 0, v = kNone;
@@ -167,6 +236,83 @@ void fromStatistics(const StatRow* rows, size_t nRows, int64_t windowMs, int64_t
       }
     }
     out.v[i] = agg == Agg::Mean ? (w != 0 ? sum / w : kNone) : v;
+  }
+}
+
+int64_t parseTimeNum(double v) {
+  if (!std::isfinite(v) || v <= 0) return kNoTime;
+  return int64_t(std::floor((v < 1e11 ? v * 1000 : v) + 0.5));
+}
+
+namespace {
+int64_t daysFromCivil(int64_t y, int m, int d) {   // H. Hinnant; d may run past the month (Date.UTC rolls over)
+  y -= m <= 2;
+  const int64_t era = (y >= 0 ? y : y - 399) / 400, yoe = y - era * 400;
+  const int64_t doy = (153 * (m > 2 ? m - 3 : m + 9) + 2) / 5, doe = yoe * 365 + yoe / 4 - yoe / 100 + doy;
+  return era * 146097 + doe - 719468 + d - 1;
+}
+}  // namespace
+
+// /^(\d{4})-(\d{2})-(\d{2})(?:[T ](\d{2}):(\d{2})(?::(\d{2})(?:\.\d+)?)?)?(Z|[+-]\d{2}:?\d{2})?$/ after trim
+int64_t parseTime(const char* s, size_t n, int tz) {
+  auto ws = [](char c) { return c == ' ' || c == '\t' || c == '\n' || c == '\r'; };
+  while (n && ws(*s)) ++s, --n;
+  while (n && ws(s[n - 1])) --n;
+  size_t i = 0;
+  auto num = [&](int digits, int& out) {
+    if (i + digits > n) return false;
+    out = 0;
+    for (int k = 0; k < digits; ++k, ++i) { if (!isDigit(s[i])) return false; out = out * 10 + (s[i] - '0'); }
+    return true;
+  };
+  int y, mo, d, h = 0, mi = 0, se = 0;
+  if (!num(4, y) || i >= n || s[i++] != '-' || !num(2, mo) || i >= n || s[i++] != '-' || !num(2, d)) return kNoTime;
+  if (i < n && (s[i] == 'T' || s[i] == ' ')) {
+    ++i;
+    if (!num(2, h) || i >= n || s[i++] != ':' || !num(2, mi)) return kNoTime;
+    if (i < n && s[i] == ':') {
+      ++i;
+      if (!num(2, se)) return kNoTime;
+      if (i < n && s[i] == '.') {
+        size_t f = ++i;
+        while (i < n && isDigit(s[i])) ++i;
+        if (i == f) return kNoTime;
+      }
+    }
+  }
+  int off = tz;
+  if (i < n && s[i] == 'Z') { off = 0; ++i; }
+  else if (i < n && (s[i] == '+' || s[i] == '-')) {
+    const int sign = s[i++] == '-' ? -1 : 1;
+    int oh, om;
+    if (!num(2, oh)) return kNoTime;
+    if (i < n && s[i] == ':') ++i;
+    if (!num(2, om)) return kNoTime;
+    off = sign * (oh * 60 + om);
+  }
+  if (i != n) return kNoTime;
+  if (mo < 1 || mo > 12 || d < 1 || d > 31 || h > 23 || mi > 59 || se > 59) return kNoTime;
+  if (y <= 99) y += 1900;   // Date.UTC maps years 0–99 to 1900–1999
+  return ((daysFromCivil(y, mo, d) * 24 + h) * 60 + mi - off) * kMin + int64_t(se) * 1000;
+}
+
+void fromSamples(const Sample* p, size_t n, const Spec& spec, int64_t now, int tz, Series& out) {
+  // fromStatistics with one-instant rows (weight 1), without a row array; samples in time order per bucket
+  Span sp = chartSpan(spec.windowMs, spec.bucketMs, now, tz, spec.aheadMs);
+  const int64_t bk = spec.bucketMs;
+  out.start = sp.start; out.bucketMs = bk; out.n = int(std::min<int64_t>(spec.windowMs / bk, kMaxBars));
+  for (int i = 0; i < out.n; ++i) {
+    const int64_t a = sp.start + i * bk, e = a + bk;
+    double sum = 0, w = 0, v = kNone;
+    int64_t at = INT64_MIN;
+    for (size_t k = 0; k < n; ++k) {
+      const Sample& r = p[k];
+      if (r.t < a || r.t >= e || r.t >= sp.end || !std::isfinite(r.v)) continue;
+      if (spec.agg == Agg::Mean) { sum += r.v; w += 1; }
+      else if (spec.agg == Agg::Last) { if (r.t > at) { v = r.v; at = r.t; } }
+      else v = !has(v) ? r.v : spec.agg == Agg::Min ? std::min(v, r.v) : spec.agg == Agg::Max ? std::max(v, r.v) : v + r.v;
+    }
+    out.v[i] = spec.agg == Agg::Mean ? (w != 0 ? sum / w : kNone) : v;
   }
 }
 
@@ -231,7 +377,7 @@ void bucketize(const Point* p, size_t n, int64_t windowMs, int64_t bucketMs, Agg
   }
 }
 
-Range yScale(const double* v, int n, Style style, double min, double max) {
+Range yScale(const double* v, int n, Style style, double min, double max, double threshold) {
   bool any = false;
   double lo = 0, hi = 1;
   for (int i = 0; i < n; ++i) {
@@ -239,6 +385,7 @@ Range yScale(const double* v, int n, Style style, double min, double max) {
     if (!any) { lo = hi = v[i]; any = true; }
     else { lo = std::min(lo, v[i]); hi = std::max(hi, v[i]); }
   }
+  if (any && has(threshold)) { lo = std::min(lo, threshold); hi = std::max(hi, threshold); }
   if (any && style == Style::Bars) { lo = std::min(0.0, lo); hi = std::max(0.0, hi); if (lo == hi) hi = 1; }
   else if (any && lo == hi) { lo -= 1; hi += 1; }
   else if (any) { double pad = (hi - lo) * 0.1; lo -= pad; hi += pad; }
@@ -286,19 +433,25 @@ bool dayLowHigh(const double* v, int n, Lang lang, Extreme& low, Extreme& high) 
   return n > 0 && lowHighOf(v, n, 0, kDay / n, kDay, 0, lang, low, high);
 }
 
-int axisTicks(int64_t w, int64_t bucketMs, int64_t now, int tz, Lang lang, Tick* out) {
-  Span sp = chartSpan(w, bucketMs, now, tz);
+int axisTicks(int64_t w, int64_t bucketMs, int64_t now, int tz, Lang lang, Tick* out, int64_t aheadMs) {
+  Span sp = chartSpan(w, bucketMs, now, tz, aheadMs);
   auto x = [&](int64_t t) { return double(t - sp.start) / double(w); };
   int n = 0;
   if (w <= 3 * kHour) {
+    auto after = [&](int64_t st) { return aheadMs ? (sp.end - now) / st : int64_t(0); };
     int64_t step = 60 * kMin;
-    for (int m : {5, 10, 15, 30, 60}) if ((now - sp.start) / (m * kMin) + 1 <= 5) { step = m * kMin; break; }
+    for (int m : {5, 10, 15, 30, 60})
+      if ((now - sp.start) / (m * kMin) + 1 + after(m * kMin) <= 5) { step = m * kMin; break; }
     int count = int((now - sp.start) / step) + 1;
     for (int i = 0; i < count && n < kMaxTicks; ++i, ++n) {   // oldest first
       int64_t t = now - int64_t(count - 1 - i) * step;
       out[n].x = x(t);
       if (t == now) std::snprintf(out[n].text, sizeof out[n].text, "%s", tr(lang, S::now));
       else std::snprintf(out[n].text, sizeof out[n].text, "-%s", std::to_string((now - t) / kMin).c_str());
+    }
+    for (int64_t k = 1; k <= after(step) && n < kMaxTicks; ++k, ++n) {   // #292: after now
+      out[n].x = x(now + k * step);
+      std::snprintf(out[n].text, sizeof out[n].text, "+%s", std::to_string(k * step / kMin).c_str());
     }
     return n;
   }

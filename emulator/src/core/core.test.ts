@@ -28,7 +28,7 @@ describe('region diff', () => {
 });
 
 describe('refresh policy', () => {
-  const base = { reason: 'HA update', sleeping: false, night: false, sinceFull: 0, clockKnown: true };
+  const base = { reason: 'HA update', sleeping: false, quiet: false, sinceFull: 0, clockKnown: true };
   it('minute tick redraws only the clock windows (#38); the whole clock tile when the date changes', () => {
     expect(minuteKeys(['t0'], false)).toEqual(['time', 'k0']);
     expect(minuteKeys(['t0', 't3'], true)).toEqual(['time', 'k0', 'k3', 't0', 't3']);
@@ -38,10 +38,11 @@ describe('refresh policy', () => {
     expect(decidePartial({ ...base, sinceFull: CLEAN_CAP - 1 })).toEqual({ kind: 'partial', sinceFull: CLEAN_CAP });
     expect(decidePartial({ ...base, sinceFull: CLEAN_CAP - 1, clockKnown: false })).toEqual({ kind: 'clean', reason: 'ghosting limit' });
   });
-  it('no data redraws in standby or night; the clock still updates', () => {
+  it('no data redraws in standby or on the quiet face; only standby keeps its clock (#295)', () => {
     expect(decidePartial({ ...base, sleeping: true })).toEqual({ kind: 'skip', why: 'standby' });
-    expect(decidePartial({ ...base, night: true })).toEqual({ kind: 'skip', why: 'night' });
-    expect(decidePartial({ ...base, night: true, reason: 'clock' }).kind).toBe('partial');
+    expect(decidePartial({ ...base, sleeping: true, reason: 'clock' }).kind).toBe('partial');
+    expect(decidePartial({ ...base, quiet: true })).toEqual({ kind: 'skip', why: 'quiet' });
+    expect(decidePartial({ ...base, quiet: true, reason: 'clock' })).toEqual({ kind: 'skip', why: 'quiet' });
   });
   it('navigation: fast, every NAV_CLEAN-th a clean (#197)', () => {
     let st = { navSinceClean: 0, sinceFull: 0, clockKnown: true }; const kinds: string[] = [];

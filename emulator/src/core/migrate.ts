@@ -8,8 +8,10 @@
 //    can still write the old key after a rollback;
 //  * newer or unreadable schema: read what you can, don't write at boot (status newer/unknown/invalid).
 
+import { quietFromNight } from './quiet.ts';
+
 /** userdata /settings.json `schema`. 0 = file from before versioning (no key). */
-export const SETTINGS_SCHEMA = 1;
+export const SETTINGS_SCHEMA = 2;
 /** NVS x4dev/schema, one number for x4wifi, x4ha, x4tok, x4dev and x4ota. 0 = no key. */
 export const DEVICE_SCHEMA = 1;
 
@@ -18,6 +20,11 @@ type Obj = Record<string, unknown>;
 
 const SETTINGS_STEPS: ((d: Obj) => void)[] = [
   () => {},   // 0 → 1: files from before versioning, same shape; only stamped
+  // 1 → 2 (#295): quiet hours. New key `quiet` from `night` (kept for a rollback); "Sleep at night" becomes glance.
+  (d) => {
+    if (!('quiet' in d)) d.quiet = quietFromNight(d.night);
+    if (d.powerSave === 'night') d.powerSave = 'glance';
+  },
 ];
 
 export const schemaStatus = (stored: number, current: number): MigrateStatus => (stored < 0 ? 'unknown' : stored === current ? 'current' : stored < current ? 'upgrade' : 'newer');

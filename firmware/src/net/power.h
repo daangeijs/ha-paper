@@ -28,7 +28,8 @@ void powerEarlyBoot();               // first line of setup(): RTC record, wake 
 bool powerSimulatedWake();           // QEMU: this reset ended a simulated deep sleep (diag records DEEPSLEEP)
 WakeKind powerWake();
 const char* powerWakeName();         // cold | timer | button | charger | other
-// After services.begin(), before App::begin(): true = glance wake (hold the panel, no boot screen).
+// After services.begin(), before App::begin(): true = hold the panel, no boot screen (glance wake, or a key wake from
+// glance sleep until the data is in, #299).
 bool powerBegin(const DisplaySettings& s);
 // Hardware sleep (main.cpp, not under QEMU): seconds = timer wake, 0 = Power/Right key or charger only. No return.
 void powerOnSleep(std::function<void(int64_t seconds)> fn);

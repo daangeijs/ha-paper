@@ -471,7 +471,11 @@ export function useConsole(api: DeviceApi, initial: DeviceSnapshot | null = null
         histWindows: (wins.includes(win) ? wins : [...wins, win]).map((x) => opt(x, win === x, () => put('window', x === WINDOW_DEFAULT ? undefined : x))),
         histBuckets: [opt(t('histAuto'), h?.bucket === undefined, () => put('bucket', undefined)), ...bucketsFor(win, h ?? undefined).map((b) => opt(b, String(h?.bucket) === b, () => put('bucket', b)))],
         histAggs: HISTORY_AGGS.map((a) => opt(t(({ mean: 'aggMean', max: 'aggMax', min: 'aggMin', last: 'aggLast', change: 'aggChange' } as const)[a]), String(h?.agg ?? 'mean') === a, () => put('agg', a === 'mean' ? undefined : a))),
-        histStyles: ([['auto', 'histAuto'], ['bars', 'styleBars'], ['line', 'styleLine']] as const).map(([k, lk]) => opt(t(lk), String(h?.style ?? 'auto') === k, () => put('style', k === 'auto' ? undefined : k))),
+        histStyles: ([['auto', 'histAuto'], ['bars', 'styleBars'], ['line', 'styleLine'], ['area', 'styleArea'], ['step', 'styleStep'], ['dots', 'styleDots']] as const).map(([k, lk]) => opt(t(lk), String(h?.style ?? 'auto') === k, () => put('style', k === 'auto' ? undefined : k))),
+        // #304: a dashed reference line; min / max / last printed on the chart
+        histThreshold: h?.threshold === undefined ? '' : String(h.threshold),
+        setHistThreshold: (e: ChangeEvent<HTMLInputElement>) => put('threshold', e.target.value.replace(/[^-\d.]/g, '')),
+        histLabelOpts: ([['on', 'histLabelsOn'], ['off', 'histLabelsOff']] as const).map(([k, lk]) => opt(t(lk), (h?.labels === 'true') === (k === 'on'), () => put('labels', k === 'on' ? 'true' : undefined))),
         histMin: h?.min === undefined ? '' : String(h.min), histMax: h?.max === undefined ? '' : String(h.max),
         setHistMin: (e: ChangeEvent<HTMLInputElement>) => put('min', e.target.value.replace(/[^-\d.]/g, '')),
         setHistMax: (e: ChangeEvent<HTMLInputElement>) => put('max', e.target.value.replace(/[^-\d.]/g, '')),

@@ -8,6 +8,7 @@ import { DEFAULT_LIVE_MIN, LIVE_MIN } from './glance.ts';
 import { settingsScreens } from './config.ts';
 import { TZ_ZONES, validTzSetting } from './locale.ts';
 import { DEFAULT_LIGHT_TIMEOUT, LIGHT_TIMEOUTS } from './frontlight.ts';
+import { DEFAULT_QUIET, QUIET_STEPS } from './quiet.ts';
 export { validPosixTz } from './locale.ts';
 
 export type DisplayStyle = 'classic' | 'sleek';
@@ -20,7 +21,7 @@ export const SURFACES: Surface[] = ['dither', 'dots'];
 /** Settings that change the look: a change is one full refresh, never a region diff. */
 export const LOOK_KEYS = ['style', 'typeface', 'surface'] as const;
 
-export type DisplaySettings = { brightness: number; warmth: number; night: string; returnHome: string; standby: string; clock: string; intervalSec: number; fullEvery: number; cleanEvery: number;
+export type DisplaySettings = { brightness: number; warmth: number; quiet: string; returnHome: string; standby: string; clock: string; intervalSec: number; fullEvery: number; cleanEvery: number;
   style: DisplayStyle; typeface: Typeface; surface: Surface;
   /** Push device health to Home Assistant as entities (#32, core/haReport.ts). Default on. */
   haReport: boolean;
@@ -42,7 +43,7 @@ export type SettingsPatch = { display?: Partial<DisplaySettings>; name?: string;
 export type OtaChannel = 'stable' | 'beta';
 
 /** Emulator-internal cfg (Settings tiles): minutes as numbers, 0 = never. */
-export type DisplayCfg = { brightness: number; warmth: number; lightTimeout: number; night: string; fullEvery: number; cleanEvery: number; interval: number; returnHome: number; standby: number; clock: string;
+export type DisplayCfg = { brightness: number; warmth: number; lightTimeout: number; quiet: string; fullEvery: number; cleanEvery: number; interval: number; returnHome: number; standby: number; clock: string;
   style: DisplayStyle; typeface: Typeface; surface: Surface; haReport: boolean } & PowerCfg;
 /** Power saving (Settings › Power, #10). On the wire in `display`. */
 export type PowerCfg = { powerSave: PowerSave; wakeEvery: number; liveMin: number };
@@ -50,13 +51,13 @@ export const DEFAULT_POWER: PowerCfg = { powerSave: 'glance', wakeEvery: 15, liv
 export type Cfg = DisplayCfg;
 
 export const cfgToDisplay = (c: DisplayCfg): DisplaySettings => ({
-  brightness: c.brightness, warmth: c.warmth, lightTimeout: c.lightTimeout, night: c.night, returnHome: c.returnHome ? String(c.returnHome) : 'never',
+  brightness: c.brightness, warmth: c.warmth, lightTimeout: c.lightTimeout, quiet: c.quiet, returnHome: c.returnHome ? String(c.returnHome) : 'never',
   standby: c.standby ? String(c.standby) : 'never', clock: c.clock, intervalSec: c.interval, fullEvery: c.fullEvery, cleanEvery: c.cleanEvery,
   style: c.style, typeface: c.typeface, surface: c.surface, haReport: c.haReport,
   powerSave: c.powerSave, wakeEvery: c.wakeEvery, liveMin: c.liveMin,
 });
 export const displayToCfg = (d: DisplaySettings): DisplayCfg => ({
-  brightness: d.brightness, warmth: d.warmth, lightTimeout: d.lightTimeout ?? DEFAULT_LIGHT_TIMEOUT, night: d.night, returnHome: d.returnHome === 'never' ? 0 : Number(d.returnHome),
+  brightness: d.brightness, warmth: d.warmth, lightTimeout: d.lightTimeout ?? DEFAULT_LIGHT_TIMEOUT, quiet: d.quiet ?? DEFAULT_QUIET, returnHome: d.returnHome === 'never' ? 0 : Number(d.returnHome),
   standby: d.standby === 'never' ? 0 : Number(d.standby), clock: d.clock, interval: d.intervalSec, fullEvery: d.fullEvery, cleanEvery: d.cleanEvery ?? DEFAULT_CLEAN_EVERY,
   style: d.style, typeface: d.typeface, surface: d.surface, haReport: d.haReport ?? true,
   powerSave: d.powerSave ?? DEFAULT_POWER.powerSave, wakeEvery: d.wakeEvery ?? DEFAULT_POWER.wakeEvery, liveMin: d.liveMin ?? DEFAULT_POWER.liveMin,
@@ -69,7 +70,6 @@ export const DISPLAY_FIELDS: { key: keyof DisplaySettings; label: StrKey; info?:
   { key: 'brightness', label: SETTINGS.brightness.lk, values: range(0, 100, 10), fmt: (v, lg) => SETTINGS.brightness.fmt(v, lg) },
   { key: 'warmth', label: SETTINGS.warmth.lk, values: range(0, 100, 10), fmt: (v, lg) => SETTINGS.warmth.fmt(v, lg) },
   { key: 'lightTimeout', label: SETTINGS.lightTimeout.lk, info: SETTINGS.lightTimeout.info, values: LIGHT_TIMEOUTS, fmt: (v, lg) => SETTINGS.lightTimeout.fmt(v, lg) },
-  { key: 'night', label: SETTINGS.night.lk, values: ['off', '22-06', '23-07', '00-06'], fmt: (v, lg) => SETTINGS.night.fmt(v, lg) },
   { key: 'returnHome', label: SETTINGS.returnHome.lk, values: ['never', '1', '5', '15'], fmt: (v, lg) => SETTINGS.returnHome.fmt(v === 'never' ? 0 : Number(v), lg) },
   { key: 'standby', label: SETTINGS.standby.lk, info: SETTINGS.standby.info, values: ['never', '10', '30', '60'], fmt: (v, lg) => SETTINGS.standby.fmt(v === 'never' ? 0 : Number(v), lg) },
   { key: 'clock', label: SETTINGS.clock.lk, values: ['24', '12'], fmt: (v, lg) => SETTINGS.clock.fmt(v, lg) },
@@ -80,6 +80,7 @@ export const DISPLAY_FIELDS: { key: keyof DisplaySettings; label: StrKey; info?:
   { key: 'surface', label: SETTINGS.surface.lk, values: SURFACES, fmt: (v, lg) => SETTINGS.surface.fmt(v, lg) },
   { key: 'haReport', label: 'setHaReport', info: 'infoHaReport', values: [true, false], fmt: (v, lg) => tr(lg, v ? 'on' : 'off') },
   { key: 'powerSave', label: SETTINGS.powerSave.lk, info: SETTINGS.powerSave.info, values: POWER_SAVES, fmt: (v, lg) => SETTINGS.powerSave.fmt(v, lg) },
+  { key: 'quiet', label: SETTINGS.quiet.lk, info: SETTINGS.quiet.info, values: QUIET_STEPS, fmt: (v, lg) => SETTINGS.quiet.fmt(v, lg) },
   { key: 'wakeEvery', label: SETTINGS.wakeEvery.lk, info: SETTINGS.wakeEvery.info, values: WAKE_EVERY, fmt: (v, lg) => SETTINGS.wakeEvery.fmt(v, lg) },
   { key: 'liveMin', label: SETTINGS.liveMin.lk, info: SETTINGS.liveMin.info, values: LIVE_MIN, fmt: (v, lg) => SETTINGS.liveMin.fmt(v, lg) },
 ];
@@ -117,7 +118,7 @@ export function displayError(d: DisplaySettings): string | null {
   if (!int(d.brightness, 0, 100)) return 'display.brightness must be 0–100';
   if (!int(d.warmth, 0, 100)) return 'display.warmth must be 0–100';
   if (d.lightTimeout !== undefined && !LIGHT_TIMEOUTS.includes(d.lightTimeout)) return 'display.lightTimeout must be 0, 30, 60, 120 or 300';
-  if (!/^(off|([01]\d|2[0-3])-([01]\d|2[0-3]))$/.test(String(d.night))) return 'display.night must be "off" or "HH-HH"';
+  if (!/^(off|([01]\d|2[0-3])-([01]\d|2[0-3]))$/.test(String(d.quiet))) return 'display.quiet must be "off" or "HH-HH"';
   if (!['never', '1', '5', '15'].includes(String(d.returnHome))) return 'display.returnHome must be never, 1, 5 or 15';
   if (!['never', '10', '30', '60'].includes(String(d.standby))) return 'display.standby must be never, 10, 30 or 60';
   if (!['24', '12'].includes(String(d.clock))) return 'display.clock must be "24" or "12"';
@@ -129,7 +130,7 @@ export function displayError(d: DisplaySettings): string | null {
   if (!(TYPEFACES as unknown[]).includes(d.typeface)) return 'typeface must be archivo, bricolage, fraunces or geist';
   if (!(SURFACES as unknown[]).includes(d.surface)) return 'surface must be dither or dots';
   if (typeof d.haReport !== 'boolean') return 'display.haReport must be true or false';
-  if (!(POWER_SAVES as unknown[]).includes(d.powerSave)) return 'display.powerSave must be off, night, standby or glance';
+  if (!(POWER_SAVES as unknown[]).includes(d.powerSave)) return 'display.powerSave must be off, standby or glance';
   if (!WAKE_EVERY.includes(d.wakeEvery)) return 'display.wakeEvery must be 15, 30 or 60';
   if (!LIVE_MIN.includes(d.liveMin)) return 'display.liveMin must be 1, 3, 5 or 10';
   // Firmware-only key (Settings › Updates); the simulators accept it so a firmware GET round-trips.
@@ -142,7 +143,7 @@ export const nameError = (name: unknown): string | null => (typeof name !== 'str
 
 /** PUT /settings key tables (#43). A new setting = one row here and one in firmware core/settings_api.cpp. */
 export const SETTINGS_KEYS = ['display', 'ota_channel', 'tz', 'name', 'entities'] as const;
-export const DISPLAY_KEYS = ['brightness', 'warmth', 'lightTimeout', 'night', 'returnHome', 'standby', 'clock', 'intervalSec', 'fullEvery', 'cleanEvery', 'otaAuto',
+export const DISPLAY_KEYS = ['brightness', 'warmth', 'lightTimeout', 'quiet', 'returnHome', 'standby', 'clock', 'intervalSec', 'fullEvery', 'cleanEvery', 'otaAuto',
   'style', 'typeface', 'surface', 'haReport', 'powerSave', 'wakeEvery', 'liveMin', 'debugInput'] as const;
 export const TZ_ERROR = 'tz must be "", a known zone like Europe/Amsterdam or a POSIX TZ string like CET-1CEST,M3.5.0,M10.5.0/3';
 

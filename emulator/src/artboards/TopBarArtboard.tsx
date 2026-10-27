@@ -43,7 +43,7 @@ function renderVals() {
       { name: 'update', when: 'New firmware ready (Settings › Updates)', d: ICON.update, fill: 'none', stroke: INK },
       { name: 'alert', when: 'Last update did not finish', d: ICON.alert, fill: 'none', stroke: INK },
       { name: 'away', when: 'Heating is in away mode', d: ICON.away, fill: 'none', stroke: INK },
-      { name: 'night', when: 'Peeking during night mode (only filled icon)', d: ICON.night, fill: INK, stroke: 'none' },
+      { name: 'night', when: 'Peeking during quiet hours (only filled icon)', d: ICON.night, fill: INK, stroke: 'none' },
       { name: 'light', when: 'Front light is on', d: ICON.light, fill: 'none', stroke: INK },
     ],
   };

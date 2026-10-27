@@ -1,12 +1,12 @@
 {
   "name": "08-standby-cadence",
-  "description": "Standby + night, standby face on by day: timer wake every 15/30/60 min. At night the night end wins.",
+  "description": "Standby, standby face on by day: timer wake every 15/30/60 min. In quiet hours the window end wins.",
   "base": {
     "nowEpoch": 1800000000,
     "localSec": 43200,
     "powerSave": "standby",
     "wakeEvery": 15,
-    "night": "23-07",
+    "quiet": "23-07",
     "peeking": false,
     "standby": true,
     "charging": false,
@@ -62,7 +62,7 @@
       }
     },
     {
-      "name": "22:50, every 60 min: 60 min (night starts before the wake)",
+      "name": "22:50, every 60 min: 60 min (quiet hours start before the wake)",
       "input": {
         "wakeEvery": 60,
         "localSec": 82200
@@ -75,7 +75,7 @@
       }
     },
     {
-      "name": "standby at 02:00: night end, not the cadence",
+      "name": "standby at 02:00: quiet hours end, not the cadence",
       "input": {
         "localSec": 7200
       },
@@ -83,7 +83,7 @@
         "deepSleepNow": true,
         "wakeAtEpoch": 1800018000,
         "buttonWakeOnly": false,
-        "reason": "night"
+        "reason": "quiet"
       }
     },
     {

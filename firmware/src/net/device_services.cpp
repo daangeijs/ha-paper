@@ -185,6 +185,7 @@ void DeviceServices::pump(App& app, Board& board) {
   }
   bool statusChanged = false, clear = false, cfgPending = false, setPending = false, refresh = false, restart = false, sources = false;
   std::vector<std::pair<std::string, EntityValue>> updates;
+  std::vector<Hub::HistoryOut, PsramAlloc<Hub::HistoryOut>> hist;
   Config cfg;
   DisplaySettings settings;
   {
@@ -212,6 +213,7 @@ void DeviceServices::pump(App& app, Board& board) {
     }
     updates.swap(h.entityOut);
     h.entitiesApplied += updates.size();
+    hist.swap(h.historyOut);
     clear = h.clearEntities;
     h.clearEntities = false;
     if ((cfgPending = h.configPending)) {
@@ -232,6 +234,11 @@ void DeviceServices::pump(App& app, Board& board) {
   }
   if (clear) app.entities().clear();
   for (auto& u : updates) app.entities().set(u.first, std::move(u.second));
+  if (!hist.empty()) {   // history series (#269) → the tiles (#270)
+    static_assert(int(hist::FetchState::NeedsStats) == int(hist::State::NeedsStats) && int(hist::FetchState::Ok) == int(hist::State::Ok),
+                  "FetchState mirrors hist::State");
+    for (auto& o : hist) app.setHistory(std::string(o.key), o.has ? &o.s : nullptr, hist::State(int(o.state)));
+  }
   if (setPending) app.setSettings(settings);
   if (cfgPending) app.setDisplayConfig(std::move(cfg));  // one full refresh
   else if (sources) app.expectData();
@@ -287,6 +294,7 @@ void DeviceServices::pump(App& app, Board& board) {
     h.ambient = ambient;
     if (shown != h.shownScreen) h.shownScreen = std::move(shown);
   }
+  historyTiles(app, cfgPending);
   const uint32_t fulls = app.stats().fullRefreshes;
   if (fulls != lastFulls_) {
     lastFulls_ = fulls;
@@ -370,6 +378,28 @@ void DeviceServices::otaInstall() {
 
 void DeviceServices::factoryReset() {
   hub().post([] { doFactoryReset(); });
+}
+
+// History tiles (#269): the config's series, fetched only for the app on screen. Posted when the config or that app
+// changes (an overlay or a menu shows no screen: the last app stays).
+void DeviceServices::historyTiles(App& app, bool configChanged) {
+  const std::string shown = app.shownScreen();
+  const Config& cfg = app.config();
+  std::string appId = histApp_;
+  for (auto& sc : cfg.screens) if (sc.id == shown) appId = sc.app;
+  if (histPosted_ && !configChanged && appId == histApp_) return;
+  const bool changed = configChanged || !histPosted_;
+  histPosted_ = true;
+  histApp_ = appId;
+  PsramScope ps;
+  std::vector<hist::Fetcher::Want> want;
+  for (auto& sc : cfg.screens)
+    for (auto& w : sc.widgets) {
+      if (w.type != "history") continue;
+      hist::Spec s = hist::specOf(w);
+      want.push_back({s, hist::seriesKey(s), sc.app == appId});
+    }
+  hub().post([want, changed] { haClient().setHistoryTiles(want, changed); });
 }
 
 void DeviceServices::applyConfig(const Config& c) {

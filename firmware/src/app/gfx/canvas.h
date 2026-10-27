@@ -69,6 +69,10 @@ class Canvas {
   void vline(int x, int y, int h, int th, Ink c) { fill(Rect{int16_t(x), int16_t(y), int16_t(th), int16_t(h)}, c); }
   void dottedHLine(int x, int y, int w, int th, Ink c);
   void dottedVLine(int x, int y, int h, int th, Ink c);
+  void dashedHLine(int x, int y, int w, int th, int dash, int gapLen, Ink c);   // one record (history threshold, #304)
+  // the tone under the segment (xa, ya)–(xb, yb) down to yBase, one 1 px column per x (history area fill, #304)
+  void toneUnder(int xa, int ya, int xb, int yb, int yBase, Tone t);
+  void line(int x0, int y0, int x1, int y1, int th, Ink c);   // th×th pen along a Bresenham path, no anti-aliasing (1-bit safe)
   void circle(int cx, int cy, int r, Ink fillC, int bw = 0, Ink border = Ink::Black);
   // palette entries without a native level (gfx/style.h Tone): rounded rect / circle / pill filled with the pattern
   void tone(Rect r, int radius, Tone t);

@@ -259,10 +259,10 @@ beforeAll(async () => {
     if (session && !ro) ro = await mkToken('read');
     // #87: the hung TLS probes above (and anything else so far) ran without a watchdog reset
     if (FAKE) expectNoWatchdogReset(await diagnostics());
-    // QEMU keeps real (SNTP) time: no night face in the middle of a run, whatever the hour.
+    // QEMU keeps real (SNTP) time: no quiet face in the middle of a run, whatever the hour.
     // fullEvery 30: a "clean screen" full refresh after a few clock partials would make refresh counting flaky;
     // intervalSec 5: live data is drawn at most once per "Live data" interval (default 30 s).
-    if (FAKE) expect((await http(base, 'PUT', '/api/v1/settings', { token: rw, body: JSON.stringify({ display: { night: 'off', fullEvery: 30, intervalSec: 5 } }), type: 'application/json' })).status).toBe(200);
+    if (FAKE) expect((await http(base, 'PUT', '/api/v1/settings', { token: rw, body: JSON.stringify({ display: { quiet: 'off', fullEvery: 30, intervalSec: 5 } }), type: 'application/json' })).status).toBe(200);
     return;
   }
   stateFile = join(mkdtempSync(join(tmpdir(), 'x4-sim-')), 'state.json');
@@ -945,9 +945,9 @@ describe('settings (x-firmware)', () => {
   it.skipIf(NO_RW)('power saving (#10): powerSave / wakeEvery / liveMin, glance by default, exact 422 messages', async () => {
     const put = (display: object) => http(base, 'PUT', '/api/v1/settings', { token: rw, body: JSON.stringify({ display }), type: 'application/json' });
     const g = await http(base, 'GET', '/api/v1/settings', { token: rw });
-    expect(g.json.display).toMatchObject({ powerSave: expect.stringMatching(/^(off|night|standby|glance)$/), wakeEvery: expect.any(Number), liveMin: expect.any(Number) });
+    expect(g.json.display).toMatchObject({ powerSave: expect.stringMatching(/^(off|standby|glance)$/), wakeEvery: expect.any(Number), liveMin: expect.any(Number) });
     const orig = { powerSave: g.json.display.powerSave, wakeEvery: g.json.display.wakeEvery, liveMin: g.json.display.liveMin };
-    for (const [display, msg] of [[{ powerSave: 'deep' }, 'display.powerSave must be off, night, standby or glance'], [{ wakeEvery: 5 }, 'display.wakeEvery must be 15, 30 or 60'], [{ liveMin: 2 }, 'display.liveMin must be 1, 3, 5 or 10']] as const) {
+    for (const [display, msg] of [[{ powerSave: 'deep' }, 'display.powerSave must be off, standby or glance'], [{ powerSave: 'night' }, 'display.powerSave must be off, standby or glance'], [{ quiet: '7-23' }, 'display.quiet must be "off" or "HH-HH"'], [{ wakeEvery: 5 }, 'display.wakeEvery must be 15, 30 or 60'], [{ liveMin: 2 }, 'display.liveMin must be 1, 3, 5 or 10']] as const) {
       const r = await put(display);
       expect(r.status, JSON.stringify(display)).toBe(422); expect(r.json.error).toBe(msg);
     }
@@ -2122,6 +2122,62 @@ describe.skipIf(!FAKE)('real firmware with the fake HA', () => {
     console.log(`[#168] internal heap before ${q0.heap} after ${q1.heap} (${q1.heap - q0.heap} B)`);
     expect(q1.heap, 'internal heap').toBeGreaterThan(q0.heap - 8192);
     expect((await get('nope')).status).toBe(404);
+  });
+  // #269: the device asks the recorder only for the history tiles of the app on screen: statistics first, the history
+  // fallback for an entity without statistics, and an answer over the 512 KB frame cap read and dropped (tile "tooMany",
+  // asked once, the WebSocket stays up). /__qemu/state history: per series key {active, state, source, bytes, points}.
+  it('history tiles: statistics first, history fallback, an oversized answer dropped without a reconnect; other apps not fetched; attribute + forecast (#292)', async () => {
+    const q0 = await until(qemu, (q) => !!q && typeof q.screen === 'string' && q.screen !== '', 60_000);
+    const original = (await http(base, 'GET', '/api/v1/config', { token: rw })).text;
+    const cfg = (await http(base, 'GET', '/api/v1/config', { token: rw, accept: 'application/json' })).json;
+    const app = cfg.screens.find((s: any) => s.id === q0.screen)?.app ?? 'home';
+    const other = (cfg.apps?.map((a: any) => a.id) ?? ['home', 'house', 'travel']).find((a: string) => a !== app && a !== 'settings') ?? 'travel';
+    await fakeCtl('history', { entities: [{ id: 'sensor.outdoor_temperature', model: 'temperature' }, { id: 'sensor.train_delay', model: 'delay' },
+      { id: 'sensor.chatty_power', model: 'power', kind: 'none' }, { id: 'sensor.rain_total', model: 'rain_total' }], states: true, reset_calls: true });
+    const tile = (entity: string, window: string, extra: Record<string, unknown> = {}) => ({ type: 'history', entity, window, cs: 2, ...extra });
+    const screens = [...cfg.screens,
+      { id: 'hist_here', app, title: 'History', widgets: [tile('sensor.outdoor_temperature', '24h'), tile('sensor.train_delay', '6h', { agg: 'max' }), tile('sensor.chatty_power', '6h')] },
+      // #292: a nowcast list in an attribute (from the entity mirror) and weather.get_forecasts (call_service, return_response)
+      { id: 'hist_ahead', app, title: 'Ahead', widgets: [tile('binary_sensor.rain_expected', '2h', { attribute: 'forecast', value: 'precipitation', bucket: '10m', agg: 'max' }), tile('weather.home', '24h')] },
+      { id: 'hist_there', app: other, title: 'History 2', widgets: [tile('sensor.rain_total', '24h', { agg: 'change' })] }];
+    await quietMinute();
+    const put = await http(base, 'PUT', '/api/v1/config', { token: rw, body: JSON.stringify({ version: 1, ...(cfg.apps ? { apps: cfg.apps } : {}), screens }), type: 'application/json' });
+    try {
+      expect(put.status, put.text).toBe(200);
+      type H = { key: string; active: boolean; state: string; source: string; bytes: number; points: number };
+      const of = (q: any, e: string): H | undefined => (q?.history as H[] | undefined)?.find((h) => h.key.startsWith(e + '|'));
+      const q1 = await until(qemu, (q) => ['sensor.outdoor_temperature', 'sensor.train_delay', 'sensor.chatty_power', 'binary_sensor.rain_expected', 'weather.home']
+        .every((e) => of(q, e) && of(q, e)!.state !== 'loading'), 180_000);
+      expect(of(q1, 'binary_sensor.rain_expected'), JSON.stringify(q1.history)).toMatchObject({ active: true, state: 'ok', source: 'attribute' });
+      expect(of(q1, 'binary_sensor.rain_expected')!.points).toBeGreaterThanOrEqual(40);
+      expect(of(q1, 'weather.home')).toMatchObject({ active: true, state: 'ok', source: 'forecast', points: 48 });
+      expect(of(q1, 'sensor.outdoor_temperature'), JSON.stringify(q1.history)).toMatchObject({ active: true, state: 'ok', source: 'statistics' });
+      expect(of(q1, 'sensor.train_delay')).toMatchObject({ active: true, state: 'ok', source: 'history' });
+      expect(of(q1, 'sensor.chatty_power')).toMatchObject({ active: true, state: 'tooMany' });
+      expect(of(q1, 'sensor.chatty_power')!.bytes).toBeGreaterThan(512 * 1024);
+      expect(of(q1, 'sensor.rain_total')).toMatchObject({ active: false, state: 'loading' });
+      const calls = (await fakeCtl('history')).calls as { type: string; ids: string[]; period?: string; rows: number; bytes: number }[];
+      const asked = (type: string, id: string) => calls.filter((c) => c.type === type && c.ids.includes(id));
+      expect(asked('recorder/statistics_during_period', 'sensor.outdoor_temperature').length).toBeGreaterThanOrEqual(1);
+      expect(asked('history/history_during_period', 'sensor.train_delay').length).toBeGreaterThanOrEqual(1);
+      expect(asked('history/history_during_period', 'sensor.chatty_power')).toHaveLength(1);
+      expect(calls.filter((c) => c.ids.includes('sensor.rain_total'))).toEqual([]);   // another app's tile: never asked
+      // the socket survived the dropped frame: a state change still lands, and the chatty tile is not asked again
+      const applied = (await qemu()).entities_applied;
+      await fakeCtl('state', { entity_id: 'sensor.home_power', state: '777' });
+      await until(qemu, (q) => q.entities_applied > applied, 30_000);
+      await new Promise((r) => setTimeout(r, 5000));
+      expect(((await fakeCtl('history')).calls as typeof calls).filter((c) => c.type === 'history/history_during_period' && c.ids.includes('sensor.chatty_power'))).toHaveLength(1);
+      const q2 = (await qemu())!;
+      console.log(`[#269] internal heap ${q0.heap} → ${q2.heap} B, largest ${q0.largest} → ${q2.largest} B; ${JSON.stringify(q2.history)}`);
+      expect(q2.largest, 'largest internal block').toBeGreaterThan(Math.min(q0.largest, 16384) - 4096);
+    } finally {
+      const pre = await refreshCounts();
+      expect((await http(base, 'PUT', '/api/v1/config', { token: rw, body: original, type: 'application/yaml' })).status).toBe(200);
+      await fullLanded(pre);
+      await fakeCtl('history', { entities: [{ id: 'sensor.outdoor_temperature', model: 'temperature' }, { id: 'sensor.rain_rate', model: 'rain_rate' },
+        { id: 'sensor.rain_total', model: 'rain_total' }, { id: 'sensor.train_delay', model: 'delay' }], reset_calls: true });
+    }
   });
   it('settings `entities` maps a logical id onto any HA entity (core/entity_map)', async () => {
     const put = await http(base, 'PUT', '/api/v1/settings', { token: rw, body: JSON.stringify({ entities: { 'sensor.living_temperature': 'sensor.contract_thermo', 'sensor.battery_power': '-sensor.contract_batt' } }), type: 'application/json' });

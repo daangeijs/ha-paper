@@ -156,6 +156,7 @@ void clockCard(Canvas& c, I& a, const Widget& w, Rect r) {
   std::string wd = a.now.date, dm;
   auto sp = wd.find(' ');
   if (sp != std::string::npos) { dm = wd.substr(sp + 1); wd = wd.substr(0, sp); }
+  if (!a.asleepAt.empty()) wd = a.t(S::clockAsleep);   // #299: the digits are the update time
   c.text(x0, top + asc(hf), wd, hf, C(Ink::Paper));
   c.textRight(x1, top + asc(hf), dm, hf, C(Ink::Paper));
 }
@@ -181,7 +182,7 @@ void clockWindow(Canvas& c, I& a, const Widget& w, Rect r) {
   int hdrBot = clockHdrBot(r);
   int ttop = int(hdrBot + ((barTop - hdrBot) - lh) / 2);
   TextOpts tt = C(Ink::Paper); tt.tracking = -3; tt.tabular = true;
-  c.text(x0, baseIn(ttop, tf, lh), a.now.clock, tf, tt);
+  c.text(x0, baseIn(ttop, tf, lh), a.asleepAt.empty() ? a.now.clock : a.asleepAt, tf, tt);
 }
 
 // ---------------- power price ----------------
@@ -446,14 +447,6 @@ void settingCard(Canvas& c, I& a, const Widget& w, Rect r, const std::string& va
   TextOpts lo; lo.maxW = r.w - 32;
   c.text(r.x + 16, r.y + 14 + asc(lf), d ? a.t(d->label) : key, lf, lo);
   Rect cap = rc(r.x + 12, r.y + r.h - 12 - 56, r.w - 24, 56);
-  S info;   // a two-row tile also says what the setting does (#190), centred between label and capsule
-  if (w.rs >= 2 && settingInfo(key, info)) {
-    std::string hint = a.t(info);
-    Canvas m(nullptr);
-    int hh = 20 * m.paragraph(0, 0, r.w - 32, 20, hint, T4(15));
-    int lb = r.y + 14 + 19;
-    c.paragraph(r.x + 16, lb + (cap.y - lb - hh) / 2, r.w - 32, 20, hint, T4(15));
-  }
   c.box(cap, 28, Ink::Paper);
   int cy = cap.y + 28;
   circleBtn(c, cap.x + 6 + 22, cy, 44, false, true, false, nullptr);
@@ -501,10 +494,12 @@ static int pagerCapW(I& a) {
 Rect sleekBarTimeRect(I& a) {
   TextOpts ct; ct.tabular = true;
   int right = a.chr.pager ? kScreenW - 12 - pagerCapW(a) - 12 : kScreenW - 12, w = Canvas().textWidth("00:00", D(24), ct);
+  if (!a.asleepAt.empty()) w = Canvas().textWidth(a.t(S::asleepBar, a.asleepAt), T6(16));   // #299
   return rc(right - w, 8, w, 48);
 }
 void sleekBarTime(Canvas& c, I& a) {
   Rect r = sleekBarTimeRect(a);
+  if (!a.asleepAt.empty()) { c.textRight(r.x + r.w, centreBl(32, T6(16)), a.t(S::asleepBar, a.asleepAt), T6(16)); return; }
   Font cf = D(24);
   TextOpts ct; ct.tabular = true;
   c.textRight(r.x + r.w, centreBl(32, cf), a.now.clock, cf, ct);
@@ -583,8 +578,8 @@ void sleekTopBar(Canvas& c, I& a) {
     if (st.ota == OtaState::Available && a.set.otaAuto != "off") icons.push_back(Icon::StatusUpdate);
     if (st.ota == OtaState::Failed) icons.push_back(Icon::StatusAlert);
     if (a.data.away) icons.push_back(Icon::StatusAway);
-    if (a.nightHour() && !a.nightActive() && !a.sleeping) icons.push_back(Icon::StatusNight);
-    if (a.set.brightness > 0 && !a.nightActive()) icons.push_back(Icon::StatusLight);
+    if (a.quietHour() && !a.quietActive() && !a.sleeping) icons.push_back(Icon::StatusNight);   // peeking in quiet hours
+    if (a.set.brightness > 0 && !a.quietActive()) icons.push_back(Icon::StatusLight);
     for (auto it = icons.rbegin(); it != icons.rend(); ++it) { right -= 20; c.icon(*it, right, 22); right -= 10; }
   }
 }

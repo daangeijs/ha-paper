@@ -2,6 +2,7 @@
 #pragma once
 #include "core/config.h"
 #include "core/entities.h"
+#include "core/history_chart.h"
 #include "hw/platform.h"
 #include "app/services.h"
 #include <functional>
@@ -13,7 +14,7 @@ namespace x4 {
 
 struct DisplaySettings {   // Settings › Display (SPEC §8); persisted by net/storage
   uint8_t brightness = 0, warmth = 40;
-  std::string night = "23-07", returnHome = "5", standby = "never", clock = "24";
+  std::string quiet = "23-07", returnHome = "5", standby = "never", clock = "24";   // quiet: kDefaultQuiet (#295)
   int intervalSec = 30, fullEvery = 8;   // fullEvery: legacy (#26), stored and served, unused
   int cleanEvery = 30;                    // scheduled clean refresh interval, minutes: 30 | 60 | 120
   int lightTimeout = 60;                  // front light off after s without input (#220): 30 | 60 | 120 | 300 | 0 = never
@@ -26,7 +27,7 @@ struct DisplaySettings {   // Settings › Display (SPEC §8); persisted by net/
   std::string surface = "dither";     // dither | dots: how the Sleek card surface is drawn on the panel
   bool haReport = true;               // push device health to HA as entities (#32, net/ha_report)
   // Power saving on battery (#10; glance by default per #18). On USB always live. New keys: no schema bump.
-  std::string powerSave = "glance";   // off | night | standby | glance
+  std::string powerSave = "glance";   // off | standby | glance
   int wakeEvery = 15;                  // minutes between glance / standby timer wakes: 15 | 30 | 60
   int liveMin = 3;                     // glance: live minutes after a key press: 1 | 3 | 5 | 10
   bool debugInput = false;             // POST /api/v1/debug/input allowed (#214, measuring on hardware)
@@ -43,6 +44,9 @@ class App {
   void expectData();                            // a data source changed: draw new states as they land (15 s, #151)
   void onNetStatusChanged();                    // wifi/HA/OTA state changed
   EntityStore& entities();
+  // History tile data (#270; fed by the HA fetch, #269): the series of hist::seriesKey(spec) and its state, then the
+  // visible tiles redraw if a pixel changed. App task only. false = store full (kMaxTiles keys of the current config).
+  bool setHistory(const std::string& key, const hist::Series* series, hist::State state);
   const Config& config() const;               // what the display runs: withSettings(screens.yaml)
   const DisplaySettings& settings() const;
   // full = cleans (one flash), fast = navigations without a flash (#197), feedback = tap inversion (added)
@@ -71,9 +75,11 @@ class App {
 
   // ---- glance (#10, net/power.cpp) ----
   void setPanelHeld(bool held);           // glance wake: render as usual, but leave the panel showing what it shows
+  void setBootWake(const std::string& wake);   // net powerWakeName(); before begin(): not "timer" = boot opens with a peek (#295)
   void settle();                          // while held: render everything the store holds now (ambient chrome)
   void redraw(const std::string& reason); // release the panel + one full refresh (a visible value changed)
   void prepareSleep();                    // before deep sleep from live mode: home page, ambient chrome, no standby face
+  void markAsleep(bool on);               // #299: clocks drawn as "asleep · updated HH:MM" (on = before deep sleep)
   std::vector<std::string> clockRegions() const;   // regions that only show the time ("time", clock tiles "k<i>")
   struct PowerView { bool main, setup, standby, peeking; int64_t msSinceUserInput; bool ambient; };   // -1 = no key/touch since boot
   PowerView powerView() const;

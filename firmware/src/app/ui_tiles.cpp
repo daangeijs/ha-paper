@@ -1,10 +1,11 @@
-// Dashboard widgets: stat, clock, price, gauge, bars, route, thermo, switch, scene, setting, ghost, link card, lists.
+// Dashboard widgets: stat, clock, price, gauge, bars, history, route, thermo, switch, scene, setting, ghost, link card, lists.
 #include <algorithm>
 #include <cmath>
 #include <cstdlib>
 #include "app/app_impl.h"
 #include "core/catalog.h"
 #include "core/history.h"
+#include "core/history_chart.h"
 #include "core/json.h"
 
 namespace x4 {
@@ -96,7 +97,8 @@ static TextOpts clockOpts() { TextOpts t; t.tracking = -4; t.tabular = true; ret
 
 static void clockTile(Canvas& c, I& a, Rect r) {
   TextOpts d; d.maxW = r.w - 36;
-  c.text(r.x + 18, baseline(clockTop(r) + 87 + 4, B(20), 1.2), a.now.date, B(20), d);
+  // #299: asleep, the digits are the update time; the date line says so
+  c.text(r.x + 18, baseline(clockTop(r) + 87 + 4, B(20), 1.2), a.asleepAt.empty() ? a.now.date : std::string(a.t(S::clockAsleep)), B(20), d);
 }
 
 Rect clockTimeRect(I& a, const Widget& w, Rect r) {
@@ -109,7 +111,7 @@ Rect clockTimeRect(I& a, const Widget& w, Rect r) {
 
 void clockTime(Canvas& c, I& a, const Widget& w, Rect r) {
   if (sleek()) { sleekClockTime(c, a, w, r); return; }
-  c.text(r.x + 18, baseline(clockTop(r), B(92), 0.95), a.now.clock, B(92), clockOpts());
+  c.text(r.x + 18, baseline(clockTop(r), B(92), 0.95), a.asleepAt.empty() ? a.now.clock : a.asleepAt, B(92), clockOpts());
 }
 
 static void priceTile(Canvas& c, I& a, const Widget& w, Rect r) {
@@ -255,6 +257,138 @@ static void barsTile(Canvas& c, I& a, const Widget& w, Rect r) {
   }
 }
 
+// History tile (#270, emulator Device.tsx HistoryPlot, geometry core/history_chart): bars from zero or an auto-ranged
+// line, gaps blank, the latest bucket with data solid ink (bar) or a dot (line), axis ticks, low / high with times.
+// #304: area (line over a Track-dithered fill), step, dots, a dashed threshold line, min / max / last on the plot.
+// Classic: 2 px line, square bars, uppercase name; Modern (on its card): 3 px line, rounded bars. 1-bit: Hatch /
+// Track / Ink only. The redraw is the region signature: bar rects and line ends in pixels, so a value change below a pixel
+// draws nothing.
+static void historyTile(Canvas& c, I& a, const Widget& w, Rect r) {
+  const bool sl = sleek();
+  const hist::Spec sp = hist::specOf(w);
+  const auto* slot = a.histOf(hist::seriesKey(sp));
+  hist::Chart ch;
+  hist::chart(sp, slot && slot->s.n ? &slot->s : nullptr, slot ? slot->state : hist::State::Loading, a.now.epochMs, a.now.tz,
+              a.lang, ch);
+  const EntityValue* raw = a.store.get(sp.entity);
+  StatText st = statText(sp.entity, a.data, a.now.h, a.statEntity(sp.entity), a.lang);
+  std::string lab = !w.field("label").empty() ? w.field("label") : st.label;
+  std::string sum = st.gap != EntityGap::None ? gapText(a, st.gap) : st.value + (st.unit.empty() || st.value == "—" ? "" : " " + st.unit);
+  // #292: an attribute / forecast series shows its value now (the bucket holding now) in its own unit, 1 decimal
+  const std::string srcUnit = hist::sourceUnit(sp);
+  const bool src = sp.kind != hist::Kind::Recorder;
+  if (src && st.gap == EntityGap::None) {
+    double nv = hist::kNone;
+    if (ch.v) {
+      const int64_t i = (hist::bucketStart(a.now.epochMs, sp.bucketMs, a.now.tz) - slot->s.start) / sp.bucketMs;
+      if (i >= 0 && i < ch.n) nv = ch.v[i];
+    }
+    sum = !raw || !hist::has(nv) ? "—" : fmtNum(nv, srcUnit, 1) + (srcUnit.empty() ? "" : " " + srcUnit);
+  }
+  const int x0 = r.x + (sl ? 18 : 14), x1 = r.x + r.w - (sl ? 18 : 14), top = r.y + (sl ? 14 : 10), bot = r.y + r.h - (sl ? 10 : 8);
+  // header: name left (ellipsis), live value right
+  Font lf = sl ? T6(16) : B(kLabel), sf = sl ? D(22) : B(20);
+  TextOpts vo; vo.tabular = true;
+  const int sumW = c.textWidth(sum, sf, vo), hdrH = sl ? int(std::lround(sf.size * 1.2)) : kLabelH;
+  const int hb = baseline(top, sf, double(hdrH) / sf.size);
+  TextOpts lo; lo.upper = !sl; lo.maxW = std::max(0, x1 - x0 - sumW - 10);
+  c.text(x0, hb, lab, lf, lo);
+  c.textRight(x1, hb, sum, sf, vo);
+  // footer: low / high, then the ticks above it
+  Font tf = sl ? T4(15) : R(17), mf = sl ? T6(15) : B(17);
+  const int lhH = int(std::lround(mf.size * 1.2)), tickH = 20;
+  int y = bot;
+  const int dp = src ? 1 : displayPrecision(raw);
+  const std::string& u = src ? srcUnit : st.unit;
+  if (ch.lowHigh) {
+    y -= lhH;
+    std::string low = a.t(S::histLow, fmtNum(ch.low.v, u, dp), ch.low.time), high = a.t(S::histHigh, fmtNum(ch.high.v, u, dp), ch.high.time);
+    TextOpts mo; mo.tabular = true;
+    const int bl = baseline(y, mf, 1.2), hw = c.textWidth(high, mf, mo);
+    if (c.textWidth(low, mf, mo) + 12 + hw <= x1 - x0) c.text(x0, bl, low, mf, mo);   // too narrow: the high only
+    c.textRight(x1, bl, high, mf, mo);
+    y -= 4;
+  }
+  y -= tickH;
+  const int W = x1 - x0, tbl = baseline(y, tf, double(tickH) / tf.size);
+  TextOpts to; to.tabular = true;
+  for (int k = 0; k < ch.nTicks; ++k) {
+    const hist::Tick& t = ch.ticks[k];
+    int tx = x0 + int(std::lround(t.x * W)), tw = c.textWidth(t.text, tf, to);
+    c.text(t.x < 0.06 ? tx : t.x > 0.94 ? tx - tw : tx - tw / 2, tbl, t.text, tf, to);
+  }
+  // plot: between the header (+ 4 gap + 4 margin) and the ticks (4 gap)
+  const int pTop = top + hdrH + 8, pBot = y - 4;
+  if (pBot - pTop < 12) return;
+  const bool hasState = ch.state != hist::State::Ok && ch.state != hist::State::Loading;
+  const bool zeroLine = ch.style == hist::Style::Bars && !hasState && hist::has(ch.zero);
+  const int aBot = zeroLine ? pBot : pBot - 2, H = aBot - pTop;   // the dotted baseline is 2 px under the area
+  if (!zeroLine) c.dottedHLine(x0, pBot - 2, W, 2, Ink::Black);
+  auto py = [&](double f) { return aBot - int(std::lround(f * H)); };
+  auto px = [&](double f) { return x0 + int(std::lround(f * W)); };
+  if (hasState) {
+    Font xf = sl ? T7(18) : B(18);
+    c.textCenter((x0 + x1) / 2, (pTop + aBot) / 2 + Canvas::capHeight(xf) / 2, hist::stateText(ch.state, a.lang), xf, C(Ink::Black));
+    return;
+  }
+  if (ch.style == hist::Style::Bars) {
+    const int n = ch.n, gap = n > 48 ? 1 : n > 24 ? 2 : 4;
+    const double bw = double(W - gap * (n - 1)) / n;
+    for (int i = 0; i < n; ++i) {
+      if (ch.gap(i)) continue;
+      int bx = x0 + int(std::lround(i * (bw + gap))), bx2 = x0 + int(std::lround(i * (bw + gap) + bw));
+      int yb = py(ch.barB(i)), yt = std::min(py(ch.barT(i)), yb - 3);   // at least 3 px, as the emulator's max(3px, …)
+      Rect b = rc(bx, yt, std::max(1, bx2 - bx), yb - yt);
+      int rad = sl ? std::min(4, b.w / 2) : 0;
+      if (i == ch.latest) c.box(b, rad, Ink::Black);
+      else c.tone(b, rad, Tone::Hatch);
+    }
+    if (zeroLine) c.hline(x0, py(ch.zero) - 1, W, 2, Ink::Black);
+  }
+  auto vy = [&](int i) { return py(ch.y(ch.v[i])); };
+  if (ch.style == hist::Style::Area)   // under each run of 2+ points, down to the plot bottom
+    for (int i = 0; i + 1 < ch.n; ++i)
+      if (!ch.gap(i) && !ch.gap(i + 1)) c.toneUnder(px(ch.x(i)), vy(i), px(ch.x(i + 1)), vy(i + 1), aBot, Tone::Track);
+  if (hist::has(ch.threshold)) c.dashedHLine(x0, py(ch.threshold) - 1, W, 2, 6, 4, Ink::Black);
+  const int th = sl ? 3 : 2;
+  if (ch.style == hist::Style::Line || ch.style == hist::Style::Area) {
+    int xPrev = 0, yPrev = 0;
+    bool open = false;
+    for (int i = 0; i < ch.n; ++i) {
+      if (ch.gap(i)) { open = false; continue; }
+      int x = px(ch.x(i)), yy = vy(i);
+      bool lone = !open && (i + 1 >= ch.n || ch.gap(i + 1));
+      if (open || lone) c.line(open ? xPrev : x, open ? yPrev : yy, x, yy, th, Ink::Black);
+      xPrev = x; yPrev = yy; open = true;
+    }
+  } else if (ch.style == hist::Style::Step) {   // a flat run per bucket, joined upright to the next one
+    for (int i = 0; i < ch.n; ++i) {
+      if (ch.gap(i)) continue;
+      const int xr = px(ch.edge(i + 1)), yy = vy(i);
+      c.line(px(ch.edge(i)), yy, xr, yy, th, Ink::Black);
+      if (i + 1 < ch.n && !ch.gap(i + 1)) c.line(xr, yy, xr, vy(i + 1), th, Ink::Black);
+    }
+  } else if (ch.style == hist::Style::Dots) {
+    const int d = hist::dotPx(ch.n);
+    for (int i = 0; i < ch.n; ++i) if (!ch.gap(i) && i != ch.latest) c.circle(px(ch.x(i)), vy(i), d / 2, Ink::Black);
+  }
+  if (ch.style != hist::Style::Bars && ch.latest >= 0) c.circle(px(ch.x(ch.latest)), vy(ch.latest), 8, Ink::Black, 2, Ink::Paper);
+  // values on the plot: beside the point, on the tile's ground, kept inside the plot
+  TextOpts no; no.tabular = true;
+  const int cap = Canvas::capHeight(mf);
+  for (int k = 0; k < ch.nLabels; ++k) {
+    const hist::Label& l = ch.labels[k];
+    const std::string t = fmtNum(ch.v[l.i], u, dp);
+    const int tw = c.textWidth(t, mf, no), xp = px(ch.x(l.i));
+    const int tx = std::max(x0 + 3, std::min(x1 - 3 - tw, l.right ? xp + 12 : xp - 12 - tw));
+    const int bl = std::max(pTop + cap + 3, std::min(aBot - 3, vy(l.i) + cap / 2));
+    const Rect bg = rc(tx - 3, bl - cap - 3, tw + 6, cap + 6);   // the line knocked out behind the text: card surface on Modern
+    if (sl) c.tone(bg, 0, Tone::Surf);
+    else c.fill(bg, Ink::Paper);
+    c.text(tx, bl, t, mf, no);
+  }
+}
+
 static void badge(Canvas& c, int right, int top, int lvl, bool car) {
   const SevDef& S = sevDef(lvl);
   bool red = lvl == 4;
@@ -335,9 +469,19 @@ static void routeTile(Canvas& c, I& a, const Widget& w, Rect r) {
     int bl = bodyTop + (bodyBot - bodyTop) / 2 + 10;
     TextOpts vt; vt.tracking = -1; vt.tabular = true;
     int x = x0 + c.text(x0, bl, std::to_string(eta), B(52), vt) + 6;
-    x += c.text(x, bl, "min", B(20)) + 10;
-    TextOpts ar = C(Ink::Black); ar.maxW = x1 - x;
-    c.text(x, bl, a.t(S::arriveIfLeave, a.now.known ? hhmm(a.now.minuteOfDay + eta) : std::string("—")), R(17), ar);
+    x += c.text(x, bl, "min", B(20));
+    std::string arrive = a.now.known ? hhmm(a.now.minuteOfDay + eta) : std::string("—");
+    TextOpts ar = C(Ink::Black);
+    if (w.cs >= 3) {   // #303: the arrival time as a second big value, caption beside it
+      c.dottedVLine(x + 14, bl - 44, 52, 1, Ink::Black);
+      x += 14 + 1 + 20;
+      x += c.text(x, bl, arrive, B(52), vt) + 10;
+      ar.maxW = x1 - x;
+      c.text(x, bl, a.t(S::arriveCaption), R(17), ar);
+    } else {
+      x += 10; ar.maxW = x1 - x;
+      c.text(x, bl, a.t(S::arriveIfLeave, arrive), R(17), ar);
+    }
     if (carLvl) c.text(x0, bl + 26, a.t(S::usually, std::to_string(typ) + " min") + (extra > 0 ? " · " + a.t(S::traffic, std::to_string(extra)) : ""), R(16), C(Ink::Black));
     return;
   }
@@ -489,10 +633,10 @@ std::string settingValue(const I& a, const std::string& key) {
   if (key == "lightTimeout")   // #220
     return s.lightTimeout == 0 ? std::string(a.t(S::never)) : s.lightTimeout < 60 ? a.t(S::afterSec, std::to_string(s.lightTimeout))
                                                                                    : a.t(S::afterMin, std::to_string(s.lightTimeout / 60));
-  if (key == "night") {
-    if (s.night == "off") return a.t(S::off);
-    auto d = s.night.find('-');
-    return pad2(std::atoi(s.night.substr(0, d).c_str())) + "–" + pad2(std::atoi(s.night.substr(d + 1).c_str()));
+  if (key == "quiet") {   // #295
+    if (s.quiet == "off") return a.t(S::off);
+    auto d = s.quiet.find('-');
+    return pad2(std::atoi(s.quiet.substr(0, d).c_str())) + "–" + pad2(std::atoi(s.quiet.substr(d + 1).c_str()));
   }
   if (key == "returnHome" || key == "standby") {
     int m = idleMinutes(key == "standby" ? s.standby : s.returnHome);
@@ -506,7 +650,7 @@ std::string settingValue(const I& a, const std::string& key) {
   if (key == "typeface") return s.typeface == "bricolage" ? "Bricolage" : s.typeface == "fraunces" ? "Fraunces" : s.typeface == "geist" ? "Geist" : "Archivo";
   if (key == "surface") return a.t(s.surface == "dots" ? S::surfDots : S::surfDither);
   if (key == "powerSave")
-    return a.t(s.powerSave == "off" ? S::psOff : s.powerSave == "night" ? S::psNight : s.powerSave == "standby" ? S::psStandby : S::psGlance);
+    return a.t(s.powerSave == "off" ? S::psOff : s.powerSave == "standby" ? S::psStandby : S::psGlance);
   if (key == "wakeEvery") return std::to_string(s.wakeEvery) + " min";
   if (key == "liveMin") return std::to_string(s.liveMin) + " min";
   return "?";
@@ -520,16 +664,10 @@ static void settingTile(Canvas& c, I& a, const Widget& w, Rect r) {
   int ll = labelLines(c, lab, r.w - 28);   // "TERUG NAAR START", "SCHERM VERVERSEN" wrap (#199)
   tileLabel(c, r.x + 14, top, lab, r.w - 28, ll);
   top += (ll - 1) * kLabelH;
-  // a two-row tile also says what the setting does (#190), spaced like the emulator's column
-  S info;
-  std::string hint = w.rs >= 2 && settingInfo(key, info) ? std::string(a.t(info)) : std::string();
-  int hintH = 0;
-  if (!hint.empty()) { Canvas m(nullptr); hintH = 22 * m.paragraph(0, 0, r.w - 28, 22, hint, R(18)); }
-  int gaps = hint.empty() ? 2 : 3;
-  int g = ((bottom - top) - kLabelH - 31 - hintH - 46) / gaps;
+  // title + value only (#310), spaced like the emulator's column
+  int g = ((bottom - top) - kLabelH - 31 - 46) / 2;
   TextOpts t; t.tabular = true; t.maxW = r.w - 28;
   c.text(r.x + 14, baseline(top + kLabelH + g, B(26), 1.2), settingValue(a, key), B(26), t);
-  if (!hint.empty()) c.paragraph(r.x + 14, top + kLabelH + g + 31 + g, r.w - 28, 22, hint, R(18), C(Ink::Black));
   int bw = (r.w - 28 - 8) / 2;
   Rect m = rc(r.x + 14, bottom - 46, bw, 46), p = rc(r.x + 14 + bw + 8, bottom - 46, bw, 46);
   c.box(m, 8, Ink::Paper, 2, Ink::Black);
@@ -550,6 +688,7 @@ void tile(Canvas& c, I& a, const Widget& w, int, Rect r) {
   else if (w.type == "price") priceTile(c, a, w, r);
   else if (w.type == "gauge") gaugeTile(c, a, w, r);
   else if (w.type == "bars") barsTile(c, a, w, r);
+  else if (w.type == "history") historyTile(c, a, w, r);
   else if (w.type == "route") routeTile(c, a, w, r);
   else if (w.type == "thermo") thermoTile(c, a, w, r);
   else if (w.type == "switch") switchTile(c, a, w, r);

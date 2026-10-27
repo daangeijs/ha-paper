@@ -39,6 +39,7 @@ std::mutex g_rtcMu;
 WakeKind g_wake = WakeKind::Cold;
 bool g_simWake = false;
 bool g_glance = false;                // this boot is a glance wake: the panel is held until the decision
+bool g_wakeHold = false;              // #299: key wake from glance sleep: no boot screen, panel held until the data is in
 std::atomic<const char*> g_mode{"awake"};
 std::atomic<int> g_armLeft{glance::kArmBoots};
 glance::ArmRecord g_arm;
@@ -81,6 +82,8 @@ constexpr uint32_t kAwakeMinMs = 5000;      // awake at least this long after a 
 constexpr uint32_t kArmUpMs = 60000;        // a boot counts once it ran 60 s with the network up (OTA confirm rule)
 constexpr uint32_t kArmUptimeMs = uint32_t(glance::kArmUptimeMin * 60000);   // #231: or 30 min online in one boot
 constexpr uint32_t kSettleQuietMs = 1500;   // glance: HA data is in once no entity update came for this long
+constexpr uint32_t kWakeHoldMaxMs = 8000;   // #299 key wake: the panel waits at most this long for the data
+constexpr int64_t kWakeKeyMs = 1500;        // #299 key wake: a press after this releases the panel (not the wake press)
 constexpr uint32_t kHoldWindowMs = 3000;    // a Right key held this early in the boot keeps it live
 constexpr int64_t kSaneEpoch = 1700000000;
 constexpr uint32_t kLongPressLogMs = 1000;  // Power held this long or more: logged on release (#225)
@@ -195,11 +198,11 @@ PowerInputs inputs(App& app, Board& board) {
     localtime_r(&t, &lt);
     i.localSec = lt.tm_hour * 3600 + lt.tm_min * 60 + lt.tm_sec;
   } else {
-    i.localSec = 12 * 3600;   // clock unknown: noon (no night window, no OTA hour); the timer still counts seconds
+    i.localSec = 12 * 3600;   // clock unknown: noon (no quiet hours, no OTA hour); the timer still counts seconds
   }
   parsePowerSave(s.powerSave, i.powerSave);
   i.wakeEvery = s.wakeEvery;
-  i.night = s.night;
+  i.quiet = s.quiet;
   i.peeking = v.peeking;
   i.standby = v.standby;
   i.charging = p.charging;
@@ -280,10 +283,12 @@ void leaveGlance(App& app, const char* why) {
   writeTrail(powertrail::awakeWrite(g_trail));
   g_mode = "awake";
   LOG_INF("POWER", "glance wake → live (%s)", why);
+  app.markAsleep(false);
   app.redraw(std::string("live · ") + why);
 }
 
 [[noreturn]] void enterSleep(const PowerDecision& d, App& app, Board& board) {
+  app.markAsleep(true);   // #299: no live-looking clock on the sleeping panel (quiet face: no clock, nothing drawn)
   const int64_t epoch = board.epochSeconds();
   const int64_t secs = d.buttonWakeOnly ? 0 : std::max<int64_t>(1, d.wakeAtEpoch - epoch);
   {
@@ -386,9 +391,36 @@ void glanceLoop(App& app, Board& board) {
   enterSleep(d, app, board);
 }
 
+// #299 key wake from glance sleep: the dashboard is still on the glass and the controller RAM is gone (no partial
+// possible), so no boot screen: the panel stays held until the data is in (or a later key, or the cap), then one clean
+// refresh. Before: boot screen (clean) + dashboard (clean) + partials as the data came in, which looked like a restart.
+void wakeHoldLoop(App& app, uint32_t now) {
+  const App::PowerView v = app.powerView();
+  if (!v.main) return;
+  HaState ha;
+  uint32_t applied;
+  {
+    std::lock_guard<std::recursive_mutex> l(hub().mu);
+    ha = hub().status.ha;
+    applied = hub().entitiesApplied;
+  }
+  if (applied != g_applied) { g_applied = applied; g_appliedAtMs = now; }
+  const int64_t up = int64_t(now - g_bootMs);
+  const char* why = nullptr;
+  if (v.setup) why = "setup";
+  else if (ha == HaState::Connected && applied > 0 && now - g_appliedAtMs >= kSettleQuietMs) why = "data in";
+  else if (v.msSinceUserInput >= 0 && v.msSinceUserInput <= up - kWakeKeyMs) why = "key press";
+  else if (up >= int64_t(kWakeHoldMaxMs)) why = "cap";
+  if (!why) return;
+  g_wakeHold = false;
+  LOG_INF("POWER", "key wake · panel released after %lld ms (%s)", static_cast<long long>(up), why);
+  app.redraw(std::string("key wake · ") + why);
+}
+
 // the next timer wake compares against what the panel shows now
 void snapshotForSleep(App& app, Board& board) {
   app.prepareSleep();
+  app.markAsleep(true);   // the snapshot holds what the sleeping panel shows
   const glance::Snapshot snap = glance::snapshotOf(app.regionSignatures());
   const int64_t epoch = board.epochSeconds();
   std::lock_guard<std::mutex> l(g_rtcMu);
@@ -454,9 +486,14 @@ bool powerBegin(const DisplaySettings& s) {
   g_bootMs = g_netSeenMs = millis();
   loadArm();
   g_glance = g_wake == WakeKind::Timer && s.powerSave == "glance";
+  {
+    std::lock_guard<std::mutex> l(g_rtcMu);
+    g_wakeHold = g_wake == WakeKind::Button && s.powerSave == "glance" && g_rtc.hasSnap;   // dashboard on the glass
+  }
   g_mode = g_glance ? "glance" : "awake";
   LOG_INF("POWER", "wake: %s · %s · first-boot safety: %d boot(s) left", powerWakeName(),
-          g_glance ? "glance (panel held, no boot screen)" : "live", armLeftNow());
+          g_glance ? "glance (panel held, no boot screen)" : g_wakeHold ? "live (panel held until data, no boot screen)" : "live",
+          armLeftNow());
   if (!storage().readFile(kTrailFile, g_trail)) g_trail.clear();
   {
     std::lock_guard<std::mutex> g(g_trailMu);
@@ -477,7 +514,7 @@ bool powerBegin(const DisplaySettings& s) {
     case powertrail::Verdict::None: break;
   }
   if (!g_glance) writeTrail(powertrail::awakeWrite(g_trail));
-  return g_glance;
+  return g_glance || g_wakeHold;
 }
 
 void powerOnSleep(std::function<void(int64_t)> fn) { g_sleepFn = std::move(fn); }
@@ -528,6 +565,7 @@ void powerLoop(App& app, Board& board) {
     g_sleepReqS = 0;
     sleepRequested(app, board, secs);   // no return unless refused meanwhile
   }
+  if (g_wakeHold) wakeHoldLoop(app, now);
   if (g_glance) return glanceLoop(app, board);
   if (now - g_lastCheckMs < kCheckMs) return;
   g_lastCheckMs = now;

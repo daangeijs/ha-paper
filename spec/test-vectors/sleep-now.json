@@ -5,7 +5,7 @@
     "localSec": 43200,
     "powerSave": "glance",
     "wakeEvery": 15,
-    "night": "23-07",
+    "quiet": "23-07",
     "peeking": false,
     "standby": false,
     "charging": false,

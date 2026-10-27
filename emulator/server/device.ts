@@ -92,7 +92,7 @@ export type Settings = {
   entities?: EntityOverrides;
 };
 export const DEFAULT_SETTINGS = (): Settings => ({
-  display: { brightness: 0, warmth: 40, lightTimeout: 60, night: '23-07', returnHome: '5', standby: 'never', clock: '24', intervalSec: 30, fullEvery: 8, cleanEvery: 30, style: 'classic', typeface: 'archivo', surface: 'dither', haReport: true, powerSave: 'glance', wakeEvery: 15, liveMin: 3, debugInput: false },
+  display: { brightness: 0, warmth: 40, lightTimeout: 60, quiet: '23-07', returnHome: '5', standby: 'never', clock: '24', intervalSec: 30, fullEvery: 8, cleanEvery: 30, style: 'classic', typeface: 'archivo', surface: 'dither', haReport: true, powerSave: 'glance', wakeEvery: 15, liveMin: 3, debugInput: false },
   ota_channel: 'stable', tz: '', name: 'HA Paper',
 });
 /** Merge a partial settings object; returns an error message (422) or null. */
@@ -244,6 +244,8 @@ export class DeviceSim {
     const fromFile = this.stateFile && !o.preset && existsSync(this.stateFile) ? (JSON.parse(readFileSync(this.stateFile, 'utf8')) as Persisted) : null;
     if (fromFile && !fromFile.settings) fromFile.settings = DEFAULT_SETTINGS();
     if (fromFile) migrateState(fromFile, this.log);
+    // quiet hours (#295): the firmware file keeps `night` for a rollback, its GET /settings does not show it
+    if (fromFile) delete (fromFile.settings.display as unknown as Record<string, unknown>).night;
     // State files from before display styles: fill in the new display fields with their defaults.
     if (fromFile) fromFile.settings.display = { ...DEFAULT_SETTINGS().display, ...fromFile.settings.display };
     if (fromFile) {   // older state files: no apps, legacy {type: light} widgets → re-read like the firmware does at boot
@@ -372,7 +374,7 @@ export class DeviceSim {
     const next = this.regions(); const changed = changedRegions(this.display.regions, next);
     this.display.regions = next;
     if (!changed.length) { this.display.skipped++; this.event('skip', reason + ' · nothing visible changed'); return; }
-    const d = decidePartial({ reason, sleeping: false, night: false, sinceFull: this.display.sinceFull, clockKnown: true });
+    const d = decidePartial({ reason, sleeping: false, quiet: false, sinceFull: this.display.sinceFull, clockKnown: true });
     if (d.kind === 'clean') { this.fullRefresh(reason + ' · ' + d.reason); return; }
     if (d.kind === 'skip') { this.display.skipped++; this.event('skip', reason + ' · ' + d.why); return; }
     this.display.partial++; this.display.sinceFull = d.sinceFull; this.event('partial', reason, changed);
@@ -510,7 +512,7 @@ export class DeviceSim {
     const put = (sp: HistorySpec, v: { state: HistState; series: Series | null; source: HistFrom; bytes: number }) => { this.hist.set(this.histKey(sp), { ...v, at: now }); done.add(this.histKey(sp)); };
     try {
       // #283: attribute series from one get_states, weather forecasts from weather.get_forecasts (return_response).
-      // The firmware does not read these yet (firmware/deviations/283-attribute-series.md).
+      // The firmware (#292) parses the attribute from its entity mirror instead of a get_states.
       const attrSpecs = specs.filter((sp) => sp.source?.kind === 'attribute');
       const states = attrSpecs.length ? await sock.command<{ entity_id: string; attributes: Record<string, unknown> }[]>({ type: 'get_states' }).catch(() => null) : null;
       for (const sp of attrSpecs) {
@@ -626,7 +628,7 @@ export class DeviceSim {
     this.pending.delete(st);
     if (q.get('error')) return { status: 302, location: withParam(pend.returnTo, 'signin', 'denied') };
     const code = q.get('code'); if (!code) return { status: 400, error: 'Home Assistant did not send a code.' };
-    let tok; try { tok = await exchangeCode(this.p.ha.url, code, pend.clientId, pend.verifier); }
+    let tok: Awaited<ReturnType<typeof exchangeCode>>; try { tok = await exchangeCode(this.p.ha.url, code, pend.clientId, pend.verifier); }
     catch (e) { const m = (e as Error).message; this.log('AUTH code exchange failed · ' + m); return { status: 502, error: 'Home Assistant refused the sign-in: ' + m }; }
     const sock = new HaSocket(); let me: { name: string; is_admin: boolean };
     try { await sock.connect(this.p.ha.url, tok.access_token); me = await sock.command({ type: 'auth/current_user' }); }
@@ -1109,13 +1111,13 @@ export class DeviceSim {
     const boot = { full: d.full - b.full, partial: d.partial - b.partial, fast: d.fast - b.fast, clean: d.clean - b.clean };
     return { full: this.tally.fullRefreshes + boot.full, partial: this.tally.partialRefreshes + boot.partial, boot };
   }
-  /** The shared power rules, as with power saving "Standby + night" and the standby face on. */
+  /** The shared power rules, as with power saving "Standby", the standby face on and the quiet hours set. */
   powerCheck(now = new Date()): PowerDecision { return powerDecision(this.powerInputs(now)); }
   powerInputs(now = new Date()): PowerInputs {
     const auto = this.p.ota.auto;
     return {
       nowEpoch: Math.floor(now.getTime() / 1000), localSec: now.getHours() * 3600 + now.getMinutes() * 60 + now.getSeconds(),
-      powerSave: 'standby', wakeEvery: 15, night: this.p.settings.display.night, peeking: false, standby: true,
+      powerSave: 'standby', wakeEvery: 15, quiet: this.p.settings.display.quiet, peeking: false, standby: true,
       charging: this.power.usb && this.battery < 100, usb: this.power.usb, chargedAgoMin: null, voltage: this.batteryMv === null ? null : this.batteryMv / 1000, battery: this.battery,
       otaPendingVerify: this.otaRun.status === 'verifying', otaBusy: this.otaBusy, otaAuto: auto, otaDue: !!this.otaRun.avail && auto === 'night',
       setup: this.p.setup !== null, msSinceApi: this.power.lastApi === null ? null : Date.now() - this.power.lastApi,

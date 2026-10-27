@@ -68,7 +68,7 @@ A tile with no room is not drawn.
 | light | light: ‹id› | legacy (pre-0.5): rewritten to `{type: switch, entity: light.‹id›}` (`‹id›` with a `.` kept as-is) |
 | scene | entity, label (optional) | tap runs it: `scene.*` → `scene.turn_on`, `script.*` → `script.turn_on`; no entity (or the older `scene: all_off`) = all lights off (`light.turn_off`, `entity_id: all`); an entity wins over `scene:` |
 | zoneList | entities (optional) | climate entities (any integration), 10 per page (use cs 4, rs 2); see *list picks*; the away button shows when a climate entity's `preset_modes` has `away` and is sent to those (#148) |
-| history | entity, window, bucket, agg, style, min, max, label; attribute, value, time, ahead, forecast (all but entity optional) | a numeric entity over time; domain `sensor` \| `input_number` \| `number`; or a list in an attribute / a weather forecast (#283); see *history* (#264); the firmware parses it (#268) and draws the unknown-tile face until #270 |
+| history | entity, window, bucket, agg, style, min, max, threshold, labels, label; attribute, value, time, ahead, forecast (all but entity optional) | a numeric entity over time; domain `sensor` \| `input_number` \| `number`; or a list in an attribute / a weather forecast (#283); see *history* (#264); the firmware parses it (#268) and draws the unknown-tile face until #270 |
 | thermo | zone: ‹id›, label (optional) | single room, `‹id›` = object id of a `climate.*` entity (the console picks it); no zone = “—”; rs 2 recommended |
 | setting, ota, wifi, ha, about | | system tiles of the built-in Settings pages: accepted for older files, then dropped (see *Settings is built in*) |
 
@@ -119,14 +119,19 @@ config (the 7th fails: `At most 6 history tiles`).
 | window | `‹n›m` \| `‹n›h` \| `‹n›d`, 10m–7d (a bare number has no unit and fails) | `24h` |
 | bucket | `1m 5m 10m 15m 30m 1h 2h 3h 6h 12h 1d`; divides the window into 2–96 bars | the smallest step giving ≤ 12 bars per column (`cs`); else the dividing step with the fewest bars in 2–96 |
 | agg | `mean` (time-weighted) \| `max` \| `min` \| `last` (value at the bucket's end) \| `change` (counters: last minus the value before) | `mean` |
-| style | `bars` \| `line` \| `auto` | `auto`: `line` for `mean`, `bars` otherwise |
-| min, max | numbers (negative / decimal allowed), `min` < `max` | bars from 0, lines auto-ranged with 10 % padding |
+| style | `bars` \| `line` \| `area` \| `step` \| `dots` \| `auto` | `auto`: `line` for `mean`, `bars` otherwise |
+| min, max | numbers (negative / decimal allowed), `min` < `max` | bars from 0, the other styles auto-ranged with 10 % padding |
+| threshold | number (#304): a dashed reference line; an auto range widens to hold it; outside a fixed range it is not drawn | none |
+| labels | `true` \| `false` (#304): the max, min and last value printed beside their points (last only away from the other two) | `false` |
 | label | text | HA friendly name, else the entity id |
 
 Defaults with `cs: 4`: 1h → 5m, 6h → 10m, 24h → 30m, 7d → 6h; `cs: 2`, 24h → 1h. Buckets align to local time; the last
 one is open and holds now. Data: `recorder/statistics_during_period` (`period` 5minute below 1h, hour below 1d, else day;
 `types` = the agg, `last` reads `mean`); without statistics (or a bucket under 5m)
-`history/history_during_period`, only for windows up to 24 h. Unavailable / unknown = an empty bucket. The chart prints
+`history/history_during_period`, only for windows up to 24 h. Unavailable / unknown = an empty bucket: a gap, never
+joined across. Styles (#304): `area` = the line over a 25 % dither fill down to the plot bottom (1-bit safe); `step` =
+a flat run per bucket, joined upright to the next; `dots` = one dot per bucket. The latest point gets the big dot in
+every style but `bars`. The chart prints
 the low and high bucket with its time and an x axis: minutes before now (≤ 3 h), round hours (≤ 48 h), else weekdays.
 Reference: `emulator/src/core/history.ts` (firmware `core/history.cpp`); vectors: `spec/test-vectors/history.json` (incl. its config cases).
 
@@ -200,7 +205,9 @@ Reject first error with 1-based line number and message (exact text; `‹›` = 
 | history bars not 2–96 | widget | `history: ‹window› / ‹bucket› = ‹n› bars (2–96)` (`1 bar`) |
 | history without `bucket`, none fits | widget | `history: no bucket fits window ‹window›; set bucket` |
 | history `agg` | widget | `history: agg must be mean, max, min, last, change` |
-| history `style` | widget | `history: style must be bars, line or auto` |
+| history `style` | widget | `history: style must be bars, line, area, step, dots or auto` |
+| history `threshold` not a number | widget | `history: threshold must be a number` |
+| history `labels` not true / false | widget | `history: labels must be true or false` |
 | history `min` / `max` not a number | widget | `history: min and max must be numbers` |
 | history `min` ≥ `max` | widget | `history: min must be below max` |
 | 7th history tile | widget | `At most 6 history tiles` |
@@ -212,3 +219,18 @@ Reject first error with 1-based line number and message (exact text; `‹›` = 
 Plus the apps rules above. Widget checks run in table order; `cs: 0`/`rs: 0` count as unset.
 Reference implementation: `parseYaml()` in `emulator/src/core/config.ts`; test vectors:
 `spec/test-vectors/config/*.json` (apps: `33`–`39`; routes: `22`, `50`–`52`; built-in Settings: `53`–`57`).
+
+# settings.json (device settings)
+
+Not a file you write: the display keeps `GET/PUT /api/v1/settings` `display` in `/settings.json` (firmware
+`net/storage.cpp`) with a `schema` number. A boot upgrades an older file one step at a time and keeps every key it does
+not own, so an OTA rollback still reads it (rules: `emulator/src/core/migrate.ts`, vectors
+`spec/test-vectors/migrations/*.json`).
+
+| schema | change |
+|---|---|
+| 0 → 1 | files from before versioning (#12): only stamped |
+| 1 → 2 | quiet hours (#295): new key `quiet` (`off` or `HH-HH`) from `night` when that held a window, else `23-07` (on, also for existing installs). `night` stays in the file for a rollback but is no longer read or served. `powerSave: night` ("Sleep at night") becomes `glance`. A `quiet` key already in the file wins. |
+
+A `screens.yaml` from before #295 may still hold a Settings tile `{type: setting, key: night}`: like every system tile
+it is checked and dropped (see "Settings is built in").

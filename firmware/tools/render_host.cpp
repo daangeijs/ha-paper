@@ -4,6 +4,7 @@
 // typefaces, plus for Home the "dots" card surface. Every default page also gets *_bw.png: the whole frame thresholded
 // the way hw/x4_display.h does for a partial refresh (dark gray → black, light gray → white), i.e. the worst case after
 // a ≥ 50 % partial (sub-page turn). Issue #38: these must read the same as the gray frames.
+#include <cmath>
 #include <cstdlib>
 #include <cstdio>
 #include <functional>
@@ -12,6 +13,7 @@
 #include <ctime>
 #include "app/app.h"
 #include "core/config.h"
+#include "core/history_chart.h"
 #include "../test/support/demo.h"
 #include "../test/support/fakes.h"
 
@@ -88,6 +90,16 @@ static void sleekPasses() {
   gSet = DisplaySettings(); gPrefix.clear();
 }
 
+// Deep sleep (#299): the frame a sleeping panel keeps. `render_host <dir> asleep`
+static void asleepPass(const char* style, const char* prefix) {
+  gSet = DisplaySettings(); gSet.style = style; if (std::string(style) == "sleek") gSet.typeface = "geist";
+  gPrefix = prefix;
+  { Rig r; r.app.prepareSleep(); r.app.markAsleep(true); r.save("asleep_home"); }
+  { Rig r; r.openApp(1); r.step(61000); r.app.requestFullRefresh(); r.app.markAsleep(true); r.save("asleep_lights"); }
+  { Rig r; r.key(Key::Power); r.app.markAsleep(true); r.save("asleep_standby"); }
+  gSet = DisplaySettings(); gPrefix.clear();
+}
+
 // Dutch (#199): the longest UI strings, for text-fit checks
 static void dutchPass() {
   gLang = "nl"; gPrefix = "nl_";
@@ -99,10 +111,108 @@ static void dutchPass() {
   gLang.clear(); gPrefix.clear();
 }
 
+// History tile (#270): the emulator's render.test.ts screens, with its demo curve (historyChart.ts demoHistory) fed
+// through App::setHistory as the HA fetch (#269) will. 26 Oct 2026 13:00 UTC, TZ UTC0.
+static const int64_t kEpochHist = 1793019600;
+static std::vector<hist::Point> demoHistory(const std::string& id, const std::string& unit, int64_t from, int64_t now) {
+  const int64_t step = 5 * 60000;
+  uint32_t seed = 0;
+  for (char ch : id) seed = seed * 31 + uint8_t(ch);
+  std::vector<hist::Point> out;
+  for (int64_t t = from / step * step; t <= now; t += step) {
+    double day = std::fmod(std::fmod(t / 86400000.0, 1) + 1, 1);
+    double noise = std::fmod(std::fmod(std::sin(double(t / step) * 12.9898 + seed) * 43758.5453, 1) + 1, 1) - 0.5;
+    if (day >= 140 / 1440.0 && day < 190 / 1440.0) { out.push_back({t, hist::kNone}); continue; }
+    double v = unit == "°C" ? 10 + 5 * std::sin(2 * M_PI * (day - 0.375)) + 0.6 * noise
+               : unit == "%" ? 70 - 18 * std::sin(2 * M_PI * (day - 0.375)) + 4 * noise
+                             : std::max(0.0, 40 + 35 * std::sin(2 * M_PI * (day - 0.3)) + 15 * noise);
+    out.push_back({t, std::round(v * 10) / 10});
+  }
+  return out;
+}
+static void historyPage(const std::string& name, const std::string& widgets, const DisplaySettings& set) {
+  fake::FakeDisplay d; fake::FakeBoard b; fake::FakeServices s; s.linked(); b.epoch = kEpochHist;
+  App app(d, b, s); app.setPressFeedback(false);
+  auto ent = [&](const char* id, const char* name, const char* unit, const char* state, const char* dp) {
+    EntityValue e; e.state = state; e.attrs["friendly_name"] = name; e.attrs["unit_of_measurement"] = unit;
+    if (*dp) e.attrs["display_precision"] = dp;
+    app.entities().set(id, e);
+  };
+  ent("sensor.outdoor_temperature", "Outdoor temperature", "°C", "11.4", "");
+  ent("sensor.outdoor_humidity", "Outdoor humidity", "%", "78.4", "0");
+  ent("sensor.garden_temperature", "Garden temperature", "°C", "unavailable", "");
+  ParseResult pr = parseConfig("version: 1\nscreens:\n  - id: hist\n    title: History\n    widgets:\n" + widgets);
+  if (!pr.ok) { std::fprintf(stderr, "history config: %s\n", pr.message.c_str()); std::exit(1); }
+  app.begin(pr.config, set);
+  for (int i = 0; i < 25; ++i) { b.now += 100; app.loop(); }
+  const int64_t now = kEpochHist * 1000;
+  static hist::Series ser;
+  for (auto& w : pr.config.screens[0].widgets) {
+    hist::Spec sp = hist::specOf(w);
+    const EntityValue* v = app.entities().get(sp.entity);
+    std::string unit = v ? std::string(v->attrs.at("unit_of_measurement")) : "";
+    std::vector<hist::Point> pts;
+    if (v && v->state != "unavailable") pts = demoHistory(sp.entity, unit, now - sp.windowMs - sp.bucketMs, now);
+    hist::bucketize(pts.data(), pts.size(), sp.windowMs, sp.bucketMs, sp.agg, now, 0, ser);
+    app.setHistory(hist::seriesKey(sp), &ser, hist::State::Ok);
+  }
+  app.requestFullRefresh();
+  for (int i = 0; i < 5; ++i) { b.now += 100; app.loop(); }
+  d.save(outDir + "/" + name + ".png"); std::printf("%s/%s.png\n", outDir.c_str(), name.c_str());
+}
+static void historyPages() {
+  const std::string w3 = "      - {type: history, entity: sensor.outdoor_temperature, cs: 4}\n"
+                         "      - {type: history, entity: sensor.outdoor_humidity, window: 6h, agg: max, cs: 2}\n"
+                         "      - {type: history, entity: sensor.garden_temperature, cs: 2}\n";
+  const std::string w7 = "      - {type: history, entity: sensor.outdoor_temperature, window: 7d, agg: max, cs: 4}\n"
+                         "      - {type: history, entity: sensor.outdoor_temperature, window: 1h, cs: 4, label: Last hour}\n";
+  DisplaySettings cl, sk; sk.style = "sleek"; sk.typeface = "geist";
+  historyPage("history_classic_24h", w3, cl);
+  historyPage("history_classic_7d", w7, cl);
+  historyPage("sleek_geist_history_24h", w3, sk);
+  historyPage("sleek_geist_history_7d", w7, sk);
+}
+
+// #304: area / step / dots with a threshold, labels and the demo's nightly gap (02:20–03:10), Classic and Modern.
+static void historyStylePages() {
+  const std::string p1 = "      - {type: history, entity: sensor.outdoor_temperature, style: area, threshold: 12, labels: true, cs: 4}\n"
+                         "      - {type: history, entity: sensor.outdoor_humidity, style: step, agg: max, threshold: 75, labels: true, cs: 4}\n";
+  const std::string p2 = "      - {type: history, entity: sensor.outdoor_temperature, style: dots, threshold: 8, labels: true, cs: 4}\n"
+                         "      - {type: history, entity: sensor.outdoor_temperature, window: 6h, style: line, threshold: 14, labels: true, cs: 2}\n"
+                         "      - {type: history, entity: sensor.outdoor_humidity, window: 6h, style: area, cs: 2}\n";
+  DisplaySettings cl, sk; sk.style = "sleek"; sk.typeface = "geist";
+  historyPage("history_styles_area_step_classic", p1, cl);
+  historyPage("history_styles_dots_line_classic", p2, cl);
+  historyPage("history_styles_area_step_modern", p1, sk);
+  historyPage("history_styles_dots_line_modern", p2, sk);
+}
+
+// Car route (#303): cs 4 (arrival time as a second big value) above cs 2 (one line), Classic and Modern (geist).
+// `render_host <dir> route`
+static void routePass(const char* style, const char* prefix) {
+  gSet = DisplaySettings(); gSet.style = style; if (std::string(style) == "sleek") gSet.typeface = "geist";
+  gPrefix = prefix;
+  const char* y = "version: 1\nscreens:\n  - id: travel\n    app: travel\n    title: Travel\n    widgets:\n"
+                  "      - {type: route, label: Drive to work, mode: car, entity: sensor.demo_drive, cs: 4}\n"
+                  "      - {type: route, label: Drive to work, mode: car, entity: sensor.demo_drive, cs: 2}\n"
+                  "      - {type: route, label: To work, entity: sensor.demo_train, cs: 2}\n";
+  { Rig r; r.app.setConfig(parseYamlText(y).config); r.step(2000); r.save("route_car"); }
+  gLang = "nl"; { Rig r; r.app.setConfig(parseYamlText(y).config); r.step(2000); r.save("route_car_nl"); } gLang.clear();
+  gSet = DisplaySettings(); gPrefix.clear();
+}
+
 int main(int argc, char** argv) {
   setenv("TZ", "UTC0", 1);
   tzset();
   if (argc > 1) outDir = argv[1];
+  if (argc > 2 && std::string(argv[2]) == "history") { historyPages(); return 0; }
+  if (argc > 2 && std::string(argv[2]) == "styles") { historyStylePages(); return 0; }
+  if (argc > 2 && std::string(argv[2]) == "route") { routePass("classic", "classic_"); routePass("sleek", "modern_"); return 0; }
+  if (argc > 2 && std::string(argv[2]) == "asleep") {
+    asleepPass("classic", ""); asleepPass("sleek", "sleek_");
+    gLang = "nl"; asleepPass("classic", "nl_"); gLang.clear();
+    return 0;
+  }
   defaultPages();
   { Rig r; r.key(Key::Home); r.save("app_switcher"); }
   { Rig r; r.tap(706, 28); r.save("page_overview"); }
@@ -176,5 +286,6 @@ int main(int argc, char** argv) {
   gSet = DisplaySettings(); gPrefix.clear();
   sleekPasses();
   dutchPass();
+  historyPages();
   return 0;
 }

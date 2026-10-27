@@ -12,16 +12,18 @@ import { bootsJson, diagApply, lastCrash, type DiagOp, type DiagRing } from '../
 import { seedAnswerOk, seedPlan, SEED_TEMPLATE, templateEventFinal, type HaSnapshot } from '../src/core/seed.ts';
 import { houseData, seedAnswer, type House } from '../server/fake-ha.ts';
 import { aliasesOf } from '../server/device.ts';
-import { gridFlows, statisticIds } from '../src/core/energyPrefs.ts';
+import { gridFlows, metersOf, statisticIds } from '../src/core/energyPrefs.ts';
+import { hourlyStatistics, localDay, statsDayRoll } from '../src/core/energyHourly.ts';
 import { parseHaAddress, resolveHaAddress, type ProbeAnswer } from '../src/core/haAddress.ts';
 import { lightGroupsOf, listPages, pickLights, pickZones, type LightGroup } from '../src/core/paging.ts';
 import { ROOMS, LIGHT_LIST, ZONE_LIST } from '../src/core/data.ts';
 import type { Widget } from '../src/core/config.ts';
-import { statSource } from '../src/core/format.ts';
+import { fmtNum, statSource } from '../src/core/format.ts';
 import { TZ_TABLE, currencySymbol, money, tzFor, validTzSetting } from '../src/core/locale.ts';
 import { STRINGS, LANGS, langOf, tr, dateLine, type Lang, type StrKey } from '../src/core/strings.ts';
 import { otaErrOf, otaLine, HTTP_LOW_MEMORY, type OtaLineIn } from '../src/core/otaStatus.ts';
 import { HISTORY_AGGS, attrSamples, axisTicks, bucketize, fromSamples, historyError, historySource, parseTime, chartSpan, dayLowHigh, defaultBucket, fromHistoryRows, fromStatistics, historySpec, lowHigh, parseSpan, resolveStyle, statsPeriod, statsType, yScale, type HistoryAgg, type HistoryStyle, type StatRow } from '../src/core/history.ts';
+import { chartKey, historyChart, type HistState } from '../src/core/historyChart.ts';
 
 const ROOT = join(import.meta.dirname, '..', '..');
 const OUT = join(ROOT, 'spec', 'test-vectors');
@@ -127,7 +129,10 @@ export const HISTORY_CONFIG_CASES: [string, string, string][] = [
   ['history-one-bar', 'Rule: 2–96 bars (a bucket as long as the window is 1).', H + scr('a', ['type: history, entity: sensor.outdoor_temperature, window: 1d, bucket: 1d'])],
   ['history-no-default-bucket', 'Rule: a window no ladder step divides into 2–96 bars needs an explicit bucket (and none fits).', H + scr('a', ['type: history, entity: sensor.outdoor_temperature, window: 97m'])],
   ['history-bad-agg', 'Rule: agg is mean, max, min, last or change.', H + scr('a', ['type: history, entity: sensor.outdoor_temperature, agg: sum'])],
-  ['history-bad-style', 'Rule: style is bars, line or auto.', H + scr('a', ['type: history, entity: sensor.outdoor_temperature, style: area'])],
+  ['history-bad-style', 'Rule: style is bars, line, area, step, dots or auto.', H + scr('a', ['type: history, entity: sensor.outdoor_temperature, style: pie'])],
+  ['history-styles', 'Styles area, step, dots (#304); threshold is a number (negative / decimal), labels true or false. Kept as written.', H + scr('a', ['type: history, entity: sensor.outdoor_temperature, style: area, threshold: 18, labels: true, cs: 4', 'type: history, entity: sensor.price, style: step, threshold: -0.5, labels: false, cs: 4']) + scr('b', ['type: history, entity: sensor.rain, style: dots, threshold: 2.5, cs: 4'])],
+  ['history-threshold-not-number', 'Rule: threshold is a number.', H + scr('a', ['type: history, entity: sensor.outdoor_temperature, threshold: high'])],
+  ['history-labels-not-bool', 'Rule: labels is true or false.', H + scr('a', ['type: history, entity: sensor.outdoor_temperature, labels: yes'])],
   ['history-min-not-number', 'Rule: min and max are numbers (negative and decimal allowed).', H + scr('a', ['type: history, entity: sensor.outdoor_temperature, min: low'])],
   ['history-min-above-max', 'Rule: min below max.', H + scr('a', ['type: history, entity: sensor.outdoor_temperature, min: 20, max: 20'])],
   ['history-seven-tiles', 'Rule: at most 6 history tiles in the whole config; the 7th fails on its own line.', H + scr('a', ['type: history, entity: sensor.a, cs: 2', 'type: history, entity: sensor.b, cs: 2', 'type: history, entity: sensor.c, cs: 2', 'type: history, entity: sensor.d, cs: 2']) + scr('b', ['type: history, entity: sensor.e, cs: 2', 'type: history, entity: sensor.f, cs: 2', 'type: history, entity: sensor.g, cs: 2'])],
@@ -149,6 +154,42 @@ function statRows(from: number, to: number, periodMs: number, skip: (i: number) 
     rows.push({ start: t, end: t + periodMs, mean: m, min: Math.round((m - 1.5) * 100) / 100, max: Math.round((m + 2) * 100) / 100, change: (i * 7) % 5 === 0 ? null : ((i * 7) % 5) / 10 });
   }
   return rows;
+}
+
+/** History chart geometry (#267, #270): historyChart over a series laid on chartSpan(now); bars b / t and line points
+ *  at bucket centres in fractions of the plot (0 = bottom), the low / high text with fmtNum(v, unit), and chartKey
+ *  (redraw key at px = 200). Firmware core/history_chart.cpp runs these. */
+function chartVectors() {
+  const cases: { name: string; window: string; bucket: string; style: HistoryStyle; min?: number; max?: number; threshold?: number; labels?: true; tz: number; lang: Lang; state: HistState; unit: string; values: (number | null)[] | null }[] = [
+    { name: 'bars-gaps-negative', window: '24h', bucket: '2h', style: 'bars', tz: 60, lang: 'en', state: 'ok', unit: '°C', values: [3, -1.5, null, 4, 6, null, 2, 5, 5, 1, null, null] },
+    { name: 'bars-all-positive', window: '7d', bucket: '6h', style: 'bars', tz: 60, lang: 'nl', state: 'ok', unit: '%', values: Array.from({ length: 28 }, (_, i) => (i === 27 ? null : 60 + ((i * 7) % 23))) },
+    { name: 'line-gap-autorange', window: '6h', bucket: '30m', style: 'line', tz: 60, lang: 'nl', state: 'ok', unit: '°C', values: [12.4, 12.1, 11.8, null, null, 11, 10.6, 10.9, 11.5, 12.2, 12.9, null] },
+    { name: 'line-flat', window: '1h', bucket: '5m', style: 'line', tz: 0, lang: 'en', state: 'ok', unit: 'W', values: Array(12).fill(250) },
+    { name: 'line-fixed-range-clamped', window: '1h', bucket: '5m', style: 'line', min: 0, max: 10, tz: 0, lang: 'en', state: 'ok', unit: '', values: [-2, 0, 5, 10, 14, 7, null, 3, 3, 3, 3, 3] },
+    { name: 'bars-fixed-range', window: '24h', bucket: '1h', style: 'bars', min: 2, max: 8, tz: 330, lang: 'en', state: 'ok', unit: 'mm', values: [...Array(20).fill(null), 1, 4, 9, 6] },
+    { name: 'none', window: '24h', bucket: '30m', style: 'line', tz: 60, lang: 'en', state: 'ok', unit: '°C', values: Array(48).fill(null) },
+    { name: 'loading', window: '24h', bucket: '30m', style: 'bars', tz: 60, lang: 'en', state: 'loading', unit: '°C', values: null },
+    { name: 'too-many', window: '24h', bucket: '30m', style: 'line', tz: 60, lang: 'nl', state: 'tooMany', unit: 'W', values: null },
+    { name: 'needs-stats', window: '7d', bucket: '6h', style: 'bars', tz: 60, lang: 'en', state: 'needsStats', unit: 'W', values: null },
+    // #304: area / step / dots, threshold, labels, gaps
+    { name: 'area-gap-threshold-labels', window: '6h', bucket: '30m', style: 'area', threshold: 11.5, labels: true, tz: 60, lang: 'en', state: 'ok', unit: '°C', values: [12.4, 12.1, 11.8, null, null, 11, 10.6, 10.9, 11.5, 12.2, 12.9, 12.6] },
+    { name: 'area-lone-point', window: '1h', bucket: '10m', style: 'area', tz: 0, lang: 'en', state: 'ok', unit: 'W', values: [5, null, 7, 8, null, 6] },
+    { name: 'step-gaps-labels', window: '24h', bucket: '2h', style: 'step', labels: true, tz: 60, lang: 'nl', state: 'ok', unit: '', values: [0.21, 0.21, 0.25, null, 0.31, 0.31, 0.28, 0.22, null, null, 0.19, 0.24] },
+    { name: 'dots-sparse-threshold', window: '24h', bucket: '1h', style: 'dots', threshold: 0, tz: 0, lang: 'en', state: 'ok', unit: 'mm', values: [...Array(8).fill(null), 1.2, null, null, 3.4, null, 0.4, ...Array(9).fill(null), 2] },
+    { name: 'line-threshold-widens-range', window: '1h', bucket: '5m', style: 'line', threshold: 30, tz: 0, lang: 'en', state: 'ok', unit: '°C', values: [20, 21, 21.5, 22, 22, 21.8, 21.6, 21.4, 21.2, 21, 21, 21.1] },
+    { name: 'threshold-outside-fixed-range', window: '1h', bucket: '5m', style: 'step', min: 0, max: 10, threshold: 12, tz: 0, lang: 'en', state: 'ok', unit: '', values: [1, 2, 3, 4, 5, 6, 7, 8, 9, 8, 7, 6] },
+    { name: 'bars-threshold-labels-last-near-max', window: '6h', bucket: '1h', style: 'bars', threshold: 4, labels: true, tz: 60, lang: 'en', state: 'ok', unit: 'kWh', values: [1, 3, 2, 0.5, 5.5, 5.2] },
+    { name: 'labels-loading', window: '6h', bucket: '1h', style: 'area', threshold: 4, labels: true, tz: 60, lang: 'en', state: 'loading', unit: '', values: null },
+  ];
+  return cases.map((c) => {
+    const windowMs = parseSpan(c.window) as number, bucketMs = parseSpan(c.bucket) as number, n = windowMs / bucketMs;
+    const spec = { entity: 'sensor.x', windowMs, bucketMs, n, agg: 'mean' as HistoryAgg, style: c.style, min: c.min ?? null, max: c.max ?? null, ...(c.threshold !== undefined ? { threshold: c.threshold } : {}), ...(c.labels ? { labels: c.labels } : {}) };
+    const series = c.values ? { start: chartSpan(spec, HNOW, c.tz).start, bucketMs, values: c.values } : null;
+    const ch = historyChart(spec, series, c.state, HNOW, c.tz, c.lang, (v) => fmtNum(v, c.unit));
+    const values = c.values ?? Array<number | null>(n).fill(null);
+    return { ...c, n, min: c.min ?? null, max: c.max ?? null, threshold: c.threshold ?? null, labels: !!c.labels, out: { state: ch.state, stateText: ch.stateText, lo: ch.lo, hi: ch.hi, zero: ch.zero,
+      bars: ch.bars, lines: ch.lines, dots: ch.dots, dot: ch.dot, threshold: ch.threshold, labels: ch.labels, ticks: ch.ticks, low: ch.low, high: ch.high, lowI: ch.lowI, highI: ch.highI, key: chartKey(ch, values) } };
+  });
 }
 
 export function historyVectors() {
@@ -180,9 +221,9 @@ export function historyVectors() {
     config: HISTORY_CONFIG_CASES.map(([name, description, input]) => ({ name, description, input, expect: summarize(input) })),
     defaultBucket: ([['10m', 1], ['1h', 1], ['1h', 4], ['6h', 4], ['24h', 1], ['24h', 2], ['24h', 4], ['2d', 1], ['3d', 1], ['7d', 1], ['7d', 4], ['90m', 1], ['97m', 1], ['25h', 1]] as [string, number][])
       .map(([window, cs]) => ({ window, cs, bucket: ((b) => (b === null ? null : b / MIN + 'm'))(defaultBucket(parseSpan(window) as number, cs)) })),
-    spec: ([{ entity: 'sensor.outdoor_temperature', cs: 4 }, { entity: 'sensor.outdoor_temperature', window: '7d', cs: 2, agg: 'max' }, { entity: 'sensor.rain_total', window: '24h', bucket: '1h', agg: 'change', style: 'line', min: '0', max: '12.5' }, { entity: 'number.level', window: '10m', agg: 'last', min: '-5' }] as Record<string, string | number>[])
+    spec: ([{ entity: 'sensor.outdoor_temperature', cs: 4 }, { entity: 'sensor.outdoor_temperature', window: '7d', cs: 2, agg: 'max' }, { entity: 'sensor.rain_total', window: '24h', bucket: '1h', agg: 'change', style: 'line', min: '0', max: '12.5' }, { entity: 'number.level', window: '10m', agg: 'last', min: '-5' }, { entity: 'sensor.price', window: '24h', style: 'step', threshold: '-0.5', labels: 'true' }, { entity: 'sensor.rain', style: 'dots', threshold: 3, labels: 'false' }] as Record<string, string | number>[])
       .map((widget) => ({ widget, out: historySpec(widget) })),
-    style: aggs.flatMap((agg) => [undefined, 'auto', 'bars', 'line'].map((style) => ({ agg, style: style ?? null, out: resolveStyle(agg, style) }))),
+    style: aggs.flatMap((agg) => [undefined, 'auto', 'bars', 'line', 'area', 'step', 'dots'].map((style) => ({ agg, style: style ?? null, out: resolveStyle(agg, style) }))),
     stats: {
       period: [1, 5, 10, 15, 30, 60, 120, 360, 720, 1440].map((m) => ({ bucketMin: m, period: statsPeriod(m * MIN) })),
       type: aggs.map((agg) => ({ agg, type: statsType(agg) })),
@@ -205,6 +246,7 @@ export function historyVectors() {
     dayLowHigh: [[0.22, 0.21, 0.2, 0.2, 0.21, 0.23, 0.27, 0.33, 0.35, 0.3, 0.26, 0.22, 0.19, 0.18, 0.19, 0.22, 0.27, 0.34, 0.38, 0.36, 0.31, 0.27, 0.25, 0.23],
       Array.from({ length: 96 }, (_, i) => Math.round((0.25 + 0.1 * Math.sin(i / 7)) * 10000) / 10000), [-0.02, 0.1, -0.02, 0.4, ...Array(20).fill(0.1)], []]
       .flatMap((values) => (['en', 'nl'] as const).map((lang) => ({ values, lang, out: dayLowHigh(values, lang) }))),
+    chart: chartVectors(),
     axis: ([['10m', '1m', 60], ['1h', '5m', 60], ['2h', '10m', 60], ['3h', '15m', 60], ['6h', '30m', 60], ['24h', '1h', 60], ['24h', '30m', 330], ['48h', '2h', 60], ['3d', '6h', 60], ['7d', '6h', 60], ['7d', '1d', 0]] as [string, string, number][])
       .flatMap(([window, bucket, tz]) => (['en', 'nl'] as const).map((lang) => ({ window, bucket, tz, lang, out: axisTicks(spec(window, bucket), HNOW, tz, lang) }))),
   };
@@ -246,7 +288,7 @@ export function historySeriesVectors() {
       widget: w('entity: sensor.rain_nowcast, attribute: forecast, window: 1h, bucket: 10m'), raw: [0, '0.4', 1.5, 'n/a', 2] },
     { name: 'plain-numbers-past', description: 'Plain numbers with ahead 0 (the recorder span): only the first lands in the last (open) bucket.', tz: 60,
       widget: w('entity: sensor.rain_nowcast, attribute: forecast, window: 1h, bucket: 10m, ahead: 0'), raw: [7, 8, 9] },
-    { name: 'weather-hourly', description: 'weather.get_forecasts hourly, temperature, 24 h in 2-hour bars on a 2-wide tile (local times with +01:00).', tz: 60,
+    { name: 'weather-hourly', description: 'weather.get_forecasts hourly, temperature, 24 h in 1-hour bars on a 2-wide tile (local times with +01:00).', tz: 60,
       widget: w('entity: weather.home, window: 24h, cs: 2'), raw: hourly },
     { name: 'weather-hourly-change', description: 'Hourly precipitation summed per 6 h (agg change = sum of the samples).', tz: 60,
       widget: w('entity: weather.home, value: precipitation, window: 24h, bucket: 6h, agg: change'), raw: hourly },
@@ -257,7 +299,7 @@ export function historySeriesVectors() {
   ];
   const aggs = HISTORY_AGGS as readonly HistoryAgg[];
   return {
-    _doc: 'History tile series from an attribute or weather.get_forecasts (#283): emulator src/core/history.ts (historySource, historyError, historySpec, parseTime, attrSamples, fromSamples, chartSpan / axisTicks with aheadMs). Not yet run by the firmware (firmware/deviations/283-attribute-series.md). Times are epoch ms; tz = local UTC offset in minutes. config: like config/*.json. spec: historySpec (aheadMs and source only for these sources). parseTime: input, tz → ms or null. series: raw attribute → samples → buckets per agg, plus the span and the axis.',
+    _doc: 'History tile series from an attribute or weather.get_forecasts (#283): emulator src/core/history.ts (historySource, historyError, historySpec, parseTime, attrSamples, fromSamples, chartSpan / axisTicks with aheadMs). Firmware: core/history.cpp, core/history_series.cpp (#292), test_core test_history_series_vectors. Times are epoch ms; tz = local UTC offset in minutes. config: like config/*.json. spec: historySpec (aheadMs and source only for these sources). parseTime: input, tz → ms or null. series: raw attribute → samples → buckets per agg, plus the span and the axis.',
     now: HNOW,
     config: HISTORY_SERIES_CONFIG_CASES.map(([name, description, input]) => ({ name, description, input, expect: summarize(input) })),
     source: [{ entity: 'sensor.outdoor_temperature' }, { entity: 'weather.home' }, { entity: 'weather.home', attribute: 'forecast' }, { entity: 'binary_sensor.rain_expected', attribute: 'forecast' }]
@@ -602,6 +644,52 @@ export function energyPrefsVectors() {
   };
 }
 
+/** Today's energy from recorder statistics and the local day change (#308). Times epoch ms; tz = UTC offset minutes
+ *  (emulator), posixTz = the same zone for the firmware's localtime(). 2026-10-28 is CET (+60, after the DST end). */
+export function energyHourlyVectors() {
+  const CET = 'CET-1CEST,M3.5.0,M10.5.0/3', IST = 'IST-5:30';
+  const prefs = { energy_sources: [
+    { type: 'solar', stat_energy_from: 'sensor.pv_energy' },
+    { type: 'grid', flow_from: [{ stat_energy_from: 'sensor.meter_import' }], flow_to: [{ stat_energy_to: 'sensor.meter_export' }] },
+    { type: 'battery', stat_energy_from: 'sensor.batt_out', stat_energy_to: 'sensor.batt_in' }] };
+  const gridOnly = { energy_sources: [{ type: 'grid', stat_energy_from: 'sensor.meter_import', stat_energy_to: 'sensor.meter_export' }] };
+  const H = 3600000, MID = Date.UTC(2026, 9, 27, 23);   // 2026-10-28 00:00 CET
+  const rows = (from: number, xs: number[], iso = false) => xs.map((change, k) => ({ start: iso ? new Date(from + k * H).toISOString() : from + k * H, end: from + (k + 1) * H, change }));
+  // yesterday 20:00–23:00 and today 00:00–09:00 local
+  const day = {
+    'sensor.pv_energy': rows(MID - 4 * H, [0.2, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0.1, 0.4, 0.9]),
+    'sensor.meter_import': rows(MID - 4 * H, [0.8, 0.7, 0.6, 0.5, 0.3, 0.25, 0.2, 0.2, 0.2, 0.3, 0.6, 0.5, 0.2, 0]),
+    'sensor.meter_export': rows(MID - 4 * H, [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0.3]),
+    'sensor.batt_out': rows(MID - 4 * H, [0.1, 0.1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]),
+    'sensor.batt_in': rows(MID - 4 * H, [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0.2]),
+  };
+  const late = Object.fromEntries(Object.entries(day).map(([k, v]) => [k, v.slice(0, 4)]));   // asked at 23:59, rows up to 23:00
+  const cases: { name: string; description: string; tz: number; posixTz: string; prefs: unknown; now: number; stats: unknown }[] = [
+    { name: 'today-only', description: 'Rows from yesterday evening are dropped; hours 0–9 fill, the rest stay 0.', tz: 60, posixTz: CET, prefs, now: MID + 10.5 * H, stats: day },
+    { name: 'late-answer-after-midnight', description: 'A request sent at 23:59 answered at 00:00:20 carries only yesterday: every total and bar is 0.', tz: 60, posixTz: CET, prefs, now: MID + 20000, stats: late },
+    { name: 'empty-answer', description: 'HA omits ids without rows (right after midnight): nothing is emitted.', tz: 60, posixTz: CET, prefs, now: MID + 60000, stats: {} },
+    { name: 'iso-start', description: 'ISO `start` (older HA) counts like ms.', tz: 60, posixTz: CET, prefs: gridOnly, now: MID + 5 * H, stats: { 'sensor.meter_import': rows(MID - 2 * H, [1, 1, 0.4, 0.3, 0.2], true) } },
+    { name: 'india-midnight', description: 'Local midnight is not UTC midnight: IST 00:00 = 18:30 UTC.', tz: 330, posixTz: IST, prefs: gridOnly, now: Date.UTC(2026, 9, 27, 20, 0), stats: { 'sensor.meter_import': rows(Date.UTC(2026, 9, 27, 17, 30), [0.5, 0.4, 0.3]) } },
+  ];
+  const rolls: { name: string; description: string; tz: number; posixTz: string; answeredAt: number | null; now: number }[] = [
+    { name: 'same-day', description: '23:00 answer, 23:59 now: no roll.', tz: 60, posixTz: CET, answeredAt: MID - H, now: MID - 60000 },
+    { name: 'midnight', description: '23:00 answer, 00:00:05 now: roll, everything 0, ask again.', tz: 60, posixTz: CET, answeredAt: MID - H, now: MID + 5000 },
+    { name: 'deep-sleep-two-days', description: 'Woken two days later: roll.', tz: 60, posixTz: CET, answeredAt: MID - 3 * H, now: MID + 2 * 24 * H + 7 * H },
+    { name: 'utc-midnight-not-local', description: '00:30 CET answer (23:30 UTC the day before), 01:10 CET now: same local day, no roll.', tz: 60, posixTz: CET, answeredAt: MID + 0.5 * H, now: MID + 70 * 60000 },
+    { name: 'never-answered', description: 'No statistics answer yet: nothing to roll.', tz: 60, posixTz: CET, answeredAt: null, now: MID + 5000 },
+    { name: 'india-midnight', description: '23:30 IST answer, 00:01 IST now (same UTC day): roll.', tz: 330, posixTz: IST, answeredAt: Date.UTC(2026, 9, 27, 18, 0), now: Date.UTC(2026, 9, 27, 18, 31) },
+  ];
+  return {
+    _doc: "Today's energy from recorder/statistics_during_period (#308): cases = hourlyStatistics(stats, metersOf(prefs), now, tz) (emulator src/core/energyHourly.ts = firmware EntityAdapter::setHourlyStatistics after setEnergyPrefs, setNow(now/1000)); out = logical id → state kWh and `today` (24 × kWh) for the hourly series. rolls = statsDayRoll after an answer to `stats` at answeredAt (firmware EntityAdapter::rollDay after setNow(now/1000)): roll = ask the recorder again now, out = what the roll emits (every id the answer fed, at 0).",
+    cases: cases.map((c) => ({ ...c, out: hourlyStatistics(c.stats, metersOf(c.prefs), c.now, c.tz) })),
+    rolls: rolls.map((r) => {
+      const owned = r.answeredAt === null ? [] : Object.keys(hourlyStatistics(day, metersOf(prefs), r.answeredAt, r.tz));
+      const res = statsDayRoll(r.answeredAt === null ? null : localDay(r.answeredAt, r.tz), owned, r.now, r.tz);
+      return { ...r, prefs, stats: day, roll: res.roll, out: res.out };
+    }),
+  };
+}
+
 const PROV = '{"providers":[{"name":"Home Assistant Local","id":null,"type":"homeassistant"}],"preselect_remember_me":true}';
 const HA_PARSE = ['', '  homeassistant.local:8123 ', 'homeassistant.local', '192.168.1.5', 'HTTPS://HA.Example.com/lovelace/0', 'http://ha.local:8123/',
   'https://ha.example.com:443', 'http://ha.local:80', '[fd00::1]:8123', 'ha.local?x=1', 'ftp://ha.local', 'ws://ha.local:8123', 'ha local', 'user@ha.local',
@@ -720,6 +808,7 @@ if (process.argv[1] && process.argv[1].endsWith('gen-vectors.ts')) {
   writeFileSync(join(OUT, 'logs.json'), JSON.stringify(logsVectors(), null, 2) + '\n');
   writeFileSync(join(OUT, 'seed.json'), JSON.stringify(seedVectors(), null, 2) + '\n');
   writeFileSync(join(OUT, 'energy-prefs.json'), JSON.stringify(energyPrefsVectors(), null, 2) + '\n');
+  writeFileSync(join(OUT, 'energy-hourly.json'), compactJson(energyHourlyVectors()));
   writeFileSync(join(OUT, 'ha-address.json'), JSON.stringify(await haAddressVectors(), null, 2) + '\n');
   writeFileSync(join(OUT, 'list-pick.json'), JSON.stringify(listPickVectors(), null, 2) + '\n');
   writeFileSync(join(OUT, 'stat-raw.json'), JSON.stringify(statRawVectors(), null, 2) + '\n');

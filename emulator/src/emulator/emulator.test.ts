@@ -118,13 +118,24 @@ describe('ambient idle mode (#27)', () => {
   });
 });
 
-describe('night face as a poster (#27)', () => {
+describe('quiet face (#295)', () => {
   it('"as of HH:MM" only when the data is older than 30 min', () => {
     const now = new Date(2026, 9, 13, 23, 30);
     const fresh = harness({ simHour: 23, now, lastUpdate: new Date(now.getTime() - 5 * 60_000) }).emu;
-    expect((fresh.renderVals() as any).nightAsOf).toBe('');
+    expect((fresh.renderVals() as any).quietAsOf).toBe('');
     const stale = harness({ simHour: 23, now, lastUpdate: new Date(now.getTime() - 45 * 60_000) }).emu;
-    expect((stale.renderVals() as any).nightAsOf).toBe('as of 22:45');
+    expect((stale.renderVals() as any).quietAsOf).toBe('as of 22:45');
+  });
+  it('"Back at 07:00", no clock; values = the first value tiles of the Home page', () => {
+    const v = harness({ simHour: 23 }).emu.renderVals() as any;
+    expect(v.isQuiet).toBe(true);
+    expect(v.quietBack).toBe('Back at 07:00');
+    expect(v.quietRows.map((r: any) => r.label)).toEqual(['Price', 'Inside', 'Solar']);
+    expect(v.quietRows.every((r: any) => r.value && r.value !== '—')).toBe(true);
+  });
+  it('standby inside quiet hours shows the quiet face, not the standby face', () => {
+    const v = harness({ simHour: 23, sleeping: true }).emu.renderVals() as any;
+    expect(v.isQuiet).toBe(true); expect(v.isSleeping).toBe(false);
   });
 });
 
@@ -290,14 +301,25 @@ describe('first install + web console via DeviceApi', () => {
   });
 });
 
-describe('night mode', () => {
-  it('23–07: no data redraws; tap = 60 s dashboard peek', () => {
+describe('quiet hours (#295)', () => {
+  it('23–07: no data redraws; a press = 60 s dashboard peek', () => {
     const { emu, logs } = harness({ simHour: 23 });
     emu.tick(false);
-    expect(logs()[0]).toBe('HA update · night · not drawn');
+    expect(logs()[0]).toBe('HA update · quiet hours · not drawn');
     emu.nav(1, 'TOUCH ›');
     expect(emu.state.peekUntil).toBeGreaterThan(Date.now() + 59000);
-    expect(emu.nightActive(emu.state)).toBe(false);
+    expect(emu.quietActive(emu.state)).toBe(false);
+  });
+  it('Power on the quiet face (also in standby) shows the dashboard; Power while peeking = standby = the quiet face', () => {
+    const { emu } = harness({ simHour: 23, sleeping: true });
+    emu.power();
+    expect(emu.state.sleeping).toBe(false); expect(emu.quietActive(emu.state)).toBe(false);
+    emu.power();
+    expect(emu.state.sleeping).toBe(true); expect(emu.quietActive(emu.state)).toBe(true);
+  });
+  it('setup is never covered by the quiet face', () => {
+    const { emu } = harness({ simHour: 23, setup: 'web' });
+    expect(emu.quietActive(emu.state)).toBe(false);
   });
 });
 
@@ -370,17 +392,17 @@ describe('display styles', () => {
 
 describe('power saving: asleep (deep sleep) vs sleeping (standby face)', () => {
   const standbyOn = (emu: Emulator) => { emu.lastInput = Date.now() - 60_000; (emu as any).state = { ...emu.state, sleeping: true, cfg: { ...emu.state.cfg, powerSave: 'standby', wakeEvery: 15 } }; };
-  it('Settings › Power steps Glance / Sleep at night / Standby + night / Always live, Check every, Live after a press', () => {
+  it('Settings › Power steps Glance / Standby / Always live, Quiet hours, Check every, Live after a press', () => {
     const { emu } = harness();
     const p = emu.state.screens.findIndex((s) => s.id === 'power');
     (emu as any).state = { ...emu.state, idx: p, sub: 0 };
     const ws = emu.renderVals().widgets;
-    expect(ws.map((w: any) => [w.label, w.value])).toEqual([['On battery', 'Glance'], ['Check every', '15 min'], ['Live after a press', '3 min']]);
-    ws[0].inc(); expect(emu.renderVals().widgets[0].value).toBe('Sleep at night');
-    emu.renderVals().widgets[0].inc(); expect(emu.renderVals().widgets[0].value).toBe('Standby + night');
+    expect(ws.map((w: any) => [w.label, w.value])).toEqual([['On battery', 'Glance'], ['Quiet hours', '23–07'], ['Check every', '15 min'], ['Live after a press', '3 min']]);
+    ws[0].inc(); expect(emu.renderVals().widgets[0].value).toBe('Standby');
     emu.renderVals().widgets[0].inc(); expect(emu.renderVals().widgets[0].value).toBe('Always live');
-    emu.renderVals().widgets[1].inc(); expect(emu.state.cfg.wakeEvery).toBe(30);
-    emu.renderVals().widgets[2].inc(); expect(emu.state.cfg.liveMin).toBe(5);
+    emu.renderVals().widgets[1].inc(); expect(emu.state.cfg.quiet).toBe('00-06');
+    emu.renderVals().widgets[2].inc(); expect(emu.state.cfg.wakeEvery).toBe(30);
+    emu.renderVals().widgets[3].inc(); expect(emu.state.cfg.liveMin).toBe(5);
   });
   it('standby + power saving → asleep with a 15-min timer; API unreachable; footer; timer wake → Connecting… → standby again', async () => {
     const { emu, logs } = harness();
@@ -466,7 +488,10 @@ describe('glance (#10): deep sleep between timer wakes, redraw only on change', 
     const { emu, logs } = harness();
     idle(emu); emu.powerTick();
     emu.nav(-1, 'BTN_PREV'); expect(emu.state.asleep).not.toBeNull();
-    emu.nav(1, 'BTN_NEXT'); expect(emu.state.asleep).toBeNull(); expect(emu.state.mode).toBe('boot');
+    // #299: asleep, the bar says when it updated instead of a live-looking clock
+    expect(emu.renderVals().asleepMark).toMatch(/^Asleep · updated \d\d:\d\d$/);
+    emu.nav(1, 'BTN_NEXT'); expect(emu.state.asleep).toBeNull(); expect(emu.renderVals().asleepMark).toBe(''); expect(emu.state.mode).toBe('main');   // #299: no boot screen
+    expect(logs().some((l) => l.includes('button wake · held until data, no boot screen'))).toBe(true);
     emu.nav(1, 'BTN_NEXT'); expect(logs()).toContain('BTN_NEXT held at boot → live for 10 min, no deep sleep');
     vi.advanceTimersByTime(1600);
     idle(emu, 5); emu.powerTick(); expect(emu.state.asleep).toBeNull();   // held: 10 min

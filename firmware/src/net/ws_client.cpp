@@ -72,6 +72,8 @@ done:
   lastRxMs_ = millis();
   rx_.clear();
   frag_.clear();
+  skip_ = 0;
+  streaming_ = false;
   return true;
 }
 
@@ -89,6 +91,8 @@ void WsClient::close() {
   open_ = false;
   rx_.clear();
   frag_.clear();
+  skip_ = 0;
+  streaming_ = false;
 }
 
 bool WsClient::sendFrame(uint8_t opcode, const uint8_t* data, size_t len) {
@@ -153,13 +157,89 @@ bool WsClient::poll(std::string& msg) {
     rx_.append(reinterpret_cast<char*>(buf), n);
     budget -= n;
     lastRxMs_ = millis();
+    skip();   // a streamed / dropped frame never piles up in rx_
     if (rx_.size() > kMaxMessage + 16) break;
   }
   return parse(msg);
 }
 
+namespace {
+// {"id":N at the start of a payload → N, else 0
+uint32_t peekId(const char* p, size_t n) {
+  static const char kHead[] = "{\"id\":";
+  size_t i = 0, k = 0;
+  for (; i < n && kHead[k]; ++i) {
+    if (p[i] == ' ' && (k == 1 || k == 5)) continue;
+    if (p[i] != kHead[k++]) return 0;
+  }
+  while (i < n && p[i] == ' ') ++i;
+  uint32_t id = 0;
+  size_t d = i;
+  for (; i < n && p[i] >= '0' && p[i] <= '9' && i - d < 9; ++i) id = id * 10 + uint32_t(p[i] - '0');
+  return i > d && i < n && (p[i] == ',' || p[i] == ' ' || p[i] == '}') ? id : 0;
+}
+}  // namespace
+
+void WsClient::skip() {
+  for (;;) {
+    if (skip_) {
+      size_t n = static_cast<size_t>(std::min<uint64_t>(skip_, rx_.size()));
+      if (!n) return;
+      if (streaming_ && stream_) stream_->chunk(rx_.data(), n);
+      rx_.erase(0, n);
+      skip_ -= n;
+      if (skip_) return;
+      if (stream_) {
+        if (streaming_) stream_->end(skipId_, skipLen_);
+        else stream_->dropped(skipId_, skipLen_);
+      }
+      streaming_ = false;
+      continue;
+    }
+    if (rx_.size() < 2) return;
+    const uint8_t* p = reinterpret_cast<const uint8_t*>(rx_.data());
+    const uint8_t op = p[0] & 0x0F;
+    const bool fin = p[0] & 0x80, masked = p[1] & 0x80;
+    uint64_t len = p[1] & 0x7F;
+    size_t h = 2;
+    if (len == 126) {
+      if (rx_.size() < 4) return;
+      len = (static_cast<uint64_t>(p[2]) << 8) | p[3];
+      h = 4;
+    } else if (len == 127) {
+      if (rx_.size() < 10) return;
+      len = 0;
+      for (int i = 0; i < 8; i++) len = (len << 8) | p[2 + i];
+      h = 10;
+    }
+    if (masked) h += 4;   // servers never mask; such a frame only ever gets dropped
+    const bool text = op == 0x1 && fin && !masked;
+    if (!text && len <= kMaxMessage) return;
+    uint32_t id = 0;
+    if (text) {
+      const size_t peek = static_cast<size_t>(std::min<uint64_t>(len, 24));
+      if (rx_.size() < h + peek) return;
+      id = peekId(rx_.data() + h, peek);
+    }
+    const bool over = len > kMaxMessage;
+    if (!over && !(id && stream_ && stream_->want(id))) return;   // the normal path
+    if (over) LOG_WRN("WS", "frame too large (%llu bytes, id %u) · dropped", static_cast<unsigned long long>(len), unsigned(id));
+    rx_.erase(0, h);
+    skip_ = skipLen_ = len;
+    skipId_ = id;
+    streaming_ = !over;
+    if (streaming_) stream_->begin(id, len);
+    if (!skip_) {   // empty payload
+      if (stream_) streaming_ ? stream_->end(id, 0) : stream_->dropped(id, 0);
+      streaming_ = false;
+    }
+  }
+}
+
 bool WsClient::parse(std::string& msg) {
   for (;;) {
+    skip();
+    if (skip_) return false;
     if (rx_.size() < 2) return false;
     const uint8_t* p = reinterpret_cast<const uint8_t*>(rx_.data());
     const bool fin = p[0] & 0x80;

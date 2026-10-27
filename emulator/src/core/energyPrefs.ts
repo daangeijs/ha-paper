@@ -36,9 +36,10 @@ export function gridFlows(s: unknown): GridFlows {
   return g;
 }
 
-/** = EntityAdapter::statisticIds() after setEnergyPrefs: solar, import, export, battery out, battery in meters, once each. */
-export function statisticIds(prefs: unknown): string[] {
-  const m = { solar: [] as string[], imp: [] as string[], exp: [] as string[], out: [] as string[], in: [] as string[] };
+/** Energy meters per role (EntityAdapter solarMeters_ / importMeters_ / exportMeters_ / battOutMeters_ / battInMeters_). */
+export type Meters = { solar: string[]; imp: string[]; exp: string[]; out: string[]; in: string[] };
+export function metersOf(prefs: unknown): Meters {
+  const m: Meters = { solar: [], imp: [], exp: [], out: [], in: [] };
   const srcs = obj(prefs) && Array.isArray(prefs.energy_sources) ? prefs.energy_sources : [];
   for (const s of srcs) {
     if (!obj(s)) continue;
@@ -46,6 +47,12 @@ export function statisticIds(prefs: unknown): string[] {
     else if (s.type === 'battery') { if (str(s.stat_energy_from)) m.out.push(s.stat_energy_from); if (str(s.stat_energy_to)) m.in.push(s.stat_energy_to); }
     else if (s.type === 'grid') { const g = gridFlows(s); m.imp.push(...g.import); m.exp.push(...g.export); }
   }
+  return m;
+}
+
+/** = EntityAdapter::statisticIds() after setEnergyPrefs: solar, import, export, battery out, battery in meters, once each. */
+export function statisticIds(prefs: unknown): string[] {
+  const m = metersOf(prefs);
   const ids: string[] = [];
   for (const l of [m.solar, m.imp, m.exp, m.out, m.in]) for (const id of l) if (!ids.includes(id)) ids.push(id);
   return ids;

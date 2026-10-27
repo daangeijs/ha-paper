@@ -431,6 +431,7 @@ void EntityAdapter::setHourlyStatistics(const std::string& text, EntityUpdates& 
   std::map<std::string, std::vector<double>> hours;   // stat id → 24 × kWh
   int ty = 0, tm = 0, td = 0;
   if (now_ > 0) { auto l = localOf(now_); ty = l.y; tm = l.m; td = l.d; }
+  statsDay_ = ty * 10000 + tm * 100 + td;
   for (auto& kv : j.obj) {
     if (!kv.second.isArr()) continue;
     std::vector<double> h(24, 0.0);
@@ -485,6 +486,24 @@ void EntityAdapter::setHourlyStatistics(const std::string& text, EntityUpdates& 
     put(kEnergyToday, total(use));
     series(kUsageHourly, use);
   }
+}
+
+bool EntityAdapter::rollDay(EntityUpdates& out) {
+  if (statsDay_ == 0 || now_ <= 0) return false;
+  const auto l = localOf(now_);
+  const int day = l.y * 10000 + l.m * 100 + l.d;
+  if (day == statsDay_) return false;
+  statsDay_ = day;
+  for (auto& id : statsOwned_) {
+    if (overrides_.count(id)) continue;
+    EntityValue v;
+    v.state = "0";
+    if (id == kUsageHourly || id == kSolarHourly) v.attrs["today"] = jsonArray(std::vector<double>(24, 0.0), 3);
+    else v.attrs["unit_of_measurement"] = "kWh";   // as setHourlyStatistics emits them
+    v.updatedEpoch = now_;
+    out.emplace_back(id, v);
+  }
+  return true;
 }
 
 void EntityAdapter::resolve() {

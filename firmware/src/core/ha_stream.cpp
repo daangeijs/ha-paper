@@ -15,17 +15,38 @@ const char* const kAttrs[] = {
     "departures", "upcoming", "per_hour", "note", "typical",                                // routes (upcoming: #275)
 };
 
+std::vector<std::pair<PStr, PStr>, PsramAlloc<std::pair<PStr, PStr>>>& extras() {
+  static std::vector<std::pair<PStr, PStr>, PsramAlloc<std::pair<PStr, PStr>>> v;
+  return v;
+}
+
 int64_t epochOf(ArduinoJson::JsonVariantConst v) { return v.is<double>() ? static_cast<int64_t>(v.as<double>()) : 0; }
 
-void setAttrs(ArduinoJson::JsonObjectConst a, EntityValue& v) {
+void setAttrs(ArduinoJson::JsonObjectConst a, EntityValue& v, const char* id) {
   for (ArduinoJson::JsonPairConst p : a)
-    if (keepAttr(p.key().c_str())) v.attrs[p.key().c_str()] = scalarText(p.value());
+    if (keepAttrFor(id, p.key().c_str())) v.attrs[p.key().c_str()] = scalarText(p.value());
 }
 }  // namespace
 
 bool keepAttr(const char* key) {
   for (const char* k : kAttrs)
     if (std::strcmp(k, key) == 0) return true;
+  return false;
+}
+
+bool setExtraAttrs(const std::vector<std::pair<std::string, std::string>>& entityAttr) {
+  auto& x = extras();
+  bool same = x.size() == entityAttr.size();
+  for (size_t i = 0; same && i < x.size(); ++i) same = x[i].first == entityAttr[i].first && x[i].second == entityAttr[i].second;
+  if (same) return false;
+  x.clear();
+  for (auto& e : entityAttr) x.emplace_back(PStr(e.first), PStr(e.second));
+  return true;
+}
+
+bool keepAttrFor(const char* entity, const char* key) {
+  if (keepAttr(key)) return true;
+  for (auto& e : extras()) if (e.second == key && e.first == entity) return true;
   return false;
 }
 
@@ -44,7 +65,7 @@ void applyEntityEvent(ArduinoJson::JsonObjectConst ev, PMap<EntityValue>& mirror
     JsonObjectConst o = kv.value().as<JsonObjectConst>();
     EntityValue v;
     v.state = scalarText(o["s"]);
-    setAttrs(o["a"], v);
+    setAttrs(o["a"], v, kv.key().c_str());
     v.updatedEpoch = epochOf(o["lu"].isNull() ? o["lc"] : o["lu"]);
     mirror[kv.key().c_str()] = v;
     out.emplace_back(kv.key().c_str(), std::move(v));
@@ -56,7 +77,7 @@ void applyEntityEvent(ArduinoJson::JsonObjectConst ev, PMap<EntityValue>& mirror
     JsonObjectConst plus = kv.value()["+"];
     if (!plus.isNull()) {
       if (!plus["s"].isNull()) v.state = scalarText(plus["s"]);
-      setAttrs(plus["a"], v);
+      setAttrs(plus["a"], v, kv.key().c_str());
       int64_t t = epochOf(plus["lu"].isNull() ? plus["lc"] : plus["lu"]);
       if (t) v.updatedEpoch = t;
     }

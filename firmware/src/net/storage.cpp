@@ -235,7 +235,7 @@ std::string Storage::settingsToJson(const DisplaySettings& s) {
   d["brightness"] = s.brightness;
   d["warmth"] = s.warmth;
   d["lightTimeout"] = s.lightTimeout;
-  d["night"] = s.night;
+  d["quiet"] = s.quiet;
   d["returnHome"] = s.returnHome;
   d["standby"] = s.standby;
   d["clock"] = s.clock;
@@ -285,13 +285,8 @@ bool Storage::settingsFromJson(const std::string& json, DisplaySettings& s, std:
     if (!intIn("warmth", 0, 100)) return fail("warmth must be 0–100");
     if (!d["lightTimeout"].isNull() && !(d["lightTimeout"].is<int>() && validLightTimeout(d["lightTimeout"].as<int>())))
       return fail("lightTimeout must be 0, 30, 60, 120 or 300");
-    if (!d["night"].isNull()) {
-      std::string n = d["night"].is<const char*>() ? d["night"].as<const char*>() : "?";
-      int a = -1, b = -1;
-      bool ok = n == "off" || (n.size() == 5 && n[2] == '-' && sscanf(n.c_str(), "%2d-%2d", &a, &b) == 2 && a >= 0 && a < 24 && b >= 0 && b < 24 &&
-                               isdigit(static_cast<unsigned char>(n[0])) && isdigit(static_cast<unsigned char>(n[3])));
-      if (!ok) return fail("night must be \"off\" or \"HH-HH\"");
-    }
+    if (!d["quiet"].isNull() && !(d["quiet"].is<const char*>() && validQuiet(d["quiet"].as<const char*>())))
+      return fail("quiet must be \"off\" or \"HH-HH\"");
     if (!strIn("returnHome", {"never", "1", "5", "15"})) return fail("returnHome must be never, 1, 5 or 15");
     if (!strIn("standby", {"never", "10", "30", "60"})) return fail("standby must be never, 10, 30 or 60");
     if (!strIn("clock", {"24", "12"})) return fail("clock must be \"24\" or \"12\"");
@@ -308,7 +303,7 @@ bool Storage::settingsFromJson(const std::string& json, DisplaySettings& s, std:
     if (!strIn("surface", {"dither", "dots"})) return fail("surface must be dither or dots");
     if (!d["haReport"].isNull() && !d["haReport"].is<bool>()) return fail("haReport must be true or false");
     if (!d["debugInput"].isNull() && !d["debugInput"].is<bool>()) return fail("debugInput must be true or false");
-    if (!strIn("powerSave", {"off", "night", "standby", "glance"})) return fail("powerSave must be off, night, standby or glance");
+    if (!strIn("powerSave", {"off", "standby", "glance"})) return fail("powerSave must be off, standby or glance");
     auto oneOf = [&](const char* k, std::initializer_list<int> ok) {
       JsonVariant v = d[k];
       if (v.isNull()) return true;
@@ -322,7 +317,7 @@ bool Storage::settingsFromJson(const std::string& json, DisplaySettings& s, std:
   if (d["brightness"].is<int>()) s.brightness = static_cast<uint8_t>(clampInt(d["brightness"].as<int>(), 0, 100));
   if (d["warmth"].is<int>()) s.warmth = static_cast<uint8_t>(clampInt(d["warmth"].as<int>(), 0, 100));
   if (d["lightTimeout"].is<int>() && validLightTimeout(d["lightTimeout"].as<int>())) s.lightTimeout = d["lightTimeout"].as<int>();
-  if (d["night"].is<const char*>()) s.night = d["night"].as<const char*>();
+  if (d["quiet"].is<const char*>() && validQuiet(d["quiet"].as<const char*>())) s.quiet = d["quiet"].as<const char*>();   // #295; `night` is a rollback's
   if (d["returnHome"].is<const char*>()) s.returnHome = d["returnHome"].as<const char*>();
   if (d["standby"].is<const char*>()) s.standby = d["standby"].as<const char*>();
   if (d["clock"].is<const char*>()) s.clock = d["clock"].as<const char*>();
@@ -343,7 +338,7 @@ bool Storage::settingsFromJson(const std::string& json, DisplaySettings& s, std:
   pick("surface", {"dither", "dots"}, s.surface);
   if (d["haReport"].is<bool>()) s.haReport = d["haReport"].as<bool>();
   if (d["debugInput"].is<bool>()) s.debugInput = d["debugInput"].as<bool>();
-  pick("powerSave", {"off", "night", "standby", "glance"}, s.powerSave);
+  pick("powerSave", {"off", "standby", "glance"}, s.powerSave);
   if (d["wakeEvery"].is<int>()) { int w = d["wakeEvery"].as<int>(); if (w == 15 || w == 30 || w == 60) s.wakeEvery = w; }
   if (d["liveMin"].is<int>()) { int l = d["liveMin"].as<int>(); if (l == 1 || l == 3 || l == 5 || l == 10) s.liveMin = l; }
   return true;

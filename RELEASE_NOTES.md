@@ -5,6 +5,21 @@ display lists under "What's new" on its Updates screen (manifest.json `notes`): 
 most 34 characters. The release workflow fails if the tag's section is missing or a bullet is too long
 (`firmware/tools/release_notes.py`). Prose below the bullets goes only into the GitHub release.
 
+## 0.2.0-beta.4
+
+- History charts on the display
+- Rain and weather forecast charts
+- Quiet hours replace night mode
+- Asleep mark, no frozen clock
+- Key wake without restart flash
+- Dependency updates
+
+History tiles fetch HA statistics or history for the screens on display only, stream-parsed into PSRAM; a very
+chatty sensor shows "Too many changes" instead of dropping the connection. Forecast tiles read an attribute list or
+`weather.get_forecasts` and look ahead from now. Quiet hours (default 23:00–07:00) show "Back at 07:00" with three
+Home values and sleep on battery; any press shows the dashboard. Before glance sleep the clock becomes "Asleep ·
+updated hh:mm".
+
 ## 0.2.0-beta.3
 
 - Fixes crashes from low memory
