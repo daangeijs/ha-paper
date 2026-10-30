@@ -209,8 +209,8 @@ flasher-screens:
 
 # Fonts + icons are rendered from firmware/assets/fonts and firmware/assets/icons.json and committed (needs Pillow + fontTools at the
 # versions in firmware/requirements.txt; another version may rasterise differently). gen-check fails on any drift.
-# The committed files are the Linux (CI) output: macOS Pillow differs in a few edge pixels. On drift in CI, download
-# the gen-linux artifact from the failed run and commit it.
+# fontgen.py pins Pillow's BASIC layout: RAQM (picked when libfribidi is installed, e.g. on GitHub ubuntu-24.04)
+# shifts advances by a pixel and blanks U+00AD. On drift in CI, the gen-linux artifact of the failed run has the output.
 deviations:
 	$(PYTHON) $(FW)/tools/deviations.py
 
