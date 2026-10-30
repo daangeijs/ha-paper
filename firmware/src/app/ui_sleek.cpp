@@ -156,15 +156,32 @@ void clockCard(Canvas& c, I& a, const Widget& w, Rect r) {
   std::string wd = a.now.date, dm;
   auto sp = wd.find(' ');
   if (sp != std::string::npos) { dm = wd.substr(sp + 1); wd = wd.substr(0, sp); }
-  if (!a.asleepAt.empty()) wd = a.t(S::clockAsleep);   // #299: the digits are the update time
+  if (!a.asleepAt.empty()) { sp = dm.find(' '); if (sp != std::string::npos) dm = dm.substr(sp + 1); }   // #333: the month; the number is big
   c.text(x0, top + asc(hf), wd, hf, C(Ink::Paper));
   c.textRight(x1, top + asc(hf), dm, hf, C(Ink::Paper));
 }
 
 Rect clockWindowRect(Rect r) { int y = clockHdrBot(r) + 2; return rc(r.x, y, r.w, r.y + r.h - y); }
 
+// #333 asleep: the day number in place of the digits, and a paper "Asleep" pill where the day progress was (no time of day)
+static void clockWindowAsleep(Canvas& c, I& a, const Widget& w, Rect r) {
+  int x0 = r.x + 20, bot = r.y + r.h - 14;
+  Font pf = T6(16);
+  const std::string mark = a.t(S::asleepBar);
+  int pw = c.textWidth(mark, pf) + 24, ph = 28, py = bot - ph;
+  c.box(rc(x0, py, pw, ph), ph / 2, Ink::Paper);
+  c.text(x0 + 12, centreBl(py + ph / 2, pf), mark, pf);
+  Font tf = D(w.rs > 1 ? 150 : 104);
+  double lh = tf.size * 0.82;
+  int hdrBot = clockHdrBot(r);
+  int ttop = int(hdrBot + ((py - 6 - hdrBot) - lh) / 2);
+  TextOpts tt = C(Ink::Paper); tt.tracking = -3; tt.tabular = true;
+  c.text(x0, baseIn(ttop, tf, lh), a.now.day, tf, tt);
+}
+
 void clockWindow(Canvas& c, I& a, const Widget& w, Rect r) {
   c.box(r, 20, Ink::Black);   // clipped to the window by the caller
+  if (!a.asleepAt.empty()) { clockWindowAsleep(c, a, w, r); return; }
   int x0 = r.x + 20, x1 = r.x + r.w - 20, bot = r.y + r.h - 14;
   Font af = T4(12);
   int axisTop = bot - lineH(af), barTop = axisTop - 5 - 6, tw = x1 - x0;
@@ -182,7 +199,7 @@ void clockWindow(Canvas& c, I& a, const Widget& w, Rect r) {
   int hdrBot = clockHdrBot(r);
   int ttop = int(hdrBot + ((barTop - hdrBot) - lh) / 2);
   TextOpts tt = C(Ink::Paper); tt.tracking = -3; tt.tabular = true;
-  c.text(x0, baseIn(ttop, tf, lh), a.asleepAt.empty() ? a.now.clock : a.asleepAt, tf, tt);
+  c.text(x0, baseIn(ttop, tf, lh), a.now.clock, tf, tt);
 }
 
 // ---------------- power price ----------------
@@ -494,12 +511,16 @@ static int pagerCapW(I& a) {
 Rect sleekBarTimeRect(I& a) {
   TextOpts ct; ct.tabular = true;
   int right = a.chr.pager ? kScreenW - 12 - pagerCapW(a) - 12 : kScreenW - 12, w = Canvas().textWidth("00:00", D(24), ct);
-  if (!a.asleepAt.empty()) w = Canvas().textWidth(a.t(S::asleepBar, a.asleepAt), T6(16));   // #299
+  if (!a.asleepAt.empty()) w = Canvas().textWidth(a.t(S::asleepBar), T6(16)) + 28;   // #299; #333: a dark pill, no time
   return rc(right - w, 8, w, 48);
 }
 void sleekBarTime(Canvas& c, I& a) {
   Rect r = sleekBarTimeRect(a);
-  if (!a.asleepAt.empty()) { c.textRight(r.x + r.w, centreBl(32, T6(16)), a.t(S::asleepBar, a.asleepAt), T6(16)); return; }
+  if (!a.asleepAt.empty()) {
+    c.box(rc(r.x, 16, r.w, 32), 16, Ink::Black);
+    c.text(r.x + 14, centreBl(32, T6(16)), a.t(S::asleepBar), T6(16), C(Ink::Paper));
+    return;
+  }
   Font cf = D(24);
   TextOpts ct; ct.tabular = true;
   c.textRight(r.x + r.w, centreBl(32, cf), a.now.clock, cf, ct);

@@ -15,6 +15,9 @@ export const uploadVersion = (v: unknown): string => {
   return /^[\x21-\x7e]{1,64}$/.test(s) ? s : '';
 };
 
+/** firmware/partitions.csv `www` (0xC90000, 0x340000): POST /ota/upload-www takes exactly this many bytes (#350). */
+export const WWW_PARTITION_SIZE = 0x340000;
+
 export const sha256 = (b: Buffer | string): string => createHash('sha256').update(b).digest('hex');
 
 /** Deterministic stand-in for firmware.bin of a version (what `--releases-file`-less releases "download"). */

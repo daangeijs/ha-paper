@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, afterEach } from 'vitest';
-import { createPanelPoller, createPoller, PANEL_EVERY_MS, PREVIEW_EVERY_MS, tileCrops, tileValueFor } from './preview.ts';
-import { CLASSIC_GRID, SLEEK_GRID } from '../core/paging.ts';
+import { createPanelPoller, createPoller, PANEL_EVERY_MS, panelAspect, panelPlace, PREVIEW_EVERY_MS, tileCrops, tileValueFor } from './preview.ts';
+import { CLASSIC_GRID, gridSpan, SLEEK_GRID } from '../core/paging.ts';
 import { ApiError } from './DeviceApi.ts';
 import { createHttpApi } from './httpApi.ts';
 import { Emulator } from '../emulator/Emulator.tsx';
@@ -146,4 +146,20 @@ describe('tile crops from preview.png (#189)', () => {
     const busy = (async () => new Response(JSON.stringify({ error: 'display busy' }), { status: 503, headers: { 'Retry-After': '2' } })) as unknown as typeof fetch;
     await expect(createHttpApi('/api/v1', { fetch: busy }).screenPreview!('x')).rejects.toMatchObject({ status: 503, message: 'display busy', retryAfter: 2 });
   });
+});
+
+describe('panelPlace (#360: Values cells keep their crop shape at any width)', () => {
+  const f = (s: string) => Number.parseFloat(s) / 100;
+  for (const g of [CLASSIC_GRID, SLEEK_GRID]) {
+    it(`a span's box is its panel rectangle (= the crop), header cut (top ${g.top})`, () => {
+      const [aw, ah] = panelAspect(g).split(' / ').map(Number);
+      expect(aw).toBe(800); expect(ah).toBe(480 - g.top + g.side);
+      for (const [col, row, cs, rs] of [[1, 1, 1, 1], [1, 1, 2, 1], [3, 2, 2, 1], [4, 1, 1, 2], [1, 1, 4, 2]]) {
+        const p = panelPlace(g, col, row, cs, rs), r = gridSpan(g, col - 1, row - 1, cs, rs);
+        expect(p.position).toBe('absolute');
+        expect(f(p.left) * aw).toBeCloseTo(r.x, 6); expect(f(p.width) * aw).toBeCloseTo(r.w, 6);
+        expect(f(p.top) * ah).toBeCloseTo(r.y - g.top + g.side, 6); expect(f(p.height) * ah).toBeCloseTo(r.h, 6);
+      }
+    });
+  }
 });

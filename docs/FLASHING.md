@@ -216,7 +216,8 @@ Equivalent manual command: `.venv/bin/esptool --chip esp32s3 -p PORT write-flash
    get an "untested on hardware" warning at the top of the release notes. Check a release build locally first with
    `make dist VERSION=0.4.0` (the workflow additionally checks the version string is stamped into `firmware.bin`).
 3. `.github/workflows/release.yml` runs the native + emulator tests, builds with `X4_FW_VERSION=0.4.0`, and
-   publishes `firmware.bin`, `manifest.json` (`{version, sha256, size, notes[]}`; notes = the bullets of the tag's
+   publishes `firmware.bin`, `manifest.json` (`{version, sha256, size, notes[], www}`; `www` = `{path, size, sha256}`
+   of `www.bin`; notes = the bullets of the tag's
    `## 0.4.0` section in `RELEASE_NOTES.md`, ≤ 6 of ≤ 34 characters, or the release fails), `www.bin`, `bootloader.bin`, `partitions.bin`, `boot_app0.bin`,
    `x4flash.py` (USB flasher), `SHA256SUMS` and `ha-paper-flasher-<version>.zip` (browser flasher site with these files).
 4. Devices check `GET https://api.github.com/repos/<owner>/ha-paper/releases/latest` (stable) or `/releases`
@@ -229,11 +230,22 @@ Equivalent manual command: `.venv/bin/esptool --chip esp32s3 -p PORT write-flash
    HA is linked or reachable. If it crashes or resets before that, the bootloader boots the previous image; if it hangs
    or gets no network within 10 minutes (hang guard 12 min, RTC watchdog ~13 min), a guard timer restarts it and the bootloader rolls back (the RTC watchdog is
    the backstop). Tested in QEMU: `make qemu-ota`.
+7. Web console (#350): `www.bin` carries `version.txt` (the build's version). Once the new image is confirmed (step 6,
+   never before, so a rolled-back app never keeps a newer console), a display whose console version differs from its
+   firmware fetches release `v<version>`, checks `manifest.json` `www`, and streams `www.bin` into the `www` partition
+   (0xC90000–0xFD0000 only; NVS and userdata are never touched) with SHA-256 and size checks. It tries right after the
+   update, after every check, otherwise every 6 h; while the console is offline (a failed or interrupted write) every
+   10 min and on every reconnect. The download runs in small steps on the network task; firmware installs and uploads
+   answer "try again in a minute" until it is done. While the console is out of date or being written, `/` shows a
+   status page (the old console stays at `/?console=old`); a failed write keeps that page up until the next attempt.
+   `GET /api/v1/ota` reports `www {version, sha256, current, state, message}`.
 
-The web console (`www.bin`) is not updated by OTA yet; it changes rarely — re-run `make flash` (or
-`pio run -t uploadfs`) when the console changes. That keeps screens and settings (userdata is not touched). Local upload without GitHub:
+Local upload without GitHub (two steps: firmware first, then the console once the display is back and confirmed, about
+a minute after the restart):
 `curl -X POST -H "Authorization: Bearer $X4_TOKEN" --data-binary @firmware.bin -H "Content-Type: application/octet-stream" "http://ha-paper-XXXX.local/api/v1/ota/upload?sha256=$(sha256sum firmware.bin | cut -d' ' -f1)"`
-(macOS: `shasum -a 256` instead of `sha256sum`; `http://<ip address>` works in place of the `.local` name).
+`curl -X POST -H "Authorization: Bearer $X4_TOKEN" --data-binary @www.bin -H "Content-Type: application/octet-stream" "http://ha-paper-XXXX.local/api/v1/ota/upload-www?sha256=$(sha256sum www.bin | cut -d' ' -f1)"`
+(macOS: `shasum -a 256` instead of `sha256sum`; `http://<ip address>` works in place of the `.local` name). `make flash`
+and the web flasher write both as before; userdata (screens, settings) is never touched.
 
 **Renamed from X4 Home (#217).** A display that ran an X4 Home build gets the new names after the upgrade: mDNS/DHCP
 hostname `ha-paper-XXXX.local` (was `x4-home-XXXX.local`; same XXXX, the IP is unchanged), setup hotspot

@@ -2,7 +2,9 @@
 // picker, tiles). Each returns a new Config / widget list (or an error string) and never mutates its input.
 import { ENTITY_DOMAINS, GRID_COLS, GRID_ROWS, LIST_PICKS, MAX_APPS, MAX_USER_APPS, MAX_CELLS, cellsUsed, domainOf, entityFits, gridLayout, listOf, wLabel, type Config, type Widget } from '../core/config.ts';
 import type { HaEntity } from '../core/data.ts';
+import { AGENDA_TYPES, agendaError } from '../core/agenda.ts';
 import { ATTR_DOMAINS, BUCKETS, HISTORY_DOMAINS, MAX_BARS, MIN_BARS, SOURCE_KEYS, historyDomains, historyError, historySource, parseSpan, WINDOW_DEFAULT, type HistorySource } from '../core/history.ts';
+import { favoritesText, type Favorite } from '../core/media.ts';
 import type { ListCount } from '../core/paging.ts';
 
 const clone = (c: Config): Config => JSON.parse(JSON.stringify(c));
@@ -78,7 +80,7 @@ export const pickDomains = (widgetType: string, w?: Widget): string[] | undefine
 /** The entity a tile's picker has selected: `entity`, a thermo's climate.<zone>, '' = none. */
 export const pickedEntity = (w: Widget): string => (w.type === 'thermo' ? (w.zone ? 'climate.' + w.zone : '') : typeof w.entity === 'string' ? w.entity : '');
 /** Tiles with a name field: the entity widgets plus price, bars and thermo (#148: the panel draws the label). */
-export const hasLabelField = (widgetType: string): boolean => !!pickDomains(widgetType) || widgetType === 'price' || widgetType === 'bars';
+export const hasLabelField = (widgetType: string): boolean => !!pickDomains(widgetType) || widgetType === 'price' || widgetType === 'bars' || widgetType === 'bins';
 
 const NUMERIC = /^-?\d+(\.\d+)?([eE][-+]?\d+)?$/;
 /** A history tile charts numbers (#267): a state that is text ("sunny", "on") rules the entity out; no state yet,
@@ -157,6 +159,10 @@ export function setTileEntity(ws: Widget[], i: number, id: string): Widget[] {
 export function setBarsSeries(ws: Widget[], i: number, series: string): Widget[] { const out = cloneWs(ws); out[i].series = series; return out; }
 // ---- history tile (#267): window, bucket, agg, style, min / max. Choices come from core/history.ts, so a tile built
 // here always passes historyError except for typed min / max.
+/** A media tile's favorites (#319), written back as the YAML value; none = no key. */
+export function setFavorites(ws: Widget[], i: number, fs: Favorite[]): Widget[] {
+  const out = cloneWs(ws); if (fs.length) out[i].favorites = favoritesText(fs); else delete out[i].favorites; return out;
+}
 /** The console's window choices; a window typed in YAML stays and is shown as an extra choice. */
 export const HISTORY_WINDOWS = ['1h', '6h', '24h', '7d'];
 /** Bucket choices for a window: the ladder steps that divide it into 2–96 bars. */
@@ -171,6 +177,9 @@ export function setHistoryKey(ws: Widget[], i: number, key: 'window' | 'bucket' 
   if (t) w[key] = t; else delete w[key];
   if ((key === 'window' || key === 'forecast') && w.bucket !== undefined && !bucketsFor(String(w.window ?? WINDOW_DEFAULT), w).includes(String(w.bucket))) delete w.bucket;
   if (key === 'window' && w.ahead !== undefined && w.ahead !== '0' && w.ahead !== 0) delete w.ahead;   // "around now" was half the old window
+  // #307: a past entity needs a past part: ahead half the window unless it already leaves one
+  const win = parseSpan(w.window ?? WINDOW_DEFAULT) ?? 0, a = w.ahead === undefined ? win : String(w.ahead) === '0' ? 0 : parseSpan(w.ahead) ?? win;
+  if (w.past !== undefined && (a === 0 || a >= win)) w.ahead = win / 2 % 3_600_000 === 0 ? win / 7_200_000 + 'h' : win / 120_000 + 'm';
   return out;
 }
 /** Window choices by source (#283): a nowcast is hours, a forecast up to a week. */
@@ -186,6 +195,11 @@ export function setHistorySource(ws: Widget[], i: number, src: HistorySource): W
   const doms = src === 'recorder' ? HISTORY_DOMAINS : src === 'attribute' ? ATTR_DOMAINS : ['weather'];
   if (typeof w.entity === 'string' && !doms.includes(domainOf(w.entity))) delete w.entity;
   return out;
+}
+/** An agenda / next tile's own rule broken (#316: no calendar, more than 4), as a hard issue. */
+export function agendaIssue(w: Widget): Issue | null {
+  if (!AGENDA_TYPES.includes(w.type)) return null;
+  const e = agendaError(w); return e ? { msg: e.replace(/^\w+: /, ''), hard: true } : null;
 }
 /** A history tile's own rule broken (config.ts historyError without the "history: " prefix), as a hard issue. */
 export function historyIssue(w: Widget): Issue | null {
@@ -210,7 +224,7 @@ export function clearPicks(ws: Widget[], i: number): Widget[] {
 }
 /** An unpicked lightList / zoneList the display's subscription cap cuts short (#134): [shown, total], else null. */
 export function capHides(w: Widget, lists: { climate: ListCount; lights: ListCount } | undefined): [number, number] | null {
-  if (!lists || !LIST_PICKS[w.type] || Object.keys(LIST_PICKS[w.type]).some((k) => listOf(w, k).length)) return null;
+  if (!lists || (w.type !== 'lightList' && w.type !== 'zoneList') || Object.keys(LIST_PICKS[w.type]).some((k) => listOf(w, k).length)) return null;
   const c = w.type === 'lightList' ? lists.lights : lists.climate;
   return c.shown < c.total ? [c.shown, c.total] : null;
 }
@@ -222,7 +236,7 @@ export type PickGroup = { area: string; name: string; on: boolean; rows: PickRow
  * name, entity id or area name; an area whose name matches keeps all its lights.
  */
 export function pickGroups(list: HaEntity[], areas: { id: string; name: string }[], w: Widget, q: string, noArea: string): PickGroup[] {
-  const lights = w.type === 'lightList'; const dom = lights ? 'light' : 'climate';
+  const lights = w.type === 'lightList'; const dom = LIST_PICKS[w.type]?.entities || 'climate';   // #316: calendars
   const ents = listOf(w, 'entities'), picked = listOf(w, 'areas');
   const mine = list.filter((e) => e.id.split('.')[0] === dom);
   if (!lights) return [{ area: '', name: '', on: false, rows: mine.filter((e) => matches(q, e.name, e.id)).map((e) => ({ id: e.id, name: e.name, on: ents.includes(e.id), viaArea: false })) }];
@@ -294,7 +308,7 @@ export function firstIssue(cfg: Config, list: HaEntity[] | null): { screen: numb
     const sc = cfg.screens[s];
     const t = titleIssue(sc.title); if (t) return { screen: s, tile: -1, msg: t.msg };
     for (let i = 0; i < sc.widgets.length; i++) {
-      const e = [entityIssue(sc.widgets[i], list), historyIssue(sc.widgets[i])].find((x) => x?.hard);
+      const e = [entityIssue(sc.widgets[i], list), historyIssue(sc.widgets[i]), agendaIssue(sc.widgets[i])].find((x) => x?.hard);
       if (e) return { screen: s, tile: i, msg: e.msg };
     }
   }

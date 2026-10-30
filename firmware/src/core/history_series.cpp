@@ -16,8 +16,9 @@ void copyKey(char* dst, size_t cap, const char* s, size_t n) {
   dst[n] = 0;
 }
 bool digit(char c) { return c >= '0' && c <= '9'; }
-// history.ts numOf: a JSON number, or text /^-?\d+(\.\d+)?$/; else NaN
-double numOf(const char* t, size_t n, bool str) {
+}  // namespace
+
+double numText(const char* t, size_t n, bool str) {
   if (!n) return kNone;
   if (str) {
     size_t i = t[0] == '-' ? 1 : 0, d = i;
@@ -36,11 +37,15 @@ double numOf(const char* t, size_t n, bool str) {
   const double v = std::strtod(t, &end);
   return end == t + n && std::isfinite(v) ? v : kNone;
 }
+
+namespace {
+double numOf(const char* t, size_t n, bool str) { return numText(t, n, str); }
 }  // namespace
 
 void ListScanner::begin(const char* const* path, int nPath, const std::string& value, const std::string& time, int64_t t0,
                         int64_t step, int tz, SampleList* out) {
   out_ = out;
+  fields_ = nullptr;
   nPath_ = path ? std::max(0, std::min(nPath, kPath)) : 0;
   for (int k = 0; k < nPath_; ++k) copyKey(path_[k], kKey, path[k], std::strlen(path[k]));
   copyKey(value_, kField, value.data(), value.size());
@@ -84,6 +89,7 @@ void ListScanner::close(bool obj) {
   if (depth_ == 0) rootDone_ = true;
   if (inList_ && D == L + 1) {   // an entry closed: a row, or a nested list (no sample)
     if (inRow_ && rowT_ != kNoTime && has(rowV_)) push(rowT_, rowV_);
+    if (inRow_ && fields_) fields_->rowEnd();
     inRow_ = false;
     ++idx_;
   } else if (inList_ && D == L) {
@@ -102,9 +108,11 @@ void ListScanner::scalar(bool str) {
     if (depth_ == match_ && depth_ <= nPath_) keyOk_ = !over_ && !std::strcmp(tok_, path_[depth_ - 1]);
     if (depth_ == 1) succKey_ = !over_ && !std::strcmp(tok_, "success");
     if (inRow_ && depth_ == L + 1) rowKey_ = over_ ? 0 : !std::strcmp(tok_, time_) ? 1 : !std::strcmp(tok_, value_) ? 2 : 0;
+    if (fields_ && inRow_ && depth_ == L + 1) copyKey(fkey_, kField, tok_, over_ ? kField : tokN_);
     return;
   }
   if (depth_ == 1 && succKey_) success_ = !str && !std::strcmp(tok_, "true");
+  if (fields_ && inRow_ && depth_ == L + 1 && !over_ && fkey_[0]) fields_->rowField(fkey_, tok_, tokN_, str);   // #318
   if (inList_ && depth_ == L) {   // a plain entry: one per step from t0
     const double v = over_ ? kNone : numOf(tok_, tokN_, str);
     if (has(v)) push(t0_ + idx_ * step_, v);

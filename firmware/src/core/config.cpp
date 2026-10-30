@@ -2,8 +2,13 @@
 // regexes are hand-translated (JS \s = ASCII whitespace here; JS '.' does not match '\r', so CRLF breaks app/title lines
 // exactly like in the emulator).
 #include "core/config.h"
+#include "core/media.h"
 #include "core/catalog.h"
+#include "core/agenda.h"
+#include "core/bins.h"
+#include "core/guest_wifi.h"
 #include "core/history.h"
+#include "core/weather.h"
 #include "core/json.h"
 #include <algorithm>
 #include <cstdlib>
@@ -231,7 +236,7 @@ const std::vector<Screen>& settingsScreens() {
     // the clock format sits with the look since #220; night mode left for Power › Quiet hours (#295)
     o.push_back({"style", kSettingsApp, "Display style", {setting("style"), setting("typeface", 2), setting("surface"), setting("clock")}});
     // power saving two rows tall: room for its hint (#190); quiet hours (#295) are a power setting first
-    o.push_back({"power", kSettingsApp, "Power", {setting("powerSave", 2, 2), setting("quiet", 2), setting("wakeEvery"), setting("liveMin")}});
+    o.push_back({"power", kSettingsApp, "Power", {setting("powerSave", 2, 2), setting("quiet"), setting("morning"), setting("wakeEvery"), setting("liveMin")}});   // morning: #330
     o.push_back({"updates", kSettingsApp, "Updates", {tile("ota", nullptr, 4, 2)}});
     o.push_back({"wifi", kSettingsApp, "Wi-Fi", {tile("wifi", nullptr, 4, 2)}});
     o.push_back({"ha", kSettingsApp, "Home Assistant", {tile("ha", nullptr, 4, 2)}});
@@ -263,12 +268,16 @@ const std::vector<const char*>* entityDomains(const std::string& t) {
   static const std::vector<const char*> route = {"sensor"};
   static const std::vector<const char*> scene = {"scene", "script"};   // #146
   static const std::vector<const char*> history = {"sensor", "input_number", "number"};   // #268
+  static const std::vector<const char*> weather = {"weather"};   // #318
+  static const std::vector<const char*> mediaDoms = {"media_player"};   // #319
   if (t == "stat") return &stat;
   if (t == "scene") return &scene;
   if (t == "route") return &route;
   if (t == "gauge") return &gauge;
   if (t == "switch") return &sw;
   if (t == "history") return &history;
+  if (t == "weather") return &weather;
+  if (t == "media") return &mediaDoms;
   return nullptr;
 }
 
@@ -315,6 +324,8 @@ std::vector<std::pair<std::string, std::string>> labelPairs(const std::string& v
 const std::vector<std::pair<const char*, const char*>>* listPicks(const std::string& t) {
   static const std::vector<std::pair<const char*, const char*>> lights = {{"areas", nullptr}, {"entities", "light"}};
   static const std::vector<std::pair<const char*, const char*>> zones = {{"entities", "climate"}};
+  static const std::vector<std::pair<const char*, const char*>> calendars = {{"entities", "calendar"}};   // #316
+  if (agenda::isAgendaType(t)) return &calendars;
   if (t == "lightList") return &lights;
   if (t == "zoneList") return &zones;
   return nullptr;
@@ -352,7 +363,7 @@ ParseResult parseYamlText(const std::string& text) {
   AppEntry skipped;   // the `settings` entry of an older file: built in now, its title goes nowhere (#159)
   Screen* cur = nullptr;
   bool inW = false;
-  int histories = 0;
+  int histories = 0, agendas = 0, weathers = 0;
   std::map<std::string, int> at;
   auto appList = [&]() -> const std::vector<AppEntry>& { return haveApps && !appsList.empty() ? appsList : defaultApps(); };
   auto lines = split(text, '\n');
@@ -458,9 +469,31 @@ ParseResult parseYamlText(const std::string& text) {
             for (auto& p : labelPairs(lb.v))
               if (!entityFits(p.first, {"climate"}) || p.second.empty()) throw Fail{n, "zoneList: " + quoteName(p.first) + " in labels is not climate.<id>=Name"};
         }
+        if (type.v == "media") {   // #319, emulator media.ts favoritesError
+          WVal f = get("favorites");
+          std::string err = f.present ? media::favoritesError(f.v) : std::string();
+          if (!err.empty()) throw Fail{n, err};
+        }
         if (type.v == "route") {
           WVal m = get("mode");
           if (m.present && (m.num || (m.v != "train" && m.v != "bus" && m.v != "car"))) throw Fail{n, "route: mode must be train, bus or car"};
+        }
+        if (type.v == "bins") {   // #317, emulator config.ts + bins.ts binsError
+          WVal ents = get("entities"), lb = get("labels"), tn = get("tonight");
+          std::vector<std::string> ids = ents.present ? listOf(ents.v) : std::vector<std::string>();
+          for (auto& id : ids) if (!entityFits(id, {"sensor"})) throw Fail{n, "bins: " + quoteName(id) + " is not a sensor entity"};
+          if (lb.present)
+            for (auto& p : labelPairs(lb.v))
+              if (!entityFits(p.first, {"sensor"}) || p.second.empty()) throw Fail{n, "bins: " + quoteName(p.first) + " in labels is not sensor.<id>=Name"};
+          if (int(ids.size()) > bins::kMaxBins) throw Fail{n, "bins: at most " + std::to_string(bins::kMaxBins) + " sensors"};
+          if (tn.present && !(tn.num && tn.v.size() <= 2 && std::atoi(tn.v.c_str()) <= 23)) throw Fail{n, "bins: tonight must be an hour 0–23"};
+        }
+        if (type.v == "guestWifi") {   // #329, emulator config.ts + guestWifi.ts guestError; never quote ssid / password
+          WVal pe = get("password_entity"), sec = get("security"), hid = get("hidden");
+          if (pe.present && !(entityFits(pe.v, {"input_text", "text", "sensor"}) && !pe.num))
+            throw Fail{n, "guestWifi: password_entity is not an input_text / text / sensor entity"};
+          if (sec.present && (sec.num || !guest::validSecurity(sec.v))) throw Fail{n, "guestWifi: security must be WPA, WEP or nopass"};
+          if (hid.present && (hid.num || (hid.v != "true" && hid.v != "false"))) throw Fail{n, "guestWifi: hidden must be true or false"};
         }
         auto truthy = [](const WVal& w) { return w.present && (w.num ? w.v != "0" : !w.v.empty()); };
         WVal cs = get("cs"), rs = get("rs");
@@ -474,9 +507,19 @@ ParseResult parseYamlText(const std::string& text) {
           hf.window = f("window"); hf.bucket = f("bucket"); hf.agg = f("agg"); hf.style = f("style"); hf.min = f("min");
           hf.max = f("max"); hf.attribute = f("attribute"); hf.value = f("value"); hf.time = f("time"); hf.ahead = f("ahead");
           hf.forecast = f("forecast"); hf.threshold = f("threshold"); hf.labels = f("labels");
+          hf.past = f("past");
           std::string err = hist::configError(hf);
           if (!err.empty()) throw Fail{n, err};
           if (++histories > hist::kMaxTiles) throw Fail{n, "At most " + std::to_string(hist::kMaxTiles) + " history tiles"};
+        }
+        if (type.v == "weather") {   // #318, emulator weather.ts weatherError
+          if ((truthy(cs) ? std::atoi(cs.v.c_str()) : 1) != 4) throw Fail{n, "weather: needs the full width (cs: 4)"};
+          if (++weathers > wx::kMaxTiles) throw Fail{n, "At most " + std::to_string(wx::kMaxTiles) + " weather tiles"};
+        }
+        if (agenda::isAgendaType(type.v)) {   // #316, emulator agenda.ts agendaError
+          std::string err = agenda::configError(type.v, get("entities").present ? get("entities").v : "");
+          if (!err.empty()) throw Fail{n, err};
+          if (++agendas > agenda::kMaxTiles) throw Fail{n, "At most " + std::to_string(agenda::kMaxTiles) + " agenda or next tiles"};
         }
         Widget w;
         w.type = type.v;

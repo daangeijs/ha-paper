@@ -55,7 +55,7 @@ int tzMinutesNow() {   // local UTC offset now (no tm_gmtoff on newlib)
   return days * 1440 + (l.tm_hour - u.tm_hour) * 60 + (l.tm_min - u.tm_min);
 }
 
-// Entities the web console can put on a stat / gauge / switch / scene widget (core/config.cpp entityDomains) or pick
+// Entities the web console can put on a stat / gauge / switch / scene / media (#319) / agenda (#316) widget (core/config.cpp entityDomains) or pick
 // for a zoneList (climate, #127), with the HA area (entity or device) for the lightList picker. At most 800, cut fairly
 // (#150, emulator core/entityList.ts, the fake HA renders it there): per domain a budget of pickable entities first
 // (budgets add up to 800), then pickable ones past their budget, then unavailable / unknown ones and sensors that are no
@@ -67,7 +67,7 @@ const char* kEntityListTemplate =
     "{% set ns = namespace(a=[], b=[], c=[], k=0) %}"
     "{% for d, cap in [['climate', 50], ['weather', 10], ['light', 100], ['switch', 100], ['input_boolean', 30], "
     "['input_number', 30], ['fan', 20], ['binary_sensor', 60], ['number', 30], ['scene', 30], ['script', 30], "
-    "['sensor', 310]] %}{% set ns.k = 0 %}"
+    "['media_player', 10], ['calendar', 10], ['sensor', 290]] %}{% set ns.k = 0 %}"
     "{% for s in states | selectattr('domain', 'eq', d) | sort(attribute='entity_id') %}"
     "{% set u = s.attributes.unit_of_measurement | default('') %}{% set v = s.state %}"
     "{% set gap = s.state in ['unavailable', 'unknown'] %}"
@@ -424,6 +424,8 @@ void HaClient::loop() {
     }
     if (idPrefs_ == 0 && static_cast<int32_t>(millis() - lastStatsMs_) > 600000) requestStatistics();   // every 10 min
     if (hist_) historyLoop();
+    if (wx_) weatherLoop();
+    if (agenda_) agendaLoop();
     if (seeding_ && millis() - seedAskMs_ > kSeedWaitMs) maybeSeed(true);
     if (!outbox_.empty()) {
       for (auto& s : outbox_) {
@@ -561,6 +563,14 @@ void HaClient::onReady() {
   resubWhy_ = "connect";
   subscribeAll();
   if (hist_) hist_->reset();   // answers of the last socket are not coming: fetch every tile again
+  if (wx_) wx_->reset();
+  if (agenda_) agenda_->reset();
+}
+
+void HaClient::setPresenceEntity(const std::string& id) {
+  if (id == presenceId_) return;
+  presenceId_ = id;
+  resubscribeFor("presence entity");
 }
 
 void HaClient::resubscribeFor(const char* why) {
@@ -573,6 +583,7 @@ void HaClient::subscribeAll() {
   std::set<std::string> all(configIds_.begin(), configIds_.end());
   all.insert(discoveredIds_.begin(), discoveredIds_.end());
   for (auto& w : adapter_.watchIds()) all.insert(w);
+  if (!presenceId_.empty()) all.insert(presenceId_);   // #331 empty-house sleep
   // #81: a real HA re-ran the full subscribe (and HA re-sent every state) every ~5 min with the same 67 ids
   if (!resubscribeNeeded(subscribed_, entitySubs_.size(), all)) {
     LOG_INF("HA", "subscribe_entities: %u entities unchanged (%08x) after %s · kept", unsigned(all.size()),
@@ -920,6 +931,56 @@ void HaClient::onMessage(const std::string& msg) {
   }
 }
 
+// ---- agenda / next tiles (#316, core/agenda.h) ----
+void HaClient::setAgendaTiles(const std::vector<std::string>& keys) {
+  if (!agenda_ && keys.empty()) return;
+  PsramScope ps;
+  const bool first = !agenda_;
+  if (!agenda_) {
+    void* m = heap_caps_malloc(sizeof(agenda::Fetcher), MALLOC_CAP_SPIRAM | MALLOC_CAP_8BIT);
+    agenda_ = m ? new (m) agenda::Fetcher() : new agenda::Fetcher();
+  }
+  agenda_->setKeys(keys);
+  if (first) {   // events of the last boot: shown at once, asked again only when 30 min old or another day
+    std::string t;
+    if (storage().readFile("/agenda.txt", t)) agenda_->load(t);
+  }
+  agendaPublish();
+}
+
+void HaClient::agendaLoop() {
+  const int64_t now = epochMs();
+  if (now < 1700000000000LL) return;   // no clock yet: the window needs it
+  if (agenda_->timedOut(now)) {
+    LOG_WRN("AGENDA", "request %u unanswered for 60 s · given up", unsigned(agenda_->requestId()));
+    agenda_->abandon();
+  }
+  if (agenda_->inFlight()) return;
+  std::string j;
+  bool ask;
+  {
+    PsramScope ps;
+    ask = agenda_->next(now, tzMinutesNow(), nextId_, j);
+  }
+  if (!ask) return;
+  LOG_INF("AGENDA", "ask %u: %.160s", unsigned(nextId_), j.c_str());
+  nextId_++;
+  ws_.sendText(j);
+}
+
+void HaClient::agendaPublish() {
+  PsramScope ps;
+  agenda_->publish([&](const std::string& key, agenda::State st, const agenda::Fetch& f) {
+    Hub& h = hub();
+    std::lock_guard<std::recursive_mutex> l(h.mu);
+    auto it = std::find_if(h.agendaOut.begin(), h.agendaOut.end(), [&](const Hub::AgendaOut& o) { return o.key == PStr(key); });
+    if (it == h.agendaOut.end()) it = h.agendaOut.emplace(h.agendaOut.end());
+    it->key = key;
+    it->state = st;
+    it->f = f;
+  });
+}
+
 // ---- history tiles (#269, core/history_fetch.h) ----
 void HaClient::setHistoryTiles(const std::vector<hist::Fetcher::Want>& want, bool configChanged) {
   if (!hist_ && want.empty()) return;
@@ -1018,19 +1079,97 @@ void HaClient::historyPublish() {
   hub().historyInfo = j;
 }
 
-bool HaClient::want(uint32_t id) { return hist_ && hist_->owns(id); }
+// ---- weather tiles (#318, core/weather.h) ----
+namespace {
+RTC_NOINIT_ATTR wx::Rtc g_wxRtc;   // forecasts across deep sleep: a glance wake within the hour asks nothing
+}
+
+void HaClient::setWeatherTiles(const std::vector<std::string>& entities) {
+  if (!wx_ && entities.empty()) return;
+  PsramScope ps;
+  const bool first = !wx_;
+  if (!wx_) {
+    void* m = heap_caps_malloc(sizeof(wx::Fetcher), MALLOC_CAP_SPIRAM | MALLOC_CAP_8BIT);
+    wx_ = m ? new (m) wx::Fetcher() : new wx::Fetcher();
+  }
+  wx_->setEntities(entities);
+  if (first) {
+    wx::load(g_wxRtc, *wx_);
+    if (wx_->size() && wx_->forecast(0).dailyAt)
+      LOG_INF("WX", "forecasts from RTC, %lld s old", static_cast<long long>((epochMs() - wx_->forecast(0).dailyAt) / 1000));
+  }
+  weatherPublish();
+}
+
+void HaClient::weatherLoop() {
+  const int64_t now = epochMs();
+  if (now < 1700000000000LL || state_ != St::Ready) return;   // no clock yet: the "past entry" cut needs it
+  if (wx_->timedOut(now)) {
+    LOG_WRN("WX", "forecast unanswered for 60 s · given up");
+    wx_->abandon();
+  }
+  if (wx_->inFlight() || (hist_ && hist_->inFlight())) return;   // one streamed answer at a time
+  std::string j;
+  bool ask;
+  {
+    PsramScope ps;
+    ask = wx_->next(now, tzMinutesNow(), nextId_, j);
+  }
+  if (!ask) return;
+  LOG_INF("WX", "ask %u: %.140s", unsigned(nextId_), j.c_str() + std::min<size_t>(j.size(), 10));
+  nextId_++;
+  ws_.sendText(j);
+}
+
+void HaClient::weatherPublish() {
+  PsramScope ps;
+  const int n = wx_->publish([&](const std::string& e, const wx::Forecast& fc) {
+    Hub& h = hub();
+    std::lock_guard<std::recursive_mutex> l(h.mu);
+    auto it = std::find_if(h.weatherOut.begin(), h.weatherOut.end(), [&](const Hub::WeatherOut& o) { return o.entity == PStr(e); });
+    if (it == h.weatherOut.end()) it = h.weatherOut.emplace(h.weatherOut.end());
+    it->entity = PStr(e);
+    it->fc = fc;
+  });
+  if (n) wx::save(g_wxRtc, *wx_);
+}
+
+bool HaClient::want(uint32_t id) { return (hist_ && hist_->owns(id)) || (wx_ && wx_->owns(id)) || (agenda_ && agenda_->owns(id)); }
 
 void HaClient::begin(uint32_t id, uint64_t) {
   histLow0_ = heapMinFree();
-  hist_->begin(id);
+  streamWx_ = wx_ && wx_->owns(id);
+  agStream_ = !streamWx_ && agenda_ && agenda_->owns(id);
+  if (streamWx_) wx_->begin();
+  else if (agStream_) { PsramScope ps; agenda_->begin(id); }   // the scanner's calendar list: PSRAM too
+  else hist_->begin(id);
 }
 
 void HaClient::chunk(const char* p, size_t n) {
   wdt::feedIfSubscribed();
-  hist_->feed(p, n);
+  if (streamWx_) wx_->feed(p, n);
+  else if (agStream_) agenda_->feed(p, n);
+  else hist_->feed(p, n);
 }
 
 void HaClient::end(uint32_t id, uint64_t len) {
+  if (streamWx_) {
+    streamWx_ = false;
+    wx_->end(epochMs());
+    LOG_INF("WX", "forecast %u %u B: internal low-water %u → %u B", unsigned(id), unsigned(len), unsigned(histLow0_), unsigned(heapMinFree()));
+    weatherPublish();
+    return;
+  }
+  if (agStream_) {   // #316: events taken → the cache, so a wake from deep sleep does not ask again
+    agStream_ = false;
+    PsramScope ps;
+    const bool took = agenda_->end(epochMs());
+    if (took) storage().writeFile("/agenda.txt", agenda_->save());
+    LOG_INF("AGENDA", "answer %u %u B%s: internal low-water %u → %u B", unsigned(id), unsigned(len), took ? "" : " (no events: failed)",
+            unsigned(histLow0_), unsigned(heapMinFree()));
+    agendaPublish();
+    return;
+  }
   {
     PsramScope ps;
     hist_->end(epochMs(), static_cast<uint32_t>(len));
@@ -1041,6 +1180,16 @@ void HaClient::end(uint32_t id, uint64_t len) {
 }
 
 void HaClient::dropped(uint32_t id, uint64_t len) {
+  if (wx_ && wx_->owns(id)) {
+    wx_->end(epochMs());   // never parsed: kept as it was, asked again after the retry gap
+    LOG_WRN("WX", "forecast %u over the frame cap (%llu B)", unsigned(id), static_cast<unsigned long long>(len));
+    return;
+  }
+  if (agenda_ && agenda_->owns(id)) {   // #316: over the frame cap; asked again in 5 min
+    agenda_->abandon();
+    LOG_WRN("AGENDA", "answer %u over the frame cap (%llu B)", unsigned(id), static_cast<unsigned long long>(len));
+    return;
+  }
   if (!hist_ || !hist_->owns(id)) return;   // not a history answer: WsClient logged it
   {
     PsramScope ps;

@@ -122,7 +122,7 @@ bool QemuBoard::pollInput(InputEvent& out) { return g_queue && xQueueReceive(g_q
 
 // No I2C in QEMU: a fixed gauge, 80 % at 3950 mV (below the 4.15 V "recently charged" line). USB unless POST /__qemu/power.
 PowerInfo QemuBoard::power() {
-  return PowerInfo{80, net::powerSimCharging(), !net::powerSimBattery(), true, net::powerSimMv()};
+  return PowerInfo{80, net::powerSimCharging(), !net::powerSimBattery(), true, net::powerSimMv(), 80};
 }
 
 uint32_t QemuBoard::millis() { return ::millis(); }

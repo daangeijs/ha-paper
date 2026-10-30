@@ -8,6 +8,7 @@
 #include <initializer_list>
 
 #include "Logging.h"
+#include "core/empty_house.h"
 #include "core/logic.h"
 #include "core/migrate.h"
 #include "hw/watchdog.h"
@@ -81,6 +82,18 @@ void Storage::migrate() {
 }
 
 fs::FS& Storage::www() { return g_www; }
+
+void Storage::wwwUnmount() {
+  if (!wwwOk_.exchange(false)) return;
+  g_www.end();
+}
+
+bool Storage::wwwRemount() {
+  if (wwwOk_) return true;
+  wwwOk_ = g_www.begin(false, "/www", 5, "www");
+  if (!wwwOk_) LOG_WRN("STORE", "www partition not mounted after rewrite · fallback web page");
+  return wwwOk_;
+}
 
 std::string Storage::getString(const char* ns, const char* key, const std::string& def) {
   std::lock_guard<std::recursive_mutex> l(mu_);
@@ -250,7 +263,9 @@ std::string Storage::settingsToJson(const DisplaySettings& s) {
   d["powerSave"] = s.powerSave;
   d["wakeEvery"] = s.wakeEvery;
   d["liveMin"] = s.liveMin;
+  d["emptyHouse"] = s.emptyHouse;
   d["debugInput"] = s.debugInput;
+  d["morning"] = s.morning;   // #330
   std::string out;
   serializeJson(d, out);
   return out;
@@ -303,6 +318,7 @@ bool Storage::settingsFromJson(const std::string& json, DisplaySettings& s, std:
     if (!strIn("surface", {"dither", "dots"})) return fail("surface must be dither or dots");
     if (!d["haReport"].isNull() && !d["haReport"].is<bool>()) return fail("haReport must be true or false");
     if (!d["debugInput"].isNull() && !d["debugInput"].is<bool>()) return fail("debugInput must be true or false");
+    if (!d["morning"].isNull() && !d["morning"].is<bool>()) return fail("morning must be true or false");
     if (!strIn("powerSave", {"off", "standby", "glance"})) return fail("powerSave must be off, standby or glance");
     auto oneOf = [&](const char* k, std::initializer_list<int> ok) {
       JsonVariant v = d[k];
@@ -313,6 +329,8 @@ bool Storage::settingsFromJson(const std::string& json, DisplaySettings& s, std:
     };
     if (!oneOf("wakeEvery", {15, 30, 60})) return fail("wakeEvery must be 15, 30 or 60");
     if (!oneOf("liveMin", {1, 3, 5, 10})) return fail("liveMin must be 1, 3, 5 or 10");
+    if (!d["emptyHouse"].isNull() && !(d["emptyHouse"].is<const char*>() && validEmptySource(d["emptyHouse"].as<const char*>())))
+      return fail("emptyHouse must be \"\" or a zone, binary_sensor, input_boolean or group entity id");
   }
   if (d["brightness"].is<int>()) s.brightness = static_cast<uint8_t>(clampInt(d["brightness"].as<int>(), 0, 100));
   if (d["warmth"].is<int>()) s.warmth = static_cast<uint8_t>(clampInt(d["warmth"].as<int>(), 0, 100));
@@ -338,9 +356,11 @@ bool Storage::settingsFromJson(const std::string& json, DisplaySettings& s, std:
   pick("surface", {"dither", "dots"}, s.surface);
   if (d["haReport"].is<bool>()) s.haReport = d["haReport"].as<bool>();
   if (d["debugInput"].is<bool>()) s.debugInput = d["debugInput"].as<bool>();
+  if (d["morning"].is<bool>()) s.morning = d["morning"].as<bool>();
   pick("powerSave", {"off", "standby", "glance"}, s.powerSave);
   if (d["wakeEvery"].is<int>()) { int w = d["wakeEvery"].as<int>(); if (w == 15 || w == 30 || w == 60) s.wakeEvery = w; }
   if (d["liveMin"].is<int>()) { int l = d["liveMin"].as<int>(); if (l == 1 || l == 3 || l == 5 || l == 10) s.liveMin = l; }
+  if (d["emptyHouse"].is<const char*>() && validEmptySource(d["emptyHouse"].as<const char*>())) s.emptyHouse = d["emptyHouse"].as<const char*>();
   return true;
 }
 

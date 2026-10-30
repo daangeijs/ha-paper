@@ -113,6 +113,8 @@ struct Report {
   const char* sleepArmedBy = nullptr;   // #231: "uptime" | "boots" | nullptr (not armed)
   std::string batteryJson;        // #231 core/battery_history.h History::json(); empty = null
   std::string trailBeforeBoot;    // #225 power trail: last line when this boot started; empty = null
+  uint32_t emptyHouseSleeps = 0;  // #331 power_trail.empty_house_sleeps: "empty house" deep sleeps since power-on
+  std::string phasesJson;         // #327 power_trail.phases (core/phases.h json()); empty = null
   std::vector<std::string> trail; // #225 newest lines of /power.txt, oldest first
   Net net;
 };

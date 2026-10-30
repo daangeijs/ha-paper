@@ -34,7 +34,8 @@ describe('glance (spec/test-vectors/glance.json)', () => {
     const a = snapshotOf({ t0: '{"v":1}', t1: '{"v":2}' }), b = snapshotOf({ t0: '{"v":1}', t1: '{"v":3}' });
     expect(snapshotDiff(a, b)).toEqual(['t1']);
   });
-  it('glanceWaitS doubles per failure, 2 h cap', () => {
-    expect([0, 1, 2, 3, 4, 9].map((f) => glanceWaitS(15, f))).toEqual([900, 1800, 3600, 7200, 7200, 7200]);
+  it('glanceWaitS: the next of midnight and the start of quiet hours (#356)', () => {
+    expect([[43200, 'off'], [43200, '23-07'], [82200, '23-07'], [3600, '23-07'], [72000, '00-06'], [0, 'off']].map(([t, q]) => glanceWaitS(t as number, q as string)))
+      .toEqual([43200, 39600, 600, 79200, 14400, 86400]);
   });
 });

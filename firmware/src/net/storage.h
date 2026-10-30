@@ -1,7 +1,7 @@
 // Persistent storage: NVS (Preferences) for credentials/tokens/flags; two LittleFS partitions (partitions.csv):
 //  * `userdata` (128 KB, global LittleFS, readFile/writeFile): /screens.yaml, /settings.json, /diag.json. No flasher
 //    writes it, so it survives a USB re-flash; formatted here on first mount.
-//  * `www` (www.bin, rewritten by every flash): the web console under /www, read-only, served by net/web_server.cpp.
+//  * `www` (www.bin, rewritten by every flash and by net/www_ota.h): the web console under /www, served by net/web_server.cpp.
 // Secrets go through SecretBox. Factory reset clears only HA Paper namespaces — the OEM `hw_calib`
 // namespace (panel controller type, read by XteinkDetect) in the same NVS partition is preserved.
 //
@@ -20,6 +20,7 @@
 //   /numfmt         HA profile number_format as HA spells it (#110), rewritten only when it changes; empty = unset.
 //   NVS hw_calib    OEM, read-only, never touched.
 #pragma once
+#include <atomic>
 #include <FS.h>
 
 #include <mutex>
@@ -46,6 +47,8 @@ class Storage {
   bool fsOk() const { return fsOk_; }
   bool wwwOk() const { return wwwOk_; }
   fs::FS& www();                         // web console files (/www/...); empty FS when wwwOk() is false
+  void wwwUnmount();                     // before net/www_ota rewrites the partition (#350)
+  bool wwwRemount();                     // after it; false = not a LittleFS image (fallback page)
 
   bool loadWifi(WifiCreds& out);
   void saveWifi(const WifiCreds& c);
@@ -80,7 +83,7 @@ class Storage {
  private:
   void migrate();                        // schema check + upgrades, once per boot (end of begin())
   bool fsOk_ = false;
-  bool wwwOk_ = false;
+  std::atomic<bool> wwwOk_{false};
   std::recursive_mutex mu_;
 };
 

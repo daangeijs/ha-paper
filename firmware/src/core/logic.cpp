@@ -397,15 +397,6 @@ std::string quietBackAt(const std::string& window, const std::string& clock) {
   return std::string(1, char('0' + h / 10)) + char('0' + h % 10) + ":00";
 }
 
-std::vector<int> quietTiles(const std::vector<std::string>& types) {
-  std::vector<int> out;
-  for (int i = 0; i < int(types.size()) && int(out.size()) < kQuietTiles; ++i) {
-    const std::string& t = types[size_t(i)];
-    if (t == "stat" || t == "gauge" || t == "price" || t == "thermo") out.push_back(i);
-  }
-  return out;
-}
-
 bool peekOnBoot(const std::string& wake) { return wake != "timer"; }
 
 int idleMinutes(const std::string& s) {
@@ -440,6 +431,7 @@ bool validLightTimeout(int sec) {
 }
 bool lightTimedOut(uint32_t idleMs, int timeoutSec) { return timeoutSec > 0 && idleMs >= uint32_t(timeoutSec) * 1000u; }
 int frontlightPct(int brightness, bool standby, bool lightOut) { return standby || lightOut ? 0 : brightness; }
+bool lightOnBoot(const std::string& wake) { return wake != "timer"; }
 bool lightWakeConsumes(int brightness, bool standby, bool quiet, bool lightOut, bool power) {
   return lightOut && brightness > 0 && !standby && !quiet && !power;
 }

@@ -7,6 +7,7 @@
 #   only x4qemu images trust: the suite's address check runs one real TLS handshake on the device (#79).
 #   CONTRACT_HA_TLS=1: the device links to that https address instead, so sign-in, WebSocket and the HA-dependent tests
 #   run over TLS, plus a TLS reset + hung-handshake relink test (#87). The suite keeps controlling the fake HA over http.
+# X4_WWW_BIN (set here): the build's www.bin, for the POST /ota/upload-www round trip (#350).
 # Usage: sim/qemu/contract.sh [--no-build]     exit code = vitest's, 124 = guest hung (CONTRACT_STALL_S, #245).
 #   Logs: sim/qemu/.state/contract{,-tls}/{qemu,fake-ha}.log
 # X4_QEMU_ENV=x4qemu_debug: run the suite against the debug image (heap/spinlock checks, docs/ESP32_EMULATION.md).
@@ -70,7 +71,7 @@ echo "[contract] firmware up; running the contract suite (device → HA: $HA_DEV
 STALL_S="${CONTRACT_STALL_S:-120}"   # green run 2026-10-26: longest gap 34 s
 killtree() { local c; for c in $(pgrep -P "$1"); do killtree "$c"; done; kill "$1" 2>/dev/null || true; }
 set +e
-(cd "$ROOT/emulator" && DEVICE_URL="http://127.0.0.1:$PORT" X4_FAKE_HA="http://127.0.0.1:$HA_PORT" X4_FAKE_HA_DEVICE="$HA_DEV" \
+(cd "$ROOT/emulator" && DEVICE_URL="http://127.0.0.1:$PORT" X4_WWW_BIN="$BUILD/www.bin" X4_FAKE_HA="http://127.0.0.1:$HA_PORT" X4_FAKE_HA_DEVICE="$HA_DEV" \
   X4_FAKE_HA_DEVICE_TLS="https://10.0.2.2:$HA_TLS_PORT" \
   exec npx vitest run server/contract.test.ts "${VITEST_ARGS[@]+"${VITEST_ARGS[@]}"}") &
 vpid=$!

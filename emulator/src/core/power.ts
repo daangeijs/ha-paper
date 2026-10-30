@@ -2,11 +2,15 @@
 // should CPU and Wi-Fi work while awake. Pure; the emulator, the device simulator and the firmware
 // (firmware/src/core/power.cpp, a 1:1 port) all run it. Vectors: spec/test-vectors/power/*.json.
 import { inQuietHours, quietEndHour } from './quiet.ts';
+import { emptyWaitS } from './emptyHouse.ts';
 
-// glance (#10, decided in #18: the default on battery): deep sleep between timer wakes; each wake fetches a snapshot and
-// redraws only when a visible value changed (core/glance.ts). A key press wakes into live mode for `liveMin` minutes.
+// glance (#10, decided in #18: the default on battery; #356): the panel shows the sleep face and the display deep-sleeps
+// until a key, the charger, or the next transition: midnight (the face's date) or the start of quiet hours, whichever
+// comes first (at most MAX_SLEEP_S). No periodic data wakes. A transition wake fetches a snapshot and redraws only when
+// what the panel shows changed (core/glance.ts). A key press wakes into live mode for `liveMin` minutes.
 // Quiet hours (#295, core/quiet.ts) win over standby and glance: no timer wakes in the window. "Sleep at night" is gone
-// (settings schema 2 moves it to glance).
+// (settings schema 2 moves it to glance). Empty house (#331, core/emptyHouse.ts): glance waits EMPTY_WAIT_S (cut at
+// the start of quiet hours) while nobody is home; quiet hours and live mode win.
 export type PowerSave = 'off' | 'standby' | 'glance';
 export const POWER_SAVES: PowerSave[] = ['off', 'standby', 'glance'];
 // Standby timer wake, minutes. Budget from TRMNL's measurements (usetrmnl/trmnl-firmware README, power): ~100 µA in
@@ -42,8 +46,9 @@ export type PowerInputs = {
   setup: boolean;              // AP / setup wizard
   msSinceApi: number | null;   // null = no API request since boot
   live?: boolean;              // glance: a key press / touch within the last `liveMin` minutes (absent = false)
-  glanceFails?: number;        // glance: wakes in a row that could not reach HA (backoff; absent = 0)
+  glanceFails?: number;        // glance: wakes in a row that could not reach HA (diagnostics; no backoff since #356)
   armBootsLeft?: number;       // first-boot safety (#10): confirmed boots this image still needs before any deep sleep (absent = 0)
+  emptyHouse?: boolean;        // glance (#331): the presence source says nobody is home (absent = false)
 };
 
 export type CpuProfile = 'full' | 'auto';
@@ -52,7 +57,7 @@ export type WifiPs = 'none' | 'min';
  *  fixed 80 MHz, the lowest clock that keeps APB at 80 MHz (UART, SPI to the panel, I2C and Wi-Fi unchanged). */
 export const CPU_MHZ: Record<CpuProfile, number> = { full: 240, auto: 80 };
 export type PowerReason = 'unconfirmed image' | 'ota running' | 'external power' | 'battery unknown' | 'low battery' | 'setup mode'
-  | 'recent api' | 'ota window' | 'power save off' | 'awake' | 'quiet' | 'standby' | 'live' | 'glance' | 'not armed';
+  | 'recent api' | 'ota window' | 'power save off' | 'awake' | 'quiet' | 'standby' | 'live' | 'glance' | 'empty house' | 'not armed';
 
 export type PowerDecision = {
   deepSleepNow: boolean;
@@ -64,10 +69,11 @@ export type PowerDecision = {
   reason: PowerReason;
 };
 
-/** Glance timer wake, seconds: `wakeEvery`, doubled per failed wake in a row (HA unreachable), at most 2 h. */
-export const GLANCE_BACKOFF_MAX_S = 2 * 3600;
-export function glanceWaitS(wakeEvery: number, fails: number): number {
-  return Math.min(wakeEvery * 60 * 2 ** Math.min(Math.max(fails, 0), 4), GLANCE_BACKOFF_MAX_S);
+/** Glance sleep (#356), seconds from local `localSec` to the next transition: midnight (the sleep face's date) or the
+ *  start of quiet hours, whichever comes first. */
+export function glanceWaitS(localSec: number, quiet: string): number {
+  const midnight = secsUntil(localSec, 0);
+  return quietEndHour(quiet) < 0 ? midnight : Math.min(midnight, secsUntil(localSec, Number(quiet.split('-')[0]) * 3600));
 }
 
 /** Seconds from local time `localSec` to the next `targetSec` of the day (a full day when they are equal). */
@@ -114,7 +120,8 @@ export function powerDecision(i: PowerInputs): PowerDecision {
   let reason: PowerReason;
   if (quiet) { reason = 'quiet'; wait = Math.min(wait, secsUntil(i.localSec, quietEndHour(i.quiet) * 3600)); }
   else if (i.powerSave === 'standby' && i.standby) { reason = 'standby'; wait = Math.min(wait, i.wakeEvery * 60); }
-  else if (i.powerSave === 'glance') { reason = 'glance'; wait = Math.min(wait, glanceWaitS(i.wakeEvery, i.glanceFails ?? 0)); }
+  else if (i.powerSave === 'glance' && i.emptyHouse) { reason = 'empty house'; wait = Math.min(wait, emptyWaitS(i.localSec, i.quiet)); }   // #331
+  else if (i.powerSave === 'glance') { reason = 'glance'; wait = Math.min(wait, glanceWaitS(i.localSec, i.quiet)); }   // #356
   else return out('awake');
   if (otaWanted) wait = Math.min(wait, secsUntil(i.localSec, OTA_HOUR * 3600));
   return out(reason, i.nowEpoch + wait);

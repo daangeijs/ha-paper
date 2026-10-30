@@ -102,6 +102,23 @@ class InboundWatch {
   uint32_t since_ = 0;
 };
 
+// ---------- mDNS responder (#326) ----------
+// beta.4/beta.5 PANIC in the mdns task (esp_pbuf_free calls NULL, exc_vaddr 0): a received packet waits in the
+// mdns action queue as a Wi-Fi rx pbuf that points at the STA esp_netif. WiFi.mode(WIFI_OFF) (deep-sleep entry,
+// radio reset, forget) runs esp_netif_destroy_default_wifi, and the mdns task then frees that pbuf through the freed
+// netif's driver_free_rx_buffer. So WifiMgr::stopMdns() (mdns_free: task stopped, pcbs closed, queue drained while the
+// netif lives) runs before every Wi-Fi off; the next join inits again. A re-bind (lease, roam, idle, reconnect) is
+// disable + enable of the STA pcb, which re-probes and re-announces; one within kSettleMs of the last is dropped.
+enum class MdnsStep : uint8_t { Init, Rebind, Skip };
+struct MdnsPlan {
+  static constexpr uint32_t kSettleMs = 30000;
+  MdnsStep next(bool inited, uint32_t now) const {
+    if (!inited) return MdnsStep::Init;
+    return now - lastMs < kSettleMs ? MdnsStep::Skip : MdnsStep::Rebind;
+  }
+  uint32_t lastMs = 0;   // last Init or Rebind
+};
+
 // Short, non-reversible AP tag for logs and /diagnostics: 4 hex digits of FNV-1a over the 6 BSSID bytes. Tells a
 // roam between APs apart without publishing a MAC.
 std::string bssidTag(const uint8_t* bssid);

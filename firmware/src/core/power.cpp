@@ -2,7 +2,9 @@
 
 #include <algorithm>
 #include <cmath>
+#include <cstdlib>
 
+#include "core/empty_house.h"
 #include "core/logic.h"
 
 namespace x4 {
@@ -12,9 +14,9 @@ int64_t secsUntil(int32_t localSec, int32_t targetSec) {
   return d == 0 ? 86400 : d;
 }
 
-int64_t glanceWaitS(int wakeEvery, int fails) {
-  const int f = fails < 0 ? 0 : fails > 4 ? 4 : fails;
-  return std::min<int64_t>(int64_t(wakeEvery) * 60 << f, kGlanceBackoffMaxS);
+int64_t glanceWaitS(int32_t localSec, const std::string& quiet) {
+  const int64_t midnight = secsUntil(localSec, 0);
+  return nightEndHour(quiet) < 0 ? midnight : std::min(midnight, secsUntil(localSec, std::atoi(quiet.c_str()) * 3600));
 }
 
 bool isExternalPower(const PowerInputs& i) {
@@ -46,7 +48,8 @@ PowerDecision powerDecision(const PowerInputs& i) {
   int64_t wait = kMaxSleepS;
   if (quiet) { d.reason = "quiet"; wait = std::min(wait, secsUntil(i.localSec, nightEndHour(i.quiet) * 3600)); }
   else if (i.powerSave == PowerSave::Standby && i.standby) { d.reason = "standby"; wait = std::min<int64_t>(wait, int64_t(i.wakeEvery) * 60); }
-  else if (i.powerSave == PowerSave::Glance) { d.reason = "glance"; wait = std::min(wait, glanceWaitS(i.wakeEvery, i.glanceFails)); }
+  else if (i.powerSave == PowerSave::Glance && i.emptyHouse) { d.reason = "empty house"; wait = std::min(wait, emptyWaitS(i.localSec, i.quiet)); }   // #331
+  else if (i.powerSave == PowerSave::Glance) { d.reason = "glance"; wait = std::min(wait, glanceWaitS(i.localSec, i.quiet)); }   // #356
   else return awake("awake");
   if (otaWanted) wait = std::min(wait, secsUntil(i.localSec, kOtaHour * 3600));
   d.deepSleepNow = true;

@@ -1,0 +1,457 @@
+{
+  "description": "Empty-house sleep (#331, emulator src/core/emptyHouse.ts, firmware core/empty_house.cpp). validSource: display.emptyHouse ('' = off, else a zone / binary_sensor / input_boolean / group entity id). houseEmpty: zone state = persons in it (0 = empty), others off = empty; unknown / unavailable / missing = not empty. waitS: seconds of an empty-house sleep from localSec, 2 h cut at the start of quiet hours. nextAt: the face's \"next update ~\" time. facts: inside temperature, doors / windows (binary_sensor with device_class door, window, opening, garage_door), alarm (first alarm_control_panel by id); null = no source, row dropped.",
+  "waitS": 7200,
+  "defaultSource": "zone.home",
+  "validSource": [
+    {
+      "v": "",
+      "ok": true
+    },
+    {
+      "v": "zone.home",
+      "ok": true
+    },
+    {
+      "v": "binary_sensor.someone_home",
+      "ok": true
+    },
+    {
+      "v": "input_boolean.away_mode",
+      "ok": true
+    },
+    {
+      "v": "group.family",
+      "ok": true
+    },
+    {
+      "v": "person.someone",
+      "ok": false
+    },
+    {
+      "v": "sensor.people",
+      "ok": false
+    },
+    {
+      "v": "zone",
+      "ok": false
+    },
+    {
+      "v": "Zone.Home",
+      "ok": false
+    },
+    {
+      "v": "zone.home ",
+      "ok": false
+    },
+    {
+      "v": ".home",
+      "ok": false
+    }
+  ],
+  "houseEmpty": [
+    {
+      "entity": "zone.home",
+      "state": "0",
+      "empty": true
+    },
+    {
+      "entity": "zone.home",
+      "state": "1",
+      "empty": false
+    },
+    {
+      "entity": "zone.home",
+      "state": "2",
+      "empty": false
+    },
+    {
+      "entity": "zone.home",
+      "state": "unknown",
+      "empty": false
+    },
+    {
+      "entity": "zone.home",
+      "state": "unavailable",
+      "empty": false
+    },
+    {
+      "entity": "zone.home",
+      "state": null,
+      "empty": false
+    },
+    {
+      "entity": "zone.home",
+      "state": "0.0",
+      "empty": false
+    },
+    {
+      "entity": "binary_sensor.someone_home",
+      "state": "off",
+      "empty": true
+    },
+    {
+      "entity": "binary_sensor.someone_home",
+      "state": "on",
+      "empty": false
+    },
+    {
+      "entity": "input_boolean.away_mode",
+      "state": "off",
+      "empty": true
+    },
+    {
+      "entity": "group.family",
+      "state": "off",
+      "empty": true
+    },
+    {
+      "entity": "group.family",
+      "state": "home",
+      "empty": false
+    },
+    {
+      "entity": "group.family",
+      "state": "not_home",
+      "empty": false
+    },
+    {
+      "entity": "sensor.people",
+      "state": "off",
+      "empty": false
+    },
+    {
+      "entity": "",
+      "state": "off",
+      "empty": false
+    }
+  ],
+  "wait": [
+    {
+      "name": "noon, quiet 23-07",
+      "localSec": 43200,
+      "quiet": "23-07",
+      "s": 7200
+    },
+    {
+      "name": "22:00, quiet 23-07: to 23:00",
+      "localSec": 79200,
+      "quiet": "23-07",
+      "s": 3600
+    },
+    {
+      "name": "22:59:30, quiet 23-07",
+      "localSec": 82770,
+      "quiet": "23-07",
+      "s": 30
+    },
+    {
+      "name": "quiet off",
+      "localSec": 82800,
+      "quiet": "off",
+      "s": 7200
+    },
+    {
+      "name": "23:30, quiet 00-06: to midnight",
+      "localSec": 84600,
+      "quiet": "00-06",
+      "s": 1800
+    },
+    {
+      "name": "07:00, quiet 23-07 just ended",
+      "localSec": 25200,
+      "quiet": "23-07",
+      "s": 7200
+    }
+  ],
+  "nextAt": [
+    {
+      "localSec": 43200,
+      "quiet": "23-07",
+      "clock": "24",
+      "t": "14:00"
+    },
+    {
+      "localSec": 50700,
+      "quiet": "off",
+      "clock": "24",
+      "t": "16:05"
+    },
+    {
+      "localSec": 50700,
+      "quiet": "off",
+      "clock": "12",
+      "t": "4:05"
+    },
+    {
+      "localSec": 79200,
+      "quiet": "23-07",
+      "clock": "24",
+      "t": "23:00"
+    },
+    {
+      "localSec": 84600,
+      "quiet": "off",
+      "clock": "24",
+      "t": "01:30"
+    },
+    {
+      "localSec": 84600,
+      "quiet": "off",
+      "clock": "12",
+      "t": "1:30"
+    },
+    {
+      "localSec": 41400,
+      "quiet": "off",
+      "clock": "12",
+      "t": "1:30"
+    }
+  ],
+  "facts": [
+    {
+      "name": "nothing to say",
+      "inside": null,
+      "entities": [],
+      "expect": {
+        "inside": null,
+        "open": null,
+        "alarm": null
+      }
+    },
+    {
+      "name": "inside only",
+      "inside": 20.5,
+      "entities": [
+        {
+          "id": "sensor.x",
+          "name": "X",
+          "state": "3",
+          "deviceClass": "temperature"
+        }
+      ],
+      "expect": {
+        "inside": 20.5,
+        "open": null,
+        "alarm": null
+      }
+    },
+    {
+      "name": "all doors closed",
+      "inside": 19,
+      "entities": [
+        {
+          "id": "binary_sensor.front_door",
+          "name": "Front door",
+          "state": "off",
+          "deviceClass": "door"
+        },
+        {
+          "id": "binary_sensor.kitchen_window",
+          "name": "Kitchen window",
+          "state": "off",
+          "deviceClass": "window"
+        }
+      ],
+      "expect": {
+        "inside": 19,
+        "open": {
+          "n": 0,
+          "first": ""
+        },
+        "alarm": null
+      }
+    },
+    {
+      "name": "one open: its name",
+      "inside": null,
+      "entities": [
+        {
+          "id": "binary_sensor.kitchen_window",
+          "name": "Kitchen window",
+          "state": "on",
+          "deviceClass": "window"
+        },
+        {
+          "id": "binary_sensor.front_door",
+          "name": "Front door",
+          "state": "off",
+          "deviceClass": "door"
+        }
+      ],
+      "expect": {
+        "inside": null,
+        "open": {
+          "n": 1,
+          "first": "Kitchen window"
+        },
+        "alarm": null
+      }
+    },
+    {
+      "name": "two open: first by entity id",
+      "inside": null,
+      "entities": [
+        {
+          "id": "binary_sensor.shed",
+          "name": "Shed",
+          "state": "on",
+          "deviceClass": "garage_door"
+        },
+        {
+          "id": "binary_sensor.back_door",
+          "name": "Back door",
+          "state": "on",
+          "deviceClass": "opening"
+        }
+      ],
+      "expect": {
+        "inside": null,
+        "open": {
+          "n": 2,
+          "first": "Back door"
+        },
+        "alarm": null
+      }
+    },
+    {
+      "name": "motion and unavailable doors are no doors",
+      "inside": null,
+      "entities": [
+        {
+          "id": "binary_sensor.hall_motion",
+          "name": "Hall motion",
+          "state": "on",
+          "deviceClass": "motion"
+        },
+        {
+          "id": "binary_sensor.front_door",
+          "name": "Front door",
+          "state": "unavailable",
+          "deviceClass": "door"
+        }
+      ],
+      "expect": {
+        "inside": null,
+        "open": null,
+        "alarm": null
+      }
+    },
+    {
+      "name": "alarm armed away",
+      "inside": null,
+      "entities": [
+        {
+          "id": "alarm_control_panel.house",
+          "name": "House",
+          "state": "armed_away",
+          "deviceClass": ""
+        }
+      ],
+      "expect": {
+        "inside": null,
+        "open": null,
+        "alarm": "armed"
+      }
+    },
+    {
+      "name": "alarm arming counts as armed",
+      "inside": null,
+      "entities": [
+        {
+          "id": "alarm_control_panel.house",
+          "name": "House",
+          "state": "arming",
+          "deviceClass": ""
+        }
+      ],
+      "expect": {
+        "inside": null,
+        "open": null,
+        "alarm": "armed"
+      }
+    },
+    {
+      "name": "alarm disarmed",
+      "inside": null,
+      "entities": [
+        {
+          "id": "alarm_control_panel.house",
+          "name": "House",
+          "state": "disarmed",
+          "deviceClass": ""
+        }
+      ],
+      "expect": {
+        "inside": null,
+        "open": null,
+        "alarm": "disarmed"
+      }
+    },
+    {
+      "name": "alarm triggered, first panel by id",
+      "inside": null,
+      "entities": [
+        {
+          "id": "alarm_control_panel.z",
+          "name": "Z",
+          "state": "disarmed",
+          "deviceClass": ""
+        },
+        {
+          "id": "alarm_control_panel.a",
+          "name": "A",
+          "state": "triggered",
+          "deviceClass": ""
+        }
+      ],
+      "expect": {
+        "inside": null,
+        "open": null,
+        "alarm": "triggered"
+      }
+    },
+    {
+      "name": "alarm unavailable: row dropped",
+      "inside": null,
+      "entities": [
+        {
+          "id": "alarm_control_panel.house",
+          "name": "House",
+          "state": "unavailable",
+          "deviceClass": ""
+        }
+      ],
+      "expect": {
+        "inside": null,
+        "open": null,
+        "alarm": null
+      }
+    },
+    {
+      "name": "all three",
+      "inside": -1.5,
+      "entities": [
+        {
+          "id": "alarm_control_panel.house",
+          "name": "House",
+          "state": "armed_night",
+          "deviceClass": ""
+        },
+        {
+          "id": "binary_sensor.front_door",
+          "name": "Front door",
+          "state": "on",
+          "deviceClass": "door"
+        }
+      ],
+      "expect": {
+        "inside": -1.5,
+        "open": {
+          "n": 1,
+          "first": "Front door"
+        },
+        "alarm": "armed"
+      }
+    }
+  ]
+}

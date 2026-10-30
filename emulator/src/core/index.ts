@@ -3,6 +3,7 @@ export * from './format.ts';
 export * from './config.ts';
 export * from './severity.ts';
 export * from './route.ts';
+export * from './bins.ts';
 export * from './regions.ts';
 export * from './paging.ts';
 export * from './refresh.ts';

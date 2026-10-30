@@ -18,14 +18,18 @@
 #include <algorithm>
 #include <cctype>
 #include <cstdlib>
+#include <cstring>
+#include <esp_heap_caps.h>
 
 #include "Logging.h"
 #include "core/ota_status.h"
+#include "core/www_image.h"
 #include "hw/watchdog.h"
 #include "net/ha_client.h"
 #include "net/health.h"
 #include "net/hub.h"
 #include "net/wifi_mgr.h"
+#include "net/www_ota.h"
 #include "net/storage.h"
 #include "net/tls.h"
 #include "net/util.h"
@@ -78,6 +82,16 @@ std::atomic<bool> g_checking{false};
 bool g_justUpdated = false;
 bool g_nightTried = false;
 uint32_t g_nightTriedMs = 0;
+// Console sync (#350): the www.bin of the running version's release, retried this often (or after a check)
+constexpr uint32_t kWwwRetryMs = 6UL * 3600UL * 1000UL;
+constexpr uint32_t kWwwRetryFailedMs = 10UL * 60UL * 1000UL;
+bool g_wwwTried = false;
+std::atomic<bool> g_wwwKick{false};
+uint32_t g_wwwTriedMs = 0;
+bool wwwSyncDue(uint32_t up);
+bool wwwSync(std::string& err);
+bool wwwDownloading();
+void wwwStep();
 
 // Upload state (AsyncTCP task)
 mbedtls_sha256_context g_upSha;
@@ -158,7 +172,7 @@ int64_t otaLastCheckEpoch() { return storage().getI64(kNs, "last", 0); }
 bool otaPendingVerify() { return g_pending && !g_validated; }
 bool otaChecking() { return g_checking; }
 bool otaBusy() {
-  if (g_upActive) return true;
+  if (g_upActive || wwwWriting()) return true;   // #350: no install/restart/sleep while the console is rewritten
   std::lock_guard<std::recursive_mutex> l(hub().mu);
   return hub().status.ota == OtaState::Downloading || hub().status.ota == OtaState::Installing;
 }
@@ -234,6 +248,12 @@ void otaLoop() {
       esp_ota_mark_app_invalid_rollback_and_reboot();
     }
   }
+  wwwLoop();
+  if (wwwDownloading()) wwwStep();
+  else if (wwwSyncDue(up)) {
+    std::string err;
+    if (!wwwSync(err)) LOG_WRN("OTA", "console update: %s", err.c_str());
+  }
   // Automatic updates (Settings › Updates › Automatic): off = only when the user checks; notify = check GitHub once a
   // day and show the update icon; night = same daily check, then install between 03:00 and 04:00 local time when the
   // battery is above 50 % (or charging). Independent of Home Assistant.
@@ -296,7 +316,10 @@ bool otaCheck(std::string& err) {
   bool ok = otaCheckImpl(err, why);
   setChecking(false, ok, why, err);
   g_checking = false;
-  if (ok) g_justUpdated = false;
+  if (ok) {
+    g_justUpdated = false;
+    g_wwwKick = true;   // a check also retries a stale console (#350)
+  }
   LOG_INF("OTA", "check · %s", ok ? "done" : otaErrName(why) ? otaErrName(why) : "skipped");
   return ok;
 }
@@ -431,9 +454,166 @@ bool otaCheckImpl(std::string& err, OtaErr& why) {
 }
 }  // namespace
 
+namespace {
+// The download of a running console update: one otaLoop pass moves at most kWwwStepBytes / kWwwStepMs, so Wi-Fi, HA
+// and the hub keep running on the net task for the minute it takes (#350 review).
+constexpr size_t kWwwStepBytes = 16 * 1024;
+constexpr uint32_t kWwwStepMs = 50;
+struct WwwDownload {
+  std::unique_ptr<NetworkClientSecure> client{new NetworkClientSecure()};
+  HTTPClient http;   // declared after client: destroyed first
+  std::string sha;
+  size_t size = 0, got = 0;
+  uint32_t lastData = 0;
+  uint8_t* buf = static_cast<uint8_t*>(heap_caps_malloc(4096, MALLOC_CAP_INTERNAL | MALLOC_CAP_8BIT));
+  ~WwwDownload() {
+    http.end();
+    free(buf);
+  }
+};
+std::unique_ptr<WwwDownload> g_wwwDl;
+bool wwwDownloading() { return g_wwwDl != nullptr; }
+bool g_wwwWasUp = false;
+
+bool wwwSyncDue(uint32_t up) {
+  const bool upNow = netConnected();
+  if (upNow && !g_wwwWasUp) g_wwwKick = true;   // retry on reconnect (a Wi-Fi drop mid-download)
+  g_wwwWasUp = upNow;
+  if (g_wwwDl || !otaRepo()[0] || (g_pending && !g_validated) || up < kStableMs || g_checking || !upNow || otaBusy())
+    return false;
+  const WwwInfo w = wwwInfo();
+  if (w.current || std::strcmp(w.state, "updating") == 0) return false;
+  // console offline (failed): every 10 min; stale but working: after a check, else every 6 h
+  const uint32_t every = std::strcmp(w.state, "failed") == 0 ? kWwwRetryFailedMs : kWwwRetryMs;
+  return !g_wwwTried || g_wwwKick || millis() - g_wwwTriedMs >= every;
+}
+
+void wwwDlFail(const char* why) {
+  g_wwwDl.reset();
+  wwwWriteAbort(why);
+  LOG_WRN("OTA", "console update: %s", why);
+}
+
+// Pass of the running download (otaLoop): read what arrived, write it, finish or give up.
+void wwwStep() {
+  WwwDownload& d = *g_wwwDl;
+  NetworkClient* s = d.http.getStreamPtr();
+  const uint32_t t0 = millis();
+  size_t moved = 0;
+  while (d.got < d.size && moved < kWwwStepBytes && millis() - t0 < kWwwStepMs) {
+    size_t avail = s ? s->available() : 0;
+    if (!avail) {
+      if (!s || !s->connected() || millis() - d.lastData > 20000) return wwwDlFail("download interrupted");
+      return;   // next pass
+    }
+    int n = s->read(d.buf, std::min<size_t>(std::min<size_t>(avail, 4096), d.size - d.got));
+    if (n <= 0) return wwwDlFail("download interrupted");
+    d.lastData = millis();
+    std::string err;
+    if (!wwwWriteChunk(d.buf, n, &err)) return wwwDlFail(err.c_str());
+    d.got += n;
+    moved += n;
+  }
+  if (d.got < d.size) return;
+  const std::string sha = d.sha;
+  g_wwwDl.reset();
+  std::string err;
+  if (!wwwWriteEnd(sha, err)) LOG_WRN("OTA", "console update: %s", err.c_str());
+}
+
+// The console of the running version: release v<version> → manifest.json `www` → www.bin streamed into the partition
+// by wwwStep. Starts only on a confirmed image (wwwSyncDue), so a rollback never leaves a newer console behind. The
+// HTTP stream is open before the console goes offline: no network = the old console stays.
+bool wwwSync(std::string& err) {
+  g_wwwTried = true;
+  g_wwwKick = false;
+  g_wwwTriedMs = millis();
+  const std::string tag = std::string("v") + firmwareVersion();
+  const std::string api = std::string("https://api.github.com/repos/") + otaRepo() + "/releases/tags/" + tag;
+  LOG_INF("OTA", "console v%s out of date · GET %s", wwwInfo().version.c_str(), api.c_str());
+  std::string body;
+  int code = githubGet(api, body, 256 * 1024, 15000, "application/vnd.github+json");
+  if (code != 200) {
+    err = code == 404 ? "no release " + tag : "GitHub not reachable (HTTP " + std::to_string(code) + ")";
+    return false;
+  }
+  JsonDocument filter;
+  filter["assets"][0]["name"] = true;
+  filter["assets"][0]["browser_download_url"] = true;
+  JsonDocument doc;
+  const bool bad = static_cast<bool>(deserializeJson(doc, body, DeserializationOption::Filter(filter)));
+  std::string().swap(body);   // give the 256 KB back before the TLS download
+  if (bad) {
+    err = "unexpected answer from GitHub";
+    return false;
+  }
+  std::string wwwUrl, manUrl;
+  for (JsonObject a : doc["assets"].as<JsonArray>()) {
+    std::string name = a["name"] | "";
+    if (name == "www.bin") wwwUrl = a["browser_download_url"] | "";
+    if (name == "manifest.json") manUrl = a["browser_download_url"] | "";
+  }
+  doc.clear();
+  if (wwwUrl.empty() || manUrl.empty()) {
+    err = "release " + tag + " has no www.bin + manifest.json";
+    return false;
+  }
+  std::string man;
+  www::Manifest m;
+  Release r;
+  code = githubGet(manUrl, man, 16 * 1024, 15000);
+  if (code != 200 || !parseManifest(man, r, err) || r.version != firmwareVersion() || !www::parseManifest(man, m)) {
+    if (err.empty()) err = code != 200 ? "manifest.json download failed (HTTP " + std::to_string(code) + ")"
+                                       : "manifest.json of " + tag + " has no www entry";
+    return false;
+  }
+  if (!otaBatteryOk(&err)) return false;
+  if (!tlsHeapOk("console download", TlsPeer::GitHub)) {
+    makeTlsRoom("console download");
+    if (!tlsHeapOk("console download", TlsPeer::GitHub)) {
+      err = kLowMemMsg;
+      return false;
+    }
+  }
+  std::unique_ptr<WwwDownload> d(new WwwDownload());
+  if (!d->buf) {
+    err = "out of memory";
+    return false;
+  }
+  attachCaBundle(*d->client);
+  d->http.setFollowRedirects(HTTPC_STRICT_FOLLOW_REDIRECTS);
+  d->http.setTimeout(20000);
+  if (!d->http.begin(*d->client, wwwUrl.c_str())) {
+    err = "download failed";
+    return false;
+  }
+  d->http.setUserAgent(String("HA-Paper/") + firmwareVersion());
+  {
+    wdt::BlockingCall b("OTA www GET");
+    code = d->http.GET();
+  }
+  const int len = d->http.getSize();
+  if (code != 200 || (len > 0 && static_cast<size_t>(len) != m.size)) {
+    err = code != 200 ? "www.bin download failed (HTTP " + std::to_string(code) + ")" : "www.bin size does not match manifest.json";
+    return false;
+  }
+  if (wwwWriteBegin(m.size, err)) return false;
+  LOG_INF("OTA", "GET %s → www partition (streamed)", wwwUrl.c_str());
+  d->sha = m.sha256;
+  d->size = m.size;
+  d->lastData = millis();
+  g_wwwDl = std::move(d);
+  return true;
+}
+}  // namespace
+
 bool otaInstall(std::string& err) {
   if (g_avail.version.empty()) {
     err = "Already up to date";
+    return false;
+  }
+  if (wwwWriting()) {   // a restart now would cut the console rewrite (#350)
+    err = "The web console is being updated — try again in a minute";
     return false;
   }
   if (!otaBatteryOk(&err)) {
@@ -555,6 +735,10 @@ void otaUploadSetVersion(const std::string& v) {
 bool otaUploadBegin(size_t size, const std::string& version, std::string& err) {
   if (g_upActive) {
     err = "an upload is already running";
+    return false;
+  }
+  if (wwwWriting()) {
+    err = "the web console is being updated — try again in a minute";
     return false;
   }
   if (!otaBatteryOk(&err)) return false;

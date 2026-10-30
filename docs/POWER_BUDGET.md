@@ -13,7 +13,7 @@ glance timer wake, else `awake`), so all five can be shown. None is measured on 
 | Mode | What runs | Measurable now? |
 |---|---|---|
 | A. Live | Awake, Home on screen, Wi-Fi associated, HA WebSocket open, minute-tick partials. On battery: 80 MHz, modem sleep `min`; on USB: 240 MHz, no modem sleep (#177; `/status` `power.applied`) | yes |
-| B. Glance wake | Timer wake → Wi-Fi → HA snapshot over REST → partial refresh only if something changed → deep sleep (every `wakeEvery`, default 15 min) | yes (built in #10, unmeasured) |
+| B. Glance wake | Timer wake → Wi-Fi → HA snapshot → full refresh only if the sleep face changed → deep sleep. Since #356 only at transitions: midnight, quiet-hours start and end, the 03:00 install slot, at most every 8 h (was every `wakeEvery`, 15 min) | yes (built in #10, unmeasured) |
 | C. Deep sleep | Floor between wakes. GPIO1 held, timer + Power/Right/charger wake armed, touch rail off | yes (built in #10, unmeasured; stock firmware's sleep as a reference) |
 | D. Wi-Fi connect | From radio on to an IP (and, for B, to the first HA answer). Part of every B; also at boot and after a router restart | yes, at boot |
 | E. Refresh | One full refresh (~3 s assumed, A13 in [HARDWARE_ASSUMPTIONS.md](HARDWARE_ASSUMPTIONS.md)) and one partial (clock tick, page turn) | yes |
@@ -108,6 +108,9 @@ days    = 1100 mAh / (mAh/day)          (capacity is itself an assumption: A27)
 | Night deep sleep (3.3) + 3.5 by day | ≈ 92 mAh/day | ~12 (ROBUSTNESS_PLAN) | | |
 | Glance, 15 min, TRMNL figures: 0.1 mA × 24 h + 96 × 0.19 mAh | ≈ 20.6 mAh/day | ~53 (ROBUSTNESS_PLAN says ~2 months, power.ts ~55 days) | | |
 | Glance, 15 min, + 10 min live per day at the 3.2 estimate | 20.6 + (27-38 mA × 0.17 h) ≈ 25-27 mAh/day | ~41-44 | | |
+
+Since #356 glance wakes 2-4 times a day instead of 96 (midnight / quiet start, quiet end, the 8 h cap), so the wake term
+drops from ≈ 18 mAh/day to under 1 mAh/day at the TRMNL figure; the floor (C) and live time after presses dominate.
 
 What the numbers will decide: whether glance at 15 minutes reaches "weeks, not hours" with our HA + TLS wake (TRMNL
 pulls one image; we open a TLS session to HA and may redraw), how long a button press may keep the display live, and

@@ -5,6 +5,28 @@ display lists under "What's new" on its Updates screen (manifest.json `notes`): 
 most 34 characters. The release workflow fails if the tag's section is missing or a bullet is too long
 (`firmware/tools/release_notes.py`). Prose below the bullets goes only into the GitHub release.
 
+## 0.2.0-beta.5
+
+- Agenda, bins and weather tiles
+- Now playing with favorites
+- Good morning page after quiet
+- Guest Wi-Fi QR code tile
+- Nobody home: longer sleep
+- Fixes a crash going to sleep
+
+New tiles: the agenda and Next tiles read HA calendars; the bin day tile says which bin goes out and when; the
+weather tile draws the condition with high, low, wind and a 5-day strip; now playing shows title and artist with
+play, skip and volume taps, and favorites picked in the console. The guest Wi-Fi tile shows a QR code to join, with
+the name and password in large type. On the first wake after quiet hours a Good morning page shows the weather,
+today's events and the bins, for 20 minutes or until a press.
+
+Better: a history tile can show the past and the forecast in one chart, the forecast drawn lighter. The quiet face
+has a "Tomorrow" row with the forecast, the first event and the bins. While nobody is home the display wakes every
+2 hours and shows "Nobody home". Asleep, it shows the date and "Asleep" instead of a time of day. The battery % no
+longer goes up without a charger, and diagnostics show awake time per phase.
+
+Fixed: a crash in mDNS when the display went into deep sleep (#326).
+
 ## 0.2.0-beta.4
 
 - History charts on the display

@@ -39,6 +39,8 @@ const char* powerArmedBy();          // "uptime" | "boots" | nullptr (#231, any 
 std::string powerBatteryJson();      // GET /diagnostics battery (#231, any task)
 // GET /diagnostics power_trail (#225, any task): last /power.txt line when this boot started, and the newest lines
 void powerTrail(std::string& beforeBoot, std::vector<std::string>& lines);
+uint32_t powerEmptySleeps();         // GET /diagnostics power_trail.empty_house_sleeps (#331, any task)
+std::string powerPhasesJson();       // GET /diagnostics power_trail.phases (#327, any task): this boot + ended boots
 // App::onPowerStage (main task): append the Power key stage to /power.txt, closed before the App goes on
 void powerKeyStage(const char* stage);
 const char* powerMode();             // GET /status power.mode: awake | glance (a glance wake in progress)

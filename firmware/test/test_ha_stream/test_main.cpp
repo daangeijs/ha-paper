@@ -159,6 +159,18 @@ void test_whitelist_covers_readers() {
     TEST_ASSERT_FALSE_MESSAGE(keepAttr(k), k);
 }
 
+void test_door_class_kept() {   // #331: device_class of door / window binary_sensors only
+  PMap<EntityValue> m;
+  EntityUpdates out;
+  JsonDocument d;
+  deserializeJson(d, R"({"a":{"binary_sensor.front":{"s":"on","a":{"friendly_name":"Front","device_class":"door"}},
+    "binary_sensor.hall":{"s":"on","a":{"device_class":"motion"}},"sensor.t":{"s":"3","a":{"device_class":"window"}}}})");
+  applyEntityEvent(d.as<JsonObjectConst>(), m, out);
+  TEST_ASSERT_EQUAL_STRING("door", m["binary_sensor.front"].attrs.at("device_class").c_str());
+  TEST_ASSERT_EQUAL(0, int(m["binary_sensor.hall"].attrs.count("device_class")));
+  TEST_ASSERT_EQUAL(0, int(m["sensor.t"].attrs.count("device_class")));
+}
+
 void test_changed_and_removed() {
   PMap<EntityValue> m;
   EntityUpdates out;
@@ -303,6 +315,7 @@ int main(int, char**) {
   RUN_TEST(test_big_house_mirror_bytes);
   RUN_TEST(test_entity_with_many_attributes_keeps_whitelist);
   RUN_TEST(test_whitelist_covers_readers);
+  RUN_TEST(test_door_class_kept);
   RUN_TEST(test_changed_and_removed);
   RUN_TEST(test_diff_on_adapter_raw);
   RUN_TEST(test_registry_precision);

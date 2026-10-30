@@ -119,14 +119,16 @@ opens the factory reset screen. The small button on the top edge next to the mic
 switches the display off; hold Power to start it again.
 
 Power saving modes: *Always live*, *Standby*, and *Glance* (the default): on battery it
-deep-sleeps and wakes every 15 minutes to redraw if something changed, and stays live for a few minutes after you
-press a button. On USB the display is always live. *Quiet hours* (default 23:00–07:00) show "Back at 07:00" with a few
+shows a calm sleep screen (the date, "Asleep · press to wake", today's weather, next event and bins) and deep-sleeps
+until you press a button; it wakes on its own only at midnight and when quiet hours start or end (at most every 8 hours).
+After a press it shows the dashboard and stays live for a few minutes. On USB the display is always live. *Quiet hours* (default 23:00–07:00) show "Back at 07:00" with a few
 values from your Home page; on battery the display does not wake on its own until then, and a press shows the dashboard.
 
 *Glance* vs *Always live*: e-paper keeps its last picture without power, so a sleeping display still looks on. In
 glance the chip is in deep sleep between wakes: no Wi-Fi, no web console, no USB serial, so the device is not on the
-network and a computer does not see it. Before it sleeps the top bar says "Asleep · updated 07:45" instead of the clock,
-and a Clock tile labels its time "Updated · asleep". A press on Power or Right wakes it: the screen stays as it is for
+network and a computer does not see it. Glance mode has no clock: a sleeping panel cannot tick, and a time that is 40
+minutes old reads as a wrong clock, so the sleep screen shows only the date. A wake on its own leaves the front light off.
+A press on Power or Right wakes it: the screen stays as it is for
 a few seconds while Wi-Fi and Home Assistant connect, then redraws once (no start-up screen). Want a live clock and an
 always reachable device on battery? Pick *Always live*, at the cost of battery life.
 
@@ -195,8 +197,8 @@ release (or pre-releases, on the beta channel), and *Check for updates* / *Insta
 `GET /api/v1/ota` reports `auto: off` and the display's Updates page says *Update checks off*; new firmware then goes
 in by upload or USB.
 
-OTA updates only the app. The web console lives in its own partition (`www.bin`) and changes with `make flash` or a
-flasher, which leave your screens and settings alone. More detail: [docs/FLASHING.md](docs/FLASHING.md) §6.
+OTA updates the app, then the web console (its own partition, `www.bin`) once the new app is confirmed; `make flash`
+and the flashers write both. Screens and settings are left alone. More detail: [docs/FLASHING.md](docs/FLASHING.md) §6.
 
 ## Logs and long-running checks
 

@@ -1,5 +1,7 @@
 #include "core/ha_stream.h"
 
+#include "core/empty_house.h"
+
 #include <cstring>
 
 namespace x4 {
@@ -13,6 +15,9 @@ const char* const kAttrs[] = {
     "area_id", "area_name", "brightness", "dimmable", "supported_color_modes",              // lights
     "x4_order",                                                                             // climate, lights
     "departures", "upcoming", "per_hour", "note", "typical",                                // routes (upcoming: #275)
+    "apparent_temperature", "wind_speed", "wind_speed_unit", "wind_bearing", "precipitation_unit",   // weather tile (#318)
+    "media_title", "media_artist", "volume_level",                                          // now playing (#319)
+    "daysTo",                                                                               // bins (#317; upcoming above)
 };
 
 std::vector<std::pair<PStr, PStr>, PsramAlloc<std::pair<PStr, PStr>>>& extras() {
@@ -22,9 +27,15 @@ std::vector<std::pair<PStr, PStr>, PsramAlloc<std::pair<PStr, PStr>>>& extras() 
 
 int64_t epochOf(ArduinoJson::JsonVariantConst v) { return v.is<double>() ? static_cast<int64_t>(v.as<double>()) : 0; }
 
+// #331 Nobody home face: device_class of a door / window binary_sensor only (core/empty_house.h isOpeningClass)
+bool openingClass(const char* id, const char* key, ArduinoJson::JsonVariantConst v) {
+  return std::strcmp(key, "device_class") == 0 && std::strncmp(id, "binary_sensor.", 14) == 0 && v.is<const char*>() &&
+         isOpeningClass(v.as<const char*>());
+}
+
 void setAttrs(ArduinoJson::JsonObjectConst a, EntityValue& v, const char* id) {
   for (ArduinoJson::JsonPairConst p : a)
-    if (keepAttrFor(id, p.key().c_str())) v.attrs[p.key().c_str()] = scalarText(p.value());
+    if (keepAttrFor(id, p.key().c_str()) || openingClass(id, p.key().c_str(), p.value())) v.attrs[p.key().c_str()] = scalarText(p.value());
 }
 }  // namespace
 
@@ -46,6 +57,8 @@ bool setExtraAttrs(const std::vector<std::pair<std::string, std::string>>& entit
 
 bool keepAttrFor(const char* entity, const char* key) {
   if (keepAttr(key)) return true;
+  // #351: a player's VOLUME_SET bit picks the volume slider; only media players keep it (every entity has one)
+  if (std::strcmp(key, "supported_features") == 0 && std::strncmp(entity, "media_player.", 13) == 0) return true;
   for (auto& e : extras()) if (e.second == key && e.first == entity) return true;
   return false;
 }

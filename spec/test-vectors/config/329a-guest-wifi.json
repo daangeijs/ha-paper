@@ -1,0 +1,68 @@
+{
+  "name": "329a-guest-wifi",
+  "description": "A guestWifi tile (#329): ssid, password (fieldEncode: %2C = \",\"), security WPA | WEP | nopass, hidden: true, password_entity (input_text / text / sensor) overriding password; values kept as written.",
+  "input": "# HA Paper display config\nversion: 1\nscreens:\n  - id: a\n    widgets:\n      - {type: guestWifi, ssid: Harbor Guest, password: tea%2C please, cs: 2, rs: 2}\n      - {type: guestWifi, ssid: Lobby, security: nopass, hidden: true, cs: 2}\n  - id: b\n    widgets:\n      - {type: guestWifi, ssid: Attic, password: %3012345678, security: WEP, hidden: false}\n      - {type: guestWifi, ssid: Harbor Guest, password_entity: input_text.guest_password, cs: 2}\n",
+  "expect": {
+    "ok": true,
+    "apps": [
+      {
+        "id": "home",
+        "title": "Home"
+      },
+      {
+        "id": "house",
+        "title": "House"
+      },
+      {
+        "id": "travel",
+        "title": "Travel"
+      }
+    ],
+    "screens": [
+      {
+        "id": "a",
+        "app": "home",
+        "title": "a",
+        "cells": 6,
+        "widgets": [
+          {
+            "type": "guestWifi",
+            "ssid": "Harbor Guest",
+            "password": "tea%2C please",
+            "cs": 2,
+            "rs": 2
+          },
+          {
+            "type": "guestWifi",
+            "ssid": "Lobby",
+            "security": "nopass",
+            "hidden": "true",
+            "cs": 2
+          }
+        ]
+      },
+      {
+        "id": "b",
+        "app": "home",
+        "title": "b",
+        "cells": 3,
+        "widgets": [
+          {
+            "type": "guestWifi",
+            "ssid": "Attic",
+            "password": "%3012345678",
+            "security": "WEP",
+            "hidden": "false"
+          },
+          {
+            "type": "guestWifi",
+            "ssid": "Harbor Guest",
+            "password_entity": "input_text.guest_password",
+            "cs": 2
+          }
+        ]
+      }
+    ],
+    "yaml": "# HA Paper display config\nversion: 1\nscreens:\n  - id: a\n    app: home\n    title: a\n    widgets:\n      - {type: guestWifi, ssid: Harbor Guest, password: tea%2C please, cs: 2, rs: 2}\n      - {type: guestWifi, ssid: Lobby, security: nopass, hidden: true, cs: 2}\n  - id: b\n    app: home\n    title: b\n    widgets:\n      - {type: guestWifi, ssid: Attic, password: %3012345678, security: WEP, hidden: false}\n      - {type: guestWifi, ssid: Harbor Guest, password_entity: input_text.guest_password, cs: 2}\n"
+  }
+}

@@ -8,6 +8,7 @@
 #include <cstring>
 #include <ctime>
 #include "core/catalog.h"
+#include "core/empty_house.h"
 #include "core/json.h"
 #ifndef X4_NATIVE
 #include <esp_heap_caps.h>
@@ -50,7 +51,9 @@ void App::begin(const Config& config, const DisplaySettings& settings) {
   impl_->set = settings;
   impl_->policy.setCleanEvery(settings.cleanEvery);
   impl_->lastTick = impl_->ms();
+  impl_->bootDark = !lightOnBoot(impl_->bootWake);   // #357: a timer wake (glance) has nobody to light for
   impl_->applyFrontlight();
+  if (impl_->bootDark) impl_->note("boot (timer) · front light off until a key or tap");
   auto& st = impl_->svc.status();
   impl_->lang = langOf(st.language);
   impl_->numFmt = numFormatOf(st.numberFormat, impl_->lang == Lang::Nl);
@@ -97,11 +100,15 @@ bool App::setHistory(const std::string& key, const hist::Series* series, hist::S
     // full: drop the series no tile of the current config shows any more
     I->hist.erase(std::remove_if(I->hist.begin(), I->hist.end(), [I](const Impl::HistSlot& h) {
       for (auto& sc : I->cfg.screens)
-        for (auto& w : sc.widgets) if (w.type == "history" && hist::seriesKey(hist::specOf(w)) == h.key) return false;
+        for (auto& w : sc.widgets) {
+          if (w.type != "history") continue;
+          const hist::Spec s = hist::specOf(w);
+          if (hist::seriesKey(s) == h.key || (!s.past.empty() && hist::seriesKey(hist::pastSpec(s)) == h.key)) return false;
+        }
       return true;
     }), I->hist.end());
-    if (int(I->hist.size()) >= hist::kMaxTiles) return false;
-    if (I->hist.capacity() < size_t(hist::kMaxTiles)) I->hist.reserve(hist::kMaxTiles);
+    if (int(I->hist.size()) >= Impl::kHistSlots) return false;
+    if (I->hist.capacity() < size_t(Impl::kHistSlots)) I->hist.reserve(Impl::kHistSlots);
     I->hist.emplace_back();
     it = I->hist.end() - 1;
     it->key = key;
@@ -111,6 +118,54 @@ bool App::setHistory(const std::string& key, const hist::Series* series, hist::S
   else it->s.n = 0;
   I->commit("history", true);
   return true;
+}
+const wx::Forecast* App::Impl::wxOf(const std::string& entity) const {
+  for (auto& s : wx) if (s.entity == PStr(entity)) return &s.fc;
+  return nullptr;
+}
+
+void App::setWeather(const std::string& entity, const wx::Forecast& fc) {
+  auto* I = impl_;
+  auto it = std::find_if(I->wx.begin(), I->wx.end(), [&](const Impl::WxSlot& s) { return s.entity == PStr(entity); });
+  if (it == I->wx.end()) {   // full: drop the entities no weather tile shows any more
+    I->wx.erase(std::remove_if(I->wx.begin(), I->wx.end(), [I](const Impl::WxSlot& s) {
+      for (auto& sc : I->cfg.screens)
+        for (auto& w : sc.widgets) if (w.type == "weather" && PStr(w.field("entity")) == s.entity) return false;
+      return true;
+    }), I->wx.end());
+    if (int(I->wx.size()) >= wx::kMaxTiles) return;
+    I->wx.emplace_back();
+    it = I->wx.end() - 1;
+    it->entity = PStr(entity);
+  }
+  it->fc = fc;
+  I->commit("weather", true);
+}
+
+
+const App::Impl::AgendaSlot* App::Impl::agendaOf(const std::string& key) const {
+  for (auto& s : agendas) if (s.key == PStr(key)) return &s;
+  return nullptr;
+}
+
+void App::setAgenda(const std::string& key, agenda::State state, const agenda::Fetch& f) {
+  auto* I = impl_;
+  auto it = std::find_if(I->agendas.begin(), I->agendas.end(), [&](const Impl::AgendaSlot& s) { return s.key == PStr(key); });
+  if (it == I->agendas.end()) {
+    // drop the sets no tile of the current config shows any more
+    I->agendas.erase(std::remove_if(I->agendas.begin(), I->agendas.end(), [I](const Impl::AgendaSlot& s) {
+      for (auto& sc : I->cfg.screens)
+        for (auto& w : sc.widgets) if (agenda::isAgendaType(w.type) && agenda::keyOf(w.field("entities")) == std::string(s.key)) return false;
+      return true;
+    }), I->agendas.end());
+    if (int(I->agendas.size()) >= agenda::kMaxTiles) return;
+    I->agendas.emplace_back();
+    it = I->agendas.end() - 1;
+    it->key = key;
+  }
+  it->state = state;
+  it->f = f;
+  I->commit("agenda", true);
 }
 const Config& App::config() const { return impl_->cfg; }
 const DisplaySettings& App::settings() const { return impl_->set; }
@@ -123,6 +178,7 @@ void App::Impl::panelFull() {
   const uint32_t t0 = ms();
   display.fullRefresh(fb);
   panelMs = ms() - t0;
+  stats.panelMs += panelMs;
   stats.fullRefreshes++;
 }
 void App::Impl::panelFast() {
@@ -131,6 +187,7 @@ void App::Impl::panelFast() {
   const uint32_t t0 = ms();
   display.fastRefresh(fb);
   panelMs = ms() - t0;
+  stats.panelMs += panelMs;
   stats.fastRefreshes++;
 }
 void App::Impl::panelPartial(Rect r) {
@@ -139,6 +196,7 @@ void App::Impl::panelPartial(Rect r) {
   const uint32_t t0 = ms();
   display.partialRefresh(fb, r);
   panelMs = ms() - t0;
+  stats.panelMs += panelMs;
   stats.partialRefreshes++;
 }
 // " · 1234 ms · render 40 ms" after a refresh line (#197 panel ms, #212 framebuffer draw); "· held" on a glance wake
@@ -158,6 +216,8 @@ std::string App::Impl::panelNote() const {
 
 void App::setPanelHeld(bool held) { impl_->held = held; }
 void App::setBootWake(const std::string& wake) { impl_->bootWake = wake; }
+void App::setMorningState(const morning::State& s) { impl_->morningSt = s; }
+void App::onMorningState(std::function<void(const morning::State&)> cb) { impl_->onMorning = std::move(cb); }
 void App::settle() {
   auto* I = impl_;
   if (!I->held || I->mode != Mode::Main) return;
@@ -176,14 +236,21 @@ void App::prepareSleep() {
   const bool away = I->idx != 0 || I->sub != 0 || I->menu != Menu::None || I->sleeping || I->peekUntil || !I->ambient;
   I->idx = 0; I->sub = 0; I->menu = Menu::None; I->sleeping = false; I->peekUntil = 0; I->ambient = true;
   I->applyFrontlight();
-  if (away) I->fullRefresh("sleep · home");
+  // #356: in glance a whole face follows (markAsleep), so no dashboard refresh first; quiet hours and the morning page stay
+  const bool face = I->set.powerSave == "glance" && !I->quietActive() && !I->morningActive();
+  if (away && !face) I->fullRefresh("sleep · home");
 }
 void App::markAsleep(bool on) {
   auto* I = impl_;
   std::string at = on ? I->localTime().clock : std::string();
   if (at == I->asleepAt) return;
+  const int was = I->sleepKind();
   I->asleepAt = at;
-  if (I->mode == Mode::Main) I->commit("asleep", true);
+  if (I->mode != Mode::Main) return;
+  const int is = I->sleepKind();
+  static const char* const kUp[] = {"", "nobody home", "sleep face"};
+  if (is != was) I->fullRefresh(is ? kUp[is] : std::string(kUp[was]) + " · end");   // #331, #356: a whole other face
+  else I->commit("asleep", true);
 }
 std::vector<std::string> App::clockRegions() const {
   std::vector<std::string> out;
@@ -196,7 +263,7 @@ std::vector<std::string> App::clockRegions() const {
 App::PowerView App::powerView() const {
   auto* I = impl_;
   return {I->mode == Mode::Main, I->setup != Setup::None, I->sleeping, I->peekUntil != 0 && !after(I->ms(), I->peekUntil),
-          I->userInput ? int64_t(I->ms() - I->userInputAt) : -1, I->ambient};
+          I->userInput ? int64_t(I->ms() - I->userInputAt) : -1, I->ambient, I->houseEmptyNow()};
 }
 const Framebuffer& App::framebuffer() const { return impl_->fb; }
 std::vector<std::string> App::tileValues(const std::string& screenId) {
@@ -260,7 +327,8 @@ void App::loop() {
     // ambient (#27): the first touch or key (not Power) brings the chrome back and does nothing else
     // light timeout (#220): the same for the first input after the front light went off
     const bool pwr = ev.kind == InputEvent::Kind::KeyDown && ev.key == Key::Power;
-    const bool main = I->mode == Mode::Main, quiet = main && I->quietActive();
+    // #330: a press on the Good morning page always reaches it (one press = the start page)
+    const bool main = I->mode == Mode::Main, quiet = main && (I->quietActive() || I->morningActive());
     const bool light = main && lightWakeConsumes(I->set.brightness, I->sleeping, quiet, I->lightOut, pwr);
     bool consume = light || (I->ambient && main && !I->sleeping && !quiet && !pwr);
     I->input();
@@ -275,8 +343,10 @@ void App::loop() {
       case InputEvent::Kind::Tap: I->tap(ev.x, ev.y); break;
       case InputEvent::Kind::Swipe:
         if (I->mode == Mode::Main && I->quietActive()) I->doPeek("SWIPE");
+        else if (I->slide(ev.x, ev.y, ev.ex)) {}   // #351: a fast drag along a volume bar, not a page swipe
         else if (I->menu == Menu::None) I->nav(ev.dir < 0 ? 1 : -1, ev.dir < 0 ? "SWIPE ←" : "SWIPE →");
         break;
+      case InputEvent::Kind::Drag: I->slide(ev.x, ev.y, ev.ex); break;
     }
   }
   if (I->mode == Mode::Boot && after(now, I->bootUntil)) I->finishBoot();
@@ -290,6 +360,7 @@ void App::loop() {
                      "{\"entity_id\":\"climate." + id + "\",\"temperature\":" + toFixed(it->second, 1) + "}");
       I->pendingSince[id] = now;
     }
+    I->checkMorning();
     I->checkQuiet();
     I->tick();
     if (after(now, I->lastIdle + 1000)) { I->lastIdle = now; I->idleCheck(); }
@@ -316,6 +387,8 @@ LocalTime App::Impl::localTime() {
   t.clock = (set.clock == "12" ? std::to_string(t.h % 12 ? t.h % 12 : 12) : pad2(t.h)) + ":" + pad2(t.m);
   t.hm = pad2(t.h) + ":" + pad2(t.m);
   t.date = dateLine(lang, tm.tm_wday, tm.tm_mday, tm.tm_mon);
+  t.day = std::to_string(tm.tm_mday);
+  t.dayLine = tr(lang, S::asleepDate, tr(lang, S(int(S::day0) + tm.tm_wday % 7)), tr(lang, S(int(S::month0) + tm.tm_mon % 12)));
   struct tm u;
   gmtime_r(&tt, &u);
   t.epochMs = e * 1000;
@@ -373,6 +446,24 @@ bool App::Impl::quietActive() const {
   bool peeking = peekUntil != 0 && int32_t(peekUntil - const_cast<Board&>(board).millis()) > 0;
   return quietHour() && !peeking;
 }
+bool App::Impl::houseEmptyNow() const {
+  if (set.emptyHouse.empty()) return false;
+  const EntityValue* v = store.get(set.emptyHouse);
+  return v && houseEmpty(set.emptyHouse, v->state.c_str());
+}
+bool App::Impl::emptyActive() const {
+  if (offscreen || setup != Setup::None || mode != Mode::Main || asleepAt.empty() || set.powerSave != "glance") return false;
+  return houseEmptyNow() && !quietActive();   // quiet hours win
+}
+bool App::Impl::glanceFaceActive() const {
+  if (offscreen || setup != Setup::None || mode != Mode::Main || asleepAt.empty() || set.powerSave != "glance") return false;
+  return !quietActive() && !emptyActive() && !morningActive();   // quiet hours, Nobody home and the morning page win
+}
+int App::Impl::sleepKind() const { return emptyActive() ? 1 : glanceFaceActive() ? 2 : 0; }
+bool App::Impl::morningActive() const {
+  if (offscreen || mode != Mode::Main || setup != Setup::None || quietActive() || emptyActive()) return false;   // #331: Nobody home wins
+  return morning::up(morningSt, const_cast<Board&>(board).epochSeconds() * 1000);
+}
 bool App::Impl::clockOnPage() const {
   if (setup != Setup::None || menu != Menu::None || cfg.screens.empty()) return false;
   const Screen& sc = *curScreen();
@@ -404,7 +495,7 @@ std::string App::Impl::appOf() const {
 // standby and quiet faces keep the Classic look in both styles (package EINK_NOTES.md §3).
 void App::Impl::applyLook() {
   Look l = lookFromSettings(set.style, set.typeface, set.surface);
-  if (mode != Mode::Main || sleeping || quietActive()) l.sleek = false;
+  if (mode != Mode::Main || sleeping || quietActive() || emptyActive() || morningActive() || glanceFaceActive()) l.sleek = false;
   setActiveLook(l);
 }
 bool App::Impl::sleek() const { return activeLook().sleek; }
@@ -427,6 +518,22 @@ void App::Impl::build(std::vector<RegionDef>& out) {
       ui::quietFace(c, *this);
       c.hit(rc(0, 0, kScreenW, kScreenH), [this] { doPeek("TOUCH quiet face"); });
     }});
+    return;
+  }
+  if (emptyActive()) {   // #331 Nobody home: the sleeping panel in glance; no clock, no touch (asleep)
+    out.push_back({"empty", screen, [this](Canvas& c) { ui::emptyFace(c, *this); }});
+    return;
+  }
+  // Good morning page (#330): one full-screen region, before standby; a tap anywhere = the start page
+  if (morningActive()) {
+    out.push_back({"morning", screen, [this](Canvas& c) {
+      ui::morningFace(c, *this);
+      c.hit(rc(0, 0, kScreenW, kScreenH), [this] { morningDone("TOUCH good morning"); });
+    }});
+    return;
+  }
+  if (glanceFaceActive()) {   // #356: the sleeping panel in glance: one calm face, no dashboard, no clock, no touch
+    out.push_back({"sleep", screen, [this](Canvas& c) { ui::glanceFace(c, *this); }});
     return;
   }
   Rect face = ui::faceTimeRect(*this);
@@ -478,6 +585,10 @@ void App::Impl::build(std::vector<RegionDef>& out) {
       if (w.type == "ota") out.push_back({"s" + std::to_string(i), ui::otaStatusRect(r), [this, r](Canvas& c) { ui::otaStatus(c, *this, r); }, 1});
     } else {
       out.push_back({key, r, [this, &w, i, r](Canvas& c) { ui::tile(c, *this, w, i, r); }});
+      if (w.type == "media") {   // #351: the volume slider is its own region, so a level change refreshes only the bar
+        Rect v = ui::mediaVolumeRect(*this, w, i, r);
+        if (v.w > 0) out.push_back({"v" + std::to_string(i), v, [this, &w, r, v](Canvas& c) { ui::mediaVolume(c, *this, w, r, v); }, 1});
+      }
       if (w.type == "clock")
         out.push_back({"k" + std::to_string(i), ui::clockTimeRect(*this, w, r), [this, &w, r](Canvas& c) { ui::clockTime(c, *this, w, r); }, 1});
     }
@@ -557,7 +668,7 @@ bool App::renderScreen(const std::string& screenId, Framebuffer& out) {
 std::string App::shownScreen() const {
   auto* I = impl_;
   if (I->mode != Mode::Main || I->setup != Setup::None || I->menu != Menu::None || I->sleeping || I->quietActive() ||
-      I->recovery.phase == RecoveryPhase::Confirm || I->curSub() != 0 || !I->curScreen())
+      I->morningActive() || I->recovery.phase == RecoveryPhase::Confirm || I->curSub() != 0 || !I->curScreen())
     return "";
   return I->curScreen()->id;
 }
@@ -574,6 +685,7 @@ void App::Impl::renderAll() {
   drawAll();
   drawnLook = lookKey();
   renderMs = ms() - t0;
+  stats.renderMs += renderMs;
 }
 
 void App::Impl::fullRefresh(const std::string& reason) {
@@ -587,6 +699,7 @@ void App::Impl::fullRefresh(const std::string& reason) {
 }
 
 void App::Impl::navRefresh(const std::string& reason) {
+  mediaPick.clear();   // #319: a page change closes the favorites picker
   if (policy.requestNav(board.epochSeconds() > 0) == RefreshPolicy::Kind::Clean) {
     fullRefresh(reason + (policy.navSinceClean() + 1 >= kNavClean ? " · nav clean" : " · ghosting limit"));
     return;
@@ -631,6 +744,7 @@ void App::Impl::partialRefresh(const std::string& reason, const RegionMap& next,
   for (auto& k : removed) { u[k] = prev.at(k); all.push_back(k); }
   Rect r = unionRect(u, all);
   renderMs = buildMs + recordMs + (ms() - t0);   // build + record: commit() just before (#213)
+  stats.renderMs += renderMs;
   panelPartial(r);
   lastChanged = keys;
   lastRev = store.revision();
@@ -665,11 +779,14 @@ void App::Impl::commit(const std::string& reason, bool quiet) {
 // ======================= behaviour =======================
 void App::Impl::input() {
   lastInput = ms(); idleHomed = false; ambient = false;
-  if (lightOut) { lightOut = false; applyFrontlight(); }
+  if (lightOut || bootDark) { lightOut = false; bootDark = false; applyFrontlight(); }
 }
 
 void App::Impl::boot(const std::string& msg) {
+  const bool dark = bootDark;   // #357: the boot itself is no key or tap
+  bootDark = false;
   input();
+  bootDark = dark;
   mode = Mode::Boot; sleeping = false; menu = Menu::None; peekUntil = 0;
   bootMsg = msg;
   bootUntil = ms() + 1600;
@@ -688,6 +805,10 @@ void App::Impl::finishBoot() {
     peekUntil = ms() + kPeekMs; if (!peekUntil) peekUntil = 1;
     note("boot (" + bootWake + ") · quiet hours show the dashboard for 60 s");
   }
+  if (peekOnBoot(bootWake) && morningSt.until) {   // #330: the wake press was the one press
+    morning::State m = morningSt; m.until = 0; saveMorning(m);
+    note("boot (" + bootWake + ") · Good morning page closed");
+  }
   bootWake = "cold";
   lastMinute = localTime().known ? localTime().m : -1;
   if (setup == Setup::Wifi) { svc.wifiScan(); fullRefresh("setup: Wi-Fi"); }
@@ -698,6 +819,7 @@ void App::Impl::finishBoot() {
 void App::Impl::nav(int dir, const char* src) {
   if (setup != Setup::None && mode == Mode::Main) { note(std::string(src) + " · finish setup first"); return; }
   if (mode != Mode::Main) { note(std::string(src) + " ignored"); return; }
+  if (morningActive()) { morningDone(src); return; }
   if (quietActive()) { doPeek(src); return; }
   if (sleeping) { wake(src); return; }
   if (cfg.screens.empty()) return;
@@ -717,6 +839,7 @@ void App::Impl::goTo(int i, const char* src) {
 }
 
 void App::Impl::home(const char* src) {
+  if (morningActive()) { morningDone(src); return; }
   if (mode == Mode::Main && quietActive()) { doPeek(src); return; }
   if (sleeping) { wake(src); return; }
   if (mode != Mode::Main) return;
@@ -757,6 +880,7 @@ void App::Impl::wake(const char* src) { sleeping = false; applyFrontlight(); not
 
 void App::Impl::power() {
   if (mode != Mode::Main) return;
+  if (morningActive()) { morningDone("BTN_POWER"); return; }
   if (quietActive()) { doPeek("BTN_POWER"); return; }
   if (sleeping) { wake("BTN_POWER"); return; }
   sleeping = true; menu = Menu::None; peekUntil = 0;   // standby ends a peek: in quiet hours it shows the quiet face
@@ -790,11 +914,13 @@ void App::Impl::tap(int x, int y) {
   }
   if (!h) return;
   Hit hit = *h;   // hits may be rebuilt by the action
+  touchX = x;
   bool feedback = pressFeedback && hit.region != "quiet" && hit.r.w < kScreenW;
   auto flash = [&](const char* what) {   // press feedback: one partial of the control, serial only (not in log())
     const uint32_t t0 = ms();
     if (!held) display.partialRefresh(fb, hit.r);
     panelMs = ms() - t0;
+    stats.panelMs += panelMs;
     renderMs = 0;
     paintMs.clear();
     stats.feedbackRefreshes++;
@@ -829,6 +955,22 @@ void App::Impl::tap(int x, int y) {
   flash("restore");
 }
 
+// #351: a drag (or a swipe) that starts on a slider ends there: its hit runs with the lift x. No press feedback: the
+// slider redraws at the new level.
+bool App::Impl::slide(int x, int y, int ex) {
+  if (mode != Mode::Main || sleeping) return false;
+  for (auto it = hits.rbegin(); it != hits.rend(); ++it) {
+    if (!it->slide || !contains(it->r, x, y)) continue;
+    applyLook();
+    Hit hit = *it;
+    touchX = ex;
+    note("DRAG " + hit.region + " → x " + std::to_string(ex));
+    hit.fn();
+    return true;
+  }
+  return false;
+}
+
 void App::Impl::tick() {
   uint32_t t = ms();
   // acknowledgements (entity state caught up with our optimistic value)
@@ -853,6 +995,11 @@ void App::Impl::tick() {
       if (v && (v->state == "on") == it->second.on) { it = switchOv.erase(it); changed = true; }
       else ++it;
     }
+    for (auto it = mediaVolOv.begin(); it != mediaVolOv.end();) {
+      const int vol = media::view(store.get(it->first)).vol;
+      if (vol >= 0 && std::abs(vol - it->second.pct) <= 1) { it = mediaVolOv.erase(it); changed = true; }
+      else ++it;
+    }
     if (changed) commit("ack", true);
   }
   // give up on acks after 30 s / 10 s (show what Home Assistant reports)
@@ -865,6 +1012,7 @@ void App::Impl::tick() {
   for (auto it = lightOv.begin(); it != lightOv.end();) { if (after(t, it->second.until)) { it = lightOv.erase(it); expired = true; } else ++it; }
   if (awayOv >= 0 && after(t, awayOvUntil)) { awayOv = -1; expired = true; }
   for (auto it = switchOv.begin(); it != switchOv.end();) { if (after(t, it->second.until)) { it = switchOv.erase(it); expired = true; } else ++it; }
+  for (auto it = mediaVolOv.begin(); it != mediaVolOv.end();) { if (after(t, it->second.until)) { it = mediaVolOv.erase(it); expired = true; } else ++it; }
   if (expired) commit("ack", true);
 
   // clock: once a minute
@@ -908,6 +1056,7 @@ void App::Impl::idleCheck() {
   bool away = homeIdx >= 0 && (idx != homeIdx || sub != 0 || menu != Menu::None);
   uint32_t idle = ms() - lastInput;
   if (!lightOut && lightTimedOut(idle, set.lightTimeout)) { lightOut = true; applyFrontlight(); note("IDLE → front light off"); }
+  if (morningActive()) return;   // #330: the page stays until its timeout or a press
   bool amb = !ambient && ambientDue(idle, menu != Menu::None, false) && !quietActive();
   IdleDecision d = ::x4::idleCheck(idle, idleMinutes(set.standby), idleMinutes(set.returnHome), idleHomed, away);
   if (d.standby) { sleeping = true; menu = Menu::None; peekUntil = 0; applyFrontlight(); note("IDLE → standby"); fullRefresh("standby"); return; }
@@ -932,26 +1081,61 @@ void App::Impl::checkQuiet() {
       fullRefresh("quiet face");
     } else if (!(peekUntil && int32_t(peekUntil - ms()) > 0)) {
       snap = QuietSnap();
-      fullRefresh("quiet end");
+      if (!morningActive()) fullRefresh("quiet end");   // #330: checkMorning drew the Good morning page
     }
   }
   prevQuiet = n; quietKnown = true;
 }
 
+// Good morning page (#330, core/morning.h): armed inside the window, up for 20 min at the first loop after it (a wake
+// from deep sleep included: the state is in RTC memory), then the start page.
+void App::Impl::checkMorning() {
+  if (mode != Mode::Main) return;
+  now = localTime();
+  morning::Step st = morning::step(morningSt, {now.epochMs, now.h, now.known, set.quiet, set.morning});
+  if (st.s.armed == morningSt.armed && st.s.until == morningSt.until) return;
+  if (st.start && houseEmptyNow() && set.powerSave == "glance") {   // #331: nobody home → no page, empty-house sleep
+    st.s.until = 0; st.start = false;
+    note("MORNING skipped · nobody home");
+  }
+  saveMorning(st.s);
+  if (setup != Setup::None) return;
+  if (st.start) {
+    idx = 0; sub = 0; menu = Menu::None; sleeping = false; peekUntil = 0; ambient = true;
+    applyFrontlight();
+    note("MORNING quiet hours over · Good morning page for " + std::to_string(morning::kMs / 60000) + " min");
+    fullRefresh("good morning");
+  } else if (st.end && !quietHour()) {
+    idx = 0; sub = 0; menu = Menu::None;
+    note("MORNING " + std::to_string(morning::kMs / 60000) + " min over · start page");
+    fullRefresh("good morning over");
+  }
+}
+
+void App::Impl::morningDone(const char* src) {
+  morning::State m = morningSt; m.armed = 0; m.until = 0;
+  saveMorning(m);
+  idx = 0; sub = 0; menu = Menu::None; sleeping = false; ambient = false;
+  applyFrontlight();
+  note(std::string(src) + " → start page (Good morning page closed)");
+  fullRefresh("good morning · start page");
+}
+
+void App::Impl::saveMorning(const morning::State& s) {
+  morningSt = s;
+  if (onMorning) onMorning(s);
+}
+
 void App::Impl::captureSnap() {
   data = derive();
   snap = QuietSnap();
-  snap.rows = ui::quietRows(*this);
-  int64_t last = svc.status().haLastDataEpoch;
-  if (nightStale(board.epochSeconds(), last)) {
-    time_t tt = time_t(last); struct tm tm; localtime_r(&tt, &tm);
-    snap.asOf = pad2(tm.tm_hour) + ":" + pad2(tm.tm_min);
-  }
+  snap.row = ui::quietRow(*this, nightEndHour(set.quiet));
+  snap.asOf = ui::staleAt(*this);
   snap.taken = true;
 }
 
 void App::Impl::applyFrontlight() {
-  board.setFrontlight(uint8_t(frontlightPct(set.brightness, sleeping || poweredOff, lightOut)), set.warmth);
+  board.setFrontlight(uint8_t(frontlightPct(set.brightness, sleeping || poweredOff || bootDark, lightOut)), set.warmth);
 }
 
 void App::Impl::settingsChanged() {
@@ -1140,6 +1324,29 @@ void App::Impl::runScene(const SceneAction& s) {
   sendService(s.domain, s.service, "{\"entity_id\":" + jsonQuote(s.entityId) + "}");
 }
 
+// Now playing tile (#319): one HA call (core media::action); a favorite also closes the picker, which redraws the tile.
+void App::Impl::mediaRun(const media::Action& act, bool pick) {
+  if (!act.ok) return;
+  if (offline()) { note(act.domain + "." + act.service + " not sent — offline"); return; }
+  sendService(act.domain, act.service, act.data);
+  if (pick && !mediaPick.empty()) { mediaPick.clear(); commit("media"); }
+}
+
+// Volume slider (#351): one volume_set; the bar shows the level at once (its own region: a partial of the bar only).
+void App::Impl::mediaVolume(const Widget& w, int pct) {
+  media::Action act = media::action(w, media::Target::Set, pct);
+  if (offline()) { note(act.domain + "." + act.service + " not sent — offline"); return; }
+  sendService(act.domain, act.service, act.data);
+  mediaVolOv[w.field("entity")] = VolOv{std::max(0, std::min(100, pct)), ms() + 10000};
+  commit("volume");
+}
+
+void App::Impl::mediaPicker(const std::string& key) {
+  if (key == mediaPick) return;
+  mediaPick = key;
+  commit("media");
+}
+
 void App::Impl::setCfg(const std::string& key, int dir) {
   auto stepList = [&](std::vector<std::string> steps, std::string& cur) {
     int i = int(std::find(steps.begin(), steps.end(), cur) - steps.begin());
@@ -1153,6 +1360,7 @@ void App::Impl::setCfg(const std::string& key, int dir) {
   else if (key == "warmth") { int v = std::max(0, std::min(100, set.warmth + dir * 10)); ch = v != set.warmth; set.warmth = uint8_t(v); }
   else if (key == "lightTimeout") { std::string c = std::to_string(set.lightTimeout); ch = stepList({"30", "60", "120", "300", "0"}, c); if (ch) set.lightTimeout = std::atoi(c.c_str()); }
   else if (key == "quiet") ch = stepList({"off", "22-06", "23-07", "00-06"}, set.quiet);   // #295
+  else if (key == "morning") { std::string c = set.morning ? "on" : "off"; ch = stepList({"on", "off"}, c); if (ch) set.morning = c == "on"; }   // #330
   else if (key == "returnHome") { std::string c = std::to_string(idleMinutes(set.returnHome)); ch = stepList({"0", "1", "5", "15"}, c); if (ch) set.returnHome = c == "0" ? "never" : c; }
   else if (key == "standby") { std::string c = std::to_string(idleMinutes(set.standby)); ch = stepList({"0", "10", "30", "60"}, c); if (ch) set.standby = c == "0" ? "never" : c; }
   else if (key == "clock") ch = stepList({"24", "12"}, set.clock);

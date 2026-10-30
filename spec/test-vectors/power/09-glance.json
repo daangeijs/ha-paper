@@ -1,6 +1,6 @@
 {
   "name": "09-glance",
-  "description": "Glance (#10, default on battery per #18): deep sleep between timer wakes every wakeEvery minutes; a key press keeps it live (live = within liveMin minutes); HA unreachable doubles the wait per failed wake (cap 2 h); quiet hours and the 03:00 OTA window still win; every guard of 01-07 holds. armBootsLeft > 0 (first-boot safety: confirmed boots with network still needed) blocks every deep sleep.",
+  "description": "Glance (#10, default on battery per #18; #356): the panel shows the sleep face and the display deep-sleeps until a key, the charger, or the next transition: midnight (the face's date) or the start of quiet hours, whichever comes first, at most 8 h (MAX_SLEEP_S). wakeEvery and failed wakes (glanceFails) no longer change the wait. A key press keeps it live (live = within liveMin minutes); quiet hours and the 03:00 OTA window still win; every guard of 01-07 holds. armBootsLeft > 0 (first-boot safety: confirmed boots with network still needed) blocks every deep sleep.",
   "base": {
     "nowEpoch": 1800000000,
     "localSec": 43200,
@@ -26,11 +26,11 @@
   },
   "cases": [
     {
-      "name": "glance by day, no key press: sleep 15 min",
+      "name": "glance at 12:00, quiet 23-07: quiet hours start in 11 h, capped at 8 h",
       "input": {},
       "expect": {
         "deepSleepNow": true,
-        "wakeAtEpoch": 1800000900,
+        "wakeAtEpoch": 1800028800,
         "buttonWakeOnly": false,
         "reason": "glance",
         "cpuProfile": "auto",
@@ -39,13 +39,13 @@
       }
     },
     {
-      "name": "glance, every 60 min",
+      "name": "wakeEvery does not set the glance wait",
       "input": {
         "wakeEvery": 60
       },
       "expect": {
         "deepSleepNow": true,
-        "wakeAtEpoch": 1800003600,
+        "wakeAtEpoch": 1800028800,
         "reason": "glance"
       }
     },
@@ -84,13 +84,48 @@
       }
     },
     {
-      "name": "glance 22:50, every 15: 15 min (the 23:05 wake draws the quiet face)",
+      "name": "glance 22:50: wake at 23:00, the start of quiet hours (the quiet face)",
       "input": {
         "localSec": 82200
       },
       "expect": {
         "deepSleepNow": true,
-        "wakeAtEpoch": 1800000900,
+        "wakeAtEpoch": 1800000600,
+        "reason": "glance"
+      }
+    },
+    {
+      "name": "glance 20:00, quiet hours off: wake at midnight (the date)",
+      "input": {
+        "localSec": 72000,
+        "quiet": "off"
+      },
+      "expect": {
+        "deepSleepNow": true,
+        "wakeAtEpoch": 1800014400,
+        "reason": "glance"
+      }
+    },
+    {
+      "name": "glance 20:00, quiet 00-06: midnight is the start of quiet hours",
+      "input": {
+        "localSec": 72000,
+        "quiet": "00-06"
+      },
+      "expect": {
+        "deepSleepNow": true,
+        "wakeAtEpoch": 1800014400,
+        "reason": "glance"
+      }
+    },
+    {
+      "name": "glance 16:00, quiet 23-07: 7 h to 23:00",
+      "input": {
+        "localSec": 57600
+      },
+      "expect": {
+        "deepSleepNow": true,
+        "wakeAtEpoch": 1800025200,
         "reason": "glance"
       }
     },
@@ -101,41 +136,18 @@
       },
       "expect": {
         "deepSleepNow": true,
-        "wakeAtEpoch": 1800000900,
+        "wakeAtEpoch": 1800028800,
         "reason": "glance"
       }
     },
     {
-      "name": "HA unreachable once: 30 min",
+      "name": "HA unreachable: no backoff, the next transition",
       "input": {
         "glanceFails": 1
       },
       "expect": {
         "deepSleepNow": true,
-        "wakeAtEpoch": 1800001800,
-        "reason": "glance"
-      }
-    },
-    {
-      "name": "HA unreachable twice: 60 min",
-      "input": {
-        "glanceFails": 2
-      },
-      "expect": {
-        "deepSleepNow": true,
-        "wakeAtEpoch": 1800003600,
-        "reason": "glance"
-      }
-    },
-    {
-      "name": "backoff capped at 2 h",
-      "input": {
-        "glanceFails": 9,
-        "wakeEvery": 60
-      },
-      "expect": {
-        "deepSleepNow": true,
-        "wakeAtEpoch": 1800007200,
+        "wakeAtEpoch": 1800028800,
         "reason": "glance"
       }
     },

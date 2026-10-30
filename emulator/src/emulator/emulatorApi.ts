@@ -88,7 +88,7 @@ function makeApi(emu: Emulator): DeviceApi {
         heap: { free_internal: 182_344, min_free_internal: 141_020, largest_free_internal: 110_592, free_psram: 7_864_320, low_point: null },
         panel: { controller: 'UC8179', source: 'probe', verdict: 'ultrachip', promoted: true, ver: '00 00 01 FF FF', flg: 0, nvs_screen_type: 1, failed: false, failure: null },
         coredump: null, touch_recoveries: 0, deep_sleep: { armed: emu.armLeft === 0, boots_left: emu.armLeft, armed_by: emu.armLeft === 0 ? 'boots' : null }, battery: battHistory(batt),
-        power_trail: { before_boot: null, lines: [] },
+        power_trail: { before_boot: null, lines: [], empty_house_sleeps: emu.emptySleeps, phases: { boot: null, wakes: [] } },
         web: { open: 1, served: 0, refused_503: 0, last_request_age_s: null },   // #227: the emulator has no HTTP server
         mdns: { up: !!st.wifi.connected, restarts: 0, last_restart_reason: null },
         wifi: { rssi: st.wifi.connected ? -58 : null, bssid: st.wifi.connected ? '3fa2' : null, idle_checks: 0, idle_reconnects: 0 } };

@@ -115,7 +115,7 @@ std::string configError(const Fields& f) {
   const Kind src = sourceOf(f.attribute.present, f.entity);
   if (src == Kind::Recorder) {
     const std::pair<const char*, const Field*> keys[] = {{"attribute", &f.attribute}, {"value", &f.value}, {"time", &f.time},
-                                                         {"ahead", &f.ahead}, {"forecast", &f.forecast}};
+                                                         {"ahead", &f.ahead}, {"forecast", &f.forecast}, {"past", &f.past}};
     for (auto& k : keys) if (k.second->present) return std::string("history: ") + k.first + " needs an attribute or a weather entity";
   }
   const std::pair<const char*, const Field*> names[] = {{"attribute", &f.attribute}, {"value", &f.value}, {"time", &f.time}};
@@ -147,6 +147,21 @@ std::string configError(const Fields& f) {
     if (a < 0 || a > win) return "history: ahead must be 0 or like 30m or 2h, at most the window";
     if (a % b != 0)
       return "history: bucket " + (f.bucket.present ? f.bucket.v : std::to_string(b / kMin) + "m") + " does not divide ahead " + f.ahead.v;
+  }
+  if (f.past.present) {   // #307
+    const size_t dot = f.past.v.find('.');
+    bool ok = dot != std::string::npos && dot + 1 < f.past.v.size();
+    if (ok) {
+      const std::string dom = f.past.v.substr(0, dot);
+      ok = dom == "sensor" || dom == "input_number" || dom == "number";
+      for (size_t i = dot + 1; ok && i < f.past.v.size(); ++i) {
+        const char c = f.past.v[i];
+        ok = (c >= 'a' && c <= 'z') || isDigit(c) || c == '_';
+      }
+    }
+    if (!ok) return "history: past “" + f.past.v + "” is not a sensor / input_number / number entity";
+    const int64_t a = f.ahead.present ? aheadOf(f.ahead.v) : win;
+    if (a == 0 || a >= win) return "history: past needs ahead shorter than the window";
   }
   Agg a;
   if (f.agg.present && !aggOf(f.agg.v, a)) return "history: agg must be mean, max, min, last, change";
@@ -185,7 +200,38 @@ Spec specOf(const Widget& w) {
   s.attribute = s.kind == Kind::Forecast ? "forecast" : at.v;
   s.value = va.present ? va.v : s.kind == Kind::Forecast ? "temperature" : "value";
   s.time = ti.present ? ti.v : "datetime";
+  s.past = f("past").v;
   return s;
+}
+
+void joinSeries(const Spec& s, const Series* past, const Series* ahead, int64_t now, int tz, Series& out) {
+  const int split = pastBuckets(s);
+  out.start = chartSpan(s.windowMs, s.bucketMs, now, tz, s.aheadMs).start;
+  out.bucketMs = s.bucketMs;
+  out.n = std::min(s.n, kMaxBars);
+  for (int i = 0; i < out.n; ++i) {
+    const Series* x = i < split ? past : ahead;
+    const int64_t t = out.start + int64_t(i) * s.bucketMs;
+    double v = kNone;
+    if (x && x->n > 0 && x->bucketMs > 0 && (t - x->start) % x->bucketMs == 0) {
+      const int64_t k = (t - x->start) / x->bucketMs;
+      if (k >= 0 && k < x->n) v = x->v[k];
+    }
+    out.v[i] = v;
+  }
+}
+
+Spec pastSpec(const Spec& s) {
+  Spec p;
+  p.entity = s.past;
+  p.windowMs = s.windowMs - s.aheadMs + s.bucketMs;
+  p.bucketMs = s.bucketMs;
+  p.n = s.bucketMs > 0 ? int(p.windowMs / s.bucketMs) : 0;
+  p.agg = s.agg;
+  p.style = s.style;
+  p.min = s.min;
+  p.max = s.max;
+  return p;
 }
 
 const char* sourceUnit(const Spec& s) {

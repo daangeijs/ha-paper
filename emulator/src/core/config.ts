@@ -4,9 +4,14 @@
 import { APPS, ENT, ZONE_NAME, SETTINGS } from './data.ts';
 import { entityGap, type EntityGap } from './format.ts';
 import { HISTORY_DOMAINS, MAX_HISTORY_TILES, historyDomains, historyError } from './history.ts';
+import { MAX_WEATHER_TILES, weatherError } from './weather.ts';
+import { AGENDA_TYPES, MAX_AGENDA_TILES, agendaError } from './agenda.ts';
+import { MEDIA_DOMAINS, favoritesError } from './media.ts';
+import { BIN_DOMAINS, binsError } from './bins.ts';
+import { GUEST_PW_DOMAINS, guestError } from './guestWifi.ts';
 
 // `light` is the pre-0.5 single-light widget: parseYaml rewrites {type: light, light: x} to {type: switch, entity: light.x}.
-export const WIDGET_TYPES = ['clock', 'stat', 'price', 'gauge', 'bars', 'route', 'lightList', 'switch', 'light', 'scene', 'zoneList', 'thermo', 'history', 'setting', 'ota', 'wifi', 'ha', 'about'];
+export const WIDGET_TYPES = ['clock', 'stat', 'price', 'gauge', 'bars', 'route', 'lightList', 'switch', 'light', 'scene', 'zoneList', 'thermo', 'history', 'media', 'bins', 'weather', 'guestWifi', 'setting', 'ota', 'wifi', 'ha', 'about', ...AGENDA_TYPES];
 
 // Home Assistant domains each entity widget accepts (entity = full HA entity_id, e.g. sensor.outdoor_temperature).
 export const ENTITY_DOMAINS: Record<string, string[]> = {
@@ -15,7 +20,9 @@ export const ENTITY_DOMAINS: Record<string, string[]> = {
   switch: ['switch', 'light', 'input_boolean', 'fan'],
   route: ['sensor'],
   history: HISTORY_DOMAINS,   // #265: numeric entities; an attribute / weather forecast series widens it (#283, historyDomains)
+  weather: ['weather'],   // #318: the weather tile
   scene: ['scene', 'script'],   // #146: scene.turn_on / script.turn_on; no entity = the built-in all lights off
+  media: MEDIA_DOMAINS,   // #319: now playing
 };
 /** Entity widgets that may leave `entity` out: gauge = the home battery; route = an empty user route (an old catalog
  *  route such as `route: car`, #145) that shows the gap state until the user picks its sensor; scene = all lights off
@@ -51,7 +58,8 @@ export const entityFits = (id: unknown, domains: string[]): boolean => typeof id
 /** A space-separated list field (lightList areas / entities, zoneList entities, #127); absent = []. */
 export const listOf = (w: Widget, k: string): string[] => (w[k] === undefined ? [] : String(w[k]).split(' ').filter(Boolean));
 /** List tiles' pick fields (#127): field → HA domain of its entity ids, or null = HA area ids. Nothing picked = all. */
-export const LIST_PICKS: Record<string, Record<string, string | null>> = { lightList: { areas: null, entities: 'light' }, zoneList: { entities: 'climate' } };
+export const LIST_PICKS: Record<string, Record<string, string | null>> = { lightList: { areas: null, entities: 'light' }, zoneList: { entities: 'climate' },
+  agenda: { entities: 'calendar' }, next: { entities: 'calendar' } };   // #316: the calendars
 const AREA_ID = /^[a-z0-9_]+$/;
 /** zoneList `labels` (#151): "climate.a=Name; climate.b=Other name" → [entity, label] in order, items trimmed, empty
  *  items skipped. Items without "=" come back with label "" (parseYaml rejects them). */
@@ -156,8 +164,8 @@ const SETTINGS_SCREENS: Omit<Screen, 'app'>[] = [
   // Display styles (x4-display-styles): the look is a device setting; these tiles only step it (same screen as firmware/src/core/config.cpp).
   { id: 'style', title: 'Display style', widgets: [{ type: 'setting', key: 'style' }, { type: 'setting', key: 'typeface', cs: 2 }, { type: 'setting', key: 'surface' }, { type: 'setting', key: 'clock' }] },
   // Power saving (ROBUSTNESS_PLAN 3.1, glance #10, emulator DEVIATIONS 10). Two rows tall (#190); no hint line since #310.
-  // Quiet hours (#295) sit here: on battery they are a power setting first.
-  { id: 'power', title: 'Power', widgets: [{ type: 'setting', key: 'powerSave', cs: 2, rs: 2 }, { type: 'setting', key: 'quiet', cs: 2 }, { type: 'setting', key: 'wakeEvery' }, { type: 'setting', key: 'liveMin' }] },
+  // Quiet hours (#295) sit here: on battery they are a power setting first. The Good morning page (#330) next to them.
+  { id: 'power', title: 'Power', widgets: [{ type: 'setting', key: 'powerSave', cs: 2, rs: 2 }, { type: 'setting', key: 'quiet' }, { type: 'setting', key: 'morning' }, { type: 'setting', key: 'wakeEvery' }, { type: 'setting', key: 'liveMin' }] },
   { id: 'updates', title: 'Updates', widgets: [{ type: 'ota', cs: 4, rs: 2 }] },
   { id: 'wifi', title: 'Wi-Fi', widgets: [{ type: 'wifi', cs: 4, rs: 2 }] },
   { id: 'ha', title: 'Home Assistant', widgets: [{ type: 'ha', cs: 4, rs: 2 }] },
@@ -183,7 +191,7 @@ const has = (o: object, k: unknown): boolean => typeof k === 'string' && Object.
 /** Human label of a widget (web console tiles). `names`: HA friendly names by entity_id, when known. */
 export function wLabel(w: Widget, names: Record<string, string> = {}): string {
   if (w.label) return String(w.label);
-  if (['stat', 'switch', 'gauge', 'route', 'scene', 'history'].includes(w.type) && w.entity) {
+  if (['stat', 'switch', 'gauge', 'route', 'scene', 'history', 'media', 'weather'].includes(w.type) && w.entity) {
     const e = String(w.entity);
     return (has(ENT, e) && ENT[e].label) || (has(names, e) && names[e]) || e;
   }
@@ -191,7 +199,7 @@ export function wLabel(w: Widget, names: Record<string, string> = {}): string {
   if (w.type === 'setting') return (has(SETTINGS, w.key) && SETTINGS[w.key as string].label) || String(w.key);
   if (w.type === 'bars') return ({ prices: 'Prices chart', usage: 'Usage chart', solar: 'Solar chart' } as Record<string, string>)[w.series as string] || 'Chart';
   if ((w.type === 'lightList' || w.type === 'zoneList') && Object.keys(LIST_PICKS[w.type]).some((k) => listOf(w, k).length)) return w.type === 'lightList' ? 'Lights' : 'Rooms';
-  return ({ clock: 'Clock', price: 'Price now', gauge: 'Home battery', lightList: 'All lights', scene: 'All lights off', zoneList: 'All rooms', ota: 'Updates', wifi: 'Wi-Fi', ha: 'Home Assistant', about: 'About', route: 'Route', stat: 'Sensor value', switch: 'Switch', history: 'History chart' } as Record<string, string>)[w.type] || w.type;
+  return ({ clock: 'Clock', price: 'Price now', gauge: 'Home battery', lightList: 'All lights', scene: 'All lights off', zoneList: 'All rooms', ota: 'Updates', wifi: 'Wi-Fi', ha: 'Home Assistant', about: 'About', route: 'Route', stat: 'Sensor value', switch: 'Switch', history: 'History chart', media: 'Now playing', bins: 'Bin day', agenda: 'Agenda', next: 'Next event', weather: 'Weather', guestWifi: 'Guest Wi-Fi' } as Record<string, string>)[w.type] || w.type;
 }
 
 const yq = (t: string): string => (/[:#{}[\],"]|^\s|\s$/.test(t) ? JSON.stringify(t) : t);
@@ -220,8 +228,11 @@ export class ConfigError extends Error {
  * Rules (each rejects with a line number): version != 1, apps after screens, duplicate app id, more than 8 apps,
  * widget/app/title before a screen, unknown app, widget outside "widgets:", malformed "key: value", unknown widget type,
  * stat/gauge/switch/route/scene entity not an HA entity_id of an allowed domain, lightList areas / entities or zoneList entities
- * not area ids / light / climate entity_ids (#127), a zoneList labels item that is not climate.<id>=Name (#151), unknown route,
+ * not area ids / light / climate entity_ids (#127), a zoneList labels item that is not climate.<id>=Name (#151), a media
+ * favorites item that is not Name=type:id / Name=script.<id> / scene.<id> or a 7th favorite (#319), unknown route,
  * a history tile's window / bucket / agg / style / min / max (history.ts historyError) or a 7th history tile (#265),
+ * a bins tile's entities / labels / tonight or more than 6 bins (#317, bins.ts binsError), a guestWifi tile's
+ * password_entity / security / hidden (#329, guestWifi.ts guestError),
  * cs not 1–4, rs not 1–2,
  * col not 1–4 / row not 1–2 (they go together), a pinned tile that sticks out of the grid or overlaps an earlier pinned one,
  * unreadable line, no apps (empty "apps:"), no screens, duplicate screen id, more than 8 cells on a screen.
@@ -231,7 +242,7 @@ export class ConfigError extends Error {
  */
 export function parseYaml(text: string): Config {
   const lines = text.split('\n'); let screens: Screen[] | null = null, cur: Screen | null = null, inW = false; const at: Record<string, number> = {};
-  let apps: AppDef[] | null = null, curApp: AppDef | null = null, appsAt = 0, sawSettings = false, histories = 0;
+  let apps: AppDef[] | null = null, curApp: AppDef | null = null, appsAt = 0, sawSettings = false, histories = 0, agendas = 0, weathers = 0;
   const appList = (): AppDef[] => (apps?.length ? apps : DEFAULT_APPS);
   const fail = (n: number, msg: string): never => { throw new ConfigError(n, msg); };
   const unq = (v: string): string => { v = v.trim(); if (v.startsWith('"')) { try { return JSON.parse(v); } catch { return v; } } return v; };
@@ -279,7 +290,20 @@ export function parseYaml(text: string): Config {
       }
       if (w.type === 'zoneList') for (const [e, l] of labelPairs(w.labels))
         if (!entityFits(e, ['climate']) || !l) fail(n, 'zoneList: “' + e + '” in labels is not climate.<id>=Name');
+      if (w.type === 'media') { const err = favoritesError(w); if (err) fail(n, err); }   // #319
       if (w.type === 'route' && w.mode !== undefined && !ROUTE_MODES.includes(w.mode as string)) fail(n, 'route: mode must be train, bus or car');
+      if (w.type === 'bins') {   // #317
+        const ents = listOf(w as Widget, 'entities');
+        for (const id of ents) if (!entityFits(id, BIN_DOMAINS)) fail(n, 'bins: “' + id + '” is not a sensor entity');
+        for (const [e, l] of labelPairs(w.labels)) if (!entityFits(e, BIN_DOMAINS) || !l) fail(n, 'bins: “' + e + '” in labels is not sensor.<id>=Name');
+        const err = binsError(w, ents);
+        if (err) fail(n, err);
+      }
+      if (w.type === 'guestWifi') {   // #329: never put the ssid / password in a message
+        if (w.password_entity !== undefined && !entityFits(w.password_entity, GUEST_PW_DOMAINS)) fail(n, 'guestWifi: password_entity is not an input_text / text / sensor entity');
+        const err = guestError(w);
+        if (err) fail(n, err);
+      }
       if (w.cs && ![1, 2, 3, 4].includes(w.cs as number)) fail(n, 'cs must be 1–4');
       if (w.rs && ![1, 2].includes(w.rs as number)) fail(n, 'rs must be 1 or 2');
       if (w.col !== undefined || w.row !== undefined) {
@@ -294,6 +318,16 @@ export function parseYaml(text: string): Config {
         const err = historyError(w);
         if (err) fail(n, err);
         if (++histories > MAX_HISTORY_TILES) fail(n, 'At most ' + MAX_HISTORY_TILES + ' history tiles');
+      }
+      if (w.type === 'weather') {   // #318
+        const err = weatherError(w);
+        if (err) fail(n, err);
+        if (++weathers > MAX_WEATHER_TILES) fail(n, 'At most ' + MAX_WEATHER_TILES + ' weather tiles');
+      }
+      if (AGENDA_TYPES.includes(w.type as string)) {   // #316
+        const err = agendaError(w);
+        if (err) fail(n, err);
+        if (++agendas > MAX_AGENDA_TILES) fail(n, 'At most ' + MAX_AGENDA_TILES + ' agenda or next tiles');
       }
       cur.widgets.push(w as Widget);
     }

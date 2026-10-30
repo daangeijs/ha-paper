@@ -66,6 +66,11 @@ export type HeapLowPoint = { min_free_internal: number; min_dma: number; min_8bi
  *  line of that boot. */
 export type LastWdt = { uptime_s: number; tasks: string; free_internal: number; largest_internal: number; min_dma: number; last_log: string | null };
 
+/** One boot's awake time in ms, cut in order: boot (reset → setup done), wifi (→ Wi-Fi up), ha (→ HA data in), then
+ *  idle = the rest minus render + panel after that; render / panel = the boot's totals. pct = shown % (#327 filter),
+ *  raw = the gauge's own, mv null = not read; epoch null = clock unknown. */
+export type AwakePhases = { wake: 'cold' | 'timer' | 'button' | 'charger' | 'other'; epoch: number | null; boot_ms: number; wifi_ms: number; ha_ms: number; render_ms: number; panel_ms: number; idle_ms: number; total_ms: number; pct: number | null; raw: number | null; mv: number | null };
+
 /** GET /api/v1/diagnostics (spec/openapi.yaml Diagnostics). */
 export type Diagnostics = {
   firmware: string; uptime_s: number; reset_reason: string;
@@ -79,8 +84,10 @@ export type Diagnostics = {
   deep_sleep: { armed: boolean; boots_left: number; armed_by: 'uptime' | 'boots' | null };
   /** Battery history (#231, core/battery.ts): 5 min samples, 24 h, since the last reset or deep-sleep wake. */
   battery: BattHistory;
-  /** Power trail (#225, firmware core/power_trail.h): /power.txt lines; the emulator has no power path (null, []). */
-  power_trail: { before_boot: string | null; lines: string[] };
+  /** Power trail (#225, firmware core/power_trail.h): /power.txt lines; the emulator has no power path (null, []).
+   *  empty_house_sleeps (#331): deep sleeps with reason "empty house" since power-on (RTC memory). phases (#327,
+   *  firmware core/phases.h): where awake time goes, this boot and the newest boots that ended in deep sleep. */
+  power_trail: { before_boot: string | null; lines: string[]; empty_house_sleeps: number; phases: { boot: AwakePhases | null; wakes: AwakePhases[] } };
   /** Inbound path (#227, firmware net/net_stats.cpp): web server, mDNS responder, Wi-Fi AP (bssid = 4-hex tag, not the MAC). */
   web: { open: number; served: number; refused_503: number; last_request_age_s: number | null };
   mdns: { up: boolean; restarts: number; last_restart_reason: 'connect' | 'got_ip' | 'bssid' | 'idle' | null };

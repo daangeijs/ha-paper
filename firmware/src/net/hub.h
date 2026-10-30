@@ -16,6 +16,7 @@
 #include "app/services.h"
 #include "core/config.h"
 #include "core/entities.h"
+#include "core/agenda.h"
 #include "core/history_fetch.h"
 #include "core/home.h"
 #include "hw/platform.h"
@@ -37,7 +38,13 @@ struct Hub {
   // history tile series (#269) → App::setHistory; one entry per series key, PSRAM
   struct HistoryOut { PStr key; hist::FetchState state; bool has; hist::Series s; };
   std::vector<HistoryOut, PsramAlloc<HistoryOut>> historyOut;
+  // weather tile forecasts (#318) → App::setWeather; one entry per entity, PSRAM
+  struct WeatherOut { PStr entity; wx::Forecast fc; };
+  std::vector<WeatherOut, PsramAlloc<WeatherOut>> weatherOut;
   PStr historyInfo = "[]";        // [{key, active, state, source, fetched, bytes, points}] (GET /__qemu/state, log)
+  // agenda / next tile events (#316) → App::setAgenda; one entry per calendar set, PSRAM
+  struct AgendaOut { PStr key; agenda::State state; agenda::Fetch f; };
+  std::vector<AgendaOut, PsramAlloc<AgendaOut>> agendaOut;
 
   // ---- config / settings (web → main loop) ----
   Config config;              // what the display shows now

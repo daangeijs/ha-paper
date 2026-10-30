@@ -1,0 +1,187 @@
+{
+  "name": "10-empty-house",
+  "description": "Empty-house sleep (#331, emulator src/core/emptyHouse.ts): in glance, while the presence source says nobody is home (emptyHouse), sleep EMPTY_WAIT_S (2 h) instead of the glance sleep to midnight / quiet start (#356), cut at the start of quiet hours and at the 03:00 OTA window. Quiet hours win (no timer wakes inside the window), a key press (live) wins, standby / off / every guard of 01-09 still hold.",
+  "base": {
+    "nowEpoch": 1800000000,
+    "localSec": 43200,
+    "powerSave": "glance",
+    "wakeEvery": 15,
+    "quiet": "23-07",
+    "peeking": false,
+    "standby": false,
+    "charging": false,
+    "usb": false,
+    "chargedAgoMin": null,
+    "voltage": 3.9,
+    "battery": 60,
+    "otaPendingVerify": false,
+    "otaBusy": false,
+    "otaAuto": "notify",
+    "otaDue": false,
+    "setup": false,
+    "msSinceApi": null,
+    "live": false,
+    "glanceFails": 0,
+    "armBootsLeft": 0,
+    "emptyHouse": true
+  },
+  "cases": [
+    {
+      "name": "nobody home by day: sleep 2 h",
+      "input": {},
+      "expect": {
+        "deepSleepNow": true,
+        "wakeAtEpoch": 1800007200,
+        "buttonWakeOnly": false,
+        "reason": "empty house",
+        "cpuProfile": "auto",
+        "wifiPs": "min",
+        "external": false
+      }
+    },
+    {
+      "name": "someone home: the glance sleep, to the next transition (#356)",
+      "input": {
+        "emptyHouse": false
+      },
+      "expect": {
+        "deepSleepNow": true,
+        "wakeAtEpoch": 1800028800,
+        "reason": "glance"
+      }
+    },
+    {
+      "name": "emptyHouse false: someone home",
+      "input": {
+        "emptyHouse": false,
+        "glanceFails": 1
+      },
+      "expect": {
+        "reason": "glance",
+        "wakeAtEpoch": 1800028800
+      }
+    },
+    {
+      "name": "22:00, quiet 23-07: cut at the start of quiet hours",
+      "input": {
+        "localSec": 79200
+      },
+      "expect": {
+        "deepSleepNow": true,
+        "wakeAtEpoch": 1800003600,
+        "reason": "empty house"
+      }
+    },
+    {
+      "name": "02:00 inside quiet hours: quiet wins, sleep to 07:00",
+      "input": {
+        "localSec": 7200
+      },
+      "expect": {
+        "deepSleepNow": true,
+        "wakeAtEpoch": 1800018000,
+        "reason": "quiet"
+      }
+    },
+    {
+      "name": "peeking at 02:00: not quiet, empty-house wait",
+      "input": {
+        "localSec": 7200,
+        "peeking": true
+      },
+      "expect": {
+        "deepSleepNow": true,
+        "wakeAtEpoch": 1800007200,
+        "reason": "empty house"
+      }
+    },
+    {
+      "name": "quiet hours off: 2 h at any hour",
+      "input": {
+        "quiet": "off",
+        "localSec": 82800
+      },
+      "expect": {
+        "deepSleepNow": true,
+        "wakeAtEpoch": 1800007200,
+        "reason": "empty house"
+      }
+    },
+    {
+      "name": "live after a key press: awake, normal dashboard",
+      "input": {
+        "live": true
+      },
+      "expect": {
+        "deepSleepNow": false,
+        "wakeAtEpoch": null,
+        "reason": "live"
+      }
+    },
+    {
+      "name": "failed wakes do not stretch it past 2 h",
+      "input": {
+        "glanceFails": 4
+      },
+      "expect": {
+        "wakeAtEpoch": 1800007200,
+        "reason": "empty house"
+      }
+    },
+    {
+      "name": "OTA install due at 03:00 cuts it",
+      "input": {
+        "quiet": "off",
+        "localSec": 7200,
+        "otaAuto": "night",
+        "otaDue": true
+      },
+      "expect": {
+        "wakeAtEpoch": 1800003600,
+        "reason": "empty house"
+      }
+    },
+    {
+      "name": "standby mode: no empty-house wait",
+      "input": {
+        "powerSave": "standby",
+        "standby": true
+      },
+      "expect": {
+        "wakeAtEpoch": 1800000900,
+        "reason": "standby"
+      }
+    },
+    {
+      "name": "power save off: awake",
+      "input": {
+        "powerSave": "off"
+      },
+      "expect": {
+        "deepSleepNow": false,
+        "reason": "power save off"
+      }
+    },
+    {
+      "name": "external power: awake",
+      "input": {
+        "usb": true
+      },
+      "expect": {
+        "deepSleepNow": false,
+        "reason": "external power",
+        "external": true
+      }
+    },
+    {
+      "name": "not armed: awake",
+      "input": {
+        "armBootsLeft": 1
+      },
+      "expect": {
+        "deepSleepNow": false,
+        "reason": "not armed"
+      }
+    }
+  ]
+}

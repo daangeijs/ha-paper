@@ -1,6 +1,6 @@
 // History tile chart (#267): what the panel draws from a history.ts Series, in fractions of the plot area so the
 // Classic and Modern templates (and later firmware ui_tiles / ui_sleek, #270) share one geometry. Pure.
-import { axisTicks, bucketStart, chartSpan, lowHigh, yScale, type HistorySpec, type HistoryStyle, type Point, type Series, type Tick } from './history.ts';
+import { axisTicks, bucketStart, chartSpan, lowHigh, pastBuckets, yScale, type HistorySpec, type HistoryStyle, type Point, type Series, type Tick } from './history.ts';
 import { tr, type Lang, type StrKey } from './strings.ts';
 import { INK } from './data.ts';
 import { HATCH, TRACK } from './panel.ts';
@@ -12,11 +12,20 @@ export const dotPx = (n: number): number => Math.max(4, Math.min(8, Math.floor(4
  *  history answer was over the frame cap; needsStats: no statistics and the window is over the 24 h fallback. */
 export type HistState = 'ok' | 'loading' | 'none' | 'tooMany' | 'needsStats';
 const STATE_TEXT: Partial<Record<HistState, StrKey>> = { none: 'histNone', tooMany: 'histTooMany', needsStats: 'histNeedsStats' };
+/** A tile with `past` (#307) has two fetches: data from either = ok; else loading while either loads; else the
+ *  forecast's verdict, or the recorder's (tooMany / needsStats) when the forecast has none. */
+export function joinState(past: HistState, ahead: HistState): HistState {
+  if (past === 'ok' || ahead === 'ok') return 'ok';
+  if (past === 'loading' || ahead === 'loading') return 'loading';
+  return ahead !== 'none' ? ahead : past;
+}
 
 /** A bar from b to t (0 = bottom, 1 = top of the plot; bars grow from zero, so b < zero for negatives). null = a gap.
  *  `now`: the latest bucket with data. */
-export type HistBar = { b: number; t: number; now: boolean } | null;
+export type HistBar = { b: number; t: number; now: boolean; ahead?: true } | null;
 export type XY = { x: number; y: number };
+/** A dot of the dots style; `ahead` (#307): after the past part, drawn hollow. */
+export type HistDot = XY & { ahead?: true };
 /** A value printed on the plot (#304, `labels: true`): beside its point (x, y), on the `side` with more room. */
 export type HistLabel = { kind: 'max' | 'min' | 'last'; i: number; x: number; y: number; text: string; side: 'left' | 'right' };
 export type HistoryChart = {
@@ -25,8 +34,13 @@ export type HistoryChart = {
   /** Line segments (a gap breaks the line). line / area: points at bucket centres; step (#304): each bucket a flat run
    *  between its edges, joined upright at the shared edge. area also fills each segment of 2+ points down to 0. */
   lines: XY[][];
+  /** #307 (`past`): the line from the bucket holding now on, drawn dashed; its first segment starts at the last past
+   *  point when both sides have data (line: that bucket's centre; step: the shared edge). `lines` then holds the past. */
+  aheadLines: XY[][];
+  /** x of the Now marker between past and forecast (the start of the bucket holding now), null without `past`. */
+  split: number | null;
   /** dots (#304): one point per bucket with data, at its centre. */
-  dots: XY[];
+  dots: HistDot[];
   /** The latest point (line / area / step / dots), drawn as the big dot. */
   dot: XY | null;
   /** Height of the dashed reference line (#304 `threshold`), null when unset or outside the range. */
@@ -55,19 +69,27 @@ export function historyChart(spec: HistorySpec, series: Series | null, state: Hi
   // looks ahead (#283) marks the bucket holding now, when it has data
   let latest = -1; values.forEach((v, i) => { if (v !== null) latest = i; });
   if (spec.aheadMs) { const i = Math.round((bucketStart(now, spec.bucketMs, tz) - chartSpan(spec, now, tz).start) / spec.bucketMs); latest = values[i] == null ? -1 : i; }
-  const bars: HistBar[] = spec.style === 'bars' ? values.map((v, i) => (v === null ? null : { b: y(Math.min(0, v)), t: y(Math.max(0, v)), now: i === latest })) : [];
-  const lines: XY[][] = [], step = spec.style === 'step';
-  if (spec.style === 'line' || spec.style === 'area' || step) {
-    let seg: XY[] = [];
-    values.forEach((v, i) => {
-      if (v === null) { if (seg.length) lines.push(seg); seg = []; return; }
+  // #307: buckets from `split` on are the forecast (drawn lighter); -1 = no past part
+  const split = spec.past ? pastBuckets(spec) : -1;
+  const ahead = (i: number) => (split >= 0 && i >= split ? { ahead: true as const } : {});
+  const bars: HistBar[] = spec.style === 'bars' ? values.map((v, i) => (v === null ? null : { b: y(Math.min(0, v)), t: y(Math.max(0, v)), now: i === latest, ...ahead(i) })) : [];
+  const step = spec.style === 'step', lineish = spec.style === 'line' || spec.style === 'area' || step;
+  const segs = (from: number, to: number): XY[][] => {
+    const out: XY[][] = []; let seg: XY[] = [];
+    for (let i = from; i < to; i++) {
+      const v = values[i];
+      if (v === null) { if (seg.length) out.push(seg); seg = []; continue; }
       if (step) seg.push({ x: r4(i / n), y: y(v) }, { x: r4((i + 1) / n), y: y(v) });
       else seg.push({ x: r4((i + 0.5) / n), y: y(v) });
-    });
-    if (seg.length) lines.push(seg);
-  }
+    }
+    if (seg.length) out.push(seg);
+    return out;
+  };
   const at = (i: number): XY => ({ x: r4((i + 0.5) / n), y: y(values[i] as number) });
-  const dots = spec.style === 'dots' ? values.flatMap((v, i) => (v === null ? [] : [at(i)])) : [];
+  const lines = lineish ? segs(0, split >= 0 ? split : n) : [], aheadLines = lineish && split >= 0 ? segs(split, n) : [];
+  if (aheadLines.length && split > 0 && values[split - 1] !== null && values[split] !== null)
+    aheadLines[0].unshift(step ? { x: r4(split / n), y: y(values[split - 1] as number) } : at(split - 1));
+  const dots: HistDot[] = spec.style === 'dots' ? values.flatMap((v, i) => (v === null ? [] : [{ ...at(i), ...ahead(i) }])) : [];
   const dot = spec.style !== 'bars' && latest >= 0 ? at(latest) : null;
   const lh = st === 'ok' && series ? lowHigh(series, spec.windowMs, tz, lang) : null;
   const threshold = thr !== null && st === 'ok' && thr >= lo && thr <= hi ? y(thr) : null;
@@ -82,7 +104,7 @@ export function historyChart(spec: HistorySpec, series: Series | null, state: Hi
   }
   const k = STATE_TEXT[st];
   return {
-    style: spec.style, n, state: st, stateText: k ? tr(lang, k) : '', bars, lines, dots, dot, threshold, labels, zero,
+    style: spec.style, n, state: st, stateText: k ? tr(lang, k) : '', bars, lines, aheadLines, split: split >= 0 ? r4(split / n) : null, dots, dot, threshold, labels, zero,
     ticks: axisTicks(spec, now, tz, lang).map((t) => ({ x: r4(t.x), text: t.text })),
     low: lh ? tr(lang, 'histLow', fmt(lh.low.v), lh.low.time) : '', high: lh ? tr(lang, 'histHigh', fmt(lh.high.v), lh.high.time) : '', lo, hi,
     lowI: lh ? lh.low.i : -1, highI: lh ? lh.high.i : -1,
@@ -130,13 +152,13 @@ export function demoHistory(id: string, unit: string, from: number, now: number,
 }
 
 /** The browser emulator's demo attribute / forecast list (#283; it has no HA): `{[time]: ISO, [value]: n}` entries
- *  from 2 h before `now` to `days` ahead, every `stepMs`. A rain-like field ("precipitation", "rain…") gets a shower
+ *  from `backMs` (2 h) before `now` to `aheadMs` ahead, every `stepMs`. A rain-like field ("precipitation", "rain…") gets a shower
  *  peaking about an hour from now; anything else a daily temperature curve. Deterministic in (field, t). */
-export function demoForecast(value: string, time: string, stepMs: number, now: number, tz: number, aheadMs: number): Record<string, string | number>[] {
+export function demoForecast(value: string, time: string, stepMs: number, now: number, tz: number, aheadMs: number, backMs = 2 * 3_600_000): Record<string, string | number>[] {
   const out: Record<string, string | number>[] = [], rain = /precip|rain/i.test(value);
   const iso = (t: number) => { const d = new Date(t + tz * 60_000), sg = tz < 0 ? '-' : '+', a = Math.abs(tz);
     return d.toISOString().slice(0, 19) + sg + String(Math.floor(a / 60)).padStart(2, '0') + ':' + String(a % 60).padStart(2, '0'); };
-  for (let t = Math.floor(now / stepMs) * stepMs - 2 * 3_600_000; t <= now + aheadMs; t += stepMs) {
+  for (let t = Math.floor(now / stepMs) * stepMs - backMs; t <= now + aheadMs; t += stepMs) {
     const m = (t - now) / 60_000, day = (((t + tz * 60_000) / 86_400_000) % 1 + 1) % 1;
     const v = rain ? Math.max(0, 2.4 * Math.exp(-(((m - 55) / 22) ** 2)) + 0.6 * Math.exp(-(((m - 100) / 10) ** 2)) - 0.05) : 10 + 5 * Math.sin(2 * Math.PI * (day - 0.375));
     out.push({ [time]: iso(t), [value]: Math.round(v * 10) / 10 });
@@ -147,18 +169,20 @@ export function demoForecast(value: string, time: string, stepMs: number, now: n
 /** Template data of a chart (Device.tsx, both styles): percentages of the plot area. Past bars hatched, the open
  *  bucket solid ink: a pattern against a fill, so it reads on a 1-bit panel. A gap draws nothing. area (#304): each
  *  segment's polygon down to the plot bottom as a clip-path over the 25 % Track dither (pixel-exact, unlike an SVG
- *  pattern under a stretched viewBox). */
+ *  pattern under a stretched viewBox). #307 (`split` set): past bars solid ink, forecast bars an ink outline, the
+ *  forecast line dashed, its dots hollow, no fill under it; a dotted Now marker at the split. */
 export function historyTile(c: HistoryChart) {
   const pct = (v: number) => (v * 100).toFixed(2) + '%';
   const poly = (seg: XY[]) => 'polygon(' + [{ x: seg[0].x, y: 0 }, ...seg, { x: seg[seg.length - 1].x, y: 0 }].map((p) => pct(p.x) + ' ' + pct(1 - p.y)).join(', ') + ')';
   const lineish = c.style === 'line' || c.style === 'area' || c.style === 'step';
   return {
     histStyle: c.style, isLine: lineish, isBarChart: c.style === 'bars', isStep: c.style === 'step', hasState: !!c.stateText, stateText: c.stateText,
-    hBars: c.bars.map((b) => (b ? { gap: false, bottom: pct(b.b), h: 'max(3px, ' + pct(b.t - b.b) + ')', bg: b.now ? INK : HATCH } : { gap: true, bottom: '0%', h: '0px', bg: 'transparent' })),
+    hBars: c.bars.map((b) => (b ? { gap: false, bottom: pct(b.b), h: 'max(3px, ' + pct(b.t - b.b) + ')', bg: b.ahead ? 'transparent' : b.now || c.split !== null ? INK : HATCH, line: b.ahead ? '2px solid ' + INK : 'none' }
+      : { gap: true, bottom: '0%', h: '0px', bg: 'transparent', line: 'none' })),
     barGap: c.n > 48 ? '1px' : c.n > 24 ? '2px' : '4px',
-    paths: c.lines.map(linePath), dot: c.dot ? { left: pct(c.dot.x), bottom: pct(c.dot.y) } : null,
+    paths: c.lines.map(linePath), aheadPaths: c.aheadLines.map(linePath), splitPct: c.split === null ? null : pct(c.split), dot: c.dot ? { left: pct(c.dot.x), bottom: pct(c.dot.y) } : null,
     fills: c.style === 'area' ? c.lines.filter((s) => s.length > 1).map(poly) : [], fillBg: TRACK,
-    dots: c.dots.map((p) => ({ left: pct(p.x), bottom: pct(p.y) })), dotPx: dotPx(c.n),
+    dots: c.dots.map((p) => ({ left: pct(p.x), bottom: pct(p.y), hollow: !!p.ahead })), dotPx: dotPx(c.n),
     thresholdPct: c.threshold === null ? null : pct(c.threshold),
     labels: c.labels.map((l) => ({ text: l.text, left: pct(l.x), bottom: pct(l.y), shift: l.side === 'right' ? '12px' : 'calc(-100% - 12px)' })),
     zeroPct: c.zero === null ? null : pct(c.zero),

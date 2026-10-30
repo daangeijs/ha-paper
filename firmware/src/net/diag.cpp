@@ -360,6 +360,8 @@ std::string diagReportJson() {
   rep.sleepArmedBy = powerArmedBy();
   rep.batteryJson = powerBatteryJson();
   powerTrail(rep.trailBeforeBoot, rep.trail);
+  rep.emptyHouseSleeps = powerEmptySleeps();
+  rep.phasesJson = powerPhasesJson();
   netStatsFill(rep.net);
   std::lock_guard<std::mutex> l(g_mu);
   touchLocked();

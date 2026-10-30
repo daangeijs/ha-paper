@@ -1,0 +1,9 @@
+{
+  "name": "qrcodegen",
+  "version": "1.8.0+3c6d0b3",
+  "description": "Nayuki's QR Code generator (C), vendored unchanged from https://github.com/nayuki/QR-Code-generator commit 3c6d0b3 (#329)",
+  "license": "MIT",
+  "frameworks": "*",
+  "platforms": "*",
+  "build": { "srcFilter": ["+<*.c>"], "includeDir": "." }
+}

@@ -67,8 +67,14 @@ A tile with no room is not drawn.
 | switch | entity | toggle; domain `switch` \| `light` \| `input_boolean` \| `fan` |
 | light | light: ‹id› | legacy (pre-0.5): rewritten to `{type: switch, entity: light.‹id›}` (`‹id›` with a `.` kept as-is) |
 | scene | entity, label (optional) | tap runs it: `scene.*` → `scene.turn_on`, `script.*` → `script.turn_on`; no entity (or the older `scene: all_off`) = all lights off (`light.turn_off`, `entity_id: all`); an entity wins over `scene:` |
+| media | entity, label, favorites (both optional) | now playing on a `media_player`: title, artist, state, previous / play-pause / next, volume slider (or − / +), and up to 6 favorites to start; see *media* (#319) |
 | zoneList | entities (optional) | climate entities (any integration), 10 per page (use cs 4, rs 2); see *list picks*; the away button shows when a climate entity's `preset_modes` has `away` and is sent to those (#148) |
-| history | entity, window, bucket, agg, style, min, max, threshold, labels, label; attribute, value, time, ahead, forecast (all but entity optional) | a numeric entity over time; domain `sensor` \| `input_number` \| `number`; or a list in an attribute / a weather forecast (#283); see *history* (#264); the firmware parses it (#268) and draws the unknown-tile face until #270 |
+| history | entity, window, bucket, agg, style, min, max, threshold, labels, label; attribute, value, time, ahead, forecast, past (all but entity optional) | a numeric entity over time; domain `sensor` \| `input_number` \| `number`; or a list in an attribute / a weather forecast (#283); see *history* (#264); the firmware parses it (#268) and draws the unknown-tile face until #270 |
+| weather | entity, label (optional) | a `weather.*` entity: condition drawing, temperature, today's high / low / wind / rain, a 5-day strip; `cs: 4` (`rs: 2` full screen, `rs: 1` the top half); see *weather* (#318) |
+| bins | entities, labels, tonight, label (all optional) | bin day: the next waste collection in words; `entities` space-separated `sensor.*` ids (at most 6); see *bins* (#317) |
+| guestWifi | ssid, password, security, hidden, password_entity (all optional) | guest Wi-Fi: a QR code that joins the network, name and password in large type; 2×2 default, 2×1 compact; see *guestWifi* (#329) |
+| agenda | entities (1–4 `calendar.*`), label (optional) | today, tomorrow and the rest of the week from HA calendars; see *agenda and next* (#316) |
+| next | entities (1–4 `calendar.*`), label (optional) | the next timed event with a countdown; see *agenda and next* (#316) |
 | thermo | zone: ‹id›, label (optional) | single room, `‹id›` = object id of a `climate.*` entity (the console picks it); no zone = “—”; rs 2 recommended |
 | setting, ota, wifi, ha, about | | system tiles of the built-in Settings pages: accepted for older files, then dropped (see *Settings is built in*) |
 
@@ -108,6 +114,78 @@ What the display reads from the entity (any integration, or a template sensor th
 Severity: worst of the next two departures (delay < 2 on time, < 5 minor, ≤ 15 delayed, > 15 or cancelled disrupted);
 car: travel time / typical ≥ 1.15, 1.4, 1.75 (`spec/test-vectors/severity.json`). No entity: "Pick a sensor for this
 route". Entity `unavailable` / `unknown`: the gap ring and word (#86). Entity missing or without upcoming departures: "—".
+
+### media (#319)
+
+`{type: media, entity: media_player.living_room, cs: 2, favorites: Radio 1=music:http://icecast.omroep.nl/radio1-bb-mp3; Bedtime=script.good_night}`
+
+- The tile shows `label` (else the player's friendly name), the state (Playing / Paused / Loading / Idle / Off),
+  `media_title` (else "Nothing playing") and `media_artist`, and `volume_level` as a percentage. Nothing else of the
+  player is read: no progress bar, no album art, so a playing track redraws only when the title, artist, state or volume
+  changes. `unavailable` / `unknown`: the gap ring and word.
+- Taps: ⏮ `media_player.media_previous_track`, ⏯ `media_play_pause`, ⏭ `media_next_track`, − / +
+  `volume_down` / `volume_up` (HA steps from its own volume, so quick taps add up), each with `entity_id`. A 1-wide tile
+  has the three transport buttons only.
+- Volume slider (#351): a player whose `supported_features` has VOLUME_SET (4) gets a bar instead of − / + (from 2 wide),
+  filled to `volume_level` with the % on it. A tap, or the end of a drag, at x sets the level (x − bar left) / bar width
+  in whole % and sends one `media_player.volume_set` with `volume_level` 0–1; the bar shows the new level at once and the
+  next state update corrects it. Other players keep − / +.
+- `favorites`: items `Name=target` split by `;` (no commas; names without `=`), at most 6. A target `script.<id>` or
+  `scene.<id>` runs `<domain>.turn_on`; any other target is `<media_content_type>:<media_content_id>` (split at the first
+  `:`, the type letters, digits and `_ / + . -`) and runs `media_player.play_media` on the tile's player with
+  `media_content_type` and `media_content_id`. A 2-high tile lists the favorites under the title; a 1-high tile has a
+  ★ button that turns the tile into the list until one is picked (or × / another page).
+- Rules: `media: “‹item›” in favorites is not Name=type:id or Name=script.<id> / scene.<id>`,
+  `media: at most 6 favorites`. Reference: `emulator/src/core/media.ts`; vectors `spec/test-vectors/media.json`.
+
+### bins (#317)
+
+`{type: bins, entities: sensor.afval_papier sensor.waste_pmd, labels: sensor.afval_papier=Paper; sensor.waste_pmd=Plastic, cs: 2}`.
+One sensor per bin, any integration. `labels`: the tile's own bin names, `sensor.<id>=Name` items split by `;` (like
+zoneList `labels`); a bin without one keeps HA's friendly name. `tonight` (0–23, default 17): from this local hour the day
+before a collection the tile says "put out tonight". `label` replaces the 2-wide title ("Bins"). The display subscribes to
+every sensor in `entities`.
+
+What the display reads from each sensor; the first that gives a day from today on wins:
+
+| source | example | integration |
+|---|---|---|
+| state = a date | `2026-10-29`, `2026-10-29T00:00:00+01:00`, `29-10-2026` | afvalwijzer |
+| state = days to | `3` | waste_collection_schedule with `value_template: "{{ value.daysTo }}"` |
+| attribute `daysTo` | `3` | waste_collection_schedule `add_days_to: true` |
+| attribute `upcoming` | a list (or JSON text of one) of dates or `{date}` | a template sensor |
+
+`unavailable` / `unknown`, a date in the past and anything else: the bin is left out. Words: Today, Tomorrow, in N days,
+with the date as "Thursday 29" (2-wide rest list "Thu 29"). From `tonight`:00 the day before: "Thursday 29 · put out
+tonight" and a TONIGHT pill; on the day a TODAY pill. Bins on the same soonest day share the headline ("Paper +
+Plastic"). A 1-wide tile shows the soonest bin: its name, the when word, the date or "Put out tonight". No sensors:
+"Pick bin sensors in the browser"; none with a date: "—" and "No collection date".
+Reference: `emulator/src/core/bins.ts` (firmware `core/bins.cpp`); vectors: `spec/test-vectors/bins.json`.
+
+### guestWifi (#329)
+
+`{type: guestWifi, ssid: Harbor Guest, password: tea%2C please, cs: 2, rs: 2}`. `security`: `WPA` (default), `WEP` or
+`nopass` (no password row, no `P:`). `hidden: true` adds `H:true`. `password_entity` (an `input_text`, `text` or
+`sensor`): its state is the password and overrides `password` (a rotating password follows HA); the display subscribes
+to it; `unavailable` / `unknown` / no state: "No password from Home Assistant", no code.
+
+`ssid` and `password` are written with `%XX` (UTF-8 bytes) for `%` `,` `{` `}`, control characters, whitespace at either
+end and the first digit of a digits-only value, so the flow map keeps them as typed (`tea, please` → `tea%2C please`,
+`00123456` → `%300123456`); `%XX` is read back everywhere, `%00` dropped. The password is stored in the screen config:
+anyone with console or API access can read it (the console says so). Never logged.
+
+QR payload `WIFI:T:<WPA|WEP|nopass>;S:<ssid>;P:<password>;H:true;;` with `\ ; , : "` backslash-escaped. Encoded with
+Nayuki's qrcodegen (emulator TypeScript, firmware C, same modules): ECC M, smallest version 1–6, automatic mask, no ECC
+boost. Over version 6 (106 bytes): "Too long for a QR code" in the code's place, the text still shown.
+
+Layout (tile-relative, 2 px border inside): 2-wide × 2-high (cs < 4): the code centred in the square above a 108 px text
+block (bottom 10 px); 2×1 and 4-wide: the code in the left square (tile height − 4), text right of it, vertically
+centred; 1-wide: the code alone. Whole px per module: ⌊square / (modules + 8)⌋, a 4-module white quiet zone (Modern: a
+white rounded square on the card). Text: "Network" / "Password" (16 px) over the value (bold 28 px, smaller to fit).
+No network (or no password with WPA/WEP and no entity): "Enter the network in the browser". GET /screens/{id}/values:
+the network name, never the password. Static: redraws only when the config or the entity's state changes.
+Reference: `emulator/src/core/guestWifi.ts` (firmware `core/guest_wifi.cpp`, `app/ui_guest.cpp`); vectors:
+`spec/test-vectors/guest-wifi.json`, `config/329a`–`329d`.
 
 ### history (#264)
 
@@ -154,6 +232,7 @@ The same tile charts a list HA already holds, e.g. a rain nowcast or a weather f
 | time | the entry field with its time | `datetime` |
 | forecast | `hourly` \| `daily`; weather entity without `attribute` only | `hourly` |
 | ahead | `0` or a span ≤ window that the bucket divides: the part of the window after now | the whole window |
+| past | a `sensor` \| `input_number` \| `number` entity whose recorder history fills the window before now (#307) | — |
 
 The list (or a JSON string of one) holds objects `{‹time›: ISO 8601 or epoch s / ms, ‹value›: number}` (an entry
 without a valid time or number is skipped; an ISO time without offset is local), or plain numbers: one per bucket,
@@ -172,9 +251,68 @@ one 1d (the default bucket skips shorter steps). Axis for windows ≤ 3 h: `-60 
 | forecast bucket shorter than its step | `history: an hourly forecast needs a bucket of 1h or more` \| `history: a daily forecast needs a bucket of 1d or more` |
 | ahead not 0 or a span ≤ window | `history: ahead must be 0 or like 30m or 2h, at most the window` |
 | bucket does not divide ahead | `history: bucket ‹bucket› does not divide ahead ‹ahead›` |
+| past on a recorder series | `history: past needs an attribute or a weather entity` |
+| past not a sensor / input_number / number id | `history: past “‹id›” is not a sensor / input_number / number entity` |
+| past with ahead absent, 0 or the whole window | `history: past needs ahead shorter than the window` |
+
+#### past and future in one chart (#307)
+
+```yaml
+- {type: history, entity: binary_sensor.rain_expected, attribute: forecast, value: precipitation, past: sensor.rain_rate, window: 3h, ahead: 2h, bucket: 10m, agg: max, style: bars, cs: 4}
+```
+
+`window` stays the whole chart and `ahead` its part after now, so 1 h back + 2 h ahead is `window: 3h, ahead: 2h`. The
+buckets before the one holding now come from the recorder of `past` (fetched like a recorder tile over `window − ahead`
+plus the open bucket, same `agg`, statistics or the history fallback); the bucket holding now and the rest come from the
+attribute / forecast. Buckets are matched by start time; a part not fetched yet is gaps. State: data from either part
+= drawn; else loading while either loads; else the forecast's verdict (or the recorder's `tooMany` / `needsStats` when
+the forecast has nothing). The forecast part is drawn lighter, 1-bit safe, in every style: past bars solid ink, forecast
+bars an ink outline; the forecast line / step dashed (6 on, 4 off) and joined to the last past point (step: at the Now
+edge), no area fill under it; forecast dots hollow. A dotted vertical Now marker sits at the start of the bucket holding
+now. Axis, low / high, labels, threshold and the header value (the bucket holding now) span both parts. Each part uses
+one series slot (a tile with `past` counts once toward the 6). Vectors: `history-series.json` `both`, `joinState`.
 
 Reference: `emulator/src/core/history.ts`; vectors: `spec/test-vectors/history-series.json`. The firmware does not read
 these sources yet: `firmware/deviations/283-attribute-series.md`.
+
+### weather (#318)
+
+`{type: weather, entity: weather.home, cs: 4, rs: 2}` (full screen) or `rs: 1` (half: the top row only). At most **2**
+weather tiles per config (the 3rd fails: `At most 2 weather tiles`); another width fails: `weather: needs the full width (cs: 4)`.
+
+| part | from |
+|---|---|
+| drawing | the state (HA condition) → 12 drawings: sun (`sunny`), moon (`clear-night`), partly (`partlycloudy`), cloud (`cloudy`, any unknown text), fog, rain (`rainy`), pour (`pouring`), snow (`snowy`), sleet (`snowy-rainy`, `hail`), thunder (`lightning`, `lightning-rainy`), wind (`windy`, `windy-variant`), alert (`exceptional`) |
+| temperature, "feels" | attributes `temperature`, `apparent_temperature`, rounded to whole degrees |
+| condition name | the state in the display language (an unknown condition as HA sent it) |
+| high / low | the daily forecast entry dated today (local): `temperature` / `templow`; none → “—” |
+| wind | `wind_speed` rounded in `wind_speed_unit` (`Beaufort` → “4 Bft”), then `wind_bearing` on 8 points (degrees, or a short text as is) |
+| rain | the hourly forecast, the next 12 h: the first entry with `precipitation` > 0 (without it: a rain / snow / thunder condition) → “from 15:00”; the hour holding now → “now”; none → “none soon” |
+| 5-day strip | the next 5 daily entries after today: short weekday, drawing, high / low, `precipitation` (“dry” under 0.05, one decimal under 1, else whole, in `precipitation_unit`) as a bar scaled to the wettest day, at least 10 mm (0.4 in) |
+
+Forecasts come from `weather.get_forecasts` (`type: daily` and `type: hourly`, `return_response`), asked again after an
+hour, not on every wake. Kept: 7 daily entries from today, 16 hourly from the hour holding now (an entry without a valid
+`datetime` is skipped; numbers to 2 decimals). Unavailable / unknown: the gap ring and word. Reference:
+`emulator/src/core/weather.ts` (firmware `core/weather.cpp`); vectors: `spec/test-vectors/weather.json`.
+
+### agenda and next (#316)
+
+`{type: agenda, entities: calendar.family calendar.work, cs: 2, rs: 2}` and `{type: next, entities: calendar.family, cs: 2}`.
+`entities` = 1–4 calendar entities, space-separated (picked like a list tile's entities). At most **4** agenda / next
+tiles per config. Tiles with the same calendars (sorted, without repeats) share one fetch.
+
+- Data: `calendar.get_events` with `return_response` (HA 2023.12+) over the WebSocket, one call per calendar set, for
+  local midnight today to 7 days later; asked again every 30 min and when the local day changes. At most **12** events
+  are kept per set (earliest first: start, all-day first, end, calendar, title), each title at most 48 UTF-8 bytes (cut
+  on a character boundary; control characters become spaces, outer spaces trimmed). An event with a date-only start is
+  all day.
+- agenda: a day header ("Today · Wed 28", "Tomorrow · Thu 29", "Fri 30") then its events (time, "all day", or
+  "–10:00" for one that began on an earlier day); ended events drop out as time passes; 4 lines (headers + events) on
+  one row, 11 on two; "+N more this week" counts what does not fit.
+- next: the first timed event not ended: its title, "08:30 – 09:15" and a pill: "Now" while it runs, "in 48 min" under
+  an hour, "in 3 h" later today, "Tomorrow", else the short day name.
+
+Reference: `emulator/src/core/agenda.ts` (firmware `core/agenda.cpp`); vectors: `spec/test-vectors/agenda.json`.
 
 ## validation
 
@@ -188,11 +326,20 @@ Reject first error with 1-based line number and message (exact text; `‹›` = 
 | widget not under `widgets:` | widget | `Widget outside a “widgets:” list` |
 | flow-map part without `:` | widget | `Expected key: value` |
 | unknown type | widget | `Unknown widget type “‹type›”` |
-| stat/gauge/switch/route/history entity bad id or domain | widget | `‹type›: “‹entity›” is not a ‹d1 / d2 / …› entity` |
+| stat/gauge/switch/route/history/media/weather entity bad id or domain | widget | `‹type›: “‹entity›” is not a ‹d1 / d2 / …› entity` |
 | lightList `areas` item not an area id | widget | `lightList: “‹id›” is not an area id` |
 | lightList / zoneList `entities` item not a light / climate entity_id | widget | `‹type›: “‹id›” is not a ‹light \| climate› entity` |
 | zoneList `labels` item not `climate.<id>=Name` | widget | `zoneList: “‹item›” in labels is not climate.<id>=Name` |
+| media `favorites` item not `Name=type:id` / `Name=script.<id>` / `Name=scene.<id>` | widget | `media: “‹item›” in favorites is not Name=type:id or Name=script.<id> / scene.<id>` |
+| media more than 6 favorites | widget | `media: at most 6 favorites` |
 | route `mode` not train / bus / car | widget | `route: mode must be train, bus or car` |
+| bins `entities` item not a sensor entity_id | widget | `bins: “‹id›” is not a sensor entity` |
+| bins `labels` item not `sensor.<id>=Name` | widget | `bins: “‹item›” in labels is not sensor.<id>=Name` |
+| bins more than 6 `entities` | widget | `bins: at most 6 sensors` |
+| bins `tonight` not a whole hour 0–23 | widget | `bins: tonight must be an hour 0–23` |
+| guestWifi `password_entity` not an input_text / text / sensor entity_id | widget | `guestWifi: password_entity is not an input_text / text / sensor entity` |
+| guestWifi `security` not WPA / WEP / nopass | widget | `guestWifi: security must be WPA, WEP or nopass` |
+| guestWifi `hidden` not true / false | widget | `guestWifi: hidden must be true or false` |
 | `cs` not 1–4 | widget | `cs must be 1–4` |
 | `rs` not 1–2 | widget | `rs must be 1 or 2` |
 | `col`/`row` set, `col` not 1–4 | widget | `col must be 1–4` |
@@ -211,6 +358,10 @@ Reject first error with 1-based line number and message (exact text; `‹›` = 
 | history `min` / `max` not a number | widget | `history: min and max must be numbers` |
 | history `min` ≥ `max` | widget | `history: min must be below max` |
 | 7th history tile | widget | `At most 6 history tiles` |
+| agenda / next without `entities` | widget | `‹type›: pick at least one calendar` |
+| agenda / next `entities` item not a calendar entity_id | widget | `‹type›: “‹id›” is not a calendar entity` |
+| agenda / next more than 4 calendars | widget | `‹type›: at most 4 calendars` |
+| 5th agenda / next tile | widget | `At most 4 agenda or next tiles` |
 | any other line | that line | `Can’t read this line` |
 | no screens | 1 | `No screens found` |
 | duplicate screen id | `- id:` (last with that id) | `Duplicate screen id “‹id›”` |
@@ -218,7 +369,7 @@ Reject first error with 1-based line number and message (exact text; `‹›` = 
 
 Plus the apps rules above. Widget checks run in table order; `cs: 0`/`rs: 0` count as unset.
 Reference implementation: `parseYaml()` in `emulator/src/core/config.ts`; test vectors:
-`spec/test-vectors/config/*.json` (apps: `33`–`39`; routes: `22`, `50`–`52`; built-in Settings: `53`–`57`).
+`spec/test-vectors/config/*.json` (apps: `33`–`39`; routes: `22`, `50`–`52`; built-in Settings: `53`–`57`; bins: `90`–`94`; guestWifi: `329a`–`329d`).
 
 # settings.json (device settings)
 

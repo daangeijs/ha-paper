@@ -237,6 +237,79 @@ void test_quiet_hours_and_peek() {
   TEST_ASSERT_EQUAL_INT(2, r.d.fulls());
 }
 
+// ---- empty-house sleep (#331): Nobody home face on the sleeping glance panel; quiet hours win; live = dashboard ----
+void test_empty_house_face() {
+  DisplaySettings ds; ds.emptyHouse = "zone.home";
+  auto zone = [](Rig& r, const char* n) { EntityValue v; v.state = n; r.app.entities().set("zone.home", v); r.step(31000); };   // live data: once per intervalSec
+  {   // live with nobody home: the dashboard; going to sleep: the face, one full refresh; powerView says empty
+    Rig r(true, 13, 0, 10, ds);
+    zone(r, "0");
+    TEST_ASSERT_TRUE(r.has("bar")); TEST_ASSERT_FALSE(r.has("empty"));
+    TEST_ASSERT_TRUE(r.app.powerView().emptyHouse);
+    r.app.prepareSleep();
+    const uint32_t full = r.app.stats().fullRefreshes;
+    r.app.markAsleep(true);
+    TEST_ASSERT_TRUE(r.has("empty")); TEST_ASSERT_FALSE(r.has("bar"));
+    TEST_ASSERT_EQUAL_UINT32(full + 1, r.app.stats().fullRefreshes);
+    TEST_ASSERT_TRUE(r.sig("empty").find("Nobody home") != std::string::npos);
+    TEST_ASSERT_TRUE(r.sig("empty").find("Next update ~15:00") != std::string::npos);
+    TEST_ASSERT_TRUE(r.sig("empty").find("13:00") == std::string::npos);   // #333: no "Updated HH:MM"
+    zone(r, "1");                                          // someone came home: the glance sleep face (#356)
+    TEST_ASSERT_FALSE(r.has("empty")); TEST_ASSERT_TRUE(r.has("sleep")); TEST_ASSERT_FALSE(r.app.powerView().emptyHouse);
+    zone(r, "0");
+    r.app.markAsleep(false);                               // a key wake into live mode: the dashboard
+    TEST_ASSERT_FALSE(r.has("empty")); TEST_ASSERT_TRUE(r.has("bar"));
+  }
+  {   // quiet hours win: asleep at night stays the quiet face
+    Rig r(true, 23, 30, 10, ds);
+    zone(r, "0");
+    r.app.markAsleep(true);
+    TEST_ASSERT_TRUE(r.has("quiet")); TEST_ASSERT_FALSE(r.has("empty"));
+  }
+  {   // off (no source), unknown presence, or not glance: no face
+    Rig r(true, 13, 0);
+    EntityValue v; v.state = "0"; r.app.entities().set("zone.home", v); r.step(50);
+    r.app.markAsleep(true);
+    TEST_ASSERT_FALSE(r.has("empty")); TEST_ASSERT_FALSE(r.app.powerView().emptyHouse);
+    DisplaySettings st = ds; st.powerSave = "standby";
+    Rig q(true, 13, 0, 10, st);
+    zone(q, "0"); q.app.markAsleep(true);
+    TEST_ASSERT_FALSE(q.has("empty"));
+    Rig u(true, 13, 0, 10, ds);
+    zone(u, "unavailable"); u.app.markAsleep(true);
+    TEST_ASSERT_FALSE(u.has("empty"));
+  }
+}
+
+// ---- #333: asleep, no time of day: the clock tile shows the date + "Asleep", the bar says "Asleep"; midnight redraws ----
+void test_asleep_no_time() {
+  for (const char* style : {"classic", "sleek"}) {
+    DisplaySettings ds; ds.style = style; ds.quiet = "off"; ds.powerSave = "off";   // glance shows the sleep face (#356)
+    Rig r(true, 13, 0, 10, ds);
+    r.app.prepareSleep(); r.app.markAsleep(true);
+    std::string all;
+    for (auto& kv : r.app.regionSignatures()) all += kv.second;
+    TEST_ASSERT_TRUE(all.find("13:00") == std::string::npos);
+    TEST_ASSERT_TRUE(all.find("Asleep") != std::string::npos);
+    TEST_ASSERT_TRUE(r.sig("k0").find(":13;") != std::string::npos);   // the day number in the digits region
+    TEST_ASSERT_TRUE(r.sig("t0").find("Tuesday") != std::string::npos);
+    // past midnight the weekday in the tile region (not a clock region) changes, so a glance wake redraws
+    auto ignore = [&] { std::vector<uint32_t> v; for (auto& k : r.app.clockRegions()) v.push_back(glance::fnv1a(k)); return v; };
+    glance::Snapshot a = glance::snapshotOf(r.app.regionSignatures());
+    r.b.epoch += 30 * 60; r.step(1000); r.app.markAsleep(false); r.app.markAsleep(true);
+    glance::Snapshot b = glance::snapshotOf(r.app.regionSignatures());
+    TEST_ASSERT_EQUAL(0, int(glance::snapshotDiff(&a, b, ignore()).size()));
+    r.b.epoch += 11 * 3600; r.step(1000); r.app.markAsleep(false); r.app.markAsleep(true);
+    glance::Snapshot c = glance::snapshotOf(r.app.regionSignatures());
+    TEST_ASSERT_TRUE(glance::snapshotDiff(&b, c, ignore()).size() >= 1);
+    TEST_ASSERT_TRUE(r.sig("t0").find("Wednesday") != std::string::npos);
+  }
+  {   // a live (awake) dashboard keeps its clock
+    Rig r(true, 13, 0);
+    TEST_ASSERT_TRUE(r.sig("k0").find("13:00") != std::string::npos);
+  }
+}
+
 // ---- quiet hours (#295): any press or boot shows the dashboard; standby in the window = the quiet face ----
 void test_quiet_hours_boot_power_standby() {
   {   // power-on / button wake at 23:30: the dashboard first, the quiet face 60 s later
@@ -655,32 +728,121 @@ void test_configured_boot_no_setup() {
 
 // ---- glance (#10): a held panel renders without refreshing; the snapshot ignores the clock; redraw = one full ----
 void test_glance_hooks() {
-  Rig r;
-  r.app.setPanelHeld(true);
-  r.app.settle();
-  TEST_ASSERT_EQUAL(0, r.d.fulls() + r.d.partials());   // rendered, not shown
-  auto clocks = r.app.clockRegions();
-  TEST_ASSERT_TRUE(std::find(clocks.begin(), clocks.end(), "k0") != clocks.end());   // Overview clock tile
-  auto ignore = [&] { std::vector<uint32_t> v; for (auto& k : r.app.clockRegions()) v.push_back(glance::fnv1a(k)); return v; };
-  glance::Snapshot a = glance::snapshotOf(r.app.regionSignatures());
-  r.b.epoch += 15 * 60; r.step(1000); r.app.settle();          // 15 min later, same values: only the clock moved
-  glance::Snapshot b = glance::snapshotOf(r.app.regionSignatures());
-  TEST_ASSERT_EQUAL(0, int(glance::snapshotDiff(&a, b, ignore()).size()));
-  r.setNum("sensor.home_power", "2000"); r.step(50); r.app.settle();
-  glance::Snapshot c = glance::snapshotOf(r.app.regionSignatures());
-  TEST_ASSERT_TRUE(glance::snapshotDiff(&b, c, ignore()).size() >= 1);
-  TEST_ASSERT_EQUAL(0, r.d.fulls() + r.d.partials());
-  r.app.redraw("changed");
-  TEST_ASSERT_EQUAL(1, r.d.fulls());
-  // live → sleep from another page: back home in ambient chrome, one full refresh; already home + ambient: none
+  {   // not glance (standby): the asleep dashboard; the clock tile is a clock region the snapshot ignores
+    DisplaySettings ds; ds.powerSave = "standby";
+    Rig r(true, 13, 0, 10, ds);
+    r.app.setPanelHeld(true);
+    r.app.settle();
+    TEST_ASSERT_EQUAL(0, r.d.fulls() + r.d.partials());   // rendered, not shown
+    auto clocks = r.app.clockRegions();
+    TEST_ASSERT_TRUE(std::find(clocks.begin(), clocks.end(), "k0") != clocks.end());   // Overview clock tile
+    auto ignore = [&] { std::vector<uint32_t> v; for (auto& k : r.app.clockRegions()) v.push_back(glance::fnv1a(k)); return v; };
+    glance::Snapshot a = glance::snapshotOf(r.app.regionSignatures());
+    r.b.epoch += 15 * 60; r.step(1000); r.app.settle();          // 15 min later, same values: only the clock moved
+    glance::Snapshot b = glance::snapshotOf(r.app.regionSignatures());
+    TEST_ASSERT_EQUAL(0, int(glance::snapshotDiff(&a, b, ignore()).size()));
+    r.setNum("sensor.home_power", "2000"); r.step(50); r.app.settle();
+    glance::Snapshot c = glance::snapshotOf(r.app.regionSignatures());
+    TEST_ASSERT_TRUE(glance::snapshotDiff(&b, c, ignore()).size() >= 1);
+    TEST_ASSERT_EQUAL(0, r.d.fulls() + r.d.partials());
+    r.app.redraw("changed");
+    TEST_ASSERT_EQUAL(1, r.d.fulls());
+    // live → sleep from another page: back home in ambient chrome, one full refresh; already home + ambient: none
+    r.app.markAsleep(false);
+    r.d.clear();
+    r.key(Key::Next);
+    r.app.prepareSleep();
+    TEST_ASSERT_EQUAL(1, r.d.fulls());
+    r.app.prepareSleep();
+    TEST_ASSERT_EQUAL(1, r.d.fulls());
+    TEST_ASSERT_TRUE(r.app.powerView().msSinceUserInput >= 0);
+    TEST_ASSERT_TRUE(r.app.powerView().main);
+  }
+  {   // glance (#356): the held wake renders the sleep face; a dashboard-only value changes nothing, a new day does
+    DisplaySettings ds; ds.quiet = "off";
+    Rig r(true, 13, 0, 10, ds);
+    r.app.setPanelHeld(true);
+    r.app.settle();
+    TEST_ASSERT_EQUAL(0, r.d.fulls() + r.d.partials());
+    TEST_ASSERT_TRUE(r.has("sleep")); TEST_ASSERT_FALSE(r.has("bar"));
+    TEST_ASSERT_TRUE(r.app.clockRegions().empty());
+    glance::Snapshot a = glance::snapshotOf(r.app.regionSignatures());
+    r.setNum("sensor.home_power", "2000"); r.b.epoch += 15 * 60; r.step(1000); r.app.settle();
+    glance::Snapshot b = glance::snapshotOf(r.app.regionSignatures());
+    TEST_ASSERT_EQUAL(0, int(glance::snapshotDiff(&a, b, {}).size()));
+    r.b.epoch += 11 * 3600; r.step(1000); r.app.settle();        // past midnight: the date on the face changed
+    glance::Snapshot c = glance::snapshotOf(r.app.regionSignatures());
+    TEST_ASSERT_EQUAL(1, int(glance::snapshotDiff(&b, c, {}).size()));
+    r.app.redraw("changed");
+    TEST_ASSERT_EQUAL(1, r.d.fulls());
+    TEST_ASSERT_TRUE(r.has("sleep"));
+    // live → sleep from another page: no dashboard refresh first, the sleep face is the one full refresh
+    r.app.markAsleep(false);
+    r.d.clear();
+    r.key(Key::Next);
+    r.app.prepareSleep();
+    TEST_ASSERT_EQUAL(0, r.d.fulls());
+    r.app.markAsleep(true);
+    TEST_ASSERT_EQUAL(1, r.d.fulls());
+    TEST_ASSERT_TRUE(r.has("sleep"));
+  }
+}
+
+// ---- #356: glance sleep shows one calm face (date, "Asleep · press to wake", the Today row), not the dashboard ----
+void test_glance_sleep_face() {
+  for (const char* style : {"classic", "sleek"}) {
+    DisplaySettings ds; ds.style = style;
+    Rig r(true, 13, 0, 10, ds);
+    r.app.prepareSleep();
+    const uint32_t full = r.app.stats().fullRefreshes;
+    r.app.markAsleep(true);
+    TEST_ASSERT_EQUAL_UINT32(full + 1, r.app.stats().fullRefreshes);   // the face goes up: one full refresh
+    TEST_ASSERT_TRUE(r.has("sleep")); TEST_ASSERT_FALSE(r.has("bar")); TEST_ASSERT_FALSE(r.has("time"));
+    const std::string f = r.sig("sleep");
+    TEST_ASSERT_TRUE(f.find("Asleep · press to wake") != std::string::npos);
+    TEST_ASSERT_TRUE(f.find("Tuesday 13 October") != std::string::npos);
+    TEST_ASSERT_TRUE(f.find("13:00") == std::string::npos);              // #333: no time of day
+    r.snap(std::string(style) == "classic" ? "glance_face" : "glance_face_sleek");
+    r.app.markAsleep(true);                                              // same minute: nothing
+    TEST_ASSERT_EQUAL_UINT32(full + 1, r.app.stats().fullRefreshes);
+    r.app.markAsleep(false);                                             // a key wake into live mode: the dashboard
+    TEST_ASSERT_EQUAL_UINT32(full + 2, r.app.stats().fullRefreshes);
+    TEST_ASSERT_TRUE(r.has("bar")); TEST_ASSERT_FALSE(r.has("sleep"));
+  }
+  {   // standby mode keeps the standby face; quiet hours keep the quiet face
+    DisplaySettings ds; ds.powerSave = "standby";
+    Rig r(true, 13, 0, 10, ds);
+    r.key(Key::Power);
+    r.app.markAsleep(true);
+    TEST_ASSERT_TRUE(r.has("standby")); TEST_ASSERT_FALSE(r.has("sleep"));
+    Rig q(true, 23, 30);
+    q.app.markAsleep(true);
+    TEST_ASSERT_TRUE(q.has("quiet")); TEST_ASSERT_FALSE(q.has("sleep"));
+  }
+  {   // Dutch
+    Rig r;
+    r.s.st.language = "nl"; r.app.onNetStatusChanged(); r.step(100);
+    r.app.markAsleep(true);
+    TEST_ASSERT_TRUE(r.sig("sleep").find("Slaapt · druk om te wekken") != std::string::npos);
+    r.snap("glance_face_nl");
+  }
+}
+
+// ---- #357: a timer wake (glance) boots with the front light off; the first key turns it on and still acts ----
+void test_light_timer_wake() {
+  DisplaySettings ds = fast(); ds.brightness = 50;
+  Rig r(true, 13, 0, 10, ds, "timer");
+  TEST_ASSERT_EQUAL_INT(0, r.b.light);
+  r.step(5000);
+  TEST_ASSERT_EQUAL_INT(0, r.b.light);                     // HA data and redraws never turn it on
   r.d.clear();
-  r.key(Key::Next);
-  r.app.prepareSleep();
-  TEST_ASSERT_EQUAL(1, r.d.fulls());
-  r.app.prepareSleep();
-  TEST_ASSERT_EQUAL(1, r.d.fulls());
-  TEST_ASSERT_TRUE(r.app.powerView().msSinceUserInput >= 0);
-  TEST_ASSERT_TRUE(r.app.powerView().main);
+  r.key(Key::Next);                                        // not consumed: light on and the page turns
+  TEST_ASSERT_EQUAL_INT(50, r.b.light);
+  TEST_ASSERT_EQUAL_INT(1, r.d.fasts());
+  for (const char* w : {"button", "charger", "cold"}) {
+    Rig k(true, 13, 0, 10, ds, w);
+    TEST_ASSERT_EQUAL_INT_MESSAGE(50, k.b.light, w);
+  }
 }
 
 // ---- OTA install screen + blocked on low battery ----
@@ -1278,7 +1440,7 @@ void test_minute_tick_window() {
 // ---- issue #220: front light timeout — off after N s without input; the first key/tap only turns it back on ----
 void test_light_timeout() {
   DisplaySettings ds = fast(); ds.brightness = 50; ds.lightTimeout = 30; ds.returnHome = "never";
-  Rig r(true, 13, 0, 10, ds);
+  Rig r(true, 13, 0, 10, ds, "cold");   // a timer wake boots dark (#357)
   TEST_ASSERT_EQUAL_INT(50, r.b.light);
   r.step(27000);
   TEST_ASSERT_EQUAL_INT(50, r.b.light);
@@ -1309,7 +1471,7 @@ void test_light_timeout() {
   TEST_ASSERT_EQUAL_INT(0, r.b.light);
   // Never: the light stays on
   DisplaySettings nv = ds; nv.lightTimeout = 0;
-  Rig q(true, 13, 0, 10, nv);
+  Rig q(true, 13, 0, 10, nv, "cold");
   q.step(400000);
   TEST_ASSERT_EQUAL_INT(50, q.b.light);
   // brightness 0: nothing to wake, the first key acts
@@ -1376,7 +1538,7 @@ void test_ambient_idle() {
   TEST_ASSERT_TRUE(r.has("standby"));
 }
 
-// ---- quiet face (#295, poster since #27): the Home page's first values; "as of HH:MM" only when the data was stale ----
+// ---- quiet face (#295, poster since #27): a Tomorrow row (#328), no live values; "as of HH:MM" only when the data was stale ----
 void test_night_poster() {
   Rig fresh(true, 22, 59);
   fresh.s.st.haLastDataEpoch = fresh.b.epochSeconds() - 60;
@@ -1385,7 +1547,19 @@ void test_night_poster() {
   std::string n = fresh.sig("quiet");
   TEST_ASSERT_TRUE(n.find("as of") == std::string::npos);
   TEST_ASSERT_TRUE(n.find("Cheapest") == std::string::npos);   // no fixed energy terms
-  TEST_ASSERT_TRUE_MESSAGE(n.find(":Price ;") != std::string::npos && n.find(":Inside ;") != std::string::npos && n.find(":Solar ;") != std::string::npos, n.c_str());
+  // #328: the default config has no weather, agenda or bins tile: no Tomorrow row and no live values
+  TEST_ASSERT_TRUE_MESSAGE(n.find("Tomorrow") == std::string::npos && n.find(":Price") == std::string::npos && n.find(":Solar") == std::string::npos, n.c_str());
+  Rig bins(true, 22, 59);
+  bins.s.st.haLastDataEpoch = bins.b.epochSeconds() - 60;
+  EntityValue paper; paper.state = "2026-10-14"; paper.attrs["friendly_name"] = "Paper";
+  bins.app.entities().set("sensor.afval_papier", paper);
+  ParseResult bp = parseYamlText("version: 1\nscreens:\n  - id: home\n    app: home\n    title: Home\n    widgets:\n"
+                                 "      - {type: bins, entities: sensor.afval_papier, cs: 2}\n");
+  TEST_ASSERT_TRUE(bp.ok);
+  bins.app.setConfig(bp.config);
+  bins.step(61000);
+  std::string b = bins.sig("quiet");
+  TEST_ASSERT_TRUE_MESSAGE(b.find(":Tomorrow;") != std::string::npos && b.find(":Paper;") != std::string::npos && b.find(": put out tonight;") != std::string::npos, b.c_str());
   Rig stale(true, 22, 59);
   stale.s.st.haLastDataEpoch = stale.b.epochSeconds() - 45 * 60;   // 22:14
   stale.step(61000);
@@ -1401,7 +1575,7 @@ void test_user_routes() {
   Rig r;
   const char* y = "version: 1\nscreens:\n  - id: travel\n    app: travel\n    title: Travel\n    widgets:\n"
                   "      - {type: route, label: To work, entity: sensor.demo_train, cs: 2}\n"
-                  "      - {type: route, route: renkum_arn, cs: 2}\n"
+                  "      - {type: route, route: home_centre, cs: 2}\n"
                   "      - {type: route, mode: car, entity: sensor.drive_gone, cs: 2}\n"
                   "      - {type: route, mode: bus, entity: sensor.demo_bus, cs: 2}\n";
   ParseResult p = parseYamlText(y);
@@ -1525,6 +1699,8 @@ int main(int, char**) {
   RUN_TEST(test_one_changed_row_only);
   RUN_TEST(test_five_taps_one_call);
   RUN_TEST(test_quiet_hours_and_peek);
+  RUN_TEST(test_empty_house_face);
+  RUN_TEST(test_asleep_no_time);
   RUN_TEST(test_quiet_hours_boot_power_standby);
   RUN_TEST(test_full_every_and_screen_change);
   RUN_TEST(test_nav_fast_every_tenth_clean);
@@ -1536,6 +1712,8 @@ int main(int, char**) {
   RUN_TEST(test_first_install_flow);
   RUN_TEST(test_configured_boot_no_setup);
   RUN_TEST(test_glance_hooks);
+  RUN_TEST(test_glance_sleep_face);
+  RUN_TEST(test_light_timer_wake);
   RUN_TEST(test_ota_screen);
   RUN_TEST(test_ota_long_version);
   RUN_TEST(test_ota_upload_version_line);

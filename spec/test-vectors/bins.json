@@ -1,0 +1,1171 @@
+{
+  "description": "Bin day tile (spec/SCHEMA.md bins, #317). days: binDays(state, attrs, now, tz) = days from the local today to the next collection, null = unknown. The first source giving a day ≥ today wins: a date state (ISO, or DD-MM-YYYY), a whole-number state (days to), attribute daysTo, attribute upcoming (JSON list of dates or {date}). unavailable / unknown → null. views: binsView(bins, now, tz, tonight, lang): rows soonest first (config order on a tie), head = labels of the soonest day joined with \" + \", big = Today / Tomorrow / in N days, line = \"‹when› · ‹Weekday d›\" or \"‹Weekday d› · put out tonight\" from tonight:00 the day before, foot (1-cell) = the date or \"Put out tonight\", pill = Tonight / Today / \"\", rest = the later rows.",
+  "days": [
+    {
+      "name": "date-tomorrow",
+      "state": "2026-10-29",
+      "attrs": {},
+      "now": 1793210700000,
+      "tz": 60,
+      "out": 1
+    },
+    {
+      "name": "date-today",
+      "state": "2026-10-28",
+      "attrs": {},
+      "now": 1793210700000,
+      "tz": 60,
+      "out": 0
+    },
+    {
+      "name": "date-past",
+      "state": "2026-10-27",
+      "attrs": {},
+      "now": 1793210700000,
+      "tz": 60,
+      "out": null
+    },
+    {
+      "name": "date-past-then-upcoming",
+      "state": "2026-10-27",
+      "attrs": {
+        "upcoming": "[\"2026-10-27\",\"2026-11-10\"]"
+      },
+      "now": 1793210700000,
+      "tz": 60,
+      "out": 13
+    },
+    {
+      "name": "date-dutch",
+      "state": "03-11-2026",
+      "attrs": {},
+      "now": 1793210700000,
+      "tz": 60,
+      "out": 6
+    },
+    {
+      "name": "date-dutch-bad-month",
+      "state": "03-13-2026",
+      "attrs": {},
+      "now": 1793210700000,
+      "tz": 60,
+      "out": null
+    },
+    {
+      "name": "date-with-offset",
+      "state": "2026-10-29T00:00:00+01:00",
+      "attrs": {},
+      "now": 1793210700000,
+      "tz": 60,
+      "out": 1
+    },
+    {
+      "name": "date-utc-next-local-day",
+      "state": "2026-10-28T23:30:00Z",
+      "attrs": {},
+      "now": 1793210700000,
+      "tz": 60,
+      "out": 1
+    },
+    {
+      "name": "days-state",
+      "state": "3",
+      "attrs": {},
+      "now": 1793210700000,
+      "tz": 60,
+      "out": 3
+    },
+    {
+      "name": "days-state-zero",
+      "state": "0",
+      "attrs": {},
+      "now": 1793210700000,
+      "tz": 60,
+      "out": 0
+    },
+    {
+      "name": "days-attr",
+      "state": "Paper in 3 days",
+      "attrs": {
+        "daysTo": "3"
+      },
+      "now": 1793210700000,
+      "tz": 60,
+      "out": 3
+    },
+    {
+      "name": "upcoming-dates",
+      "state": "Paper",
+      "attrs": {
+        "upcoming": "[\"2026-10-20\",\"2026-11-04\"]"
+      },
+      "now": 1793210700000,
+      "tz": 60,
+      "out": 7
+    },
+    {
+      "name": "upcoming-objects",
+      "state": "Paper",
+      "attrs": {
+        "upcoming": "[{\"date\":\"2026-11-02\",\"type\":\"Paper\"}]"
+      },
+      "now": 1793210700000,
+      "tz": 60,
+      "out": 5
+    },
+    {
+      "name": "upcoming-not-json",
+      "state": "Paper",
+      "attrs": {
+        "upcoming": "soon"
+      },
+      "now": 1793210700000,
+      "tz": 60,
+      "out": null
+    },
+    {
+      "name": "text-only",
+      "state": "Paper",
+      "attrs": {},
+      "now": 1793210700000,
+      "tz": 60,
+      "out": null
+    },
+    {
+      "name": "unavailable",
+      "state": "unavailable",
+      "attrs": {
+        "daysTo": "2"
+      },
+      "now": 1793210700000,
+      "tz": 60,
+      "out": null
+    },
+    {
+      "name": "unknown",
+      "state": "unknown",
+      "attrs": {},
+      "now": 1793210700000,
+      "tz": 60,
+      "out": null
+    },
+    {
+      "name": "summer-time-late",
+      "state": "2026-09-30",
+      "attrs": {},
+      "now": 1790717400000,
+      "tz": 120,
+      "out": 1
+    }
+  ],
+  "views": [
+    {
+      "name": "evening-before",
+      "bins": [
+        {
+          "label": "Plastic",
+          "state": "6",
+          "attrs": {}
+        },
+        {
+          "label": "Paper",
+          "state": "2026-10-29",
+          "attrs": {}
+        },
+        {
+          "label": "Green",
+          "state": "Green in 7 days",
+          "attrs": {
+            "daysTo": "7"
+          }
+        },
+        {
+          "label": "Rest",
+          "state": "09-11-2026",
+          "attrs": {}
+        }
+      ],
+      "now": 1793210700000,
+      "tz": 60,
+      "tonight": 17,
+      "lang": "en",
+      "out": {
+        "rows": [
+          {
+            "label": "Paper",
+            "days": 1,
+            "when": "Tomorrow",
+            "date": "Thursday 29",
+            "short": "Thu 29"
+          },
+          {
+            "label": "Plastic",
+            "days": 6,
+            "when": "in 6 days",
+            "date": "Tuesday 3",
+            "short": "Tue 3"
+          },
+          {
+            "label": "Green",
+            "days": 7,
+            "when": "in 7 days",
+            "date": "Wednesday 4",
+            "short": "Wed 4"
+          },
+          {
+            "label": "Rest",
+            "days": 12,
+            "when": "in 12 days",
+            "date": "Monday 9",
+            "short": "Mon 9"
+          }
+        ],
+        "head": "Paper",
+        "big": "Tomorrow",
+        "line": "Thursday 29 · put out tonight",
+        "foot": "Put out tonight",
+        "pill": "Tonight",
+        "tonight": true,
+        "rest": [
+          {
+            "label": "Plastic",
+            "days": 6,
+            "when": "in 6 days",
+            "date": "Tuesday 3",
+            "short": "Tue 3"
+          },
+          {
+            "label": "Green",
+            "days": 7,
+            "when": "in 7 days",
+            "date": "Wednesday 4",
+            "short": "Wed 4"
+          },
+          {
+            "label": "Rest",
+            "days": 12,
+            "when": "in 12 days",
+            "date": "Monday 9",
+            "short": "Mon 9"
+          }
+        ]
+      }
+    },
+    {
+      "name": "evening-before",
+      "bins": [
+        {
+          "label": "Plastic",
+          "state": "6",
+          "attrs": {}
+        },
+        {
+          "label": "Paper",
+          "state": "2026-10-29",
+          "attrs": {}
+        },
+        {
+          "label": "Green",
+          "state": "Green in 7 days",
+          "attrs": {
+            "daysTo": "7"
+          }
+        },
+        {
+          "label": "Rest",
+          "state": "09-11-2026",
+          "attrs": {}
+        }
+      ],
+      "now": 1793210700000,
+      "tz": 60,
+      "tonight": 17,
+      "lang": "nl",
+      "out": {
+        "rows": [
+          {
+            "label": "Paper",
+            "days": 1,
+            "when": "Morgen",
+            "date": "Donderdag 29",
+            "short": "do 29"
+          },
+          {
+            "label": "Plastic",
+            "days": 6,
+            "when": "over 6 dagen",
+            "date": "Dinsdag 3",
+            "short": "di 3"
+          },
+          {
+            "label": "Green",
+            "days": 7,
+            "when": "over 7 dagen",
+            "date": "Woensdag 4",
+            "short": "wo 4"
+          },
+          {
+            "label": "Rest",
+            "days": 12,
+            "when": "over 12 dagen",
+            "date": "Maandag 9",
+            "short": "ma 9"
+          }
+        ],
+        "head": "Paper",
+        "big": "Morgen",
+        "line": "Donderdag 29 · vanavond buiten zetten",
+        "foot": "Vanavond buiten",
+        "pill": "Vanavond",
+        "tonight": true,
+        "rest": [
+          {
+            "label": "Plastic",
+            "days": 6,
+            "when": "over 6 dagen",
+            "date": "Dinsdag 3",
+            "short": "di 3"
+          },
+          {
+            "label": "Green",
+            "days": 7,
+            "when": "over 7 dagen",
+            "date": "Woensdag 4",
+            "short": "wo 4"
+          },
+          {
+            "label": "Rest",
+            "days": 12,
+            "when": "over 12 dagen",
+            "date": "Maandag 9",
+            "short": "ma 9"
+          }
+        ]
+      }
+    },
+    {
+      "name": "before-tonight-hour",
+      "bins": [
+        {
+          "label": "Plastic",
+          "state": "6",
+          "attrs": {}
+        },
+        {
+          "label": "Paper",
+          "state": "2026-10-29",
+          "attrs": {}
+        },
+        {
+          "label": "Green",
+          "state": "Green in 7 days",
+          "attrs": {
+            "daysTo": "7"
+          }
+        },
+        {
+          "label": "Rest",
+          "state": "09-11-2026",
+          "attrs": {}
+        }
+      ],
+      "now": 1793203140000,
+      "tz": 60,
+      "tonight": 17,
+      "lang": "en",
+      "out": {
+        "rows": [
+          {
+            "label": "Paper",
+            "days": 1,
+            "when": "Tomorrow",
+            "date": "Thursday 29",
+            "short": "Thu 29"
+          },
+          {
+            "label": "Plastic",
+            "days": 6,
+            "when": "in 6 days",
+            "date": "Tuesday 3",
+            "short": "Tue 3"
+          },
+          {
+            "label": "Green",
+            "days": 7,
+            "when": "in 7 days",
+            "date": "Wednesday 4",
+            "short": "Wed 4"
+          },
+          {
+            "label": "Rest",
+            "days": 12,
+            "when": "in 12 days",
+            "date": "Monday 9",
+            "short": "Mon 9"
+          }
+        ],
+        "head": "Paper",
+        "big": "Tomorrow",
+        "line": "Tomorrow · Thursday 29",
+        "foot": "Thursday 29",
+        "pill": "",
+        "tonight": false,
+        "rest": [
+          {
+            "label": "Plastic",
+            "days": 6,
+            "when": "in 6 days",
+            "date": "Tuesday 3",
+            "short": "Tue 3"
+          },
+          {
+            "label": "Green",
+            "days": 7,
+            "when": "in 7 days",
+            "date": "Wednesday 4",
+            "short": "Wed 4"
+          },
+          {
+            "label": "Rest",
+            "days": 12,
+            "when": "in 12 days",
+            "date": "Monday 9",
+            "short": "Mon 9"
+          }
+        ]
+      }
+    },
+    {
+      "name": "before-tonight-hour",
+      "bins": [
+        {
+          "label": "Plastic",
+          "state": "6",
+          "attrs": {}
+        },
+        {
+          "label": "Paper",
+          "state": "2026-10-29",
+          "attrs": {}
+        },
+        {
+          "label": "Green",
+          "state": "Green in 7 days",
+          "attrs": {
+            "daysTo": "7"
+          }
+        },
+        {
+          "label": "Rest",
+          "state": "09-11-2026",
+          "attrs": {}
+        }
+      ],
+      "now": 1793203140000,
+      "tz": 60,
+      "tonight": 17,
+      "lang": "nl",
+      "out": {
+        "rows": [
+          {
+            "label": "Paper",
+            "days": 1,
+            "when": "Morgen",
+            "date": "Donderdag 29",
+            "short": "do 29"
+          },
+          {
+            "label": "Plastic",
+            "days": 6,
+            "when": "over 6 dagen",
+            "date": "Dinsdag 3",
+            "short": "di 3"
+          },
+          {
+            "label": "Green",
+            "days": 7,
+            "when": "over 7 dagen",
+            "date": "Woensdag 4",
+            "short": "wo 4"
+          },
+          {
+            "label": "Rest",
+            "days": 12,
+            "when": "over 12 dagen",
+            "date": "Maandag 9",
+            "short": "ma 9"
+          }
+        ],
+        "head": "Paper",
+        "big": "Morgen",
+        "line": "Morgen · Donderdag 29",
+        "foot": "Donderdag 29",
+        "pill": "",
+        "tonight": false,
+        "rest": [
+          {
+            "label": "Plastic",
+            "days": 6,
+            "when": "over 6 dagen",
+            "date": "Dinsdag 3",
+            "short": "di 3"
+          },
+          {
+            "label": "Green",
+            "days": 7,
+            "when": "over 7 dagen",
+            "date": "Woensdag 4",
+            "short": "wo 4"
+          },
+          {
+            "label": "Rest",
+            "days": 12,
+            "when": "over 12 dagen",
+            "date": "Maandag 9",
+            "short": "ma 9"
+          }
+        ]
+      }
+    },
+    {
+      "name": "tonight-hour-20",
+      "bins": [
+        {
+          "label": "Plastic",
+          "state": "6",
+          "attrs": {}
+        },
+        {
+          "label": "Paper",
+          "state": "2026-10-29",
+          "attrs": {}
+        },
+        {
+          "label": "Green",
+          "state": "Green in 7 days",
+          "attrs": {
+            "daysTo": "7"
+          }
+        }
+      ],
+      "now": 1793210700000,
+      "tz": 60,
+      "tonight": 20,
+      "lang": "en",
+      "out": {
+        "rows": [
+          {
+            "label": "Paper",
+            "days": 1,
+            "when": "Tomorrow",
+            "date": "Thursday 29",
+            "short": "Thu 29"
+          },
+          {
+            "label": "Plastic",
+            "days": 6,
+            "when": "in 6 days",
+            "date": "Tuesday 3",
+            "short": "Tue 3"
+          },
+          {
+            "label": "Green",
+            "days": 7,
+            "when": "in 7 days",
+            "date": "Wednesday 4",
+            "short": "Wed 4"
+          }
+        ],
+        "head": "Paper",
+        "big": "Tomorrow",
+        "line": "Tomorrow · Thursday 29",
+        "foot": "Thursday 29",
+        "pill": "",
+        "tonight": false,
+        "rest": [
+          {
+            "label": "Plastic",
+            "days": 6,
+            "when": "in 6 days",
+            "date": "Tuesday 3",
+            "short": "Tue 3"
+          },
+          {
+            "label": "Green",
+            "days": 7,
+            "when": "in 7 days",
+            "date": "Wednesday 4",
+            "short": "Wed 4"
+          }
+        ]
+      }
+    },
+    {
+      "name": "tonight-hour-20",
+      "bins": [
+        {
+          "label": "Plastic",
+          "state": "6",
+          "attrs": {}
+        },
+        {
+          "label": "Paper",
+          "state": "2026-10-29",
+          "attrs": {}
+        },
+        {
+          "label": "Green",
+          "state": "Green in 7 days",
+          "attrs": {
+            "daysTo": "7"
+          }
+        }
+      ],
+      "now": 1793210700000,
+      "tz": 60,
+      "tonight": 20,
+      "lang": "nl",
+      "out": {
+        "rows": [
+          {
+            "label": "Paper",
+            "days": 1,
+            "when": "Morgen",
+            "date": "Donderdag 29",
+            "short": "do 29"
+          },
+          {
+            "label": "Plastic",
+            "days": 6,
+            "when": "over 6 dagen",
+            "date": "Dinsdag 3",
+            "short": "di 3"
+          },
+          {
+            "label": "Green",
+            "days": 7,
+            "when": "over 7 dagen",
+            "date": "Woensdag 4",
+            "short": "wo 4"
+          }
+        ],
+        "head": "Paper",
+        "big": "Morgen",
+        "line": "Morgen · Donderdag 29",
+        "foot": "Donderdag 29",
+        "pill": "",
+        "tonight": false,
+        "rest": [
+          {
+            "label": "Plastic",
+            "days": 6,
+            "when": "over 6 dagen",
+            "date": "Dinsdag 3",
+            "short": "di 3"
+          },
+          {
+            "label": "Green",
+            "days": 7,
+            "when": "over 7 dagen",
+            "date": "Woensdag 4",
+            "short": "wo 4"
+          }
+        ]
+      }
+    },
+    {
+      "name": "collection-day",
+      "bins": [
+        {
+          "label": "Paper",
+          "state": "2026-10-29",
+          "attrs": {}
+        },
+        {
+          "label": "Green",
+          "state": "Green in 7 days",
+          "attrs": {
+            "daysTo": "7"
+          }
+        }
+      ],
+      "now": 1793253600000,
+      "tz": 60,
+      "tonight": 17,
+      "lang": "en",
+      "out": {
+        "rows": [
+          {
+            "label": "Paper",
+            "days": 0,
+            "when": "Today",
+            "date": "Thursday 29",
+            "short": "Thu 29"
+          },
+          {
+            "label": "Green",
+            "days": 7,
+            "when": "in 7 days",
+            "date": "Thursday 5",
+            "short": "Thu 5"
+          }
+        ],
+        "head": "Paper",
+        "big": "Today",
+        "line": "Today · Thursday 29",
+        "foot": "Thursday 29",
+        "pill": "Today",
+        "tonight": false,
+        "rest": [
+          {
+            "label": "Green",
+            "days": 7,
+            "when": "in 7 days",
+            "date": "Thursday 5",
+            "short": "Thu 5"
+          }
+        ]
+      }
+    },
+    {
+      "name": "collection-day",
+      "bins": [
+        {
+          "label": "Paper",
+          "state": "2026-10-29",
+          "attrs": {}
+        },
+        {
+          "label": "Green",
+          "state": "Green in 7 days",
+          "attrs": {
+            "daysTo": "7"
+          }
+        }
+      ],
+      "now": 1793253600000,
+      "tz": 60,
+      "tonight": 17,
+      "lang": "nl",
+      "out": {
+        "rows": [
+          {
+            "label": "Paper",
+            "days": 0,
+            "when": "Vandaag",
+            "date": "Donderdag 29",
+            "short": "do 29"
+          },
+          {
+            "label": "Green",
+            "days": 7,
+            "when": "over 7 dagen",
+            "date": "Donderdag 5",
+            "short": "do 5"
+          }
+        ],
+        "head": "Paper",
+        "big": "Vandaag",
+        "line": "Vandaag · Donderdag 29",
+        "foot": "Donderdag 29",
+        "pill": "Vandaag",
+        "tonight": false,
+        "rest": [
+          {
+            "label": "Green",
+            "days": 7,
+            "when": "over 7 dagen",
+            "date": "Donderdag 5",
+            "short": "do 5"
+          }
+        ]
+      }
+    },
+    {
+      "name": "tie-joins-labels",
+      "bins": [
+        {
+          "label": "Paper",
+          "state": "2026-10-29",
+          "attrs": {}
+        },
+        {
+          "label": "Glass",
+          "state": "1",
+          "attrs": {}
+        },
+        {
+          "label": "Green",
+          "state": "Green in 7 days",
+          "attrs": {
+            "daysTo": "7"
+          }
+        }
+      ],
+      "now": 1793210700000,
+      "tz": 60,
+      "tonight": 17,
+      "lang": "en",
+      "out": {
+        "rows": [
+          {
+            "label": "Paper",
+            "days": 1,
+            "when": "Tomorrow",
+            "date": "Thursday 29",
+            "short": "Thu 29"
+          },
+          {
+            "label": "Glass",
+            "days": 1,
+            "when": "Tomorrow",
+            "date": "Thursday 29",
+            "short": "Thu 29"
+          },
+          {
+            "label": "Green",
+            "days": 7,
+            "when": "in 7 days",
+            "date": "Wednesday 4",
+            "short": "Wed 4"
+          }
+        ],
+        "head": "Paper + Glass",
+        "big": "Tomorrow",
+        "line": "Thursday 29 · put out tonight",
+        "foot": "Put out tonight",
+        "pill": "Tonight",
+        "tonight": true,
+        "rest": [
+          {
+            "label": "Green",
+            "days": 7,
+            "when": "in 7 days",
+            "date": "Wednesday 4",
+            "short": "Wed 4"
+          }
+        ]
+      }
+    },
+    {
+      "name": "tie-joins-labels",
+      "bins": [
+        {
+          "label": "Paper",
+          "state": "2026-10-29",
+          "attrs": {}
+        },
+        {
+          "label": "Glass",
+          "state": "1",
+          "attrs": {}
+        },
+        {
+          "label": "Green",
+          "state": "Green in 7 days",
+          "attrs": {
+            "daysTo": "7"
+          }
+        }
+      ],
+      "now": 1793210700000,
+      "tz": 60,
+      "tonight": 17,
+      "lang": "nl",
+      "out": {
+        "rows": [
+          {
+            "label": "Paper",
+            "days": 1,
+            "when": "Morgen",
+            "date": "Donderdag 29",
+            "short": "do 29"
+          },
+          {
+            "label": "Glass",
+            "days": 1,
+            "when": "Morgen",
+            "date": "Donderdag 29",
+            "short": "do 29"
+          },
+          {
+            "label": "Green",
+            "days": 7,
+            "when": "over 7 dagen",
+            "date": "Woensdag 4",
+            "short": "wo 4"
+          }
+        ],
+        "head": "Paper + Glass",
+        "big": "Morgen",
+        "line": "Donderdag 29 · vanavond buiten zetten",
+        "foot": "Vanavond buiten",
+        "pill": "Vanavond",
+        "tonight": true,
+        "rest": [
+          {
+            "label": "Green",
+            "days": 7,
+            "when": "over 7 dagen",
+            "date": "Woensdag 4",
+            "short": "wo 4"
+          }
+        ]
+      }
+    },
+    {
+      "name": "single-in-days",
+      "bins": [
+        {
+          "label": "Green",
+          "state": "Green in 7 days",
+          "attrs": {
+            "daysTo": "7"
+          }
+        }
+      ],
+      "now": 1793210700000,
+      "tz": 60,
+      "tonight": 17,
+      "lang": "en",
+      "out": {
+        "rows": [
+          {
+            "label": "Green",
+            "days": 7,
+            "when": "in 7 days",
+            "date": "Wednesday 4",
+            "short": "Wed 4"
+          }
+        ],
+        "head": "Green",
+        "big": "in 7 days",
+        "line": "in 7 days · Wednesday 4",
+        "foot": "Wednesday 4",
+        "pill": "",
+        "tonight": false,
+        "rest": []
+      }
+    },
+    {
+      "name": "single-in-days",
+      "bins": [
+        {
+          "label": "Green",
+          "state": "Green in 7 days",
+          "attrs": {
+            "daysTo": "7"
+          }
+        }
+      ],
+      "now": 1793210700000,
+      "tz": 60,
+      "tonight": 17,
+      "lang": "nl",
+      "out": {
+        "rows": [
+          {
+            "label": "Green",
+            "days": 7,
+            "when": "over 7 dagen",
+            "date": "Woensdag 4",
+            "short": "wo 4"
+          }
+        ],
+        "head": "Green",
+        "big": "over 7 dagen",
+        "line": "over 7 dagen · Woensdag 4",
+        "foot": "Woensdag 4",
+        "pill": "",
+        "tonight": false,
+        "rest": []
+      }
+    },
+    {
+      "name": "unknown-left-out",
+      "bins": [
+        {
+          "label": "Paper",
+          "state": "unknown",
+          "attrs": {}
+        },
+        {
+          "label": "Rest",
+          "state": "09-11-2026",
+          "attrs": {}
+        }
+      ],
+      "now": 1793210700000,
+      "tz": 60,
+      "tonight": 17,
+      "lang": "en",
+      "out": {
+        "rows": [
+          {
+            "label": "Rest",
+            "days": 12,
+            "when": "in 12 days",
+            "date": "Monday 9",
+            "short": "Mon 9"
+          }
+        ],
+        "head": "Rest",
+        "big": "in 12 days",
+        "line": "in 12 days · Monday 9",
+        "foot": "Monday 9",
+        "pill": "",
+        "tonight": false,
+        "rest": []
+      }
+    },
+    {
+      "name": "unknown-left-out",
+      "bins": [
+        {
+          "label": "Paper",
+          "state": "unknown",
+          "attrs": {}
+        },
+        {
+          "label": "Rest",
+          "state": "09-11-2026",
+          "attrs": {}
+        }
+      ],
+      "now": 1793210700000,
+      "tz": 60,
+      "tonight": 17,
+      "lang": "nl",
+      "out": {
+        "rows": [
+          {
+            "label": "Rest",
+            "days": 12,
+            "when": "over 12 dagen",
+            "date": "Maandag 9",
+            "short": "ma 9"
+          }
+        ],
+        "head": "Rest",
+        "big": "over 12 dagen",
+        "line": "over 12 dagen · Maandag 9",
+        "foot": "Maandag 9",
+        "pill": "",
+        "tonight": false,
+        "rest": []
+      }
+    },
+    {
+      "name": "none-known",
+      "bins": [
+        {
+          "label": "Paper",
+          "state": "unavailable",
+          "attrs": {}
+        }
+      ],
+      "now": 1793210700000,
+      "tz": 60,
+      "tonight": 17,
+      "lang": "en",
+      "out": {
+        "rows": [],
+        "head": "",
+        "big": "—",
+        "line": "",
+        "foot": "",
+        "pill": "",
+        "tonight": false,
+        "rest": []
+      }
+    },
+    {
+      "name": "none-known",
+      "bins": [
+        {
+          "label": "Paper",
+          "state": "unavailable",
+          "attrs": {}
+        }
+      ],
+      "now": 1793210700000,
+      "tz": 60,
+      "tonight": 17,
+      "lang": "nl",
+      "out": {
+        "rows": [],
+        "head": "",
+        "big": "—",
+        "line": "",
+        "foot": "",
+        "pill": "",
+        "tonight": false,
+        "rest": []
+      }
+    },
+    {
+      "name": "tonight-zero",
+      "bins": [
+        {
+          "label": "Paper",
+          "state": "2026-10-29",
+          "attrs": {}
+        }
+      ],
+      "now": 1793142000000,
+      "tz": 60,
+      "tonight": 0,
+      "lang": "en",
+      "out": {
+        "rows": [
+          {
+            "label": "Paper",
+            "days": 1,
+            "when": "Tomorrow",
+            "date": "Thursday 29",
+            "short": "Thu 29"
+          }
+        ],
+        "head": "Paper",
+        "big": "Tomorrow",
+        "line": "Thursday 29 · put out tonight",
+        "foot": "Put out tonight",
+        "pill": "Tonight",
+        "tonight": true,
+        "rest": []
+      }
+    },
+    {
+      "name": "tonight-zero",
+      "bins": [
+        {
+          "label": "Paper",
+          "state": "2026-10-29",
+          "attrs": {}
+        }
+      ],
+      "now": 1793142000000,
+      "tz": 60,
+      "tonight": 0,
+      "lang": "nl",
+      "out": {
+        "rows": [
+          {
+            "label": "Paper",
+            "days": 1,
+            "when": "Morgen",
+            "date": "Donderdag 29",
+            "short": "do 29"
+          }
+        ],
+        "head": "Paper",
+        "big": "Morgen",
+        "line": "Donderdag 29 · vanavond buiten zetten",
+        "foot": "Vanavond buiten",
+        "pill": "Vanavond",
+        "tonight": true,
+        "rest": []
+      }
+    }
+  ]
+}

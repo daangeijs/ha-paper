@@ -18,7 +18,6 @@ constexpr int kLowBatteryPct = 5;             // below: sleep until a button or 
 constexpr double kRecentChargeMin = 30;       // charged within 30 min and ≥ 4.15 V counts as external power
 constexpr double kFullVoltage = 4.15;
 constexpr int kOtaHour = 3;                   // auto install / daily check window 03:00–04:00 (net/ota.cpp)
-constexpr int64_t kGlanceBackoffMaxS = 2 * 3600;   // glance wait after failed wakes: wakeEvery doubled per failure
 
 struct PowerInputs {
   int64_t nowEpoch = 0;          // seconds (UTC)
@@ -40,8 +39,9 @@ struct PowerInputs {
   bool setup = false;            // AP / setup wizard
   int64_t msSinceApi = -1;       // < 0 = no API request since boot
   bool live = false;             // glance: key press / touch within liveMin minutes (or a key held at boot)
-  int glanceFails = 0;           // glance: wakes in a row that could not reach HA
+  int glanceFails = 0;           // glance: wakes in a row that could not reach HA (diagnostics; no backoff since #356)
   int armBootsLeft = 0;          // first-boot safety: confirmed boots still needed before any deep sleep
+  bool emptyHouse = false;       // glance (#331): the presence source says nobody is home
 };
 
 struct PowerDecision {
@@ -55,7 +55,7 @@ struct PowerDecision {
 };
 
 int64_t secsUntil(int32_t localSec, int32_t targetSec);   // next targetSec of the day; equal = a full day
-int64_t glanceWaitS(int wakeEvery, int fails);            // wakeEvery·60 doubled per failure (max 4×), ≤ 2 h
+int64_t glanceWaitS(int32_t localSec, const std::string& quiet);   // #356: to midnight or quiet start, the first
 bool isExternalPower(const PowerInputs& i);
 PowerDecision powerDecision(const PowerInputs& i);
 

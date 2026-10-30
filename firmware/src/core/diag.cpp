@@ -209,7 +209,8 @@ std::string reportJson(const Ring& r, const Report& rep) {
   o += ",\"battery\":" + (rep.batteryJson.empty() ? std::string("null") : rep.batteryJson);
   o += ",\"power_trail\":{\"before_boot\":" + strOrNull(rep.trailBeforeBoot.c_str()) + ",\"lines\":[";
   for (size_t i = 0; i < rep.trail.size(); i++) o += (i ? "," : "") + jsonQuote(rep.trail[i]);
-  o += "]}";
+  o += "],\"empty_house_sleeps\":" + std::to_string(rep.emptyHouseSleeps) +
+       ",\"phases\":" + (rep.phasesJson.empty() ? std::string("null") : rep.phasesJson) + "}";
   const Net& n = rep.net;
   o += ",\"web\":{\"open\":" + std::to_string(n.webOpen) + ",\"served\":" + num(n.served) + ",\"refused_503\":" +
        num(n.refused503) + ",\"last_request_age_s\":" + (n.lastRequestAgeS >= 0 ? std::to_string(n.lastRequestAgeS) : "null") + "}";

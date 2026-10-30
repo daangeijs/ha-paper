@@ -42,6 +42,9 @@ class WifiMgr {
   // HA client: a connect / token refresh reached HA or not. With the link up, failures alone for long enough re-make
   // the link (core StaleLink, #108). Net task.
   void haReached(bool ok);
+  // #326: mdns_free() while the STA netif still exists. Call before anything that turns Wi-Fi off (WIFI_OFF destroys
+  // the netif that queued rx packets point at). Net task.
+  void stopMdns(const char* why);
 
  private:
   void onConnected();
@@ -54,6 +57,7 @@ class WifiMgr {
   void escalate();       // link down and wanted: core WifiEscalation → reconnect / radio reset / maintenance restart
   bool mdns_ = false;
   bool mdnsOnce_ = false;
+  MdnsPlan mdnsPlan_;
   InboundWatch inbound_;
   uint32_t servedSeen_ = 0, sampleMs_ = 0, samples_ = 0;
   void checkInbound(bool up);   // stats sample + minute NET line; idle 30 min → gateway ping → mDNS restart or relink

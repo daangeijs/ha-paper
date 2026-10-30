@@ -24,6 +24,7 @@
 #include "core/entity_map.h"
 #include "core/history_fetch.h"
 #include "core/home.h"
+#include "core/weather.h"
 #include "net/storage.h"
 #include "net/ws_client.h"
 
@@ -41,6 +42,7 @@ class HaClient : private WsStream {
   void callService(const std::string& domain, const std::string& service, const std::string& jsonData);
   void setConfigEntities(const std::set<std::string>& ids, const LightSubs& lights);   // from the active config
   void setEntityOverrides(const std::map<std::string, std::string>& o);   // settings `entities` (net task)
+  void setPresenceEntity(const std::string& id);   // #331 settings emptyHouse: watched with the config ("" = none, net task)
   bool ready() const { return state_ == St::Ready; }
   // One render_template listing pickable entities (GET /api/v1/ha/entities) → hub().haEntities. Net task.
   void requestEntityList();
@@ -48,6 +50,10 @@ class HaClient : private WsStream {
   std::string accessToken(bool* revoked = nullptr);
   // History tiles of the config (#269); active = on the current app's screens, the only ones fetched. Net task.
   void setHistoryTiles(const std::vector<hist::Fetcher::Want>& want, bool configChanged);
+  // Weather tiles of the config (#318): their entities' forecasts, kept in RTC memory across deep sleep. Net task.
+  void setWeatherTiles(const std::vector<std::string>& entities);
+  // Calendar sets of the config's agenda / next tiles (#316, agenda::keyOf). Net task.
+  void setAgendaTiles(const std::vector<std::string>& keys);
 
  private:
   enum class St : uint8_t { Idle, Connecting, AuthWait, Ready, Backoff, Revoked };
@@ -77,6 +83,10 @@ class HaClient : private WsStream {
   void historyLoop();
   void historyPublish();
   void historyAttr(const std::string& entity);   // #292: feed an attribute tile from the mirror
+  void weatherLoop();
+  void weatherPublish();
+  void agendaLoop();                             // #316
+  void agendaPublish();
 
   St state_ = St::Idle;
   WsClient ws_;
@@ -87,6 +97,7 @@ class HaClient : private WsStream {
   bool restartRequested_ = false;
 
   std::set<std::string> configIds_, discoveredIds_;
+  std::string presenceId_;                                         // #331
   std::vector<std::string> climateIds_;                            // discovery answer, HA order
   std::vector<std::pair<std::string, std::string>> lightAreas_;   // discovery answer: light entity_id, area_id
   LightSubs lightSubs_;
@@ -109,6 +120,10 @@ class HaClient : private WsStream {
   hist::Fetcher* hist_ = nullptr;   // PSRAM, made with the first history tile
   uint32_t histLow0_ = 0;           // internal low-water when an answer began (HEAP log)
   bool histInfo_ = false;           // tile states changed: refresh Hub::historyInfo
+  wx::Fetcher* wx_ = nullptr;       // #318: PSRAM, made with the first weather tile
+  bool streamWx_ = false;           // the answer streaming now is a forecast
+  agenda::Fetcher* agenda_ = nullptr;   // PSRAM, made with the first agenda / next tile (#316)
+  bool agStream_ = false;               // the answer streaming now is a calendar.get_events one
 };
 
 HaClient& haClient();

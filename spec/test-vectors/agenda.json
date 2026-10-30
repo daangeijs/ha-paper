@@ -1,0 +1,1188 @@
+{
+  "_doc": "Agenda and Next tiles (#316): emulator src/core/agenda.ts; firmware core/agenda.cpp, test_agenda. Times are epoch ms; tz = local UTC offset in minutes. config: like config/*.json. request: eventsRequest text (exact bytes). title: cutTitle (≤ 48 UTF-8 bytes). parse: a whole WebSocket result frame → parseAnswer (null = not a successful answer); the firmware streams the same text in any chunking. views: agendaLines (4 and 11 lines) and nextView of `fetch` at `now`, en and nl.",
+  "config": [
+    {
+      "name": "agenda-basic",
+      "description": "An agenda tile and a next tile, each with its calendars (space-separated, 1–4). Keys kept as written.",
+      "input": "# HA Paper display config\nversion: 1\nscreens:\n  - id: a\n    widgets:\n      - {type: agenda, entities: calendar.family calendar.work, cs: 2, rs: 2}\n      - {type: next, entities: calendar.family, label: Up next, cs: 2}\n",
+      "expect": {
+        "ok": true,
+        "apps": [
+          {"id": "home", "title": "Home"},
+          {"id": "house", "title": "House"},
+          {"id": "travel", "title": "Travel"}
+        ],
+        "screens": [
+          {
+            "id": "a",
+            "app": "home",
+            "title": "a",
+            "cells": 6,
+            "widgets": [
+              {"type": "agenda", "entities": "calendar.family calendar.work", "cs": 2, "rs": 2},
+              {"type": "next", "entities": "calendar.family", "label": "Up next", "cs": 2}
+            ]
+          }
+        ],
+        "yaml": "# HA Paper display config\nversion: 1\nscreens:\n  - id: a\n    app: home\n    title: a\n    widgets:\n      - {type: agenda, entities: calendar.family calendar.work, cs: 2, rs: 2}\n      - {type: next, entities: calendar.family, label: Up next, cs: 2}\n"
+      }
+    },
+    {
+      "name": "agenda-no-calendar",
+      "description": "Rule: at least one calendar.",
+      "input": "# HA Paper display config\nversion: 1\nscreens:\n  - id: a\n    widgets:\n      - {type: agenda, cs: 2, rs: 2}\n",
+      "expect": {"ok": false, "line": 6, "message": "agenda: pick at least one calendar"}
+    },
+    {
+      "name": "agenda-wrong-domain",
+      "description": "Rule: calendars are calendar.* entities.",
+      "input": "# HA Paper display config\nversion: 1\nscreens:\n  - id: a\n    widgets:\n      - {type: next, entities: calendar.family sensor.x, cs: 2}\n",
+      "expect": {"ok": false, "line": 6, "message": "next: “sensor.x” is not a calendar entity"}
+    },
+    {
+      "name": "agenda-five-calendars",
+      "description": "Rule: at most 4 calendars per tile.",
+      "input": "# HA Paper display config\nversion: 1\nscreens:\n  - id: a\n    widgets:\n      - {type: agenda, entities: calendar.a calendar.b calendar.c calendar.d calendar.e, cs: 2, rs: 2}\n",
+      "expect": {"ok": false, "line": 6, "message": "agenda: at most 4 calendars"}
+    },
+    {
+      "name": "agenda-five-tiles",
+      "description": "Rule: at most 4 agenda or next tiles in the config; the 5th fails on its own line.",
+      "input": "# HA Paper display config\nversion: 1\nscreens:\n  - id: a\n    widgets:\n      - {type: agenda, entities: calendar.a, cs: 2, rs: 2}\n      - {type: next, entities: calendar.a, cs: 2}\n      - {type: next, entities: calendar.b, cs: 2}\n  - id: b\n    widgets:\n      - {type: next, entities: calendar.c, cs: 2}\n      - {type: next, entities: calendar.d, cs: 2}\n",
+      "expect": {"ok": false, "line": 12, "message": "At most 4 agenda or next tiles"}
+    }
+  ],
+  "key": [
+    {
+      "widget": {"entities": "calendar.work calendar.family calendar.work"},
+      "key": "calendar.family calendar.work"
+    },
+    {
+      "widget": {"entities": "calendar.b  calendar.a"},
+      "key": "calendar.a calendar.b"
+    }
+  ],
+  "request": [
+    {
+      "key": "calendar.family calendar.work",
+      "now": 1793169720000,
+      "tz": 60,
+      "id": 42,
+      "out": "{\"id\":42,\"type\":\"call_service\",\"domain\":\"calendar\",\"service\":\"get_events\",\"service_data\":{\"start_date_time\":\"2026-10-27T23:00:00Z\",\"end_date_time\":\"2026-11-03T23:00:00Z\"},\"target\":{\"entity_id\":[\"calendar.family\",\"calendar.work\"]},\"return_response\":true}"
+    },
+    {
+      "key": "calendar.family",
+      "now": 1793239800000,
+      "tz": -300,
+      "id": 7,
+      "out": "{\"id\":7,\"type\":\"call_service\",\"domain\":\"calendar\",\"service\":\"get_events\",\"service_data\":{\"start_date_time\":\"2026-10-28T05:00:00Z\",\"end_date_time\":\"2026-11-04T05:00:00Z\"},\"target\":{\"entity_id\":[\"calendar.family\"]},\"return_response\":true}"
+    },
+    {
+      "key": "calendar.family",
+      "now": 1793143800000,
+      "tz": 330,
+      "id": 1,
+      "out": "{\"id\":1,\"type\":\"call_service\",\"domain\":\"calendar\",\"service\":\"get_events\",\"service_data\":{\"start_date_time\":\"2026-10-27T18:30:00Z\",\"end_date_time\":\"2026-11-03T18:30:00Z\"},\"target\":{\"entity_id\":[\"calendar.family\"]},\"return_response\":true}"
+    }
+  ],
+  "title": [
+    {"input": "Dentist", "out": "Dentist"},
+    {"input": "  padded  ", "out": "padded"},
+    {"input": "Line\nbreak\ttab", "out": "Line break tab"},
+    {"input": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx", "out": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"},
+    {"input": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaé and more", "out": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"},
+    {"input": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb😀", "out": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"},
+    {"input": "ëëëëëëëëëëëëëëëëëëëëëëëëëëëëëë", "out": "ëëëëëëëëëëëëëëëëëëëëëëëë"},
+    {"input": "ccccccccccccccccccccccccccccccccccccccccccccccc d", "out": "ccccccccccccccccccccccccccccccccccccccccccccccc"},
+    {"input": "", "out": ""},
+    {"input": "   ", "out": ""}
+  ],
+  "parse": [
+    {
+      "name": "demo-two-calendars",
+      "key": "calendar.family calendar.work",
+      "now": 1793169720000,
+      "tz": 60,
+      "frame": "{\"id\":9,\"type\":\"result\",\"success\":true,\"result\":{\"context\":{\"id\":\"demo\",\"parent_id\":null,\"user_id\":null},\"response\":{\"calendar.family\":{\"events\":[{\"start\":\"2026-10-28\",\"end\":\"2026-10-29\",\"summary\":\"Paper bin out\",\"description\":\"Added by the demo calendar. Notes Notes Notes Notes Notes Notes Notes Notes Notes Notes Notes Notes Notes Notes Notes Notes Notes Notes Notes Notes\"},{\"start\":\"2026-10-28T08:30:00+01:00\",\"end\":\"2026-10-28T09:15:00+01:00\",\"summary\":\"Dentist\",\"description\":\"Added by the demo calendar. Notes Notes Notes Notes Notes Notes Notes Notes Notes Notes Notes Notes Notes Notes Notes Notes Notes Notes Notes Notes\"},{\"start\":\"2026-10-28T15:00:00+01:00\",\"end\":\"2026-10-28T16:00:00+01:00\",\"summary\":\"Swimming lessons\",\"description\":\"Added by the demo calendar. Notes Notes Notes Notes Notes Notes Notes Notes Notes Notes Notes Notes Notes Notes Notes Notes Notes Notes Notes Notes\"},{\"start\":\"2026-10-28T19:30:00+01:00\",\"end\":\"2026-10-28T21:00:00+01:00\",\"summary\":\"Book club at Zoë’s\",\"description\":\"Added by the demo calendar. Notes Notes Notes Notes Notes Notes Notes Notes Notes Notes Notes Notes Notes Notes Notes Notes Notes Notes Notes Notes\"},{\"start\":\"2026-10-29T09:00:00+01:00\",\"end\":\"2026-10-29T11:00:00+01:00\",\"summary\":\"Plumber, 2 h window\",\"description\":\"Added by the demo calendar. Notes Notes Notes Notes Notes Notes Notes Notes Notes Notes Notes Notes Notes Notes Notes Notes Notes Notes Notes Notes\"},{\"start\":\"2026-10-30\",\"end\":\"2026-10-31\",\"summary\":\"School holiday\",\"description\":\"Added by the demo calendar. Notes Notes Notes Notes Notes Notes Notes Notes Notes Notes Notes Notes Notes Notes Notes Notes Notes Notes Notes Notes\"},{\"start\":\"2026-10-31T17:00:00+01:00\",\"end\":\"2026-10-31T19:00:00+01:00\",\"summary\":\"Glühwein market\",\"description\":\"Added by the demo calendar. Notes Notes Notes Notes Notes Notes Notes Notes Notes Notes Notes Notes Notes Notes Notes Notes Notes Notes Notes Notes\"},{\"start\":\"2026-11-01\",\"end\":\"2026-11-02\",\"summary\":\"Zoë’s birthday\",\"description\":\"Added by the demo calendar. Notes Notes Notes Notes Notes Notes Notes Notes Notes Notes Notes Notes Notes Notes Notes Notes Notes Notes Notes Notes\"},{\"start\":\"2026-11-02T10:00:00+01:00\",\"end\":\"2026-11-02T11:30:00+01:00\",\"summary\":\"Brunch at the café\",\"description\":\"Added by the demo calendar. Notes Notes Notes Notes Notes Notes Notes Notes Notes Notes Notes Notes Notes Notes Notes Notes Notes Notes Notes Notes\"},{\"start\":\"2026-11-03T14:00:00+01:00\",\"end\":\"2026-11-03T15:00:00+01:00\",\"summary\":\"Piano lesson\",\"description\":\"Added by the demo calendar. Notes Notes Notes Notes Notes Notes Notes Notes Notes Notes Notes Notes Notes Notes Notes Notes Notes Notes Notes Notes\"}]},\"calendar.work\":{\"events\":[{\"start\":\"2026-10-28T12:00:00+01:00\",\"end\":\"2026-10-28T13:00:00+01:00\",\"summary\":\"Lunch with the team\",\"description\":\"Added by the demo calendar. Notes Notes Notes Notes Notes Notes Notes Notes Notes Notes Notes Notes Notes Notes Notes Notes Notes Notes Notes Notes\"},{\"start\":\"2026-10-29T10:00:00+01:00\",\"end\":\"2026-10-29T11:00:00+01:00\",\"summary\":\"Quarterly planning with the whole team and all the external partners\",\"description\":\"Added by the demo calendar. Notes Notes Notes Notes Notes Notes Notes Notes Notes Notes Notes Notes Notes Notes Notes Notes Notes Notes Notes Notes\"},{\"start\":\"2026-10-31\",\"end\":\"2026-11-02\",\"summary\":\"Conference\",\"description\":\"Added by the demo calendar. Notes Notes Notes Notes Notes Notes Notes Notes Notes Notes Notes Notes Notes Notes Notes Notes Notes Notes Notes Notes\"},{\"start\":\"2026-11-01T09:00:00+01:00\",\"end\":\"2026-11-01T09:30:00+01:00\",\"summary\":\"Stand-up\",\"description\":\"Added by the demo calendar. Notes Notes Notes Notes Notes Notes Notes Notes Notes Notes Notes Notes Notes Notes Notes Notes Notes Notes Notes Notes\"}]}}}}",
+      "out": {
+        "events": [
+          {"start": 1793142000000, "end": 1793228400000, "allDay": true, "cal": 0, "title": "Paper bin out"},
+          {"start": 1793172600000, "end": 1793175300000, "allDay": false, "cal": 0, "title": "Dentist"},
+          {"start": 1793185200000, "end": 1793188800000, "allDay": false, "cal": 1, "title": "Lunch with the team"},
+          {"start": 1793196000000, "end": 1793199600000, "allDay": false, "cal": 0, "title": "Swimming lessons"},
+          {"start": 1793212200000, "end": 1793217600000, "allDay": false, "cal": 0, "title": "Book club at Zoë’s"},
+          {"start": 1793260800000, "end": 1793268000000, "allDay": false, "cal": 0, "title": "Plumber, 2 h window"},
+          {"start": 1793264400000, "end": 1793268000000, "allDay": false, "cal": 1, "title": "Quarterly planning with the whole team and all t"},
+          {"start": 1793314800000, "end": 1793401200000, "allDay": true, "cal": 0, "title": "School holiday"},
+          {"start": 1793401200000, "end": 1793574000000, "allDay": true, "cal": 1, "title": "Conference"},
+          {"start": 1793462400000, "end": 1793469600000, "allDay": false, "cal": 0, "title": "Glühwein market"},
+          {"start": 1793487600000, "end": 1793574000000, "allDay": true, "cal": 0, "title": "Zoë’s birthday"},
+          {"start": 1793520000000, "end": 1793521800000, "allDay": false, "cal": 1, "title": "Stand-up"}
+        ],
+        "more": 2
+      }
+    },
+    {
+      "name": "demo-us-evening",
+      "key": "calendar.family calendar.work",
+      "now": 1793239800000,
+      "tz": -300,
+      "frame": "{\"id\":9,\"type\":\"result\",\"success\":true,\"result\":{\"context\":{\"id\":\"demo\",\"parent_id\":null,\"user_id\":null},\"response\":{\"calendar.family\":{\"events\":[{\"start\":\"2026-10-28\",\"end\":\"2026-10-29\",\"summary\":\"Paper bin out\",\"description\":\"Added by the demo calendar. Notes Notes Notes Notes Notes Notes Notes Notes Notes Notes Notes Notes Notes Notes Notes Notes Notes Notes Notes Notes\"},{\"start\":\"2026-10-28T08:30:00-05:00\",\"end\":\"2026-10-28T09:15:00-05:00\",\"summary\":\"Dentist\",\"description\":\"Added by the demo calendar. Notes Notes Notes Notes Notes Notes Notes Notes Notes Notes Notes Notes Notes Notes Notes Notes Notes Notes Notes Notes\"},{\"start\":\"2026-10-28T15:00:00-05:00\",\"end\":\"2026-10-28T16:00:00-05:00\",\"summary\":\"Swimming lessons\",\"description\":\"Added by the demo calendar. Notes Notes Notes Notes Notes Notes Notes Notes Notes Notes Notes Notes Notes Notes Notes Notes Notes Notes Notes Notes\"},{\"start\":\"2026-10-28T19:30:00-05:00\",\"end\":\"2026-10-28T21:00:00-05:00\",\"summary\":\"Book club at Zoë’s\",\"description\":\"Added by the demo calendar. Notes Notes Notes Notes Notes Notes Notes Notes Notes Notes Notes Notes Notes Notes Notes Notes Notes Notes Notes Notes\"},{\"start\":\"2026-10-29T09:00:00-05:00\",\"end\":\"2026-10-29T11:00:00-05:00\",\"summary\":\"Plumber, 2 h window\",\"description\":\"Added by the demo calendar. Notes Notes Notes Notes Notes Notes Notes Notes Notes Notes Notes Notes Notes Notes Notes Notes Notes Notes Notes Notes\"},{\"start\":\"2026-10-30\",\"end\":\"2026-10-31\",\"summary\":\"School holiday\",\"description\":\"Added by the demo calendar. Notes Notes Notes Notes Notes Notes Notes Notes Notes Notes Notes Notes Notes Notes Notes Notes Notes Notes Notes Notes\"},{\"start\":\"2026-10-31T17:00:00-05:00\",\"end\":\"2026-10-31T19:00:00-05:00\",\"summary\":\"Glühwein market\",\"description\":\"Added by the demo calendar. Notes Notes Notes Notes Notes Notes Notes Notes Notes Notes Notes Notes Notes Notes Notes Notes Notes Notes Notes Notes\"},{\"start\":\"2026-11-01\",\"end\":\"2026-11-02\",\"summary\":\"Zoë’s birthday\",\"description\":\"Added by the demo calendar. Notes Notes Notes Notes Notes Notes Notes Notes Notes Notes Notes Notes Notes Notes Notes Notes Notes Notes Notes Notes\"},{\"start\":\"2026-11-02T10:00:00-05:00\",\"end\":\"2026-11-02T11:30:00-05:00\",\"summary\":\"Brunch at the café\",\"description\":\"Added by the demo calendar. Notes Notes Notes Notes Notes Notes Notes Notes Notes Notes Notes Notes Notes Notes Notes Notes Notes Notes Notes Notes\"},{\"start\":\"2026-11-03T14:00:00-05:00\",\"end\":\"2026-11-03T15:00:00-05:00\",\"summary\":\"Piano lesson\",\"description\":\"Added by the demo calendar. Notes Notes Notes Notes Notes Notes Notes Notes Notes Notes Notes Notes Notes Notes Notes Notes Notes Notes Notes Notes\"}]},\"calendar.work\":{\"events\":[{\"start\":\"2026-10-28T12:00:00-05:00\",\"end\":\"2026-10-28T13:00:00-05:00\",\"summary\":\"Lunch with the team\",\"description\":\"Added by the demo calendar. Notes Notes Notes Notes Notes Notes Notes Notes Notes Notes Notes Notes Notes Notes Notes Notes Notes Notes Notes Notes\"},{\"start\":\"2026-10-29T10:00:00-05:00\",\"end\":\"2026-10-29T11:00:00-05:00\",\"summary\":\"Quarterly planning with the whole team and all the external partners\",\"description\":\"Added by the demo calendar. Notes Notes Notes Notes Notes Notes Notes Notes Notes Notes Notes Notes Notes Notes Notes Notes Notes Notes Notes Notes\"},{\"start\":\"2026-10-31\",\"end\":\"2026-11-02\",\"summary\":\"Conference\",\"description\":\"Added by the demo calendar. Notes Notes Notes Notes Notes Notes Notes Notes Notes Notes Notes Notes Notes Notes Notes Notes Notes Notes Notes Notes\"},{\"start\":\"2026-11-01T09:00:00-05:00\",\"end\":\"2026-11-01T09:30:00-05:00\",\"summary\":\"Stand-up\",\"description\":\"Added by the demo calendar. Notes Notes Notes Notes Notes Notes Notes Notes Notes Notes Notes Notes Notes Notes Notes Notes Notes Notes Notes Notes\"}]}}}}",
+      "out": {
+        "events": [
+          {"start": 1793163600000, "end": 1793250000000, "allDay": true, "cal": 0, "title": "Paper bin out"},
+          {"start": 1793282400000, "end": 1793289600000, "allDay": false, "cal": 0, "title": "Plumber, 2 h window"},
+          {"start": 1793286000000, "end": 1793289600000, "allDay": false, "cal": 1, "title": "Quarterly planning with the whole team and all t"},
+          {"start": 1793336400000, "end": 1793422800000, "allDay": true, "cal": 0, "title": "School holiday"},
+          {"start": 1793422800000, "end": 1793595600000, "allDay": true, "cal": 1, "title": "Conference"},
+          {"start": 1793484000000, "end": 1793491200000, "allDay": false, "cal": 0, "title": "Glühwein market"},
+          {"start": 1793509200000, "end": 1793595600000, "allDay": true, "cal": 0, "title": "Zoë’s birthday"},
+          {"start": 1793541600000, "end": 1793543400000, "allDay": false, "cal": 1, "title": "Stand-up"},
+          {"start": 1793631600000, "end": 1793637000000, "allDay": false, "cal": 0, "title": "Brunch at the café"},
+          {"start": 1793732400000, "end": 1793736000000, "allDay": false, "cal": 0, "title": "Piano lesson"}
+        ],
+        "more": 0
+      }
+    },
+    {
+      "name": "overflow-keeps-twelve",
+      "key": "calendar.family",
+      "now": 1793169720000,
+      "tz": 60,
+      "frame": "{\"id\":9,\"type\":\"result\",\"success\":true,\"result\":{\"context\":{\"id\":\"01JX\",\"parent_id\":null,\"user_id\":null},\"response\":{\"calendar.family\":{\"events\":[{\"start\":\"2026-10-28T03:42:00.000Z\",\"end\":\"2026-10-28T04:42:00.000Z\",\"summary\":\"Event 0\"},{\"start\":\"2026-10-28T10:42:00.000Z\",\"end\":\"2026-10-28T11:42:00.000Z\",\"summary\":\"Event 1\"},{\"start\":\"2026-10-28T17:42:00.000Z\",\"end\":\"2026-10-28T18:42:00.000Z\",\"summary\":\"Event 2\"},{\"start\":\"2026-10-28T04:42:00.000Z\",\"end\":\"2026-10-28T05:42:00.000Z\",\"summary\":\"Event 3\"},{\"start\":\"2026-10-28T11:42:00.000Z\",\"end\":\"2026-10-28T12:42:00.000Z\",\"summary\":\"Event 4\"},{\"start\":\"2026-10-28T18:42:00.000Z\",\"end\":\"2026-10-28T19:42:00.000Z\",\"summary\":\"Event 5\"},{\"start\":\"2026-10-28T05:42:00.000Z\",\"end\":\"2026-10-28T06:42:00.000Z\",\"summary\":\"Event 6\"},{\"start\":\"2026-10-28T12:42:00.000Z\",\"end\":\"2026-10-28T13:42:00.000Z\",\"summary\":\"Event 7\"},{\"start\":\"2026-10-28T19:42:00.000Z\",\"end\":\"2026-10-28T20:42:00.000Z\",\"summary\":\"Event 8\"},{\"start\":\"2026-10-28T06:42:00.000Z\",\"end\":\"2026-10-28T07:42:00.000Z\",\"summary\":\"Event 9\"},{\"start\":\"2026-10-28T13:42:00.000Z\",\"end\":\"2026-10-28T14:42:00.000Z\",\"summary\":\"Event 10\"},{\"start\":\"2026-10-28T20:42:00.000Z\",\"end\":\"2026-10-28T21:42:00.000Z\",\"summary\":\"Event 11\"},{\"start\":\"2026-10-28T07:42:00.000Z\",\"end\":\"2026-10-28T08:42:00.000Z\",\"summary\":\"Event 12\"},{\"start\":\"2026-10-28T14:42:00.000Z\",\"end\":\"2026-10-28T15:42:00.000Z\",\"summary\":\"Event 13\"},{\"start\":\"2026-10-28T21:42:00.000Z\",\"end\":\"2026-10-28T22:42:00.000Z\",\"summary\":\"Event 14\"},{\"start\":\"2026-10-28T08:42:00.000Z\",\"end\":\"2026-10-28T09:42:00.000Z\",\"summary\":\"Event 15\"},{\"start\":\"2026-10-28T15:42:00.000Z\",\"end\":\"2026-10-28T16:42:00.000Z\",\"summary\":\"Event 16\"},{\"start\":\"2026-10-28T22:42:00.000Z\",\"end\":\"2026-10-28T23:42:00.000Z\",\"summary\":\"Event 17\"},{\"start\":\"2026-10-28T09:42:00.000Z\",\"end\":\"2026-10-28T10:42:00.000Z\",\"summary\":\"Event 18\"},{\"start\":\"2026-10-28T16:42:00.000Z\",\"end\":\"2026-10-28T17:42:00.000Z\",\"summary\":\"Event 19\"}]}}}}",
+      "out": {
+        "events": [
+          {"start": 1793169720000, "end": 1793173320000, "allDay": false, "cal": 0, "title": "Event 9"},
+          {"start": 1793173320000, "end": 1793176920000, "allDay": false, "cal": 0, "title": "Event 12"},
+          {"start": 1793176920000, "end": 1793180520000, "allDay": false, "cal": 0, "title": "Event 15"},
+          {"start": 1793180520000, "end": 1793184120000, "allDay": false, "cal": 0, "title": "Event 18"},
+          {"start": 1793184120000, "end": 1793187720000, "allDay": false, "cal": 0, "title": "Event 1"},
+          {"start": 1793187720000, "end": 1793191320000, "allDay": false, "cal": 0, "title": "Event 4"},
+          {"start": 1793191320000, "end": 1793194920000, "allDay": false, "cal": 0, "title": "Event 7"},
+          {"start": 1793194920000, "end": 1793198520000, "allDay": false, "cal": 0, "title": "Event 10"},
+          {"start": 1793198520000, "end": 1793202120000, "allDay": false, "cal": 0, "title": "Event 13"},
+          {"start": 1793202120000, "end": 1793205720000, "allDay": false, "cal": 0, "title": "Event 16"},
+          {"start": 1793205720000, "end": 1793209320000, "allDay": false, "cal": 0, "title": "Event 19"},
+          {"start": 1793209320000, "end": 1793212920000, "allDay": false, "cal": 0, "title": "Event 2"}
+        ],
+        "more": 5
+      }
+    },
+    {
+      "name": "escapes-and-junk",
+      "key": "calendar.family",
+      "now": 1793169720000,
+      "tz": 60,
+      "frame": "{\"id\":9,\"type\":\"result\",\"success\":true,\"result\":{\"context\":{\"id\":\"x\",\"parent_id\":null,\"user_id\":null},\"response\":{\"calendar.other\":{\"events\":[{\"start\":\"2026-10-28T10:00:00+01:00\",\"end\":\"2026-10-28T11:00:00+01:00\",\"summary\":\"Not mine\"}]},\"calendar.family\":{\"events\":[{\"start\":\"2026-10-28T09:00:00+01:00\",\"end\":\"2026-10-28T10:00:00+01:00\",\"summary\":\"Café \\\"Zoë\\\" \\\\ \\/ 😀\",\"description\":\"start: 1999\",\"location\":null},{\"summary\":\"No start\",\"end\":\"2026-10-28T10:00:00+01:00\"},{\"start\":1793170800,\"end\":\"2026-10-28T10:00:00+01:00\",\"summary\":\"Number start\"},{\"start\":\"2026-10-28T11:00:00+01:00\",\"end\":\"2026-10-28T10:00:00+01:00\",\"summary\":null,\"attendees\":[{\"start\":\"2026-10-27\",\"summary\":\"inner\"}],\"rrule\":{\"start\":\"x\"}},\"not an event\",42,null,[],{\"start\":\"2026-10-27\",\"end\":\"2026-10-30\",\"summary\":\"Holiday\\nweek  \",\"uid\":\"abc\"},{\"start\":\"2026-10-27T22:00:00Z\",\"end\":\"2026-10-28T08:15:00+01:00\",\"summary\":\"Night shift\"},{\"start\":\"2026-10-28T12:00:00.000+01:00\",\"summary\":\"  Lunch, no end  \"},{\"start\":\"2026-10-28\",\"summary\":\"Bin day\"}]}}}}",
+      "out": {
+        "events": [
+          {"start": 1793055600000, "end": 1793314800000, "allDay": true, "cal": 0, "title": "Holiday week"},
+          {"start": 1793138400000, "end": 1793171700000, "allDay": false, "cal": 0, "title": "Night shift"},
+          {"start": 1793142000000, "end": 1793228400000, "allDay": true, "cal": 0, "title": "Bin day"},
+          {"start": 1793174400000, "end": 1793178000000, "allDay": false, "cal": 0, "title": "Café \"Zoë\" \\ / 😀"},
+          {"start": 1793181600000, "end": 1793181600000, "allDay": false, "cal": 0, "title": ""},
+          {"start": 1793185200000, "end": 1793185200000, "allDay": false, "cal": 0, "title": "Lunch, no end"}
+        ],
+        "more": 0
+      }
+    },
+    {
+      "name": "past-and-beyond-window",
+      "key": "calendar.family",
+      "now": 1793169720000,
+      "tz": 60,
+      "frame": "{\"id\":9,\"type\":\"result\",\"success\":true,\"result\":{\"context\":{\"id\":\"01JX\",\"parent_id\":null,\"user_id\":null},\"response\":{\"calendar.family\":{\"events\":[{\"start\":\"2026-10-28T06:00:00+01:00\",\"end\":\"2026-10-28T07:00:00+01:00\",\"summary\":\"Ended\"},{\"start\":\"2026-11-04T00:00:00+01:00\",\"end\":\"2026-11-04T01:00:00+01:00\",\"summary\":\"Next week\"},{\"start\":\"2026-11-03T23:30:00+01:00\",\"end\":\"2026-11-04T00:30:00+01:00\",\"summary\":\"Last slot\"}]}}}}",
+      "out": {
+        "events": [
+          {"start": 1793745000000, "end": 1793748600000, "allDay": false, "cal": 0, "title": "Last slot"}
+        ],
+        "more": 0
+      }
+    },
+    {
+      "name": "not-success",
+      "key": "calendar.family",
+      "now": 1793169720000,
+      "tz": 60,
+      "frame": "{\"id\":9,\"type\":\"result\",\"success\":false,\"error\":{\"code\":\"not_found\",\"message\":\"Service calendar.get_events not found.\"}}",
+      "out": null
+    },
+    {
+      "name": "truncated",
+      "key": "calendar.family",
+      "now": 1793169720000,
+      "tz": 60,
+      "frame": "{\"id\":9,\"type\":\"result\",\"success\":true,\"result\":{\"context\":{\"id\":\"01JX\",\"parent_id\":null,\"user_id\":null},\"response\":{\"ca",
+      "out": null
+    }
+  ],
+  "views": [
+    {
+      "name": "demo +0 min",
+      "fetch": {
+        "events": [
+          {"start": 1793142000000, "end": 1793228400000, "allDay": true, "cal": 0, "title": "Paper bin out"},
+          {"start": 1793172600000, "end": 1793175300000, "allDay": false, "cal": 0, "title": "Dentist"},
+          {"start": 1793185200000, "end": 1793188800000, "allDay": false, "cal": 1, "title": "Lunch with the team"},
+          {"start": 1793196000000, "end": 1793199600000, "allDay": false, "cal": 0, "title": "Swimming lessons"},
+          {"start": 1793212200000, "end": 1793217600000, "allDay": false, "cal": 0, "title": "Book club at Zoë’s"},
+          {"start": 1793260800000, "end": 1793268000000, "allDay": false, "cal": 0, "title": "Plumber, 2 h window"},
+          {"start": 1793264400000, "end": 1793268000000, "allDay": false, "cal": 1, "title": "Quarterly planning with the whole team and all t"},
+          {"start": 1793314800000, "end": 1793401200000, "allDay": true, "cal": 0, "title": "School holiday"},
+          {"start": 1793401200000, "end": 1793574000000, "allDay": true, "cal": 1, "title": "Conference"},
+          {"start": 1793462400000, "end": 1793469600000, "allDay": false, "cal": 0, "title": "Glühwein market"},
+          {"start": 1793487600000, "end": 1793574000000, "allDay": true, "cal": 0, "title": "Zoë’s birthday"},
+          {"start": 1793520000000, "end": 1793521800000, "allDay": false, "cal": 1, "title": "Stand-up"}
+        ],
+        "more": 2
+      },
+      "now": 1793169720000,
+      "tz": 60,
+      "out": [
+        {
+          "lang": "en",
+          "lines4": {
+            "lines": [
+              {"day": "Today · Wed 28"},
+              {"time": "all day", "title": "Paper bin out", "allDay": true},
+              {"time": "08:30", "title": "Dentist", "allDay": false},
+              {"time": "12:00", "title": "Lunch with the team", "allDay": false}
+            ],
+            "more": 11
+          },
+          "lines11": {
+            "lines": [
+              {"day": "Today · Wed 28"},
+              {"time": "all day", "title": "Paper bin out", "allDay": true},
+              {"time": "08:30", "title": "Dentist", "allDay": false},
+              {"time": "12:00", "title": "Lunch with the team", "allDay": false},
+              {"time": "15:00", "title": "Swimming lessons", "allDay": false},
+              {"time": "19:30", "title": "Book club at Zoë’s", "allDay": false},
+              {"day": "Tomorrow · Thu 29"},
+              {"time": "09:00", "title": "Plumber, 2 h window", "allDay": false},
+              {"time": "10:00", "title": "Quarterly planning with the whole team and all t", "allDay": false},
+              {"day": "Fri 30"},
+              {"time": "all day", "title": "School holiday", "allDay": true}
+            ],
+            "more": 6
+          },
+          "next": {"title": "Dentist", "when": "08:30 – 09:15", "pill": "in 48 min", "mins": 48}
+        },
+        {
+          "lang": "nl",
+          "lines4": {
+            "lines": [
+              {"day": "Vandaag · wo 28"},
+              {"time": "hele dag", "title": "Paper bin out", "allDay": true},
+              {"time": "08:30", "title": "Dentist", "allDay": false},
+              {"time": "12:00", "title": "Lunch with the team", "allDay": false}
+            ],
+            "more": 11
+          },
+          "lines11": {
+            "lines": [
+              {"day": "Vandaag · wo 28"},
+              {"time": "hele dag", "title": "Paper bin out", "allDay": true},
+              {"time": "08:30", "title": "Dentist", "allDay": false},
+              {"time": "12:00", "title": "Lunch with the team", "allDay": false},
+              {"time": "15:00", "title": "Swimming lessons", "allDay": false},
+              {"time": "19:30", "title": "Book club at Zoë’s", "allDay": false},
+              {"day": "Morgen · do 29"},
+              {"time": "09:00", "title": "Plumber, 2 h window", "allDay": false},
+              {"time": "10:00", "title": "Quarterly planning with the whole team and all t", "allDay": false},
+              {"day": "vr 30"},
+              {"time": "hele dag", "title": "School holiday", "allDay": true}
+            ],
+            "more": 6
+          },
+          "next": {"title": "Dentist", "when": "08:30 – 09:15", "pill": "over 48 min", "mins": 48}
+        }
+      ]
+    },
+    {
+      "name": "demo +47 min",
+      "fetch": {
+        "events": [
+          {"start": 1793142000000, "end": 1793228400000, "allDay": true, "cal": 0, "title": "Paper bin out"},
+          {"start": 1793172600000, "end": 1793175300000, "allDay": false, "cal": 0, "title": "Dentist"},
+          {"start": 1793185200000, "end": 1793188800000, "allDay": false, "cal": 1, "title": "Lunch with the team"},
+          {"start": 1793196000000, "end": 1793199600000, "allDay": false, "cal": 0, "title": "Swimming lessons"},
+          {"start": 1793212200000, "end": 1793217600000, "allDay": false, "cal": 0, "title": "Book club at Zoë’s"},
+          {"start": 1793260800000, "end": 1793268000000, "allDay": false, "cal": 0, "title": "Plumber, 2 h window"},
+          {"start": 1793264400000, "end": 1793268000000, "allDay": false, "cal": 1, "title": "Quarterly planning with the whole team and all t"},
+          {"start": 1793314800000, "end": 1793401200000, "allDay": true, "cal": 0, "title": "School holiday"},
+          {"start": 1793401200000, "end": 1793574000000, "allDay": true, "cal": 1, "title": "Conference"},
+          {"start": 1793462400000, "end": 1793469600000, "allDay": false, "cal": 0, "title": "Glühwein market"},
+          {"start": 1793487600000, "end": 1793574000000, "allDay": true, "cal": 0, "title": "Zoë’s birthday"},
+          {"start": 1793520000000, "end": 1793521800000, "allDay": false, "cal": 1, "title": "Stand-up"}
+        ],
+        "more": 2
+      },
+      "now": 1793172540000,
+      "tz": 60,
+      "out": [
+        {
+          "lang": "en",
+          "lines4": {
+            "lines": [
+              {"day": "Today · Wed 28"},
+              {"time": "all day", "title": "Paper bin out", "allDay": true},
+              {"time": "08:30", "title": "Dentist", "allDay": false},
+              {"time": "12:00", "title": "Lunch with the team", "allDay": false}
+            ],
+            "more": 11
+          },
+          "lines11": {
+            "lines": [
+              {"day": "Today · Wed 28"},
+              {"time": "all day", "title": "Paper bin out", "allDay": true},
+              {"time": "08:30", "title": "Dentist", "allDay": false},
+              {"time": "12:00", "title": "Lunch with the team", "allDay": false},
+              {"time": "15:00", "title": "Swimming lessons", "allDay": false},
+              {"time": "19:30", "title": "Book club at Zoë’s", "allDay": false},
+              {"day": "Tomorrow · Thu 29"},
+              {"time": "09:00", "title": "Plumber, 2 h window", "allDay": false},
+              {"time": "10:00", "title": "Quarterly planning with the whole team and all t", "allDay": false},
+              {"day": "Fri 30"},
+              {"time": "all day", "title": "School holiday", "allDay": true}
+            ],
+            "more": 6
+          },
+          "next": {"title": "Dentist", "when": "08:30 – 09:15", "pill": "in 1 min", "mins": 1}
+        },
+        {
+          "lang": "nl",
+          "lines4": {
+            "lines": [
+              {"day": "Vandaag · wo 28"},
+              {"time": "hele dag", "title": "Paper bin out", "allDay": true},
+              {"time": "08:30", "title": "Dentist", "allDay": false},
+              {"time": "12:00", "title": "Lunch with the team", "allDay": false}
+            ],
+            "more": 11
+          },
+          "lines11": {
+            "lines": [
+              {"day": "Vandaag · wo 28"},
+              {"time": "hele dag", "title": "Paper bin out", "allDay": true},
+              {"time": "08:30", "title": "Dentist", "allDay": false},
+              {"time": "12:00", "title": "Lunch with the team", "allDay": false},
+              {"time": "15:00", "title": "Swimming lessons", "allDay": false},
+              {"time": "19:30", "title": "Book club at Zoë’s", "allDay": false},
+              {"day": "Morgen · do 29"},
+              {"time": "09:00", "title": "Plumber, 2 h window", "allDay": false},
+              {"time": "10:00", "title": "Quarterly planning with the whole team and all t", "allDay": false},
+              {"day": "vr 30"},
+              {"time": "hele dag", "title": "School holiday", "allDay": true}
+            ],
+            "more": 6
+          },
+          "next": {"title": "Dentist", "when": "08:30 – 09:15", "pill": "over 1 min", "mins": 1}
+        }
+      ]
+    },
+    {
+      "name": "demo +48 min",
+      "fetch": {
+        "events": [
+          {"start": 1793142000000, "end": 1793228400000, "allDay": true, "cal": 0, "title": "Paper bin out"},
+          {"start": 1793172600000, "end": 1793175300000, "allDay": false, "cal": 0, "title": "Dentist"},
+          {"start": 1793185200000, "end": 1793188800000, "allDay": false, "cal": 1, "title": "Lunch with the team"},
+          {"start": 1793196000000, "end": 1793199600000, "allDay": false, "cal": 0, "title": "Swimming lessons"},
+          {"start": 1793212200000, "end": 1793217600000, "allDay": false, "cal": 0, "title": "Book club at Zoë’s"},
+          {"start": 1793260800000, "end": 1793268000000, "allDay": false, "cal": 0, "title": "Plumber, 2 h window"},
+          {"start": 1793264400000, "end": 1793268000000, "allDay": false, "cal": 1, "title": "Quarterly planning with the whole team and all t"},
+          {"start": 1793314800000, "end": 1793401200000, "allDay": true, "cal": 0, "title": "School holiday"},
+          {"start": 1793401200000, "end": 1793574000000, "allDay": true, "cal": 1, "title": "Conference"},
+          {"start": 1793462400000, "end": 1793469600000, "allDay": false, "cal": 0, "title": "Glühwein market"},
+          {"start": 1793487600000, "end": 1793574000000, "allDay": true, "cal": 0, "title": "Zoë’s birthday"},
+          {"start": 1793520000000, "end": 1793521800000, "allDay": false, "cal": 1, "title": "Stand-up"}
+        ],
+        "more": 2
+      },
+      "now": 1793172600000,
+      "tz": 60,
+      "out": [
+        {
+          "lang": "en",
+          "lines4": {
+            "lines": [
+              {"day": "Today · Wed 28"},
+              {"time": "all day", "title": "Paper bin out", "allDay": true},
+              {"time": "08:30", "title": "Dentist", "allDay": false},
+              {"time": "12:00", "title": "Lunch with the team", "allDay": false}
+            ],
+            "more": 11
+          },
+          "lines11": {
+            "lines": [
+              {"day": "Today · Wed 28"},
+              {"time": "all day", "title": "Paper bin out", "allDay": true},
+              {"time": "08:30", "title": "Dentist", "allDay": false},
+              {"time": "12:00", "title": "Lunch with the team", "allDay": false},
+              {"time": "15:00", "title": "Swimming lessons", "allDay": false},
+              {"time": "19:30", "title": "Book club at Zoë’s", "allDay": false},
+              {"day": "Tomorrow · Thu 29"},
+              {"time": "09:00", "title": "Plumber, 2 h window", "allDay": false},
+              {"time": "10:00", "title": "Quarterly planning with the whole team and all t", "allDay": false},
+              {"day": "Fri 30"},
+              {"time": "all day", "title": "School holiday", "allDay": true}
+            ],
+            "more": 6
+          },
+          "next": {"title": "Dentist", "when": "08:30 – 09:15", "pill": "Now", "mins": 0}
+        },
+        {
+          "lang": "nl",
+          "lines4": {
+            "lines": [
+              {"day": "Vandaag · wo 28"},
+              {"time": "hele dag", "title": "Paper bin out", "allDay": true},
+              {"time": "08:30", "title": "Dentist", "allDay": false},
+              {"time": "12:00", "title": "Lunch with the team", "allDay": false}
+            ],
+            "more": 11
+          },
+          "lines11": {
+            "lines": [
+              {"day": "Vandaag · wo 28"},
+              {"time": "hele dag", "title": "Paper bin out", "allDay": true},
+              {"time": "08:30", "title": "Dentist", "allDay": false},
+              {"time": "12:00", "title": "Lunch with the team", "allDay": false},
+              {"time": "15:00", "title": "Swimming lessons", "allDay": false},
+              {"time": "19:30", "title": "Book club at Zoë’s", "allDay": false},
+              {"day": "Morgen · do 29"},
+              {"time": "09:00", "title": "Plumber, 2 h window", "allDay": false},
+              {"time": "10:00", "title": "Quarterly planning with the whole team and all t", "allDay": false},
+              {"day": "vr 30"},
+              {"time": "hele dag", "title": "School holiday", "allDay": true}
+            ],
+            "more": 6
+          },
+          "next": {"title": "Dentist", "when": "08:30 – 09:15", "pill": "Nu", "mins": 0}
+        }
+      ]
+    },
+    {
+      "name": "demo +60 min",
+      "fetch": {
+        "events": [
+          {"start": 1793142000000, "end": 1793228400000, "allDay": true, "cal": 0, "title": "Paper bin out"},
+          {"start": 1793172600000, "end": 1793175300000, "allDay": false, "cal": 0, "title": "Dentist"},
+          {"start": 1793185200000, "end": 1793188800000, "allDay": false, "cal": 1, "title": "Lunch with the team"},
+          {"start": 1793196000000, "end": 1793199600000, "allDay": false, "cal": 0, "title": "Swimming lessons"},
+          {"start": 1793212200000, "end": 1793217600000, "allDay": false, "cal": 0, "title": "Book club at Zoë’s"},
+          {"start": 1793260800000, "end": 1793268000000, "allDay": false, "cal": 0, "title": "Plumber, 2 h window"},
+          {"start": 1793264400000, "end": 1793268000000, "allDay": false, "cal": 1, "title": "Quarterly planning with the whole team and all t"},
+          {"start": 1793314800000, "end": 1793401200000, "allDay": true, "cal": 0, "title": "School holiday"},
+          {"start": 1793401200000, "end": 1793574000000, "allDay": true, "cal": 1, "title": "Conference"},
+          {"start": 1793462400000, "end": 1793469600000, "allDay": false, "cal": 0, "title": "Glühwein market"},
+          {"start": 1793487600000, "end": 1793574000000, "allDay": true, "cal": 0, "title": "Zoë’s birthday"},
+          {"start": 1793520000000, "end": 1793521800000, "allDay": false, "cal": 1, "title": "Stand-up"}
+        ],
+        "more": 2
+      },
+      "now": 1793173320000,
+      "tz": 60,
+      "out": [
+        {
+          "lang": "en",
+          "lines4": {
+            "lines": [
+              {"day": "Today · Wed 28"},
+              {"time": "all day", "title": "Paper bin out", "allDay": true},
+              {"time": "08:30", "title": "Dentist", "allDay": false},
+              {"time": "12:00", "title": "Lunch with the team", "allDay": false}
+            ],
+            "more": 11
+          },
+          "lines11": {
+            "lines": [
+              {"day": "Today · Wed 28"},
+              {"time": "all day", "title": "Paper bin out", "allDay": true},
+              {"time": "08:30", "title": "Dentist", "allDay": false},
+              {"time": "12:00", "title": "Lunch with the team", "allDay": false},
+              {"time": "15:00", "title": "Swimming lessons", "allDay": false},
+              {"time": "19:30", "title": "Book club at Zoë’s", "allDay": false},
+              {"day": "Tomorrow · Thu 29"},
+              {"time": "09:00", "title": "Plumber, 2 h window", "allDay": false},
+              {"time": "10:00", "title": "Quarterly planning with the whole team and all t", "allDay": false},
+              {"day": "Fri 30"},
+              {"time": "all day", "title": "School holiday", "allDay": true}
+            ],
+            "more": 6
+          },
+          "next": {"title": "Dentist", "when": "08:30 – 09:15", "pill": "Now", "mins": -12}
+        },
+        {
+          "lang": "nl",
+          "lines4": {
+            "lines": [
+              {"day": "Vandaag · wo 28"},
+              {"time": "hele dag", "title": "Paper bin out", "allDay": true},
+              {"time": "08:30", "title": "Dentist", "allDay": false},
+              {"time": "12:00", "title": "Lunch with the team", "allDay": false}
+            ],
+            "more": 11
+          },
+          "lines11": {
+            "lines": [
+              {"day": "Vandaag · wo 28"},
+              {"time": "hele dag", "title": "Paper bin out", "allDay": true},
+              {"time": "08:30", "title": "Dentist", "allDay": false},
+              {"time": "12:00", "title": "Lunch with the team", "allDay": false},
+              {"time": "15:00", "title": "Swimming lessons", "allDay": false},
+              {"time": "19:30", "title": "Book club at Zoë’s", "allDay": false},
+              {"day": "Morgen · do 29"},
+              {"time": "09:00", "title": "Plumber, 2 h window", "allDay": false},
+              {"time": "10:00", "title": "Quarterly planning with the whole team and all t", "allDay": false},
+              {"day": "vr 30"},
+              {"time": "hele dag", "title": "School holiday", "allDay": true}
+            ],
+            "more": 6
+          },
+          "next": {"title": "Dentist", "when": "08:30 – 09:15", "pill": "Nu", "mins": -12}
+        }
+      ]
+    },
+    {
+      "name": "demo +120 min",
+      "fetch": {
+        "events": [
+          {"start": 1793142000000, "end": 1793228400000, "allDay": true, "cal": 0, "title": "Paper bin out"},
+          {"start": 1793172600000, "end": 1793175300000, "allDay": false, "cal": 0, "title": "Dentist"},
+          {"start": 1793185200000, "end": 1793188800000, "allDay": false, "cal": 1, "title": "Lunch with the team"},
+          {"start": 1793196000000, "end": 1793199600000, "allDay": false, "cal": 0, "title": "Swimming lessons"},
+          {"start": 1793212200000, "end": 1793217600000, "allDay": false, "cal": 0, "title": "Book club at Zoë’s"},
+          {"start": 1793260800000, "end": 1793268000000, "allDay": false, "cal": 0, "title": "Plumber, 2 h window"},
+          {"start": 1793264400000, "end": 1793268000000, "allDay": false, "cal": 1, "title": "Quarterly planning with the whole team and all t"},
+          {"start": 1793314800000, "end": 1793401200000, "allDay": true, "cal": 0, "title": "School holiday"},
+          {"start": 1793401200000, "end": 1793574000000, "allDay": true, "cal": 1, "title": "Conference"},
+          {"start": 1793462400000, "end": 1793469600000, "allDay": false, "cal": 0, "title": "Glühwein market"},
+          {"start": 1793487600000, "end": 1793574000000, "allDay": true, "cal": 0, "title": "Zoë’s birthday"},
+          {"start": 1793520000000, "end": 1793521800000, "allDay": false, "cal": 1, "title": "Stand-up"}
+        ],
+        "more": 2
+      },
+      "now": 1793176920000,
+      "tz": 60,
+      "out": [
+        {
+          "lang": "en",
+          "lines4": {
+            "lines": [
+              {"day": "Today · Wed 28"},
+              {"time": "all day", "title": "Paper bin out", "allDay": true},
+              {"time": "12:00", "title": "Lunch with the team", "allDay": false},
+              {"time": "15:00", "title": "Swimming lessons", "allDay": false}
+            ],
+            "more": 10
+          },
+          "lines11": {
+            "lines": [
+              {"day": "Today · Wed 28"},
+              {"time": "all day", "title": "Paper bin out", "allDay": true},
+              {"time": "12:00", "title": "Lunch with the team", "allDay": false},
+              {"time": "15:00", "title": "Swimming lessons", "allDay": false},
+              {"time": "19:30", "title": "Book club at Zoë’s", "allDay": false},
+              {"day": "Tomorrow · Thu 29"},
+              {"time": "09:00", "title": "Plumber, 2 h window", "allDay": false},
+              {"time": "10:00", "title": "Quarterly planning with the whole team and all t", "allDay": false},
+              {"day": "Fri 30"},
+              {"time": "all day", "title": "School holiday", "allDay": true}
+            ],
+            "more": 6
+          },
+          "next": {"title": "Lunch with the team", "when": "12:00 – 13:00", "pill": "in 2 h", "mins": 138}
+        },
+        {
+          "lang": "nl",
+          "lines4": {
+            "lines": [
+              {"day": "Vandaag · wo 28"},
+              {"time": "hele dag", "title": "Paper bin out", "allDay": true},
+              {"time": "12:00", "title": "Lunch with the team", "allDay": false},
+              {"time": "15:00", "title": "Swimming lessons", "allDay": false}
+            ],
+            "more": 10
+          },
+          "lines11": {
+            "lines": [
+              {"day": "Vandaag · wo 28"},
+              {"time": "hele dag", "title": "Paper bin out", "allDay": true},
+              {"time": "12:00", "title": "Lunch with the team", "allDay": false},
+              {"time": "15:00", "title": "Swimming lessons", "allDay": false},
+              {"time": "19:30", "title": "Book club at Zoë’s", "allDay": false},
+              {"day": "Morgen · do 29"},
+              {"time": "09:00", "title": "Plumber, 2 h window", "allDay": false},
+              {"time": "10:00", "title": "Quarterly planning with the whole team and all t", "allDay": false},
+              {"day": "vr 30"},
+              {"time": "hele dag", "title": "School holiday", "allDay": true}
+            ],
+            "more": 6
+          },
+          "next": {"title": "Lunch with the team", "when": "12:00 – 13:00", "pill": "over 2 uur", "mins": 138}
+        }
+      ]
+    },
+    {
+      "name": "demo +400 min",
+      "fetch": {
+        "events": [
+          {"start": 1793142000000, "end": 1793228400000, "allDay": true, "cal": 0, "title": "Paper bin out"},
+          {"start": 1793172600000, "end": 1793175300000, "allDay": false, "cal": 0, "title": "Dentist"},
+          {"start": 1793185200000, "end": 1793188800000, "allDay": false, "cal": 1, "title": "Lunch with the team"},
+          {"start": 1793196000000, "end": 1793199600000, "allDay": false, "cal": 0, "title": "Swimming lessons"},
+          {"start": 1793212200000, "end": 1793217600000, "allDay": false, "cal": 0, "title": "Book club at Zoë’s"},
+          {"start": 1793260800000, "end": 1793268000000, "allDay": false, "cal": 0, "title": "Plumber, 2 h window"},
+          {"start": 1793264400000, "end": 1793268000000, "allDay": false, "cal": 1, "title": "Quarterly planning with the whole team and all t"},
+          {"start": 1793314800000, "end": 1793401200000, "allDay": true, "cal": 0, "title": "School holiday"},
+          {"start": 1793401200000, "end": 1793574000000, "allDay": true, "cal": 1, "title": "Conference"},
+          {"start": 1793462400000, "end": 1793469600000, "allDay": false, "cal": 0, "title": "Glühwein market"},
+          {"start": 1793487600000, "end": 1793574000000, "allDay": true, "cal": 0, "title": "Zoë’s birthday"},
+          {"start": 1793520000000, "end": 1793521800000, "allDay": false, "cal": 1, "title": "Stand-up"}
+        ],
+        "more": 2
+      },
+      "now": 1793193720000,
+      "tz": 60,
+      "out": [
+        {
+          "lang": "en",
+          "lines4": {
+            "lines": [
+              {"day": "Today · Wed 28"},
+              {"time": "all day", "title": "Paper bin out", "allDay": true},
+              {"time": "15:00", "title": "Swimming lessons", "allDay": false},
+              {"time": "19:30", "title": "Book club at Zoë’s", "allDay": false}
+            ],
+            "more": 9
+          },
+          "lines11": {
+            "lines": [
+              {"day": "Today · Wed 28"},
+              {"time": "all day", "title": "Paper bin out", "allDay": true},
+              {"time": "15:00", "title": "Swimming lessons", "allDay": false},
+              {"time": "19:30", "title": "Book club at Zoë’s", "allDay": false},
+              {"day": "Tomorrow · Thu 29"},
+              {"time": "09:00", "title": "Plumber, 2 h window", "allDay": false},
+              {"time": "10:00", "title": "Quarterly planning with the whole team and all t", "allDay": false},
+              {"day": "Fri 30"},
+              {"time": "all day", "title": "School holiday", "allDay": true},
+              {"day": "Sat 31"},
+              {"time": "all day", "title": "Conference", "allDay": true}
+            ],
+            "more": 5
+          },
+          "next": {"title": "Swimming lessons", "when": "15:00 – 16:00", "pill": "in 38 min", "mins": 38}
+        },
+        {
+          "lang": "nl",
+          "lines4": {
+            "lines": [
+              {"day": "Vandaag · wo 28"},
+              {"time": "hele dag", "title": "Paper bin out", "allDay": true},
+              {"time": "15:00", "title": "Swimming lessons", "allDay": false},
+              {"time": "19:30", "title": "Book club at Zoë’s", "allDay": false}
+            ],
+            "more": 9
+          },
+          "lines11": {
+            "lines": [
+              {"day": "Vandaag · wo 28"},
+              {"time": "hele dag", "title": "Paper bin out", "allDay": true},
+              {"time": "15:00", "title": "Swimming lessons", "allDay": false},
+              {"time": "19:30", "title": "Book club at Zoë’s", "allDay": false},
+              {"day": "Morgen · do 29"},
+              {"time": "09:00", "title": "Plumber, 2 h window", "allDay": false},
+              {"time": "10:00", "title": "Quarterly planning with the whole team and all t", "allDay": false},
+              {"day": "vr 30"},
+              {"time": "hele dag", "title": "School holiday", "allDay": true},
+              {"day": "za 31"},
+              {"time": "hele dag", "title": "Conference", "allDay": true}
+            ],
+            "more": 5
+          },
+          "next": {"title": "Swimming lessons", "when": "15:00 – 16:00", "pill": "over 38 min", "mins": 38}
+        }
+      ]
+    },
+    {
+      "name": "demo +960 min",
+      "fetch": {
+        "events": [
+          {"start": 1793142000000, "end": 1793228400000, "allDay": true, "cal": 0, "title": "Paper bin out"},
+          {"start": 1793172600000, "end": 1793175300000, "allDay": false, "cal": 0, "title": "Dentist"},
+          {"start": 1793185200000, "end": 1793188800000, "allDay": false, "cal": 1, "title": "Lunch with the team"},
+          {"start": 1793196000000, "end": 1793199600000, "allDay": false, "cal": 0, "title": "Swimming lessons"},
+          {"start": 1793212200000, "end": 1793217600000, "allDay": false, "cal": 0, "title": "Book club at Zoë’s"},
+          {"start": 1793260800000, "end": 1793268000000, "allDay": false, "cal": 0, "title": "Plumber, 2 h window"},
+          {"start": 1793264400000, "end": 1793268000000, "allDay": false, "cal": 1, "title": "Quarterly planning with the whole team and all t"},
+          {"start": 1793314800000, "end": 1793401200000, "allDay": true, "cal": 0, "title": "School holiday"},
+          {"start": 1793401200000, "end": 1793574000000, "allDay": true, "cal": 1, "title": "Conference"},
+          {"start": 1793462400000, "end": 1793469600000, "allDay": false, "cal": 0, "title": "Glühwein market"},
+          {"start": 1793487600000, "end": 1793574000000, "allDay": true, "cal": 0, "title": "Zoë’s birthday"},
+          {"start": 1793520000000, "end": 1793521800000, "allDay": false, "cal": 1, "title": "Stand-up"}
+        ],
+        "more": 2
+      },
+      "now": 1793227320000,
+      "tz": 60,
+      "out": [
+        {
+          "lang": "en",
+          "lines4": {
+            "lines": [
+              {"day": "Today · Wed 28"},
+              {"time": "all day", "title": "Paper bin out", "allDay": true},
+              {"day": "Tomorrow · Thu 29"},
+              {"time": "09:00", "title": "Plumber, 2 h window", "allDay": false}
+            ],
+            "more": 8
+          },
+          "lines11": {
+            "lines": [
+              {"day": "Today · Wed 28"},
+              {"time": "all day", "title": "Paper bin out", "allDay": true},
+              {"day": "Tomorrow · Thu 29"},
+              {"time": "09:00", "title": "Plumber, 2 h window", "allDay": false},
+              {"time": "10:00", "title": "Quarterly planning with the whole team and all t", "allDay": false},
+              {"day": "Fri 30"},
+              {"time": "all day", "title": "School holiday", "allDay": true},
+              {"day": "Sat 31"},
+              {"time": "all day", "title": "Conference", "allDay": true},
+              {"time": "17:00", "title": "Glühwein market", "allDay": false}
+            ],
+            "more": 4
+          },
+          "next": {"title": "Plumber, 2 h window", "when": "09:00 – 11:00", "pill": "Tomorrow", "mins": 558}
+        },
+        {
+          "lang": "nl",
+          "lines4": {
+            "lines": [
+              {"day": "Vandaag · wo 28"},
+              {"time": "hele dag", "title": "Paper bin out", "allDay": true},
+              {"day": "Morgen · do 29"},
+              {"time": "09:00", "title": "Plumber, 2 h window", "allDay": false}
+            ],
+            "more": 8
+          },
+          "lines11": {
+            "lines": [
+              {"day": "Vandaag · wo 28"},
+              {"time": "hele dag", "title": "Paper bin out", "allDay": true},
+              {"day": "Morgen · do 29"},
+              {"time": "09:00", "title": "Plumber, 2 h window", "allDay": false},
+              {"time": "10:00", "title": "Quarterly planning with the whole team and all t", "allDay": false},
+              {"day": "vr 30"},
+              {"time": "hele dag", "title": "School holiday", "allDay": true},
+              {"day": "za 31"},
+              {"time": "hele dag", "title": "Conference", "allDay": true},
+              {"time": "17:00", "title": "Glühwein market", "allDay": false}
+            ],
+            "more": 4
+          },
+          "next": {"title": "Plumber, 2 h window", "when": "09:00 – 11:00", "pill": "Morgen", "mins": 558}
+        }
+      ]
+    },
+    {
+      "name": "demo +1000 min",
+      "fetch": {
+        "events": [
+          {"start": 1793142000000, "end": 1793228400000, "allDay": true, "cal": 0, "title": "Paper bin out"},
+          {"start": 1793172600000, "end": 1793175300000, "allDay": false, "cal": 0, "title": "Dentist"},
+          {"start": 1793185200000, "end": 1793188800000, "allDay": false, "cal": 1, "title": "Lunch with the team"},
+          {"start": 1793196000000, "end": 1793199600000, "allDay": false, "cal": 0, "title": "Swimming lessons"},
+          {"start": 1793212200000, "end": 1793217600000, "allDay": false, "cal": 0, "title": "Book club at Zoë’s"},
+          {"start": 1793260800000, "end": 1793268000000, "allDay": false, "cal": 0, "title": "Plumber, 2 h window"},
+          {"start": 1793264400000, "end": 1793268000000, "allDay": false, "cal": 1, "title": "Quarterly planning with the whole team and all t"},
+          {"start": 1793314800000, "end": 1793401200000, "allDay": true, "cal": 0, "title": "School holiday"},
+          {"start": 1793401200000, "end": 1793574000000, "allDay": true, "cal": 1, "title": "Conference"},
+          {"start": 1793462400000, "end": 1793469600000, "allDay": false, "cal": 0, "title": "Glühwein market"},
+          {"start": 1793487600000, "end": 1793574000000, "allDay": true, "cal": 0, "title": "Zoë’s birthday"},
+          {"start": 1793520000000, "end": 1793521800000, "allDay": false, "cal": 1, "title": "Stand-up"}
+        ],
+        "more": 2
+      },
+      "now": 1793229720000,
+      "tz": 60,
+      "out": [
+        {
+          "lang": "en",
+          "lines4": {
+            "lines": [
+              {"day": "Today · Thu 29"},
+              {"time": "09:00", "title": "Plumber, 2 h window", "allDay": false},
+              {"time": "10:00", "title": "Quarterly planning with the whole team and all t", "allDay": false}
+            ],
+            "more": 7
+          },
+          "lines11": {
+            "lines": [
+              {"day": "Today · Thu 29"},
+              {"time": "09:00", "title": "Plumber, 2 h window", "allDay": false},
+              {"time": "10:00", "title": "Quarterly planning with the whole team and all t", "allDay": false},
+              {"day": "Tomorrow · Fri 30"},
+              {"time": "all day", "title": "School holiday", "allDay": true},
+              {"day": "Sat 31"},
+              {"time": "all day", "title": "Conference", "allDay": true},
+              {"time": "17:00", "title": "Glühwein market", "allDay": false},
+              {"day": "Sun 1"},
+              {"time": "all day", "title": "Zoë’s birthday", "allDay": true},
+              {"time": "09:00", "title": "Stand-up", "allDay": false}
+            ],
+            "more": 2
+          },
+          "next": {"title": "Plumber, 2 h window", "when": "09:00 – 11:00", "pill": "in 9 h", "mins": 518}
+        },
+        {
+          "lang": "nl",
+          "lines4": {
+            "lines": [
+              {"day": "Vandaag · do 29"},
+              {"time": "09:00", "title": "Plumber, 2 h window", "allDay": false},
+              {"time": "10:00", "title": "Quarterly planning with the whole team and all t", "allDay": false}
+            ],
+            "more": 7
+          },
+          "lines11": {
+            "lines": [
+              {"day": "Vandaag · do 29"},
+              {"time": "09:00", "title": "Plumber, 2 h window", "allDay": false},
+              {"time": "10:00", "title": "Quarterly planning with the whole team and all t", "allDay": false},
+              {"day": "Morgen · vr 30"},
+              {"time": "hele dag", "title": "School holiday", "allDay": true},
+              {"day": "za 31"},
+              {"time": "hele dag", "title": "Conference", "allDay": true},
+              {"time": "17:00", "title": "Glühwein market", "allDay": false},
+              {"day": "zo 1"},
+              {"time": "hele dag", "title": "Zoë’s birthday", "allDay": true},
+              {"time": "09:00", "title": "Stand-up", "allDay": false}
+            ],
+            "more": 2
+          },
+          "next": {"title": "Plumber, 2 h window", "when": "09:00 – 11:00", "pill": "over 9 uur", "mins": 518}
+        }
+      ]
+    },
+    {
+      "name": "escapes +0 min",
+      "fetch": {
+        "events": [
+          {"start": 1793055600000, "end": 1793314800000, "allDay": true, "cal": 0, "title": "Holiday week"},
+          {"start": 1793138400000, "end": 1793171700000, "allDay": false, "cal": 0, "title": "Night shift"},
+          {"start": 1793142000000, "end": 1793228400000, "allDay": true, "cal": 0, "title": "Bin day"},
+          {"start": 1793174400000, "end": 1793178000000, "allDay": false, "cal": 0, "title": "Café \"Zoë\" \\ / 😀"},
+          {"start": 1793181600000, "end": 1793181600000, "allDay": false, "cal": 0, "title": ""},
+          {"start": 1793185200000, "end": 1793185200000, "allDay": false, "cal": 0, "title": "Lunch, no end"}
+        ],
+        "more": 0
+      },
+      "now": 1793169720000,
+      "tz": 60,
+      "out": [
+        {
+          "lang": "en",
+          "lines4": {
+            "lines": [
+              {"day": "Today · Wed 28"},
+              {"time": "all day", "title": "Holiday week", "allDay": true},
+              {"time": "–08:15", "title": "Night shift", "allDay": false},
+              {"time": "all day", "title": "Bin day", "allDay": true}
+            ],
+            "more": 3
+          },
+          "lines11": {
+            "lines": [
+              {"day": "Today · Wed 28"},
+              {"time": "all day", "title": "Holiday week", "allDay": true},
+              {"time": "–08:15", "title": "Night shift", "allDay": false},
+              {"time": "all day", "title": "Bin day", "allDay": true},
+              {"time": "09:00", "title": "Café \"Zoë\" \\ / 😀", "allDay": false},
+              {"time": "11:00", "title": "Busy", "allDay": false},
+              {"time": "12:00", "title": "Lunch, no end", "allDay": false}
+            ],
+            "more": 0
+          },
+          "next": {"title": "Night shift", "when": "23:00 – Wed 08:15", "pill": "Now", "mins": -522}
+        },
+        {
+          "lang": "nl",
+          "lines4": {
+            "lines": [
+              {"day": "Vandaag · wo 28"},
+              {"time": "hele dag", "title": "Holiday week", "allDay": true},
+              {"time": "–08:15", "title": "Night shift", "allDay": false},
+              {"time": "hele dag", "title": "Bin day", "allDay": true}
+            ],
+            "more": 3
+          },
+          "lines11": {
+            "lines": [
+              {"day": "Vandaag · wo 28"},
+              {"time": "hele dag", "title": "Holiday week", "allDay": true},
+              {"time": "–08:15", "title": "Night shift", "allDay": false},
+              {"time": "hele dag", "title": "Bin day", "allDay": true},
+              {"time": "09:00", "title": "Café \"Zoë\" \\ / 😀", "allDay": false},
+              {"time": "11:00", "title": "Bezet", "allDay": false},
+              {"time": "12:00", "title": "Lunch, no end", "allDay": false}
+            ],
+            "more": 0
+          },
+          "next": {"title": "Night shift", "when": "23:00 – wo 08:15", "pill": "Nu", "mins": -522}
+        }
+      ]
+    },
+    {
+      "name": "escapes +30 min",
+      "fetch": {
+        "events": [
+          {"start": 1793055600000, "end": 1793314800000, "allDay": true, "cal": 0, "title": "Holiday week"},
+          {"start": 1793138400000, "end": 1793171700000, "allDay": false, "cal": 0, "title": "Night shift"},
+          {"start": 1793142000000, "end": 1793228400000, "allDay": true, "cal": 0, "title": "Bin day"},
+          {"start": 1793174400000, "end": 1793178000000, "allDay": false, "cal": 0, "title": "Café \"Zoë\" \\ / 😀"},
+          {"start": 1793181600000, "end": 1793181600000, "allDay": false, "cal": 0, "title": ""},
+          {"start": 1793185200000, "end": 1793185200000, "allDay": false, "cal": 0, "title": "Lunch, no end"}
+        ],
+        "more": 0
+      },
+      "now": 1793171520000,
+      "tz": 60,
+      "out": [
+        {
+          "lang": "en",
+          "lines4": {
+            "lines": [
+              {"day": "Today · Wed 28"},
+              {"time": "all day", "title": "Holiday week", "allDay": true},
+              {"time": "–08:15", "title": "Night shift", "allDay": false},
+              {"time": "all day", "title": "Bin day", "allDay": true}
+            ],
+            "more": 3
+          },
+          "lines11": {
+            "lines": [
+              {"day": "Today · Wed 28"},
+              {"time": "all day", "title": "Holiday week", "allDay": true},
+              {"time": "–08:15", "title": "Night shift", "allDay": false},
+              {"time": "all day", "title": "Bin day", "allDay": true},
+              {"time": "09:00", "title": "Café \"Zoë\" \\ / 😀", "allDay": false},
+              {"time": "11:00", "title": "Busy", "allDay": false},
+              {"time": "12:00", "title": "Lunch, no end", "allDay": false}
+            ],
+            "more": 0
+          },
+          "next": {"title": "Night shift", "when": "23:00 – Wed 08:15", "pill": "Now", "mins": -552}
+        },
+        {
+          "lang": "nl",
+          "lines4": {
+            "lines": [
+              {"day": "Vandaag · wo 28"},
+              {"time": "hele dag", "title": "Holiday week", "allDay": true},
+              {"time": "–08:15", "title": "Night shift", "allDay": false},
+              {"time": "hele dag", "title": "Bin day", "allDay": true}
+            ],
+            "more": 3
+          },
+          "lines11": {
+            "lines": [
+              {"day": "Vandaag · wo 28"},
+              {"time": "hele dag", "title": "Holiday week", "allDay": true},
+              {"time": "–08:15", "title": "Night shift", "allDay": false},
+              {"time": "hele dag", "title": "Bin day", "allDay": true},
+              {"time": "09:00", "title": "Café \"Zoë\" \\ / 😀", "allDay": false},
+              {"time": "11:00", "title": "Bezet", "allDay": false},
+              {"time": "12:00", "title": "Lunch, no end", "allDay": false}
+            ],
+            "more": 0
+          },
+          "next": {"title": "Night shift", "when": "23:00 – wo 08:15", "pill": "Nu", "mins": -552}
+        }
+      ]
+    },
+    {
+      "name": "escapes +180 min",
+      "fetch": {
+        "events": [
+          {"start": 1793055600000, "end": 1793314800000, "allDay": true, "cal": 0, "title": "Holiday week"},
+          {"start": 1793138400000, "end": 1793171700000, "allDay": false, "cal": 0, "title": "Night shift"},
+          {"start": 1793142000000, "end": 1793228400000, "allDay": true, "cal": 0, "title": "Bin day"},
+          {"start": 1793174400000, "end": 1793178000000, "allDay": false, "cal": 0, "title": "Café \"Zoë\" \\ / 😀"},
+          {"start": 1793181600000, "end": 1793181600000, "allDay": false, "cal": 0, "title": ""},
+          {"start": 1793185200000, "end": 1793185200000, "allDay": false, "cal": 0, "title": "Lunch, no end"}
+        ],
+        "more": 0
+      },
+      "now": 1793180520000,
+      "tz": 60,
+      "out": [
+        {
+          "lang": "en",
+          "lines4": {
+            "lines": [
+              {"day": "Today · Wed 28"},
+              {"time": "all day", "title": "Holiday week", "allDay": true},
+              {"time": "all day", "title": "Bin day", "allDay": true},
+              {"time": "11:00", "title": "Busy", "allDay": false}
+            ],
+            "more": 1
+          },
+          "lines11": {
+            "lines": [
+              {"day": "Today · Wed 28"},
+              {"time": "all day", "title": "Holiday week", "allDay": true},
+              {"time": "all day", "title": "Bin day", "allDay": true},
+              {"time": "11:00", "title": "Busy", "allDay": false},
+              {"time": "12:00", "title": "Lunch, no end", "allDay": false}
+            ],
+            "more": 0
+          },
+          "next": {"title": "Busy", "when": "11:00", "pill": "in 18 min", "mins": 18}
+        },
+        {
+          "lang": "nl",
+          "lines4": {
+            "lines": [
+              {"day": "Vandaag · wo 28"},
+              {"time": "hele dag", "title": "Holiday week", "allDay": true},
+              {"time": "hele dag", "title": "Bin day", "allDay": true},
+              {"time": "11:00", "title": "Bezet", "allDay": false}
+            ],
+            "more": 1
+          },
+          "lines11": {
+            "lines": [
+              {"day": "Vandaag · wo 28"},
+              {"time": "hele dag", "title": "Holiday week", "allDay": true},
+              {"time": "hele dag", "title": "Bin day", "allDay": true},
+              {"time": "11:00", "title": "Bezet", "allDay": false},
+              {"time": "12:00", "title": "Lunch, no end", "allDay": false}
+            ],
+            "more": 0
+          },
+          "next": {"title": "Bezet", "when": "11:00", "pill": "over 18 min", "mins": 18}
+        }
+      ]
+    },
+    {
+      "name": "empty",
+      "fetch": {
+        "events": [],
+        "more": 0
+      },
+      "now": 1793169720000,
+      "tz": 60,
+      "out": [
+        {
+          "lang": "en",
+          "lines4": {
+            "lines": [],
+            "more": 0
+          },
+          "lines11": {
+            "lines": [],
+            "more": 0
+          },
+          "next": null
+        },
+        {
+          "lang": "nl",
+          "lines4": {
+            "lines": [],
+            "more": 0
+          },
+          "lines11": {
+            "lines": [],
+            "more": 0
+          },
+          "next": null
+        }
+      ]
+    },
+    {
+      "name": "overflow",
+      "fetch": {
+        "events": [
+          {"start": 1793169720000, "end": 1793173320000, "allDay": false, "cal": 0, "title": "Event 9"},
+          {"start": 1793173320000, "end": 1793176920000, "allDay": false, "cal": 0, "title": "Event 12"},
+          {"start": 1793176920000, "end": 1793180520000, "allDay": false, "cal": 0, "title": "Event 15"},
+          {"start": 1793180520000, "end": 1793184120000, "allDay": false, "cal": 0, "title": "Event 18"},
+          {"start": 1793184120000, "end": 1793187720000, "allDay": false, "cal": 0, "title": "Event 1"},
+          {"start": 1793187720000, "end": 1793191320000, "allDay": false, "cal": 0, "title": "Event 4"},
+          {"start": 1793191320000, "end": 1793194920000, "allDay": false, "cal": 0, "title": "Event 7"},
+          {"start": 1793194920000, "end": 1793198520000, "allDay": false, "cal": 0, "title": "Event 10"},
+          {"start": 1793198520000, "end": 1793202120000, "allDay": false, "cal": 0, "title": "Event 13"},
+          {"start": 1793202120000, "end": 1793205720000, "allDay": false, "cal": 0, "title": "Event 16"},
+          {"start": 1793205720000, "end": 1793209320000, "allDay": false, "cal": 0, "title": "Event 19"},
+          {"start": 1793209320000, "end": 1793212920000, "allDay": false, "cal": 0, "title": "Event 2"}
+        ],
+        "more": 5
+      },
+      "now": 1793169720000,
+      "tz": 60,
+      "out": [
+        {
+          "lang": "en",
+          "lines4": {
+            "lines": [
+              {"day": "Today · Wed 28"},
+              {"time": "07:42", "title": "Event 9", "allDay": false},
+              {"time": "08:42", "title": "Event 12", "allDay": false},
+              {"time": "09:42", "title": "Event 15", "allDay": false}
+            ],
+            "more": 14
+          },
+          "lines11": {
+            "lines": [
+              {"day": "Today · Wed 28"},
+              {"time": "07:42", "title": "Event 9", "allDay": false},
+              {"time": "08:42", "title": "Event 12", "allDay": false},
+              {"time": "09:42", "title": "Event 15", "allDay": false},
+              {"time": "10:42", "title": "Event 18", "allDay": false},
+              {"time": "11:42", "title": "Event 1", "allDay": false},
+              {"time": "12:42", "title": "Event 4", "allDay": false},
+              {"time": "13:42", "title": "Event 7", "allDay": false},
+              {"time": "14:42", "title": "Event 10", "allDay": false},
+              {"time": "15:42", "title": "Event 13", "allDay": false},
+              {"time": "16:42", "title": "Event 16", "allDay": false}
+            ],
+            "more": 7
+          },
+          "next": {"title": "Event 9", "when": "07:42 – 08:42", "pill": "Now", "mins": 0}
+        },
+        {
+          "lang": "nl",
+          "lines4": {
+            "lines": [
+              {"day": "Vandaag · wo 28"},
+              {"time": "07:42", "title": "Event 9", "allDay": false},
+              {"time": "08:42", "title": "Event 12", "allDay": false},
+              {"time": "09:42", "title": "Event 15", "allDay": false}
+            ],
+            "more": 14
+          },
+          "lines11": {
+            "lines": [
+              {"day": "Vandaag · wo 28"},
+              {"time": "07:42", "title": "Event 9", "allDay": false},
+              {"time": "08:42", "title": "Event 12", "allDay": false},
+              {"time": "09:42", "title": "Event 15", "allDay": false},
+              {"time": "10:42", "title": "Event 18", "allDay": false},
+              {"time": "11:42", "title": "Event 1", "allDay": false},
+              {"time": "12:42", "title": "Event 4", "allDay": false},
+              {"time": "13:42", "title": "Event 7", "allDay": false},
+              {"time": "14:42", "title": "Event 10", "allDay": false},
+              {"time": "15:42", "title": "Event 13", "allDay": false},
+              {"time": "16:42", "title": "Event 16", "allDay": false}
+            ],
+            "more": 7
+          },
+          "next": {"title": "Event 9", "when": "07:42 – 08:42", "pill": "Nu", "mins": 0}
+        }
+      ]
+    }
+  ]
+}

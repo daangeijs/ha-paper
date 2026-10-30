@@ -2,6 +2,7 @@
 // Markup converted from Main.dc.html (web console section, lines 888–1176).
 import { Fragment, type CSSProperties } from 'react';
 import type { ConsoleView } from '../useConsole.ts';
+import { BinsPicker } from './BinsPicker.tsx';
 
 const SEARCH: CSSProperties = { flex: "none", height: "34px", boxSizing: "border-box", border: "1px solid #c9c6be", borderRadius: "8px", padding: "0 10px", font: "14px 'IBM Plex Sans', sans-serif", background: "#fff" };
 const ICON_BTN: CSSProperties = { flex: "none", width: "22px", height: "22px", border: "0", borderRadius: "6px", background: "#ECEBE5", fontSize: "14px", lineHeight: "1", padding: "0" };
@@ -58,15 +59,19 @@ export function ScreensTab({ v }: { v: ConsoleView }) {
               <button className="dev-btn" onClick={v.web.deleteScreen} style={{ height: "36px", padding: "0 12px", border: "1px solid #c9c6be", borderRadius: "8px", background: "#fff", fontSize: "13px" }}>{v.web.t('deleteScreen')}</button>
             </div>
             {!!(v.web.pvLine) && (<span role="status" style={{ flex: "none", font: "500 12px 'IBM Plex Mono', monospace", color: "#5c5a55" }}>{v.web.pvLine}</span>)}
-            <div className="x4-canvas" style={{ flex: "none", height: v.web.isValues ? "410px" : "330px", boxSizing: "border-box", borderRadius: "12px", background: "#ECEBE5", border: "1px solid #d3d0c8", padding: "10px", display: "grid", gridTemplateColumns: "repeat(4, minmax(0, 1fr))", gridTemplateRows: "repeat(2, minmax(0, 1fr))", gap: "8px" }}>
+            {/* #360: Values = the panel's own grid at its aspect ratio (cells keep their crop's shape at any width) */}
+            <div className={v.web.isValues ? undefined : "x4-canvas"} style={v.web.isValues
+              ? { flex: "none", position: "relative", width: "100%", maxWidth: "1040px", aspectRatio: v.web.panelAspect, boxSizing: "border-box", borderRadius: "12px", background: "#ECEBE5", border: "1px solid #d3d0c8" }
+              : { flex: "none", height: "330px", boxSizing: "border-box", borderRadius: "12px", background: "#ECEBE5", border: "1px solid #d3d0c8", padding: "10px", display: "grid", gridTemplateColumns: "repeat(4, minmax(0, 1fr))", gridTemplateRows: "repeat(2, minmax(0, 1fr))", gap: "8px" }}>
               {(v.web.cells).map((c: any) => (
-                <div key={'c' + c.col + c.row} onDragOver={c.over} onDragLeave={c.leave} onDrop={c.drop} style={{ gridColumn: `${c.col} / span 1`, gridRow: `${c.row} / span 1`, border: c.border, borderRadius: "8px", background: c.bg }}></div>))}
+                <div key={'c' + c.col + c.row} onDragOver={c.over} onDragLeave={c.leave} onDrop={c.drop} style={{ ...(c.place ?? { gridColumn: `${c.col} / span 1`, gridRow: `${c.row} / span 1` }), boxSizing: "border-box", border: c.border, borderRadius: "8px", background: c.bg }}></div>))}
               {(v.web.blocks).map((b: any) => (
                 <button key={b.j} type="button" aria-pressed={b.on} aria-label={b.aria} aria-keyshortcuts="ArrowLeft ArrowRight ArrowUp ArrowDown Delete" className="x4-tile"
-                  draggable="true" onDragStart={b.dragStart} onDragOver={v.web.allowDrop} onDrop={b.drop} onClick={b.select} onKeyDown={b.key} style={{ gridColumn: `${b.col} / span ${b.cs}`, gridRow: `${b.row} / span ${b.rs}`, minWidth: "0", minHeight: "0", boxSizing: "border-box", border: b.bad ? "2px solid #B3261E" : b.border, borderRadius: "8px", background: b.bg, padding: b.crop && !b.bad ? "0" : "10px 12px", display: "flex", flexDirection: "column", alignItems: "stretch", justifyContent: "space-between", textAlign: "left", cursor: "grab", overflow: "hidden" }}>
+                  draggable="true" onDragStart={b.dragStart} onDragOver={v.web.allowDrop} onDrop={b.drop} onClick={b.select} onKeyDown={b.key} style={{ ...(b.place ?? { gridColumn: `${b.col} / span ${b.cs}`, gridRow: `${b.row} / span ${b.rs}` }), minWidth: "0", minHeight: "0", boxSizing: "border-box", border: b.bad ? "2px solid #B3261E" : b.border, borderRadius: "8px", background: b.bg, padding: b.crop && !b.bad ? "0" : "10px 12px", display: "flex", flexDirection: "column", alignItems: "stretch", justifyContent: "space-between", textAlign: "left", cursor: "grab", overflow: "hidden" }}>
                   {b.crop && !b.bad
-                    // #189: the tile as the display draws it, cut from preview.png (viewBox = its panel rectangle)
-                    ? <svg viewBox={b.crop.box} preserveAspectRatio="xMidYMid meet" aria-hidden="true" style={{ display: "block", flex: "1", minHeight: "0", width: "100%", height: "100%" }}><image href={b.crop.url} width="800" height="480" /></svg>
+                    // #189: the tile as the display draws it, cut from preview.png (viewBox = its panel rectangle; slice, so
+                    // nothing outside it shows, #360)
+                    ? <svg viewBox={b.crop.box} preserveAspectRatio="xMidYMid slice" aria-hidden="true" style={{ display: "block", flex: "1", minHeight: "0", width: "100%", height: "100%" }}><image href={b.crop.url} width="800" height="480" /></svg>
                     : <>
                       <span style={{ display: "block", fontSize: "16px", fontWeight: "600", lineHeight: "1.2", overflow: "hidden" }}>{b.name}</span>
                       <span style={{ display: "block", fontSize: "12px", color: b.bad ? "#B3261E" : "#5c5a55", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{b.bad ? v.web.t('needsEntity') : b.sub}</span>
@@ -110,6 +115,54 @@ export function ScreensTab({ v }: { v: ConsoleView }) {
                     {(v.web.seriesOpts).map((o: any, i_o: number) => (<Fragment key={i_o}><button onClick={o.pick} aria-pressed={o.bg === '#1d1d1f'} style={{ height: "32px", padding: "0 10px", border: "1px solid #c9c6be", borderRadius: "6px", background: o.bg, color: o.fg, fontSize: "13px" }}>{o.label}</button></Fragment>))}
                   </div>
                 )}
+                {!!(v.web.isMedia) && (
+                  <fieldset aria-label={v.web.t('favorites')} style={{ display: "flex", flexDirection: "column", gap: "8px", margin: "0", padding: "0", minWidth: "0", border: "0" }}>
+                    <span style={{ fontSize: "13px", color: "#5c5a55" }}>{v.web.t('favorites')}</span>
+                    {(v.web.favList).map((f: any) => (
+                      <div key={f.label + f.target} style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+                        <span style={{ fontSize: "14px", fontWeight: "600" }}>{f.label}</span>
+                        <span style={{ flex: "1", minWidth: "0", fontSize: "12px", color: "#5c5a55", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{f.target}</span>
+                        <button onClick={f.remove} aria-label={f.removeLabel} title={f.removeLabel} style={{ width: "32px", height: "28px", border: "1px solid #c9c6be", borderRadius: "6px", background: "#fff", fontSize: "14px" }}>×</button>
+                      </div>))}
+                    <div style={{ display: "flex", alignItems: "center", gap: "8px", flexWrap: "wrap" }}>
+                      <input aria-label={v.web.t('favName')} placeholder={v.web.t('favName')} value={v.web.favName} onChange={v.web.setFavName} style={{ width: "150px", height: "32px", boxSizing: "border-box", border: "1px solid #c9c6be", borderRadius: "6px", padding: "0 8px", fontSize: "13px" }} />
+                      <input aria-label={v.web.t('favTarget')} aria-invalid={!!v.web.favErr} placeholder={v.web.t('favTarget')} list="x4-fav-runs" value={v.web.favTarget} onChange={v.web.setFavTarget} style={{ flex: "1", minWidth: "180px", height: "32px", boxSizing: "border-box", border: "1px solid #c9c6be", borderRadius: "6px", padding: "0 8px", fontSize: "13px" }} />
+                      <datalist id="x4-fav-runs">{(v.web.favRuns).map((e: any) => <option key={e.id} value={e.id}>{e.name}</option>)}</datalist>
+                      <button className="dev-btn" onClick={v.web.addFav} disabled={!v.web.favCanAdd} style={{ height: "32px", padding: "0 12px", border: "1px solid #c9c6be", borderRadius: "6px", background: "#fff", fontSize: "13px" }}>{v.web.t('favAdd')}</button>
+                    </div>
+                    {!!(v.web.favErr) && <span role="alert" style={{ fontSize: "12px", color: "#B3261E" }}>{v.web.favErr}</span>}
+                    <span style={{ fontSize: "12px", color: "#5c5a55" }}>{v.web.t('favHint')}</span>
+                  </fieldset>
+                )}
+                {!!(v.web.isGuest) && (
+                  <fieldset aria-label={v.web.t('guestTitle')} style={{ display: "flex", flexDirection: "column", gap: "8px", margin: "0", padding: "0", minWidth: "0", border: "0" }}>
+                    <label style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+                      <span style={{ minWidth: "96px", fontSize: "13px", color: "#5c5a55" }}>{v.web.t('guestSsid')}</span>
+                      <input value={v.web.guestSsid} onChange={v.web.setGuestSsid} autoComplete="off" spellCheck={false} style={{ flex: "1", minWidth: "0", height: "32px", boxSizing: "border-box", border: "1px solid #c9c6be", borderRadius: "6px", padding: "0 8px", fontSize: "13px" }} />
+                    </label>
+                    {!v.web.guestOpen && (
+                      <label style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+                        <span style={{ minWidth: "96px", fontSize: "13px", color: "#5c5a55" }}>{v.web.t('guestPw')}</span>
+                        <input type={v.web.guestShow ? "text" : "password"} value={v.web.guestPw} onChange={v.web.setGuestPw} autoComplete="new-password" spellCheck={false} style={{ flex: "1", minWidth: "0", height: "32px", boxSizing: "border-box", border: "1px solid #c9c6be", borderRadius: "6px", padding: "0 8px", fontSize: "13px" }} />
+                        <button onClick={v.web.toggleGuestShow} aria-pressed={v.web.guestShow} style={{ height: "32px", padding: "0 10px", border: "1px solid #c9c6be", borderRadius: "6px", background: "#fff", fontSize: "13px" }}>{v.web.t(v.web.guestShow ? 'guestHidePw' : 'guestShowPw')}</button>
+                      </label>
+                    )}
+                    <div style={{ display: "flex", alignItems: "center", gap: "8px", flexWrap: "wrap" }}>
+                      <span style={{ minWidth: "96px", fontSize: "13px", color: "#5c5a55" }}>{v.web.t('guestSecurity')}</span>
+                      {(v.web.guestSecs).map((o: any) => (<Fragment key={o.label}><button onClick={o.pick} aria-pressed={o.bg === '#1d1d1f'} style={{ height: "32px", padding: "0 10px", border: "1px solid #c9c6be", borderRadius: "6px", background: o.bg, color: o.fg, fontSize: "13px" }}>{o.label}</button></Fragment>))}
+                      <label style={{ display: "flex", alignItems: "center", gap: "6px", fontSize: "13px" }}><input type="checkbox" checked={v.web.guestHidden} onChange={v.web.toggleGuestHidden} />{v.web.t('guestHidden')}</label>
+                    </div>
+                    {!v.web.guestOpen && (
+                      <label style={{ display: "flex", flexDirection: "column", gap: "4px" }}>
+                        <span style={{ fontSize: "13px", color: "#5c5a55" }}>{v.web.t('guestPwEntity')}</span>
+                        <input value={v.web.guestPwEntity} onChange={v.web.setGuestPwEntity} list="x4-guest-pw" placeholder="input_text.guest_password" spellCheck={false} style={{ height: "32px", boxSizing: "border-box", border: "1px solid #c9c6be", borderRadius: "6px", padding: "0 8px", fontSize: "13px" }} />
+                        <datalist id="x4-guest-pw">{(v.web.guestPwEntities).map((e: any) => <option key={e.id} value={e.id}>{e.name}</option>)}</datalist>
+                        <span style={{ fontSize: "12px", color: "#5c5a55" }}>{v.web.t('guestPwEntityHint')}</span>
+                      </label>
+                    )}
+                    <span role="note" style={{ fontSize: "12px", color: "#5c5a55" }}>{v.web.t('guestNote')}</span>
+                  </fieldset>
+                )}
                 {!!(v.web.isHistory) && (
                   <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
                     <fieldset aria-label={v.web.t('histSource')} style={{ display: "flex", alignItems: "center", gap: "8px", flexWrap: "wrap", margin: "0", padding: "0", minWidth: "0", border: "0" }}>
@@ -130,6 +183,13 @@ export function ScreensTab({ v }: { v: ConsoleView }) {
                       <datalist id="x4-hist-values"><option value="precipitation" /><option value="temperature" /><option value="value" /><option value="price" /><option value="precipitation_probability" /><option value="wind_speed" /></datalist>
                       <input aria-label={v.web.t('histTimeField')} placeholder={'datetime'} list="x4-hist-times" value={v.web.histTime} onChange={v.web.setHistTime} style={{ width: "140px", height: "32px", boxSizing: "border-box", border: "1px solid #c9c6be", borderRadius: "6px", padding: "0 8px", fontSize: "13px" }} />
                       <datalist id="x4-hist-times"><option value="datetime" /><option value="time" /><option value="start" /><option value="from" /></datalist>
+                    </fieldset>
+                    )}
+                    {!!(v.web.histIsSeries) && (
+                    <fieldset aria-label={v.web.t('histPast')} style={{ display: "flex", alignItems: "center", gap: "8px", flexWrap: "wrap", margin: "0", padding: "0", minWidth: "0", border: "0" }}>
+                      <span style={{ minWidth: "64px", fontSize: "13px", color: "#5c5a55" }}>{v.web.t('histPast')}</span>
+                      <input aria-label={v.web.t('histPast')} placeholder={'sensor.…'} list="x4-hist-past" value={v.web.histPast} onChange={v.web.setHistPast} style={{ width: "220px", height: "32px", boxSizing: "border-box", border: "1px solid #c9c6be", borderRadius: "6px", padding: "0 8px", fontSize: "13px" }} />
+                      <datalist id="x4-hist-past">{(v.web.histPastIds).map((id: string) => (<option key={id} value={id} />))}</datalist>
                     </fieldset>
                     )}
                     {!!(v.web.histIsForecast) && (<>
@@ -253,6 +313,7 @@ export function ScreensTab({ v }: { v: ConsoleView }) {
                         </>)}
                       </div>)}
                   </div>)}
+                {!!(v.web.hasBinsPicker) && <BinsPicker web={v.web} />}
                 {!!(v.web.hasListPicker) && (<>
                   <div style={{ display: "flex", alignItems: "baseline", gap: "10px", flexWrap: "wrap" }}>
                     <span style={{ fontSize: "14px", fontWeight: "600" }}>{v.web.listTitle}</span>

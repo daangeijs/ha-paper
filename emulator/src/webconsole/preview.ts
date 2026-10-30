@@ -113,7 +113,18 @@ export function tileCrops(draft: Widget[], pushed: Widget[], grid: GridMetrics):
   });
 }
 
-export type PanelShot = { id: string; url: string; at: Date };
+/** #360: Values canvas = the panel below its header (side margin kept on top), so each cell has its crop's aspect at
+ *  any window width. Aspect for CSS aspect-ratio, and a span's place in % of that box (same metrics as tileCrops). */
+export function panelAspect(g: GridMetrics): string {
+  return `800 / ${480 - g.top + g.side}`;
+}
+export function panelPlace(g: GridMetrics, col: number, row: number, cs: number, rs: number) {
+  const r = gridSpan(g, col - 1, row - 1, cs, rs), y0 = g.top - g.side, h = 480 - y0;
+  const pct = (v: number, of: number) => `${(v / of) * 100}%`;
+  return { position: 'absolute' as const, left: pct(r.x, 800), top: pct(r.y - y0, h), width: pct(r.w, 800), height: pct(r.h, h) };
+}
+
+export type PanelShot ={ id: string; url: string; at: Date };
 const HELD = Symbol('held');
 
 /** Poller for preview.png: a 503 holds every request (timer, kick) for Retry-After seconds, then asks once. */

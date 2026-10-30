@@ -4,6 +4,7 @@
 #include <ArduinoJson.h>
 #include <WiFi.h>
 
+#include <algorithm>
 #include <cctype>
 
 #include "Logging.h"
@@ -60,6 +61,8 @@ std::set<std::string> DeviceServices::entityIdsOf(const Config& c) {
       }
       if (w.type == "gauge" && w.field("entity").empty()) ids.insert(kGaugeDefaultEntity);
       if (w.type == "thermo" && !w.field("zone").empty()) ids.insert("climate." + w.field("zone"));   // #148
+      if (w.type == "bins") for (auto& id : listOf(w, "entities")) if (looksLikeEntityId(id)) ids.insert(id);   // #317
+      if (w.type == "guestWifi" && looksLikeEntityId(w.field("password_entity"))) ids.insert(w.field("password_entity"));   // #329
     }
   return ids;
 }
@@ -138,6 +141,7 @@ void DeviceServices::begin() {
   auto ids = entityIdsOf(bootConfig_);
   LightSubs subs = lightSubs(bootConfig_);
   h.post([ids, subs] { haClient().setConfigEntities(ids, subs); });
+  h.post([p = bootSettings_.emptyHouse] { haClient().setPresenceEntity(p); });   // #331
   {
     // The App reads status() at finishBoot(), before the first pump() when the boot refresh blocks longer than the
     // 1.6 s boot screen (real panel): publish the stored state now, or the defaults (no Wi-Fi, never linked) send a
@@ -186,6 +190,8 @@ void DeviceServices::pump(App& app, Board& board) {
   bool statusChanged = false, clear = false, cfgPending = false, setPending = false, refresh = false, restart = false, sources = false;
   std::vector<std::pair<std::string, EntityValue>> updates;
   std::vector<Hub::HistoryOut, PsramAlloc<Hub::HistoryOut>> hist;
+  std::vector<Hub::WeatherOut, PsramAlloc<Hub::WeatherOut>> wxOut;
+  std::vector<Hub::AgendaOut, PsramAlloc<Hub::AgendaOut>> agendas;
   Config cfg;
   DisplaySettings settings;
   {
@@ -214,6 +220,8 @@ void DeviceServices::pump(App& app, Board& board) {
     updates.swap(h.entityOut);
     h.entitiesApplied += updates.size();
     hist.swap(h.historyOut);
+    wxOut.swap(h.weatherOut);
+    agendas.swap(h.agendaOut);
     clear = h.clearEntities;
     h.clearEntities = false;
     if ((cfgPending = h.configPending)) {
@@ -239,7 +247,12 @@ void DeviceServices::pump(App& app, Board& board) {
                   "FetchState mirrors hist::State");
     for (auto& o : hist) app.setHistory(std::string(o.key), o.has ? &o.s : nullptr, hist::State(int(o.state)));
   }
-  if (setPending) app.setSettings(settings);
+  for (auto& o : wxOut) app.setWeather(std::string(o.entity), o.fc);   // #318
+  for (auto& o : agendas) app.setAgenda(std::string(o.key), o.state, o.f);   // #316
+  if (setPending) {
+    app.setSettings(settings);
+    h.post([p = settings.emptyHouse] { haClient().setPresenceEntity(p); });   // #331
+  }
   if (cfgPending) app.setDisplayConfig(std::move(cfg));  // one full refresh
   else if (sources) app.expectData();
   else if (refresh && forceRefresh_) forceRefresh_();    // POST /display/refresh
@@ -295,6 +308,7 @@ void DeviceServices::pump(App& app, Board& board) {
     if (shown != h.shownScreen) h.shownScreen = std::move(shown);
   }
   historyTiles(app, cfgPending);
+  agendaTiles(app);
   const uint32_t fulls = app.stats().fullRefreshes;
   if (fulls != lastFulls_) {
     lastFulls_ = fulls;
@@ -398,8 +412,36 @@ void DeviceServices::historyTiles(App& app, bool configChanged) {
       if (w.type != "history") continue;
       hist::Spec s = hist::specOf(w);
       want.push_back({s, hist::seriesKey(s), sc.app == appId});
+      if (!s.past.empty()) {   // #307: the recorder of `past` before now, a second series of the same tile
+        hist::Spec p = hist::pastSpec(s);
+        want.push_back({p, hist::seriesKey(p), sc.app == appId});
+      }
     }
-  hub().post([want, changed] { haClient().setHistoryTiles(want, changed); });
+  std::vector<std::string> weather;   // #318: every weather tile's entity, whichever app shows it
+  for (auto& sc : cfg.screens)
+    for (auto& w : sc.widgets) if (w.type == "weather") weather.push_back(w.field("entity"));
+  hub().post([want, changed, weather] {
+    haClient().setHistoryTiles(want, changed);
+    haClient().setWeatherTiles(weather);
+  });
+}
+
+// Agenda / next tiles (#316): every calendar set of the config is kept fresh (on screen or not: one small call per set
+// every 30 min). Posted when the set list changes.
+void DeviceServices::agendaTiles(App& app) {
+  std::vector<std::string> keys;
+  std::string all;
+  for (auto& sc : app.config().screens)
+    for (auto& w : sc.widgets) {
+      if (!agenda::isAgendaType(w.type)) continue;
+      std::string k = agenda::keyOf(w.field("entities"));
+      if (k.empty() || std::find(keys.begin(), keys.end(), k) != keys.end()) continue;
+      keys.push_back(k);
+      all += k + "|";
+    }
+  if (all == agendaKeys_) return;
+  agendaKeys_ = all;
+  hub().post([keys] { haClient().setAgendaTiles(keys); });
 }
 
 void DeviceServices::applyConfig(const Config& c) {

@@ -322,6 +322,18 @@ void test_inbound_watch() {
   TEST_ASSERT_FALSE(w.due(t0 + 11 * idle - 1));
 }
 
+// #326: the GOT_IP of the join that just started it is dropped; after stopMdns (Wi-Fi off) the next join inits again
+void test_mdns_plan() {
+  MdnsPlan p;
+  const uint32_t t0 = 0xFFFFF000u;   // wraps during the test
+  TEST_ASSERT_TRUE(p.next(false, t0) == MdnsStep::Init);   // also after a failed init: try again
+  p.lastMs = t0;
+  TEST_ASSERT_TRUE(p.next(true, t0 + 200) == MdnsStep::Skip);
+  TEST_ASSERT_TRUE(p.next(true, t0 + MdnsPlan::kSettleMs - 1) == MdnsStep::Skip);
+  TEST_ASSERT_TRUE(p.next(true, t0 + MdnsPlan::kSettleMs) == MdnsStep::Rebind);
+  TEST_ASSERT_TRUE(p.next(false, t0 + 200) == MdnsStep::Init);   // stopped inside the window: init, never a re-bind
+}
+
 void test_bssid_tag() {
   const uint8_t a[6] = {0x00, 0x11, 0x22, 0x33, 0x44, 0x55}, b[6] = {0x00, 0x11, 0x22, 0x33, 0x44, 0x56};
   TEST_ASSERT_EQUAL(4, bssidTag(a).size());
@@ -357,5 +369,6 @@ int main(int, char**) {
   RUN_TEST(test_tls_heap_dma_and_peer);
   RUN_TEST(test_inbound_watch);
   RUN_TEST(test_bssid_tag);
+  RUN_TEST(test_mdns_plan);
   return UNITY_END();
 }

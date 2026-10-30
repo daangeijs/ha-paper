@@ -42,7 +42,7 @@ info:
       * PUT /config and POST /config/validate refuse application/x-www-form-urlencoded (curl's default for
         --data-binary) with 415: send Content-Type application/yaml or application/json.
       * Extra endpoints: GET/PUT /settings, POST /ha/token (long-lived token fallback), POST /ha/url,
-        POST /ha/discover, POST /ota/upload, POST /device/restart, POST /device/factory-reset,
+        POST /ha/discover, POST /ota/upload, POST /ota/upload-www, POST /device/restart, POST /device/factory-reset,
         GET/DELETE /diagnostics, GET /diagnostics/coredump, GET /logs.
       * Non-API paths: GET /link?p=CODE (QR on the display; 4-char pairing code, single use, 10 min) and
         GET /auth/start[?ha=URL] both 302 to Home Assistant's /auth/authorize; GET /auth/callback.
@@ -204,6 +204,15 @@ components:
         error: { type: string, nullable: true, enum: [memory, network, busy, none, other, null], description: "x-firmware (#250): why the last check failed (status error); null otherwise, also for a failed install (message says why). memory = not enough RAM for the GitHub TLS handshake (try again in a minute); network = no Wi-Fi or no answer; busy = GitHub refused (403/429, rate limit); none = no releases published; other = any other answer (message has the HTTP status). status is checking from the moment POST /ota/check answers 202 until the result is in." }
         progress: { type: integer, description: "x-firmware: download progress 0–100" }
         repo: { type: string, description: "x-firmware: GitHub owner/repo checked; empty = not configured in this build (alpha builds): update checks off, auto off, status idle, POST /ota → 409, POST /ota/check → 202 without a check; POST /ota/upload still works" }
+        www:
+          type: object
+          description: "x-firmware (#350): the web console on the www partition (www.bin). Its version.txt must equal installed; when it does not (stale), a confirmed firmware with update checks on downloads the www.bin of its own release (manifest.json `www`), on boot and after every check, else every 6 h (failed: every 10 min and on reconnect); or POST /ota/upload-www. A write interrupted by a power loss reads as failed after the reboot. While stale/updating/failed the device serves a status page at / instead of the console (the old console stays at /?console=old)"
+          properties:
+            version: { type: string, nullable: true, description: "the console's version.txt; null = a console from before #350, or none" }
+            sha256: { type: string, nullable: true, description: "of the whole partition; null until known (hashed once per console)" }
+            current: { type: boolean, description: "version == installed and the last write did not fail" }
+            state: { type: string, enum: [current, stale, missing, updating, failed], description: "missing = no console in flash (setup fallback page); failed = the last write failed (message), the console is offline until a good www.bin is written" }
+            message: { type: string, description: "why the last write failed; empty otherwise" }
     Logs:
       type: object
       properties:
@@ -223,6 +232,23 @@ components:
               level: { type: string, enum: [E, W, I] }
               tag: { type: string, example: HEAP }
               msg: { type: string, example: "free 182344 min 141020 largest 110592 psram 7864320 min_dma 139812 min_8bit_int 141020 · net stack 2100" }
+    AwakePhases:
+      type: object
+      description: "One boot's awake time (#327, GET /diagnostics power_trail.phases); see Diagnostics power_trail.phases"
+      required: [wake, epoch, boot_ms, wifi_ms, ha_ms, render_ms, panel_ms, idle_ms, total_ms, pct, raw, mv]
+      properties:
+        wake: { type: string, enum: [cold, timer, button, charger, other] }
+        epoch: { type: integer, nullable: true, example: 1761634800, description: when measured (the end of an ended boot); null = clock unknown }
+        boot_ms: { type: integer, minimum: 0, example: 812 }
+        wifi_ms: { type: integer, minimum: 0, example: 1530 }
+        ha_ms: { type: integer, minimum: 0, example: 2210 }
+        render_ms: { type: integer, minimum: 0, example: 340 }
+        panel_ms: { type: integer, minimum: 0, example: 1650 }
+        idle_ms: { type: integer, minimum: 0, example: 3200 }
+        total_ms: { type: integer, minimum: 0, example: 7752 }
+        pct: { type: integer, nullable: true, example: 91 }
+        raw: { type: integer, nullable: true, example: 92 }
+        mv: { type: integer, nullable: true, example: 3954 }
     Diagnostics:
       type: object
       description: |
@@ -349,10 +375,29 @@ components:
             shows what the previous boot was doing. Lines: `awake`, `sleep <reason>`, `key <ms> <mV> <usb 0/1>` (Power
             KeyDown, written before the display acts; mV -1 = not read), `standby drawn <ms>` (after the standby full
             refresh), `keyup <held ms>`. ms = uptime. The emulator has no power path: before_boot null, lines [].
-          required: [before_boot, lines]
+            empty_house_sleeps (#331): deep sleeps with reason `empty house` since power-on (RTC memory; the trail file
+            keeps one `sleep empty house` line per run of them).
+            phases (#327): where awake time goes, as an energy proxy. The emulator has no power path: boot null, wakes [].
+          required: [before_boot, lines, empty_house_sleeps, phases]
           properties:
             before_boot: { type: string, nullable: true, example: "key 123456 3950 0", description: "last line when this boot started; null = no trail yet" }
             lines: { type: array, maxItems: 8, items: { type: string }, description: newest lines, oldest first, example: ["awake", "key 123456 3950 0", "standby drawn 125020", "keyup 1180", "awake"] }
+            empty_house_sleeps: { type: integer, minimum: 0, example: 3, description: "deep sleeps with reason `empty house` since power-on (#331)" }
+            phases:
+              type: object
+              description: |
+                #327 (firmware core/phases.h): each boot's wall time in ms since the reset, cut in order: boot_ms (→ setup
+                done), wifi_ms (→ Wi-Fi first up), ha_ms (→ HA connected with entities in), then idle_ms = the rest minus
+                the render + panel time after the ha mark. render_ms / panel_ms are the boot's totals (framebuffer draw,
+                panel refresh calls), so they overlap the earlier phases. A phase not reached takes the time up to now and
+                the later ones are 0. pct = the shown % (filtered: no rise without a charger), raw = the gauge's own read,
+                mv = cell voltage (null = not read). boot = this boot so far; wakes = the newest 12 boots that ended in
+                deep sleep, newest first (RTC memory: kept across deep sleep, lost at power-on). Also logged before each
+                deep sleep as `[I][POWER] awake phases · boot 812 · wifi 1530 · … · total 7752 ms · 91% (gauge 92%) 3954 mV`.
+              required: [boot, wakes]
+              properties:
+                boot: { nullable: true, allOf: [{ $ref: '#/components/schemas/AwakePhases' }], description: this boot so far; null in the emulator }
+                wakes: { type: array, maxItems: 12, items: { $ref: '#/components/schemas/AwakePhases' } }
         web:
           type: object
           description: "x-firmware (#227): the web server since boot. Also in the minute `[I][NET] web open … served … 503 … last_req …` log line"
@@ -670,10 +715,12 @@ paths:
                     typeface: { type: string, enum: [archivo, bricolage, fraunces, geist], default: archivo, description: "Sleek typeface (ignored in classic). 422: typeface must be archivo, bricolage, fraunces or geist" },
                     surface: { type: string, enum: [dither, dots], default: dither, description: "How the Sleek card gray is drawn on the panel (25 % level-2 dither, or 1-in-16 black dots that survive B/W partial refresh). Device only. 422: surface must be dither or dots" },
                     haReport: { type: boolean, default: true, description: "Push device health to Home Assistant as entities (#32): POST /api/states/sensor.ha_paper_XXXX_battery, binary_sensor.…_charging, sensor.…_wifi_signal, …_last_full_refresh, …_last_boot, …_firmware, …_reset_reason (spec/test-vectors/ha-report.json). On connect, on a battery/charging change and every 10 min, never twice in 60 s. HA accepts it from admin users only. 422: haReport must be true or false" },
-                    powerSave: { type: string, enum: ["off", standby, glance], default: glance, description: "On battery (#10, #18): glance = deep sleep between timer wakes, redraw only when a visible value changed, a key press = live for liveMin minutes; standby = deep sleep while the standby face is on; off = always live. glance and standby also sleep through quiet hours. On USB always live. night (Sleep at night) was removed in #295: a stored night reads as glance. 422: display.powerSave must be off, standby or glance" },
-                    wakeEvery: { type: integer, enum: [15, 30, 60], default: 15, description: "minutes between glance / standby timer wakes; doubles per wake that could not reach HA (cap 2 h). 422: display.wakeEvery must be 15, 30 or 60" },
+                    powerSave: { type: string, enum: ["off", standby, glance], default: glance, description: "On battery (#10, #18, #356): glance = the sleep face (date, Asleep · press to wake, today's weather / event / bins) and deep sleep until a key or the charger; timer wakes only at transitions (midnight, quiet-hours start and end, the 03:00 install slot, at most every 8 h), redraw only when the face changed; a key press = the dashboard, live for liveMin minutes; standby = deep sleep while the standby face is on; off = always live. glance and standby also sleep through quiet hours. On USB always live. night (Sleep at night) was removed in #295: a stored night reads as glance. 422: display.powerSave must be off, standby or glance" },
+                    wakeEvery: { type: integer, enum: [15, 30, 60], default: 15, description: "minutes between standby timer wakes (glance wakes only at transitions since #356). 422: display.wakeEvery must be 15, 30 or 60" },
                     liveMin: { type: integer, enum: [1, 3, 5, 10], default: 3, description: "glance: minutes of live mode (WebSocket + touch) after a key press. 422: display.liveMin must be 1, 3, 5 or 10" },
-                    debugInput: { type: boolean, default: false, description: "Allow POST /debug/input (#214, measuring on hardware). API only, no tile. 422: display.debugInput must be true or false" } } }
+                    emptyHouse: { type: string, default: "", example: zone.home, description: "Empty-house sleep (#331): \"\" = off, else the presence entity (zone: state 0 = nobody home; binary_sensor / input_boolean / group: off = nobody home). In glance, while nobody is home, wakes every 2 h (cut at quiet hours) and the sleeping panel shows Nobody home. Web console only (Device › Power). 422: display.emptyHouse must be \"\" or a zone, binary_sensor, input_boolean or group entity id" },
+                    debugInput: { type: boolean, default: false, description: "Allow POST /debug/input (#214, measuring on hardware). API only, no tile. 422: display.debugInput must be true or false" },
+                    morning: { type: boolean, default: true, description: "Good morning page (#330): the first wake after quiet hours shows today's weather, events and bins for 20 min; a press shows the start page. No effect with quiet off. 422: display.morning must be true or false" } } }
                   ota_channel: { type: string, enum: [stable, beta] }
                   tz: { type: string, maxLength: 64, default: "", example: "Europe/London", description: "Clock time zone override (#147). \"\" = follow Home Assistant (get_config `time_zone`); a zone name from spec/test-vectors/locale.json `zones` (Europe/*, US, UK, AU, …); or a POSIX TZ string, newlib grammar. Other IANA names are rejected: the device has no zone database. The web console edits it under Settings › Home Assistant. 422: tz must be \"\", a known zone like Europe/Amsterdam or a POSIX TZ string like CET-1CEST,M3.5.0,M10.5.0/3 (spec/test-vectors/settings-put.json)" }
                   tz_ha: { type: string, readOnly: true, example: "Europe/Amsterdam", description: "Home Assistant's time_zone as last applied (#147); a zone the display does not know is ignored (logged once) and the clock keeps its zone. \"\" = not known yet" }
@@ -722,6 +769,22 @@ paths:
         "202": { description: "Written and verified; the device restarts into it (confirmed after 60 s with network and a running UI loop; rolls back on a crash, no network within 10 min, or a hang). Body {status: rebooting, version?, sha256}. Multipart: field firmware (+ optional manifest.json {version, sha256, size})" }
         "409": { description: Battery below 30 % / upload already running }
         "422": { description: "SHA-256 mismatch or invalid image — nothing changed; the target version is cleared (GET /ota: status error, available null)" }
+  /ota/upload-www:
+    post:
+      x-firmware: true
+      summary: "Write a local www.bin (the web console) into the www partition (write, #350). Raw body only; the size must be the partition's (3407872 bytes); sha256 required. Refused while a firmware update runs or the new firmware is not confirmed yet (a rollback must not keep a newer console). Bounded to 0xC90000..0xFD0000: never NVS or userdata"
+      parameters:
+        - { name: sha256, in: query, required: true, schema: { type: string }, description: "SHA-256 of www.bin; also accepted as X-SHA256 header" }
+      requestBody: { required: true, content: { application/octet-stream: { schema: { type: string, format: binary } } } }
+      responses:
+        "200": { description: "Written and verified; served at once, no restart. Body {status: written, version (its version.txt, null if none), sha256, current}" }
+        "400": { description: sha256 missing }
+        "401": { $ref: '#/components/responses/Unauthorized' }
+        "403": { description: Read-only token or session }
+        "409": { description: "Battery below 30 %, a firmware update running or not confirmed yet, or a console update already running. While a console rewrite runs, POST /ota and POST /ota/upload answer 409 too (a restart would cut it)" }
+        "413": { description: "Not the size of the www partition — nothing written" }
+        "415": { description: "Multipart body: send www.bin as the raw body" }
+        "422": { description: "SHA-256 mismatch or incomplete: the partition was rewritten, so GET /ota www.state is failed and / shows a status page until a good www.bin is written (upload again, or the next update check)" }
   /diagnostics:
     get:
       x-firmware: true

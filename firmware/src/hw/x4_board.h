@@ -59,6 +59,7 @@ class X4Board : public Board {
   std::atomic<bool> rtcWriteRequested_{false};
   std::atomic<bool> batteryKnown_{false};
   std::atomic<uint16_t> batteryMv_{0};
+  std::atomic<uint8_t> batteryRaw_{0};   // gauge % before the #327 filter
 };
 
 }  // namespace x4

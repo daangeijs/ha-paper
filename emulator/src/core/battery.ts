@@ -36,3 +36,22 @@ export function battStep(s: BattState, i: BattIn): { s: BattState; log: string |
 /** GET /diagnostics `battery`: rows oldest first, columns named in `fields`. */
 export type BattHistory = { interval_s: number; fields: string[]; history: BattRow[] };
 export const battHistory = (s: BattState): BattHistory => ({ interval_s: BATT_SAMPLE_S, fields: [...BATT_FIELDS], history: s.rows });
+
+// Gauge filter (#327): the CW2017 % reads low under load and high after rest (92 → 94 % after a night asleep, no
+// charger). The shown % never rises without a charger; a rise of GAUGE_RISE_PTS or more confirmed by GAUGE_RISE_READS
+// reads in a row is taken (a charge the board did not see). Falls pass at once. The state survives deep sleep (RTC
+// memory); power-on starts at none. Firmware core/gauge_filter.cpp; vectors spec/test-vectors/gauge-filter.json.
+export const GAUGE_RISE_PTS = 5;
+export const GAUGE_RISE_READS = 3;
+/** shown -1 = nothing shown yet; rise = reads in a row at least GAUGE_RISE_PTS above shown. */
+export type GaugeState = { shown: number; rise: number };
+export const GAUGE_ZERO: GaugeState = { shown: -1, rise: 0 };
+
+/** One gauge read: raw < 0 = not read (state kept); charging = STAT or USB host seen. */
+export function gaugeStep(s: GaugeState, raw: number, charging: boolean): GaugeState {
+  if (raw < 0) return s;
+  if (s.shown < 0 || charging || raw <= s.shown) return { shown: raw, rise: 0 };
+  if (raw - s.shown < GAUGE_RISE_PTS) return { shown: s.shown, rise: 0 };
+  const rise = s.rise + 1;
+  return rise >= GAUGE_RISE_READS ? { shown: raw, rise: 0 } : { shown: s.shown, rise };
+}

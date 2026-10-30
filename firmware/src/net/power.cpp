@@ -17,6 +17,7 @@
 
 #include "Logging.h"
 #include "core/battery_history.h"
+#include "core/phases.h"
 #include "core/power.h"
 #include "core/power_profile.h"
 #include "core/power_trail.h"
@@ -77,6 +78,11 @@ ProfileGate g_profile;                 // CPU / Wi-Fi profile in force (#177), s
 std::atomic<int> g_cpuMhz{240};
 std::atomic<bool> g_psMin{true};
 
+// #327 awake phases: marks since the reset (main task writes, web task reads), this boot's draw time and gauge
+std::atomic<uint32_t> g_markBoot{phases::kNoMs}, g_markWifi{phases::kNoMs}, g_markHa{phases::kNoMs}, g_drawAtHa{0};
+std::atomic<uint32_t> g_renderMs{0}, g_panelMs{0};
+std::atomic<int> g_pct{-1}, g_raw{-1}, g_mv{-1};
+
 constexpr uint32_t kCheckMs = 1000;         // live mode: power rules once a second
 constexpr uint32_t kAwakeMinMs = 5000;      // awake at least this long after a boot (same pacing as the emulator)
 constexpr uint32_t kArmUpMs = 60000;        // a boot counts once it ran 60 s with the network up (OTA confirm rule)
@@ -95,6 +101,50 @@ constexpr uint32_t kQemuSleepMaxMs = 8000;  // simulated deep sleep: real waits 
 #endif
 
 void seal() { glance::seal(g_rtc); }
+
+char wakeChar(WakeKind w) {
+  switch (w) {
+    case WakeKind::Timer: return 't';
+    case WakeKind::Button: return 'b';
+    case WakeKind::Charger: return 'h';
+    case WakeKind::Other: return 'o';
+    default: return 'c';
+  }
+}
+
+// #327: this boot so far (any task)
+phases::Rec phasesNow(int64_t epoch) {
+  phases::Marks m;
+  m.bootMs = g_markBoot;
+  m.wifiMs = g_markWifi;
+  m.haMs = g_markHa;
+  m.drawAtHaMs = g_drawAtHa;
+  phases::Rec r = phases::measure(m, sinceReset(), g_renderMs, g_panelMs);
+  r.epoch = epoch > kSaneEpoch ? uint32_t(epoch) : 0;
+  r.pct = int8_t(g_pct.load());
+  r.raw = int8_t(g_raw.load());
+  r.mv = int16_t(g_mv.load());
+  r.wake = wakeChar(g_wake);
+  return r;
+}
+
+// #327: phase marks, every powerLoop pass until all are set
+void markPhases(App& app) {
+  const App::Stats st = app.stats();
+  g_renderMs = st.renderMs;
+  g_panelMs = st.panelMs;
+  if (g_markHa != phases::kNoMs) return;
+  const uint32_t t = sinceReset();
+  if (g_markBoot == phases::kNoMs) g_markBoot = t;   // first pass: setup() is done
+  if (g_markWifi == phases::kNoMs) {
+    if (!netConnected()) return;
+    g_markWifi = t;
+  }
+  std::lock_guard<std::recursive_mutex> l(hub().mu);
+  if (hub().status.ha != HaState::Connected || hub().entitiesApplied == 0) return;
+  g_drawAtHa = st.renderMs + st.panelMs;
+  g_markHa = t;
+}
 
 const char* reasonOf(WakeKind w) {
   switch (w) {
@@ -213,6 +263,9 @@ PowerInputs inputs(App& app, Board& board) {
   g_charged.step(p.charging, p.usb, now);
   i.chargedAgoMin = g_charged.agoMin(now);
   i.voltage = p.mv ? p.mv / 1000.0 : -1;
+  g_pct = i.battery;
+  g_raw = p.known ? int(p.rawPct) : -1;
+  g_mv = p.mv ? int(p.mv) : -1;
   i.otaPendingVerify = otaPendingVerify();
   i.otaBusy = otaBusy();
   i.otaAuto = s.otaAuto == "off" ? OtaAuto::Off : s.otaAuto == "night" ? OtaAuto::Night : OtaAuto::Notify;
@@ -227,6 +280,7 @@ PowerInputs inputs(App& app, Board& board) {
   i.live = glance::liveNow(sinceInput, s.liveMin) || (g_hold && int32_t(now - g_holdUntilMs) < 0);
   i.glanceFails = g_rtc.fails;
   i.armBootsLeft = armLeftNow();
+  i.emptyHouse = v.emptyHouse;   // #331: the presence source says nobody is home
   return i;
 }
 
@@ -291,13 +345,18 @@ void leaveGlance(App& app, const char* why) {
   app.markAsleep(true);   // #299: no live-looking clock on the sleeping panel (quiet face: no clock, nothing drawn)
   const int64_t epoch = board.epochSeconds();
   const int64_t secs = d.buttonWakeOnly ? 0 : std::max<int64_t>(1, d.wakeAtEpoch - epoch);
+  phases::Rec rec;
   {
     std::lock_guard<std::mutex> l(g_rtcMu);
     g_rtc.sleptAtEpoch = epoch;
     g_rtc.wakeAtEpoch = d.buttonWakeOnly ? 0 : d.wakeAtEpoch;
     glance::tallySleep(g_rtc.tally, sinceReset(), app.stats().fullRefreshes, app.stats().partialRefreshes);
+    if (strcmp(d.reason, "empty house") == 0) ++g_rtc.emptySleeps;   // #331
+    rec = phasesNow(epoch);
+    phases::push(g_rtc.wakes, rec);
     seal();
   }
+  LOG_INF("POWER", "awake phases · %s · %d%% (gauge %d%%) %d mV", phases::line(rec).c_str(), rec.pct, rec.raw, rec.mv);
   writeTrail(powertrail::sleepWrite(g_trail, d.reason));
   if (secs) LOG_INF("POWER", "deep sleep (%s) · timer wake in %lld s", d.reason, static_cast<long long>(secs));
   else LOG_INF("POWER", "deep sleep (%s) · Power / Right key or charger only", d.reason);
@@ -306,6 +365,7 @@ void leaveGlance(App& app, const char* why) {
   hub().post([&done] {
     haClient().stop();
 #if !X4_QEMU
+    wifiMgr().stopMdns("sleep");   // #326: before the STA netif is destroyed
     WiFi.disconnect(true);
     WiFi.mode(WIFI_OFF);
 #endif
@@ -364,7 +424,8 @@ void glanceLoop(App& app, Board& board) {
   size_t changed = 0;
   {
     std::lock_guard<std::mutex> l(g_rtcMu);
-    if (settled) changed = glance::snapshotDiff(g_rtc.hasSnap ? &g_rtc.snap : nullptr, snap, clockKeys(app)).size();
+    // unsettled too (#356): a transition wake moves the face itself (its date at midnight, the quiet face)
+    changed = glance::snapshotDiff(g_rtc.hasSnap ? &g_rtc.snap : nullptr, snap, clockKeys(app)).size();
     const double minSince = epoch > kSaneEpoch && g_rtc.drawnAtEpoch > 0 ? double(epoch - g_rtc.drawnAtEpoch) / 60.0 : 0;
     out = glance::step({settled, int(changed), g_rtc.hasSnap, g_rtc.fails, g_rtc.drawnOffline, minSince});
     g_rtc.fails = uint8_t(std::min(out.fails, 255));
@@ -552,6 +613,7 @@ void powerLoop(App& app, Board& board) {
   g_bootFull = app.stats().fullRefreshes;
   g_bootPartial = app.stats().partialRefreshes;
   g_bootFast = app.stats().fastRefreshes;
+  markPhases(app);
   if (!g_lastInOk || now - g_lastInMs >= kCheckMs) {
     const PowerInputs in = inputs(app, board);
     battSample(in, now);
@@ -638,6 +700,17 @@ void powerTrail(std::string& beforeBoot, std::vector<std::string>& lines) {
   std::lock_guard<std::mutex> g(g_trailMu);
   beforeBoot = g_trailBefore;
   lines = g_trailLines;
+}
+
+uint32_t powerEmptySleeps() {
+  std::lock_guard<std::mutex> l(g_rtcMu);
+  return g_rtc.emptySleeps;
+}
+
+std::string powerPhasesJson() {
+  const phases::Rec now = phasesNow(int64_t(time(nullptr)));
+  std::lock_guard<std::mutex> l(g_rtcMu);
+  return phases::json(&now, g_rtc.wakes);
 }
 
 void powerKeyStage(const char* stage) {

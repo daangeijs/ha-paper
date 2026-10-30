@@ -12,8 +12,10 @@
 #include <driver/gpio.h>
 #include <driver/rtc_io.h>
 #include <esp_rom_gpio.h>
+#include <esp_attr.h>
 #include <esp_rtc_time.h>
 #include <esp_sleep.h>
+#include <esp_system.h>
 #include <freertos/FreeRTOS.h>
 #include <freertos/queue.h>
 #include <freertos/task.h>
@@ -26,6 +28,7 @@
 
 #include "Logging.h"
 #include "core/cw2017.h"
+#include "core/gauge_filter.h"
 #include "core/logic.h"
 #include "core/recovery.h"
 #include "hw/hw_diag.h"
@@ -62,6 +65,12 @@ BatteryMonitor g_battery;   // charge STAT pin (GPIO21); SoC via g_gauge on a CW
 freeink::Rtc g_rtc;
 Cw2017 g_gauge;
 uint32_t g_adcNext = 0;     // non-CW2017 boards: vendor read (ADC, no blocking recovery) every kBatteryEveryMs
+
+// #327: shown % across deep sleep and esp_restart(); a power-on (or garbage) starts over at the first read
+struct GaugeRtc { uint32_t magic; gauge::State s; uint32_t check; };
+RTC_NOINIT_ATTR GaugeRtc g_gaugeRtc;
+constexpr uint32_t kGaugeMagic = 0x47415547u;   // "GAUG"
+uint32_t gaugeCheck(const GaugeRtc& r) { return r.magic ^ (uint32_t(uint16_t(r.s.shown)) << 8) ^ r.s.rise ^ 0x5a5a5a5au; }
 
 bool gaugeIsCw2017() {
   const auto& g = BoardConfig::ACTIVE.batteryGauge;
@@ -256,23 +265,32 @@ uint32_t X4Board::batteryDueIn(uint32_t now) const {
 // One gauge step when due: a steady read every 30 s, or the next 20–100 ms step of a recovery. Never blocks.
 void X4Board::readBattery(uint32_t now) {
   if (batteryDueIn(now) != 0) return;
+  charging_ = g_battery.isCharging();   // GPIO21 only: the CW2017 cannot observe charging
+  int raw = -1;
   if (gaugeIsCw2017()) {
     const bool wasRecovering = g_gauge.recovering();
     if (g_gauge.step(g_gaugeBus, now)) {
-      battery_ = g_gauge.soc();
+      raw = g_gauge.soc();
       batteryMv_ = g_gauge.mv();
-      batteryKnown_ = true;
     }
     if (g_gauge.recovering() != wasRecovering) LOG_INF("BOARD", "CW2017 %s", wasRecovering ? "recovery done" : "recovering");
   } else {
     g_adcNext = now + kBatteryEveryMs;
     uint16_t pct;
-    if (g_battery.readPercentageChecked(pct)) {
-      battery_ = static_cast<uint8_t>(pct > 100 ? 100 : pct);
-      batteryKnown_ = true;
-    }
+    if (g_battery.readPercentageChecked(pct)) raw = pct > 100 ? 100 : pct;
   }
-  charging_ = g_battery.isCharging();   // GPIO21 only: the CW2017 cannot observe charging
+  if (raw < 0) return;
+  // #327: the shown % never rises without a charger (core/gauge_filter.h); raw stays visible in diagnostics
+  static bool checked = false;
+  if (!checked && (g_gaugeRtc.magic != kGaugeMagic || g_gaugeRtc.check != gaugeCheck(g_gaugeRtc) || esp_reset_reason() == ESP_RST_POWERON))
+    g_gaugeRtc = GaugeRtc{kGaugeMagic, gauge::State{}, 0};
+  checked = true;
+  if (!batteryKnown_ && g_gaugeRtc.s.shown >= 0) LOG_INF("BOARD", "gauge %d%% · shown before sleep %d%%", raw, g_gaugeRtc.s.shown);
+  g_gaugeRtc.s = gauge::step(g_gaugeRtc.s, raw, charging_ || HWCDC::isPlugged());
+  g_gaugeRtc.check = gaugeCheck(g_gaugeRtc);
+  batteryRaw_ = uint8_t(raw);
+  battery_ = uint8_t(g_gaugeRtc.s.shown);
+  batteryKnown_ = true;
 }
 
 void X4Board::notifyOnInput(void* task) { consumer_ = task; }
@@ -336,27 +354,40 @@ void X4Board::task() {
       lx = nx;
       ly = ny;
     }
-    bool swiped = false;
+    bool swiped = false, released = false, moved = false;
     if (down && g_input.wasTouchReleased()) {
       down = false;
+      released = true;
       const int dx = static_cast<int>(std::lround((lx - sx) * kScreenW));
       const int dy = static_cast<int>(std::lround((ly - sy) * kScreenH));
+      moved = std::abs(dx) >= 60 || std::abs(dy) >= 60;   // the SDK's tap release slop ends at 59 px
       const int nav = swipeNav(dx, dy, ::millis() - downMs);   // same rule as the emulator (core/logic.h)
       if (nav != 0) {
         InputEvent e{};
         e.kind = InputEvent::Kind::Swipe;
         e.x = static_cast<int16_t>(sx * kScreenW);
         e.y = static_cast<int16_t>(sy * kScreenH);
+        e.ex = static_cast<int16_t>(lx * kScreenW);
+        e.ey = static_cast<int16_t>(ly * kScreenH);
         e.dir = static_cast<int8_t>(-nav);   // finger moves left → next page (dir -1)
         send(e);
         swiped = true;
       }
     }
-    if (g_input.wasTouchTap(nx, ny) && !swiped) {
+    const bool tapped = g_input.wasTouchTap(nx, ny);
+    if (tapped && !swiped) {
       InputEvent e{};
       e.kind = InputEvent::Kind::Tap;
       e.x = static_cast<int16_t>(nx * kScreenW);
       e.y = static_cast<int16_t>(ny * kScreenH);
+      send(e);
+    } else if (released && moved && !swiped && !tapped) {   // #351: a slow or vertical drag (a slider takes it; else nothing)
+      InputEvent e{};
+      e.kind = InputEvent::Kind::Drag;
+      e.x = static_cast<int16_t>(sx * kScreenW);
+      e.y = static_cast<int16_t>(sy * kScreenH);
+      e.ex = static_cast<int16_t>(lx * kScreenW);
+      e.ey = static_cast<int16_t>(ly * kScreenH);
       send(e);
     }
 
@@ -421,7 +452,9 @@ void X4Board::setFrontlight(uint8_t brightnessPct, uint8_t warmthPct) {
   g_light.on();
 }
 
-PowerInfo X4Board::power() { return PowerInfo{battery_.load(), charging_.load(), HWCDC::isPlugged(), batteryKnown_.load(), batteryMv_.load()}; }
+PowerInfo X4Board::power() {
+  return PowerInfo{battery_.load(), charging_.load(), HWCDC::isPlugged(), batteryKnown_.load(), batteryMv_.load(), batteryRaw_.load()};
+}
 
 uint32_t X4Board::millis() { return ::millis(); }
 

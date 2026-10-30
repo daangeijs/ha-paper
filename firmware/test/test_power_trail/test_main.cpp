@@ -1,6 +1,7 @@
 // core/power_trail (#225): what the previous boot was doing when the X4 Pro lost power, and when the marker is written.
 #include <unity.h>
 
+#include "core/phases.h"
 #include "core/power_trail.h"
 
 using namespace x4::powertrail;
@@ -78,6 +79,51 @@ static void test_trail_is_capped() {
   TEST_ASSERT_EQUAL_STRING("sleep standby", lastLine("sleep standby").c_str());   // pre-#225 single marker
 }
 
+// ---------- awake phases (#327, core/phases.h) ----------
+static void test_phases_cut_in_order() {
+  x4::phases::Marks m;
+  m.bootMs = 800; m.wifiMs = 2300; m.haMs = 4500; m.drawAtHaMs = 1500;
+  const auto r = x4::phases::measure(m, 10000, 600, 2400);   // 1500 ms of drawing after HA: idle 5500 - 1500
+  TEST_ASSERT_EQUAL_UINT32(800, r.boot);
+  TEST_ASSERT_EQUAL_UINT32(1500, r.wifi);
+  TEST_ASSERT_EQUAL_UINT32(2200, r.ha);
+  TEST_ASSERT_EQUAL_UINT32(4000, r.idle);
+  TEST_ASSERT_EQUAL_UINT32(10000, r.total);
+  TEST_ASSERT_EQUAL_STRING("boot 800 · wifi 1500 · ha 2200 · render 600 · panel 2400 · idle 4000 · total 10000 ms",
+                           x4::phases::line(r).c_str());
+}
+
+static void test_phases_overlap_and_not_reached() {
+  x4::phases::Marks m;
+  m.bootMs = 3000; m.wifiMs = 1200;   // Wi-Fi up during setup: no wifi phase
+  auto r = x4::phases::measure(m, 9000, 100, 200);   // HA never connected: the rest is ha, no idle
+  TEST_ASSERT_EQUAL_UINT32(3000, r.boot);
+  TEST_ASSERT_EQUAL_UINT32(0, r.wifi);
+  TEST_ASSERT_EQUAL_UINT32(6000, r.ha);
+  TEST_ASSERT_EQUAL_UINT32(0, r.idle);
+  m = {};
+  r = x4::phases::measure(m, 500, 0, 0);   // still in setup
+  TEST_ASSERT_EQUAL_UINT32(500, r.boot);
+  TEST_ASSERT_EQUAL_UINT32(0, r.wifi + r.ha + r.idle);
+}
+
+static void test_phases_ring_newest_first() {
+  x4::phases::Ring ring{};
+  TEST_ASSERT_EQUAL_STRING("{\"boot\":null,\"wakes\":[]}", x4::phases::json(nullptr, ring).c_str());
+  for (uint32_t i = 1; i <= x4::phases::kWakes + 2; i++) {
+    x4::phases::Rec r{};
+    r.total = i;
+    r.mv = -1; r.pct = 90; r.raw = 92; r.wake = 't';
+    x4::phases::push(ring, r);
+  }
+  TEST_ASSERT_EQUAL_UINT8(x4::phases::kWakes, ring.n);
+  const std::string j = x4::phases::json(nullptr, ring);
+  TEST_ASSERT_EQUAL(0, int(j.find("{\"boot\":null,\"wakes\":[{\"wake\":\"timer\",\"epoch\":null,\"boot_ms\":0,")));
+  TEST_ASSERT_TRUE(j.find("\"total_ms\":14,\"pct\":90,\"raw\":92,\"mv\":null}") < j.find("\"total_ms\":13,"));
+  TEST_ASSERT_TRUE(j.find("\"total_ms\":2,") == std::string::npos);   // the two oldest fell out
+  TEST_ASSERT_TRUE(j.find("\"total_ms\":3,") != std::string::npos);
+}
+
 int main(int, char**) {
   UNITY_BEGIN();
   RUN_TEST(test_poweron_after_sleep_is_lost_asleep);
@@ -88,5 +134,8 @@ int main(int, char**) {
   RUN_TEST(test_boot_marks_awake_once);
   RUN_TEST(test_key_stages_are_lost_awake);
   RUN_TEST(test_trail_is_capped);
+  RUN_TEST(test_phases_cut_in_order);
+  RUN_TEST(test_phases_overlap_and_not_reached);
+  RUN_TEST(test_phases_ring_newest_first);
   return UNITY_END();
 }

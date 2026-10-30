@@ -1,0 +1,10 @@
+{
+  "name": "92-bins-label-no-name",
+  "description": "Rule: bins labels items must be sensor.<id>=Name.",
+  "input": "# HA Paper display config\nversion: 1\nscreens:\n  - id: a\n    widgets:\n      - {type: bins, entities: sensor.afval_papier, labels: sensor.afval_papier, cs: 2}\n",
+  "expect": {
+    "ok": false,
+    "line": 6,
+    "message": "bins: “sensor.afval_papier” in labels is not sensor.<id>=Name"
+  }
+}

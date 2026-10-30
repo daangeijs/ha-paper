@@ -1,0 +1,4183 @@
+{
+ "_doc": "Quiet face \"Tomorrow\" row (#328): emulator src/core/quiet.ts (quietSources, quietTomorrow), firmware core/tomorrow.h (test_core test_quiet_tomorrow_vectors). sources: the config's screens → [screen, widget] of the first weather / agenda-or-next / bins tile with a pick, null = none. items: the row from what the device keeps (no fetch): times epoch ms, tz = local UTC offset in minutes, endHour = the window's end hour (24 = always today, the glance sleep face #356), events not over (end > now), daily / hourly = kept forecast entries (weather.json entries), events = kept agenda events (agenda.ts CalEvent), bins = {label, days to the next collection or null}, tonight = the bins tile's hour; null = no source. out.head = Tomorrow / Today / '', out.items = [{kind, icon, bold, text}] in the order weather, event, bins.",
+ "sources": [
+  {
+   "name": "spread over pages",
+   "description": "The first tile of each kind in screen then widget order.",
+   "screens": [
+    {
+     "widgets": [
+      {
+       "type": "clock"
+      },
+      {
+       "type": "price"
+      },
+      {
+       "type": "stat",
+       "entity": "sensor.x"
+      }
+     ]
+    },
+    {
+     "widgets": [
+      {
+       "type": "next",
+       "entities": "calendar.work"
+      },
+      {
+       "type": "weather",
+       "entity": "weather.home",
+       "cs": 4
+      }
+     ]
+    },
+    {
+     "widgets": [
+      {
+       "type": "bins",
+       "entities": "sensor.paper sensor.plastic"
+      },
+      {
+       "type": "agenda",
+       "entities": "calendar.family"
+      },
+      {
+       "type": "weather",
+       "entity": "weather.other",
+       "cs": 4
+      }
+     ]
+    }
+   ],
+   "out": {
+    "weather": [
+     1,
+     1
+    ],
+    "agenda": [
+     1,
+     0
+    ],
+    "bins": [
+     2,
+     0
+    ]
+   }
+  },
+  {
+   "name": "empty picks skipped",
+   "description": "A weather tile without an entity, an agenda without calendars, a bins tile without sensors do not count.",
+   "screens": [
+    {
+     "widgets": [
+      {
+       "type": "weather",
+       "entity": ""
+      },
+      {
+       "type": "agenda"
+      },
+      {
+       "type": "bins",
+       "entities": " "
+      },
+      {
+       "type": "bins",
+       "entities": "sensor.paper"
+      }
+     ]
+    }
+   ],
+   "out": {
+    "weather": null,
+    "agenda": null,
+    "bins": [
+     0,
+     3
+    ]
+   }
+  },
+  {
+   "name": "none",
+   "description": "No such tiles.",
+   "screens": [
+    {
+     "widgets": [
+      {
+       "type": "clock"
+      },
+      {
+       "type": "stat",
+       "entity": "sensor.x"
+      }
+     ]
+    },
+    {
+     "widgets": []
+    }
+   ],
+   "out": {
+    "weather": null,
+    "agenda": null,
+    "bins": null
+   }
+  }
+ ],
+ "items": [
+  {
+   "name": "all",
+   "description": "23:05 Wed, window to 07:00: Thursday. Weather 12° / 4° with rain from 08:00, the first timed event (not the all-day one), two bins put out tonight; Green (3 days) and Rest (unknown) left out.",
+   "in": {
+    "now": 1793225100000,
+    "tz": 60,
+    "endHour": 7,
+    "daily": [
+     {
+      "t": 1793142000000,
+      "icon": "cloud",
+      "temp": 13,
+      "low": 7,
+      "mm": 0
+     },
+     {
+      "t": 1793228400000,
+      "icon": "rain",
+      "temp": 11.6,
+      "low": 4.4,
+      "mm": 3.2
+     },
+     {
+      "t": 1793314800000,
+      "icon": "sun",
+      "temp": 14,
+      "low": 5,
+      "mm": 0
+     },
+     {
+      "t": 1793401200000,
+      "icon": "partly",
+      "temp": 12,
+      "low": null,
+      "mm": 0
+     }
+    ],
+    "hourly": [
+     {
+      "t": 1793224800000,
+      "icon": "cloud",
+      "temp": 8,
+      "low": null,
+      "mm": 0
+     },
+     {
+      "t": 1793228400000,
+      "icon": "cloud",
+      "temp": 7.8,
+      "low": null,
+      "mm": 0
+     },
+     {
+      "t": 1793232000000,
+      "icon": "cloud",
+      "temp": 7.6,
+      "low": null,
+      "mm": 0
+     },
+     {
+      "t": 1793235600000,
+      "icon": "cloud",
+      "temp": 7.4,
+      "low": null,
+      "mm": 0
+     },
+     {
+      "t": 1793239200000,
+      "icon": "cloud",
+      "temp": 7.2,
+      "low": null,
+      "mm": 0
+     },
+     {
+      "t": 1793242800000,
+      "icon": "cloud",
+      "temp": 7,
+      "low": null,
+      "mm": 0
+     },
+     {
+      "t": 1793246400000,
+      "icon": "cloud",
+      "temp": 6.8,
+      "low": null,
+      "mm": 0
+     },
+     {
+      "t": 1793250000000,
+      "icon": "cloud",
+      "temp": 6.6,
+      "low": null,
+      "mm": 0
+     },
+     {
+      "t": 1793253600000,
+      "icon": "cloud",
+      "temp": 6.4,
+      "low": null,
+      "mm": 0
+     },
+     {
+      "t": 1793257200000,
+      "icon": "rain",
+      "temp": 6.2,
+      "low": null,
+      "mm": 0.4
+     },
+     {
+      "t": 1793260800000,
+      "icon": "rain",
+      "temp": 6,
+      "low": null,
+      "mm": 1.2
+     },
+     {
+      "t": 1793264400000,
+      "icon": "cloud",
+      "temp": 5.8,
+      "low": null,
+      "mm": 0
+     },
+     {
+      "t": 1793268000000,
+      "icon": "cloud",
+      "temp": 5.6,
+      "low": null,
+      "mm": 0
+     },
+     {
+      "t": 1793271600000,
+      "icon": "cloud",
+      "temp": 5.4,
+      "low": null,
+      "mm": 0
+     },
+     {
+      "t": 1793275200000,
+      "icon": "cloud",
+      "temp": 5.199999999999999,
+      "low": null,
+      "mm": 0
+     },
+     {
+      "t": 1793278800000,
+      "icon": "cloud",
+      "temp": 5,
+      "low": null,
+      "mm": 0
+     }
+    ],
+    "events": [
+     {
+      "start": 1793210400000,
+      "end": 1793226600000,
+      "allDay": false,
+      "cal": 0,
+      "title": "Dinner"
+     },
+     {
+      "start": 1793228400000,
+      "end": 1793314800000,
+      "allDay": true,
+      "cal": 1,
+      "title": "Birthday Sam"
+     },
+     {
+      "start": 1793259000000,
+      "end": 1793261700000,
+      "allDay": false,
+      "cal": 0,
+      "title": "Dentist"
+     },
+     {
+      "start": 1793278800000,
+      "end": 1793282400000,
+      "allDay": false,
+      "cal": 0,
+      "title": "Call"
+     }
+    ],
+    "bins": [
+     {
+      "label": "Plastic",
+      "days": 1
+     },
+     {
+      "label": "Green",
+      "days": 3
+     },
+     {
+      "label": "Paper",
+      "days": 1
+     },
+     {
+      "label": "Rest",
+      "days": null
+     }
+    ],
+    "tonight": 17
+   },
+   "lang": "en",
+   "out": {
+    "head": "Tomorrow",
+    "items": [
+     {
+      "kind": "weather",
+      "icon": "rain",
+      "bold": "12° / 4°",
+      "text": "rain from 08:00"
+     },
+     {
+      "kind": "event",
+      "icon": "",
+      "bold": "08:30",
+      "text": "Dentist"
+     },
+     {
+      "kind": "bins",
+      "icon": "",
+      "bold": "Plastic + Paper",
+      "text": "put out tonight"
+     }
+    ]
+   }
+  },
+  {
+   "name": "all",
+   "description": "23:05 Wed, window to 07:00: Thursday. Weather 12° / 4° with rain from 08:00, the first timed event (not the all-day one), two bins put out tonight; Green (3 days) and Rest (unknown) left out.",
+   "in": {
+    "now": 1793225100000,
+    "tz": 60,
+    "endHour": 7,
+    "daily": [
+     {
+      "t": 1793142000000,
+      "icon": "cloud",
+      "temp": 13,
+      "low": 7,
+      "mm": 0
+     },
+     {
+      "t": 1793228400000,
+      "icon": "rain",
+      "temp": 11.6,
+      "low": 4.4,
+      "mm": 3.2
+     },
+     {
+      "t": 1793314800000,
+      "icon": "sun",
+      "temp": 14,
+      "low": 5,
+      "mm": 0
+     },
+     {
+      "t": 1793401200000,
+      "icon": "partly",
+      "temp": 12,
+      "low": null,
+      "mm": 0
+     }
+    ],
+    "hourly": [
+     {
+      "t": 1793224800000,
+      "icon": "cloud",
+      "temp": 8,
+      "low": null,
+      "mm": 0
+     },
+     {
+      "t": 1793228400000,
+      "icon": "cloud",
+      "temp": 7.8,
+      "low": null,
+      "mm": 0
+     },
+     {
+      "t": 1793232000000,
+      "icon": "cloud",
+      "temp": 7.6,
+      "low": null,
+      "mm": 0
+     },
+     {
+      "t": 1793235600000,
+      "icon": "cloud",
+      "temp": 7.4,
+      "low": null,
+      "mm": 0
+     },
+     {
+      "t": 1793239200000,
+      "icon": "cloud",
+      "temp": 7.2,
+      "low": null,
+      "mm": 0
+     },
+     {
+      "t": 1793242800000,
+      "icon": "cloud",
+      "temp": 7,
+      "low": null,
+      "mm": 0
+     },
+     {
+      "t": 1793246400000,
+      "icon": "cloud",
+      "temp": 6.8,
+      "low": null,
+      "mm": 0
+     },
+     {
+      "t": 1793250000000,
+      "icon": "cloud",
+      "temp": 6.6,
+      "low": null,
+      "mm": 0
+     },
+     {
+      "t": 1793253600000,
+      "icon": "cloud",
+      "temp": 6.4,
+      "low": null,
+      "mm": 0
+     },
+     {
+      "t": 1793257200000,
+      "icon": "rain",
+      "temp": 6.2,
+      "low": null,
+      "mm": 0.4
+     },
+     {
+      "t": 1793260800000,
+      "icon": "rain",
+      "temp": 6,
+      "low": null,
+      "mm": 1.2
+     },
+     {
+      "t": 1793264400000,
+      "icon": "cloud",
+      "temp": 5.8,
+      "low": null,
+      "mm": 0
+     },
+     {
+      "t": 1793268000000,
+      "icon": "cloud",
+      "temp": 5.6,
+      "low": null,
+      "mm": 0
+     },
+     {
+      "t": 1793271600000,
+      "icon": "cloud",
+      "temp": 5.4,
+      "low": null,
+      "mm": 0
+     },
+     {
+      "t": 1793275200000,
+      "icon": "cloud",
+      "temp": 5.199999999999999,
+      "low": null,
+      "mm": 0
+     },
+     {
+      "t": 1793278800000,
+      "icon": "cloud",
+      "temp": 5,
+      "low": null,
+      "mm": 0
+     }
+    ],
+    "events": [
+     {
+      "start": 1793210400000,
+      "end": 1793226600000,
+      "allDay": false,
+      "cal": 0,
+      "title": "Dinner"
+     },
+     {
+      "start": 1793228400000,
+      "end": 1793314800000,
+      "allDay": true,
+      "cal": 1,
+      "title": "Birthday Sam"
+     },
+     {
+      "start": 1793259000000,
+      "end": 1793261700000,
+      "allDay": false,
+      "cal": 0,
+      "title": "Dentist"
+     },
+     {
+      "start": 1793278800000,
+      "end": 1793282400000,
+      "allDay": false,
+      "cal": 0,
+      "title": "Call"
+     }
+    ],
+    "bins": [
+     {
+      "label": "Plastic",
+      "days": 1
+     },
+     {
+      "label": "Green",
+      "days": 3
+     },
+     {
+      "label": "Paper",
+      "days": 1
+     },
+     {
+      "label": "Rest",
+      "days": null
+     }
+    ],
+    "tonight": 17
+   },
+   "lang": "nl",
+   "out": {
+    "head": "Morgen",
+    "items": [
+     {
+      "kind": "weather",
+      "icon": "rain",
+      "bold": "12° / 4°",
+      "text": "regen vanaf 08:00"
+     },
+     {
+      "kind": "event",
+      "icon": "",
+      "bold": "08:30",
+      "text": "Dentist"
+     },
+     {
+      "kind": "bins",
+      "icon": "",
+      "bold": "Plastic + Paper",
+      "text": "vanavond buiten zetten"
+     }
+    ]
+   }
+  },
+  {
+   "name": "none",
+   "description": "No weather, agenda or bins tile: no row.",
+   "in": {
+    "now": 1793225100000,
+    "tz": 60,
+    "endHour": 7,
+    "daily": null,
+    "hourly": null,
+    "events": null,
+    "bins": null,
+    "tonight": 17
+   },
+   "lang": "en",
+   "out": {
+    "head": "",
+    "items": []
+   }
+  },
+  {
+   "name": "none",
+   "description": "No weather, agenda or bins tile: no row.",
+   "in": {
+    "now": 1793225100000,
+    "tz": 60,
+    "endHour": 7,
+    "daily": null,
+    "hourly": null,
+    "events": null,
+    "bins": null,
+    "tonight": 17
+   },
+   "lang": "nl",
+   "out": {
+    "head": "",
+    "items": []
+   }
+  },
+  {
+   "name": "after-midnight",
+   "description": "03:00 Thu (booted in the window): the day is today. Rain in the hour holding now is not over: from 03:00; bins collected today.",
+   "in": {
+    "now": 1793239200000,
+    "tz": 60,
+    "endHour": 7,
+    "daily": [
+     {
+      "t": 1793142000000,
+      "icon": "cloud",
+      "temp": 13,
+      "low": 7,
+      "mm": 0
+     },
+     {
+      "t": 1793228400000,
+      "icon": "rain",
+      "temp": 11.6,
+      "low": 4.4,
+      "mm": 3.2
+     },
+     {
+      "t": 1793314800000,
+      "icon": "sun",
+      "temp": 14,
+      "low": 5,
+      "mm": 0
+     },
+     {
+      "t": 1793401200000,
+      "icon": "partly",
+      "temp": 12,
+      "low": null,
+      "mm": 0
+     }
+    ],
+    "hourly": [
+     {
+      "t": 1793235600000,
+      "icon": "cloud",
+      "temp": 6,
+      "low": null,
+      "mm": 0
+     },
+     {
+      "t": 1793239200000,
+      "icon": "cloud",
+      "temp": 6,
+      "low": null,
+      "mm": 0.2
+     },
+     {
+      "t": 1793242800000,
+      "icon": "cloud",
+      "temp": 6,
+      "low": null,
+      "mm": 0
+     },
+     {
+      "t": 1793246400000,
+      "icon": "cloud",
+      "temp": 6,
+      "low": null,
+      "mm": 0
+     },
+     {
+      "t": 1793250000000,
+      "icon": "cloud",
+      "temp": 6,
+      "low": null,
+      "mm": 0
+     },
+     {
+      "t": 1793253600000,
+      "icon": "cloud",
+      "temp": 6,
+      "low": null,
+      "mm": 0
+     },
+     {
+      "t": 1793257200000,
+      "icon": "cloud",
+      "temp": 6,
+      "low": null,
+      "mm": 0
+     },
+     {
+      "t": 1793260800000,
+      "icon": "cloud",
+      "temp": 6,
+      "low": null,
+      "mm": 0
+     },
+     {
+      "t": 1793264400000,
+      "icon": "cloud",
+      "temp": 6,
+      "low": null,
+      "mm": 0
+     },
+     {
+      "t": 1793268000000,
+      "icon": "cloud",
+      "temp": 6,
+      "low": null,
+      "mm": 0
+     },
+     {
+      "t": 1793271600000,
+      "icon": "cloud",
+      "temp": 6,
+      "low": null,
+      "mm": 0
+     },
+     {
+      "t": 1793275200000,
+      "icon": "cloud",
+      "temp": 6,
+      "low": null,
+      "mm": 0
+     },
+     {
+      "t": 1793278800000,
+      "icon": "cloud",
+      "temp": 6,
+      "low": null,
+      "mm": 0
+     },
+     {
+      "t": 1793282400000,
+      "icon": "cloud",
+      "temp": 6,
+      "low": null,
+      "mm": 0
+     },
+     {
+      "t": 1793286000000,
+      "icon": "cloud",
+      "temp": 6,
+      "low": null,
+      "mm": 0
+     },
+     {
+      "t": 1793289600000,
+      "icon": "cloud",
+      "temp": 6,
+      "low": null,
+      "mm": 0
+     }
+    ],
+    "events": [
+     {
+      "start": 1793210400000,
+      "end": 1793226600000,
+      "allDay": false,
+      "cal": 0,
+      "title": "Dinner"
+     },
+     {
+      "start": 1793228400000,
+      "end": 1793314800000,
+      "allDay": true,
+      "cal": 1,
+      "title": "Birthday Sam"
+     },
+     {
+      "start": 1793259000000,
+      "end": 1793261700000,
+      "allDay": false,
+      "cal": 0,
+      "title": "Dentist"
+     },
+     {
+      "start": 1793278800000,
+      "end": 1793282400000,
+      "allDay": false,
+      "cal": 0,
+      "title": "Call"
+     }
+    ],
+    "bins": [
+     {
+      "label": "Paper",
+      "days": 0
+     }
+    ],
+    "tonight": 17
+   },
+   "lang": "en",
+   "out": {
+    "head": "Today",
+    "items": [
+     {
+      "kind": "weather",
+      "icon": "rain",
+      "bold": "12° / 4°",
+      "text": "rain from 03:00"
+     },
+     {
+      "kind": "event",
+      "icon": "",
+      "bold": "08:30",
+      "text": "Dentist"
+     },
+     {
+      "kind": "bins",
+      "icon": "",
+      "bold": "Paper",
+      "text": "collected today"
+     }
+    ]
+   }
+  },
+  {
+   "name": "after-midnight",
+   "description": "03:00 Thu (booted in the window): the day is today. Rain in the hour holding now is not over: from 03:00; bins collected today.",
+   "in": {
+    "now": 1793239200000,
+    "tz": 60,
+    "endHour": 7,
+    "daily": [
+     {
+      "t": 1793142000000,
+      "icon": "cloud",
+      "temp": 13,
+      "low": 7,
+      "mm": 0
+     },
+     {
+      "t": 1793228400000,
+      "icon": "rain",
+      "temp": 11.6,
+      "low": 4.4,
+      "mm": 3.2
+     },
+     {
+      "t": 1793314800000,
+      "icon": "sun",
+      "temp": 14,
+      "low": 5,
+      "mm": 0
+     },
+     {
+      "t": 1793401200000,
+      "icon": "partly",
+      "temp": 12,
+      "low": null,
+      "mm": 0
+     }
+    ],
+    "hourly": [
+     {
+      "t": 1793235600000,
+      "icon": "cloud",
+      "temp": 6,
+      "low": null,
+      "mm": 0
+     },
+     {
+      "t": 1793239200000,
+      "icon": "cloud",
+      "temp": 6,
+      "low": null,
+      "mm": 0.2
+     },
+     {
+      "t": 1793242800000,
+      "icon": "cloud",
+      "temp": 6,
+      "low": null,
+      "mm": 0
+     },
+     {
+      "t": 1793246400000,
+      "icon": "cloud",
+      "temp": 6,
+      "low": null,
+      "mm": 0
+     },
+     {
+      "t": 1793250000000,
+      "icon": "cloud",
+      "temp": 6,
+      "low": null,
+      "mm": 0
+     },
+     {
+      "t": 1793253600000,
+      "icon": "cloud",
+      "temp": 6,
+      "low": null,
+      "mm": 0
+     },
+     {
+      "t": 1793257200000,
+      "icon": "cloud",
+      "temp": 6,
+      "low": null,
+      "mm": 0
+     },
+     {
+      "t": 1793260800000,
+      "icon": "cloud",
+      "temp": 6,
+      "low": null,
+      "mm": 0
+     },
+     {
+      "t": 1793264400000,
+      "icon": "cloud",
+      "temp": 6,
+      "low": null,
+      "mm": 0
+     },
+     {
+      "t": 1793268000000,
+      "icon": "cloud",
+      "temp": 6,
+      "low": null,
+      "mm": 0
+     },
+     {
+      "t": 1793271600000,
+      "icon": "cloud",
+      "temp": 6,
+      "low": null,
+      "mm": 0
+     },
+     {
+      "t": 1793275200000,
+      "icon": "cloud",
+      "temp": 6,
+      "low": null,
+      "mm": 0
+     },
+     {
+      "t": 1793278800000,
+      "icon": "cloud",
+      "temp": 6,
+      "low": null,
+      "mm": 0
+     },
+     {
+      "t": 1793282400000,
+      "icon": "cloud",
+      "temp": 6,
+      "low": null,
+      "mm": 0
+     },
+     {
+      "t": 1793286000000,
+      "icon": "cloud",
+      "temp": 6,
+      "low": null,
+      "mm": 0
+     },
+     {
+      "t": 1793289600000,
+      "icon": "cloud",
+      "temp": 6,
+      "low": null,
+      "mm": 0
+     }
+    ],
+    "events": [
+     {
+      "start": 1793210400000,
+      "end": 1793226600000,
+      "allDay": false,
+      "cal": 0,
+      "title": "Dinner"
+     },
+     {
+      "start": 1793228400000,
+      "end": 1793314800000,
+      "allDay": true,
+      "cal": 1,
+      "title": "Birthday Sam"
+     },
+     {
+      "start": 1793259000000,
+      "end": 1793261700000,
+      "allDay": false,
+      "cal": 0,
+      "title": "Dentist"
+     },
+     {
+      "start": 1793278800000,
+      "end": 1793282400000,
+      "allDay": false,
+      "cal": 0,
+      "title": "Call"
+     }
+    ],
+    "bins": [
+     {
+      "label": "Paper",
+      "days": 0
+     }
+    ],
+    "tonight": 17
+   },
+   "lang": "nl",
+   "out": {
+    "head": "Vandaag",
+    "items": [
+     {
+      "kind": "weather",
+      "icon": "rain",
+      "bold": "12° / 4°",
+      "text": "regen vanaf 03:00"
+     },
+     {
+      "kind": "event",
+      "icon": "",
+      "bold": "08:30",
+      "text": "Dentist"
+     },
+     {
+      "kind": "bins",
+      "icon": "",
+      "bold": "Paper",
+      "text": "vandaag opgehaald"
+     }
+    ]
+   }
+  },
+  {
+   "name": "before-tonight-hour",
+   "description": "Window 22-06 at 22:00 with tonight at 23: \"collected tomorrow\"; a dry hourly forecast: no rain text.",
+   "in": {
+    "now": 1793221200000,
+    "tz": 60,
+    "endHour": 6,
+    "daily": [
+     {
+      "t": 1793142000000,
+      "icon": "cloud",
+      "temp": 13,
+      "low": 7,
+      "mm": 0
+     },
+     {
+      "t": 1793228400000,
+      "icon": "rain",
+      "temp": 11.6,
+      "low": 4.4,
+      "mm": 3.2
+     },
+     {
+      "t": 1793314800000,
+      "icon": "sun",
+      "temp": 14,
+      "low": 5,
+      "mm": 0
+     },
+     {
+      "t": 1793401200000,
+      "icon": "partly",
+      "temp": 12,
+      "low": null,
+      "mm": 0
+     }
+    ],
+    "hourly": [
+     {
+      "t": 1793224800000,
+      "icon": "cloud",
+      "temp": 8,
+      "low": null,
+      "mm": 0
+     },
+     {
+      "t": 1793228400000,
+      "icon": "cloud",
+      "temp": 7.8,
+      "low": null,
+      "mm": 0
+     },
+     {
+      "t": 1793232000000,
+      "icon": "cloud",
+      "temp": 7.6,
+      "low": null,
+      "mm": 0
+     },
+     {
+      "t": 1793235600000,
+      "icon": "cloud",
+      "temp": 7.4,
+      "low": null,
+      "mm": 0
+     },
+     {
+      "t": 1793239200000,
+      "icon": "cloud",
+      "temp": 7.2,
+      "low": null,
+      "mm": 0
+     },
+     {
+      "t": 1793242800000,
+      "icon": "cloud",
+      "temp": 7,
+      "low": null,
+      "mm": 0
+     },
+     {
+      "t": 1793246400000,
+      "icon": "cloud",
+      "temp": 6.8,
+      "low": null,
+      "mm": 0
+     },
+     {
+      "t": 1793250000000,
+      "icon": "cloud",
+      "temp": 6.6,
+      "low": null,
+      "mm": 0
+     },
+     {
+      "t": 1793253600000,
+      "icon": "cloud",
+      "temp": 6.4,
+      "low": null,
+      "mm": 0
+     },
+     {
+      "t": 1793257200000,
+      "icon": "cloud",
+      "temp": 6.2,
+      "low": null,
+      "mm": 0
+     },
+     {
+      "t": 1793260800000,
+      "icon": "cloud",
+      "temp": 6,
+      "low": null,
+      "mm": 0
+     },
+     {
+      "t": 1793264400000,
+      "icon": "cloud",
+      "temp": 5.8,
+      "low": null,
+      "mm": 0
+     },
+     {
+      "t": 1793268000000,
+      "icon": "cloud",
+      "temp": 5.6,
+      "low": null,
+      "mm": 0
+     },
+     {
+      "t": 1793271600000,
+      "icon": "cloud",
+      "temp": 5.4,
+      "low": null,
+      "mm": 0
+     },
+     {
+      "t": 1793275200000,
+      "icon": "cloud",
+      "temp": 5.199999999999999,
+      "low": null,
+      "mm": 0
+     },
+     {
+      "t": 1793278800000,
+      "icon": "cloud",
+      "temp": 5,
+      "low": null,
+      "mm": 0
+     }
+    ],
+    "events": [
+     {
+      "start": 1793210400000,
+      "end": 1793226600000,
+      "allDay": false,
+      "cal": 0,
+      "title": "Dinner"
+     },
+     {
+      "start": 1793228400000,
+      "end": 1793314800000,
+      "allDay": true,
+      "cal": 1,
+      "title": "Birthday Sam"
+     },
+     {
+      "start": 1793259000000,
+      "end": 1793261700000,
+      "allDay": false,
+      "cal": 0,
+      "title": "Dentist"
+     },
+     {
+      "start": 1793278800000,
+      "end": 1793282400000,
+      "allDay": false,
+      "cal": 0,
+      "title": "Call"
+     }
+    ],
+    "bins": [
+     {
+      "label": "Plastic",
+      "days": 1
+     },
+     {
+      "label": "Green",
+      "days": 3
+     },
+     {
+      "label": "Paper",
+      "days": 1
+     },
+     {
+      "label": "Rest",
+      "days": null
+     }
+    ],
+    "tonight": 23
+   },
+   "lang": "en",
+   "out": {
+    "head": "Tomorrow",
+    "items": [
+     {
+      "kind": "weather",
+      "icon": "rain",
+      "bold": "12° / 4°",
+      "text": ""
+     },
+     {
+      "kind": "event",
+      "icon": "",
+      "bold": "08:30",
+      "text": "Dentist"
+     },
+     {
+      "kind": "bins",
+      "icon": "",
+      "bold": "Plastic + Paper",
+      "text": "collected tomorrow"
+     }
+    ]
+   }
+  },
+  {
+   "name": "before-tonight-hour",
+   "description": "Window 22-06 at 22:00 with tonight at 23: \"collected tomorrow\"; a dry hourly forecast: no rain text.",
+   "in": {
+    "now": 1793221200000,
+    "tz": 60,
+    "endHour": 6,
+    "daily": [
+     {
+      "t": 1793142000000,
+      "icon": "cloud",
+      "temp": 13,
+      "low": 7,
+      "mm": 0
+     },
+     {
+      "t": 1793228400000,
+      "icon": "rain",
+      "temp": 11.6,
+      "low": 4.4,
+      "mm": 3.2
+     },
+     {
+      "t": 1793314800000,
+      "icon": "sun",
+      "temp": 14,
+      "low": 5,
+      "mm": 0
+     },
+     {
+      "t": 1793401200000,
+      "icon": "partly",
+      "temp": 12,
+      "low": null,
+      "mm": 0
+     }
+    ],
+    "hourly": [
+     {
+      "t": 1793224800000,
+      "icon": "cloud",
+      "temp": 8,
+      "low": null,
+      "mm": 0
+     },
+     {
+      "t": 1793228400000,
+      "icon": "cloud",
+      "temp": 7.8,
+      "low": null,
+      "mm": 0
+     },
+     {
+      "t": 1793232000000,
+      "icon": "cloud",
+      "temp": 7.6,
+      "low": null,
+      "mm": 0
+     },
+     {
+      "t": 1793235600000,
+      "icon": "cloud",
+      "temp": 7.4,
+      "low": null,
+      "mm": 0
+     },
+     {
+      "t": 1793239200000,
+      "icon": "cloud",
+      "temp": 7.2,
+      "low": null,
+      "mm": 0
+     },
+     {
+      "t": 1793242800000,
+      "icon": "cloud",
+      "temp": 7,
+      "low": null,
+      "mm": 0
+     },
+     {
+      "t": 1793246400000,
+      "icon": "cloud",
+      "temp": 6.8,
+      "low": null,
+      "mm": 0
+     },
+     {
+      "t": 1793250000000,
+      "icon": "cloud",
+      "temp": 6.6,
+      "low": null,
+      "mm": 0
+     },
+     {
+      "t": 1793253600000,
+      "icon": "cloud",
+      "temp": 6.4,
+      "low": null,
+      "mm": 0
+     },
+     {
+      "t": 1793257200000,
+      "icon": "cloud",
+      "temp": 6.2,
+      "low": null,
+      "mm": 0
+     },
+     {
+      "t": 1793260800000,
+      "icon": "cloud",
+      "temp": 6,
+      "low": null,
+      "mm": 0
+     },
+     {
+      "t": 1793264400000,
+      "icon": "cloud",
+      "temp": 5.8,
+      "low": null,
+      "mm": 0
+     },
+     {
+      "t": 1793268000000,
+      "icon": "cloud",
+      "temp": 5.6,
+      "low": null,
+      "mm": 0
+     },
+     {
+      "t": 1793271600000,
+      "icon": "cloud",
+      "temp": 5.4,
+      "low": null,
+      "mm": 0
+     },
+     {
+      "t": 1793275200000,
+      "icon": "cloud",
+      "temp": 5.199999999999999,
+      "low": null,
+      "mm": 0
+     },
+     {
+      "t": 1793278800000,
+      "icon": "cloud",
+      "temp": 5,
+      "low": null,
+      "mm": 0
+     }
+    ],
+    "events": [
+     {
+      "start": 1793210400000,
+      "end": 1793226600000,
+      "allDay": false,
+      "cal": 0,
+      "title": "Dinner"
+     },
+     {
+      "start": 1793228400000,
+      "end": 1793314800000,
+      "allDay": true,
+      "cal": 1,
+      "title": "Birthday Sam"
+     },
+     {
+      "start": 1793259000000,
+      "end": 1793261700000,
+      "allDay": false,
+      "cal": 0,
+      "title": "Dentist"
+     },
+     {
+      "start": 1793278800000,
+      "end": 1793282400000,
+      "allDay": false,
+      "cal": 0,
+      "title": "Call"
+     }
+    ],
+    "bins": [
+     {
+      "label": "Plastic",
+      "days": 1
+     },
+     {
+      "label": "Green",
+      "days": 3
+     },
+     {
+      "label": "Paper",
+      "days": 1
+     },
+     {
+      "label": "Rest",
+      "days": null
+     }
+    ],
+    "tonight": 23
+   },
+   "lang": "nl",
+   "out": {
+    "head": "Morgen",
+    "items": [
+     {
+      "kind": "weather",
+      "icon": "rain",
+      "bold": "12° / 4°",
+      "text": ""
+     },
+     {
+      "kind": "event",
+      "icon": "",
+      "bold": "08:30",
+      "text": "Dentist"
+     },
+     {
+      "kind": "bins",
+      "icon": "",
+      "bold": "Plastic + Paper",
+      "text": "morgen opgehaald"
+     }
+    ]
+   }
+  },
+  {
+   "name": "all-day-only",
+   "description": "Only an all-day event and an untitled timed event on another day: \"all day\", the title.",
+   "in": {
+    "now": 1793225100000,
+    "tz": 60,
+    "endHour": 7,
+    "daily": [
+     {
+      "t": 1793142000000,
+      "icon": "cloud",
+      "temp": 13,
+      "low": 7,
+      "mm": 0
+     },
+     {
+      "t": 1793228400000,
+      "icon": "rain",
+      "temp": 11.6,
+      "low": 4.4,
+      "mm": 3.2
+     },
+     {
+      "t": 1793314800000,
+      "icon": "sun",
+      "temp": 14,
+      "low": 5,
+      "mm": 0
+     },
+     {
+      "t": 1793401200000,
+      "icon": "partly",
+      "temp": 12,
+      "low": null,
+      "mm": 0
+     }
+    ],
+    "hourly": [
+     {
+      "t": 1793224800000,
+      "icon": "cloud",
+      "temp": 8,
+      "low": null,
+      "mm": 0
+     },
+     {
+      "t": 1793228400000,
+      "icon": "cloud",
+      "temp": 7.8,
+      "low": null,
+      "mm": 0
+     },
+     {
+      "t": 1793232000000,
+      "icon": "cloud",
+      "temp": 7.6,
+      "low": null,
+      "mm": 0
+     },
+     {
+      "t": 1793235600000,
+      "icon": "cloud",
+      "temp": 7.4,
+      "low": null,
+      "mm": 0
+     },
+     {
+      "t": 1793239200000,
+      "icon": "cloud",
+      "temp": 7.2,
+      "low": null,
+      "mm": 0
+     },
+     {
+      "t": 1793242800000,
+      "icon": "cloud",
+      "temp": 7,
+      "low": null,
+      "mm": 0
+     },
+     {
+      "t": 1793246400000,
+      "icon": "cloud",
+      "temp": 6.8,
+      "low": null,
+      "mm": 0
+     },
+     {
+      "t": 1793250000000,
+      "icon": "cloud",
+      "temp": 6.6,
+      "low": null,
+      "mm": 0
+     },
+     {
+      "t": 1793253600000,
+      "icon": "cloud",
+      "temp": 6.4,
+      "low": null,
+      "mm": 0
+     },
+     {
+      "t": 1793257200000,
+      "icon": "rain",
+      "temp": 6.2,
+      "low": null,
+      "mm": 0.4
+     },
+     {
+      "t": 1793260800000,
+      "icon": "rain",
+      "temp": 6,
+      "low": null,
+      "mm": 1.2
+     },
+     {
+      "t": 1793264400000,
+      "icon": "cloud",
+      "temp": 5.8,
+      "low": null,
+      "mm": 0
+     },
+     {
+      "t": 1793268000000,
+      "icon": "cloud",
+      "temp": 5.6,
+      "low": null,
+      "mm": 0
+     },
+     {
+      "t": 1793271600000,
+      "icon": "cloud",
+      "temp": 5.4,
+      "low": null,
+      "mm": 0
+     },
+     {
+      "t": 1793275200000,
+      "icon": "cloud",
+      "temp": 5.199999999999999,
+      "low": null,
+      "mm": 0
+     },
+     {
+      "t": 1793278800000,
+      "icon": "cloud",
+      "temp": 5,
+      "low": null,
+      "mm": 0
+     }
+    ],
+    "events": [
+     {
+      "start": 1793210400000,
+      "end": 1793226600000,
+      "allDay": false,
+      "cal": 0,
+      "title": "Dinner"
+     },
+     {
+      "start": 1793228400000,
+      "end": 1793314800000,
+      "allDay": true,
+      "cal": 1,
+      "title": "Birthday Sam"
+     },
+     {
+      "start": 1793347200000,
+      "end": 1793350800000,
+      "allDay": false,
+      "cal": 0,
+      "title": ""
+     }
+    ],
+    "bins": [
+     {
+      "label": "Plastic",
+      "days": 1
+     },
+     {
+      "label": "Green",
+      "days": 3
+     },
+     {
+      "label": "Paper",
+      "days": 1
+     },
+     {
+      "label": "Rest",
+      "days": null
+     }
+    ],
+    "tonight": 17
+   },
+   "lang": "en",
+   "out": {
+    "head": "Tomorrow",
+    "items": [
+     {
+      "kind": "weather",
+      "icon": "rain",
+      "bold": "12° / 4°",
+      "text": "rain from 08:00"
+     },
+     {
+      "kind": "event",
+      "icon": "",
+      "bold": "all day",
+      "text": "Birthday Sam"
+     },
+     {
+      "kind": "bins",
+      "icon": "",
+      "bold": "Plastic + Paper",
+      "text": "put out tonight"
+     }
+    ]
+   }
+  },
+  {
+   "name": "all-day-only",
+   "description": "Only an all-day event and an untitled timed event on another day: \"all day\", the title.",
+   "in": {
+    "now": 1793225100000,
+    "tz": 60,
+    "endHour": 7,
+    "daily": [
+     {
+      "t": 1793142000000,
+      "icon": "cloud",
+      "temp": 13,
+      "low": 7,
+      "mm": 0
+     },
+     {
+      "t": 1793228400000,
+      "icon": "rain",
+      "temp": 11.6,
+      "low": 4.4,
+      "mm": 3.2
+     },
+     {
+      "t": 1793314800000,
+      "icon": "sun",
+      "temp": 14,
+      "low": 5,
+      "mm": 0
+     },
+     {
+      "t": 1793401200000,
+      "icon": "partly",
+      "temp": 12,
+      "low": null,
+      "mm": 0
+     }
+    ],
+    "hourly": [
+     {
+      "t": 1793224800000,
+      "icon": "cloud",
+      "temp": 8,
+      "low": null,
+      "mm": 0
+     },
+     {
+      "t": 1793228400000,
+      "icon": "cloud",
+      "temp": 7.8,
+      "low": null,
+      "mm": 0
+     },
+     {
+      "t": 1793232000000,
+      "icon": "cloud",
+      "temp": 7.6,
+      "low": null,
+      "mm": 0
+     },
+     {
+      "t": 1793235600000,
+      "icon": "cloud",
+      "temp": 7.4,
+      "low": null,
+      "mm": 0
+     },
+     {
+      "t": 1793239200000,
+      "icon": "cloud",
+      "temp": 7.2,
+      "low": null,
+      "mm": 0
+     },
+     {
+      "t": 1793242800000,
+      "icon": "cloud",
+      "temp": 7,
+      "low": null,
+      "mm": 0
+     },
+     {
+      "t": 1793246400000,
+      "icon": "cloud",
+      "temp": 6.8,
+      "low": null,
+      "mm": 0
+     },
+     {
+      "t": 1793250000000,
+      "icon": "cloud",
+      "temp": 6.6,
+      "low": null,
+      "mm": 0
+     },
+     {
+      "t": 1793253600000,
+      "icon": "cloud",
+      "temp": 6.4,
+      "low": null,
+      "mm": 0
+     },
+     {
+      "t": 1793257200000,
+      "icon": "rain",
+      "temp": 6.2,
+      "low": null,
+      "mm": 0.4
+     },
+     {
+      "t": 1793260800000,
+      "icon": "rain",
+      "temp": 6,
+      "low": null,
+      "mm": 1.2
+     },
+     {
+      "t": 1793264400000,
+      "icon": "cloud",
+      "temp": 5.8,
+      "low": null,
+      "mm": 0
+     },
+     {
+      "t": 1793268000000,
+      "icon": "cloud",
+      "temp": 5.6,
+      "low": null,
+      "mm": 0
+     },
+     {
+      "t": 1793271600000,
+      "icon": "cloud",
+      "temp": 5.4,
+      "low": null,
+      "mm": 0
+     },
+     {
+      "t": 1793275200000,
+      "icon": "cloud",
+      "temp": 5.199999999999999,
+      "low": null,
+      "mm": 0
+     },
+     {
+      "t": 1793278800000,
+      "icon": "cloud",
+      "temp": 5,
+      "low": null,
+      "mm": 0
+     }
+    ],
+    "events": [
+     {
+      "start": 1793210400000,
+      "end": 1793226600000,
+      "allDay": false,
+      "cal": 0,
+      "title": "Dinner"
+     },
+     {
+      "start": 1793228400000,
+      "end": 1793314800000,
+      "allDay": true,
+      "cal": 1,
+      "title": "Birthday Sam"
+     },
+     {
+      "start": 1793347200000,
+      "end": 1793350800000,
+      "allDay": false,
+      "cal": 0,
+      "title": ""
+     }
+    ],
+    "bins": [
+     {
+      "label": "Plastic",
+      "days": 1
+     },
+     {
+      "label": "Green",
+      "days": 3
+     },
+     {
+      "label": "Paper",
+      "days": 1
+     },
+     {
+      "label": "Rest",
+      "days": null
+     }
+    ],
+    "tonight": 17
+   },
+   "lang": "nl",
+   "out": {
+    "head": "Morgen",
+    "items": [
+     {
+      "kind": "weather",
+      "icon": "rain",
+      "bold": "12° / 4°",
+      "text": "regen vanaf 08:00"
+     },
+     {
+      "kind": "event",
+      "icon": "",
+      "bold": "hele dag",
+      "text": "Birthday Sam"
+     },
+     {
+      "kind": "bins",
+      "icon": "",
+      "bold": "Plastic + Paper",
+      "text": "vanavond buiten zetten"
+     }
+    ]
+   }
+  },
+  {
+   "name": "untitled",
+   "description": "An untitled timed event: Busy.",
+   "in": {
+    "now": 1793225100000,
+    "tz": 60,
+    "endHour": 7,
+    "daily": [
+     {
+      "t": 1793142000000,
+      "icon": "cloud",
+      "temp": 13,
+      "low": 7,
+      "mm": 0
+     },
+     {
+      "t": 1793228400000,
+      "icon": "rain",
+      "temp": 11.6,
+      "low": 4.4,
+      "mm": 3.2
+     },
+     {
+      "t": 1793314800000,
+      "icon": "sun",
+      "temp": 14,
+      "low": 5,
+      "mm": 0
+     },
+     {
+      "t": 1793401200000,
+      "icon": "partly",
+      "temp": 12,
+      "low": null,
+      "mm": 0
+     }
+    ],
+    "hourly": [
+     {
+      "t": 1793224800000,
+      "icon": "cloud",
+      "temp": 8,
+      "low": null,
+      "mm": 0
+     },
+     {
+      "t": 1793228400000,
+      "icon": "cloud",
+      "temp": 7.8,
+      "low": null,
+      "mm": 0
+     },
+     {
+      "t": 1793232000000,
+      "icon": "cloud",
+      "temp": 7.6,
+      "low": null,
+      "mm": 0
+     },
+     {
+      "t": 1793235600000,
+      "icon": "cloud",
+      "temp": 7.4,
+      "low": null,
+      "mm": 0
+     },
+     {
+      "t": 1793239200000,
+      "icon": "cloud",
+      "temp": 7.2,
+      "low": null,
+      "mm": 0
+     },
+     {
+      "t": 1793242800000,
+      "icon": "cloud",
+      "temp": 7,
+      "low": null,
+      "mm": 0
+     },
+     {
+      "t": 1793246400000,
+      "icon": "cloud",
+      "temp": 6.8,
+      "low": null,
+      "mm": 0
+     },
+     {
+      "t": 1793250000000,
+      "icon": "cloud",
+      "temp": 6.6,
+      "low": null,
+      "mm": 0
+     },
+     {
+      "t": 1793253600000,
+      "icon": "cloud",
+      "temp": 6.4,
+      "low": null,
+      "mm": 0
+     },
+     {
+      "t": 1793257200000,
+      "icon": "rain",
+      "temp": 6.2,
+      "low": null,
+      "mm": 0.4
+     },
+     {
+      "t": 1793260800000,
+      "icon": "rain",
+      "temp": 6,
+      "low": null,
+      "mm": 1.2
+     },
+     {
+      "t": 1793264400000,
+      "icon": "cloud",
+      "temp": 5.8,
+      "low": null,
+      "mm": 0
+     },
+     {
+      "t": 1793268000000,
+      "icon": "cloud",
+      "temp": 5.6,
+      "low": null,
+      "mm": 0
+     },
+     {
+      "t": 1793271600000,
+      "icon": "cloud",
+      "temp": 5.4,
+      "low": null,
+      "mm": 0
+     },
+     {
+      "t": 1793275200000,
+      "icon": "cloud",
+      "temp": 5.199999999999999,
+      "low": null,
+      "mm": 0
+     },
+     {
+      "t": 1793278800000,
+      "icon": "cloud",
+      "temp": 5,
+      "low": null,
+      "mm": 0
+     }
+    ],
+    "events": [
+     {
+      "start": 1793256300000,
+      "end": 1793257200000,
+      "allDay": false,
+      "cal": 0,
+      "title": ""
+     }
+    ],
+    "bins": [
+     {
+      "label": "Plastic",
+      "days": 1
+     },
+     {
+      "label": "Green",
+      "days": 3
+     },
+     {
+      "label": "Paper",
+      "days": 1
+     },
+     {
+      "label": "Rest",
+      "days": null
+     }
+    ],
+    "tonight": 17
+   },
+   "lang": "en",
+   "out": {
+    "head": "Tomorrow",
+    "items": [
+     {
+      "kind": "weather",
+      "icon": "rain",
+      "bold": "12° / 4°",
+      "text": "rain from 08:00"
+     },
+     {
+      "kind": "event",
+      "icon": "",
+      "bold": "07:45",
+      "text": "Busy"
+     },
+     {
+      "kind": "bins",
+      "icon": "",
+      "bold": "Plastic + Paper",
+      "text": "put out tonight"
+     }
+    ]
+   }
+  },
+  {
+   "name": "untitled",
+   "description": "An untitled timed event: Busy.",
+   "in": {
+    "now": 1793225100000,
+    "tz": 60,
+    "endHour": 7,
+    "daily": [
+     {
+      "t": 1793142000000,
+      "icon": "cloud",
+      "temp": 13,
+      "low": 7,
+      "mm": 0
+     },
+     {
+      "t": 1793228400000,
+      "icon": "rain",
+      "temp": 11.6,
+      "low": 4.4,
+      "mm": 3.2
+     },
+     {
+      "t": 1793314800000,
+      "icon": "sun",
+      "temp": 14,
+      "low": 5,
+      "mm": 0
+     },
+     {
+      "t": 1793401200000,
+      "icon": "partly",
+      "temp": 12,
+      "low": null,
+      "mm": 0
+     }
+    ],
+    "hourly": [
+     {
+      "t": 1793224800000,
+      "icon": "cloud",
+      "temp": 8,
+      "low": null,
+      "mm": 0
+     },
+     {
+      "t": 1793228400000,
+      "icon": "cloud",
+      "temp": 7.8,
+      "low": null,
+      "mm": 0
+     },
+     {
+      "t": 1793232000000,
+      "icon": "cloud",
+      "temp": 7.6,
+      "low": null,
+      "mm": 0
+     },
+     {
+      "t": 1793235600000,
+      "icon": "cloud",
+      "temp": 7.4,
+      "low": null,
+      "mm": 0
+     },
+     {
+      "t": 1793239200000,
+      "icon": "cloud",
+      "temp": 7.2,
+      "low": null,
+      "mm": 0
+     },
+     {
+      "t": 1793242800000,
+      "icon": "cloud",
+      "temp": 7,
+      "low": null,
+      "mm": 0
+     },
+     {
+      "t": 1793246400000,
+      "icon": "cloud",
+      "temp": 6.8,
+      "low": null,
+      "mm": 0
+     },
+     {
+      "t": 1793250000000,
+      "icon": "cloud",
+      "temp": 6.6,
+      "low": null,
+      "mm": 0
+     },
+     {
+      "t": 1793253600000,
+      "icon": "cloud",
+      "temp": 6.4,
+      "low": null,
+      "mm": 0
+     },
+     {
+      "t": 1793257200000,
+      "icon": "rain",
+      "temp": 6.2,
+      "low": null,
+      "mm": 0.4
+     },
+     {
+      "t": 1793260800000,
+      "icon": "rain",
+      "temp": 6,
+      "low": null,
+      "mm": 1.2
+     },
+     {
+      "t": 1793264400000,
+      "icon": "cloud",
+      "temp": 5.8,
+      "low": null,
+      "mm": 0
+     },
+     {
+      "t": 1793268000000,
+      "icon": "cloud",
+      "temp": 5.6,
+      "low": null,
+      "mm": 0
+     },
+     {
+      "t": 1793271600000,
+      "icon": "cloud",
+      "temp": 5.4,
+      "low": null,
+      "mm": 0
+     },
+     {
+      "t": 1793275200000,
+      "icon": "cloud",
+      "temp": 5.199999999999999,
+      "low": null,
+      "mm": 0
+     },
+     {
+      "t": 1793278800000,
+      "icon": "cloud",
+      "temp": 5,
+      "low": null,
+      "mm": 0
+     }
+    ],
+    "events": [
+     {
+      "start": 1793256300000,
+      "end": 1793257200000,
+      "allDay": false,
+      "cal": 0,
+      "title": ""
+     }
+    ],
+    "bins": [
+     {
+      "label": "Plastic",
+      "days": 1
+     },
+     {
+      "label": "Green",
+      "days": 3
+     },
+     {
+      "label": "Paper",
+      "days": 1
+     },
+     {
+      "label": "Rest",
+      "days": null
+     }
+    ],
+    "tonight": 17
+   },
+   "lang": "nl",
+   "out": {
+    "head": "Morgen",
+    "items": [
+     {
+      "kind": "weather",
+      "icon": "rain",
+      "bold": "12° / 4°",
+      "text": "regen vanaf 08:00"
+     },
+     {
+      "kind": "event",
+      "icon": "",
+      "bold": "07:45",
+      "text": "Bezet"
+     },
+     {
+      "kind": "bins",
+      "icon": "",
+      "bold": "Plastic + Paper",
+      "text": "vanavond buiten zetten"
+     }
+    ]
+   }
+  },
+  {
+   "name": "no-low-no-hourly",
+   "description": "Saturday from 23:05 Fri: a daily entry without a low shows the high only; no hourly list: no rain text; no event on Saturday; the bins (days 1 from Friday) are put out tonight.",
+   "in": {
+    "now": 1793397900000,
+    "tz": 60,
+    "endHour": 7,
+    "daily": [
+     {
+      "t": 1793401200000,
+      "icon": "partly",
+      "temp": 12,
+      "low": null,
+      "mm": 0
+     }
+    ],
+    "hourly": null,
+    "events": [
+     {
+      "start": 1793210400000,
+      "end": 1793226600000,
+      "allDay": false,
+      "cal": 0,
+      "title": "Dinner"
+     },
+     {
+      "start": 1793228400000,
+      "end": 1793314800000,
+      "allDay": true,
+      "cal": 1,
+      "title": "Birthday Sam"
+     },
+     {
+      "start": 1793259000000,
+      "end": 1793261700000,
+      "allDay": false,
+      "cal": 0,
+      "title": "Dentist"
+     },
+     {
+      "start": 1793278800000,
+      "end": 1793282400000,
+      "allDay": false,
+      "cal": 0,
+      "title": "Call"
+     }
+    ],
+    "bins": [
+     {
+      "label": "Plastic",
+      "days": 1
+     },
+     {
+      "label": "Green",
+      "days": 3
+     },
+     {
+      "label": "Paper",
+      "days": 1
+     },
+     {
+      "label": "Rest",
+      "days": null
+     }
+    ],
+    "tonight": 17
+   },
+   "lang": "en",
+   "out": {
+    "head": "Tomorrow",
+    "items": [
+     {
+      "kind": "weather",
+      "icon": "partly",
+      "bold": "12°",
+      "text": ""
+     },
+     {
+      "kind": "bins",
+      "icon": "",
+      "bold": "Plastic + Paper",
+      "text": "put out tonight"
+     }
+    ]
+   }
+  },
+  {
+   "name": "no-low-no-hourly",
+   "description": "Saturday from 23:05 Fri: a daily entry without a low shows the high only; no hourly list: no rain text; no event on Saturday; the bins (days 1 from Friday) are put out tonight.",
+   "in": {
+    "now": 1793397900000,
+    "tz": 60,
+    "endHour": 7,
+    "daily": [
+     {
+      "t": 1793401200000,
+      "icon": "partly",
+      "temp": 12,
+      "low": null,
+      "mm": 0
+     }
+    ],
+    "hourly": null,
+    "events": [
+     {
+      "start": 1793210400000,
+      "end": 1793226600000,
+      "allDay": false,
+      "cal": 0,
+      "title": "Dinner"
+     },
+     {
+      "start": 1793228400000,
+      "end": 1793314800000,
+      "allDay": true,
+      "cal": 1,
+      "title": "Birthday Sam"
+     },
+     {
+      "start": 1793259000000,
+      "end": 1793261700000,
+      "allDay": false,
+      "cal": 0,
+      "title": "Dentist"
+     },
+     {
+      "start": 1793278800000,
+      "end": 1793282400000,
+      "allDay": false,
+      "cal": 0,
+      "title": "Call"
+     }
+    ],
+    "bins": [
+     {
+      "label": "Plastic",
+      "days": 1
+     },
+     {
+      "label": "Green",
+      "days": 3
+     },
+     {
+      "label": "Paper",
+      "days": 1
+     },
+     {
+      "label": "Rest",
+      "days": null
+     }
+    ],
+    "tonight": 17
+   },
+   "lang": "nl",
+   "out": {
+    "head": "Morgen",
+    "items": [
+     {
+      "kind": "weather",
+      "icon": "partly",
+      "bold": "12°",
+      "text": ""
+     },
+     {
+      "kind": "bins",
+      "icon": "",
+      "bold": "Plastic + Paper",
+      "text": "vanavond buiten zetten"
+     }
+    ]
+   }
+  },
+  {
+   "name": "no-entry-for-the-day",
+   "description": "The daily list stops before Thursday and its high is absent on Thursday: weather left out.",
+   "in": {
+    "now": 1793225100000,
+    "tz": 60,
+    "endHour": 7,
+    "daily": [
+     {
+      "t": 1793142000000,
+      "icon": "cloud",
+      "temp": 13,
+      "low": 7,
+      "mm": 0
+     },
+     {
+      "t": 1793228400000,
+      "icon": "rain",
+      "temp": null,
+      "low": 3,
+      "mm": 1
+     }
+    ],
+    "hourly": [
+     {
+      "t": 1793224800000,
+      "icon": "cloud",
+      "temp": 8,
+      "low": null,
+      "mm": 0
+     },
+     {
+      "t": 1793228400000,
+      "icon": "cloud",
+      "temp": 7.8,
+      "low": null,
+      "mm": 0
+     },
+     {
+      "t": 1793232000000,
+      "icon": "cloud",
+      "temp": 7.6,
+      "low": null,
+      "mm": 0
+     },
+     {
+      "t": 1793235600000,
+      "icon": "cloud",
+      "temp": 7.4,
+      "low": null,
+      "mm": 0
+     },
+     {
+      "t": 1793239200000,
+      "icon": "cloud",
+      "temp": 7.2,
+      "low": null,
+      "mm": 0
+     },
+     {
+      "t": 1793242800000,
+      "icon": "cloud",
+      "temp": 7,
+      "low": null,
+      "mm": 0
+     },
+     {
+      "t": 1793246400000,
+      "icon": "cloud",
+      "temp": 6.8,
+      "low": null,
+      "mm": 0
+     },
+     {
+      "t": 1793250000000,
+      "icon": "cloud",
+      "temp": 6.6,
+      "low": null,
+      "mm": 0
+     },
+     {
+      "t": 1793253600000,
+      "icon": "cloud",
+      "temp": 6.4,
+      "low": null,
+      "mm": 0
+     },
+     {
+      "t": 1793257200000,
+      "icon": "rain",
+      "temp": 6.2,
+      "low": null,
+      "mm": 0.4
+     },
+     {
+      "t": 1793260800000,
+      "icon": "rain",
+      "temp": 6,
+      "low": null,
+      "mm": 1.2
+     },
+     {
+      "t": 1793264400000,
+      "icon": "cloud",
+      "temp": 5.8,
+      "low": null,
+      "mm": 0
+     },
+     {
+      "t": 1793268000000,
+      "icon": "cloud",
+      "temp": 5.6,
+      "low": null,
+      "mm": 0
+     },
+     {
+      "t": 1793271600000,
+      "icon": "cloud",
+      "temp": 5.4,
+      "low": null,
+      "mm": 0
+     },
+     {
+      "t": 1793275200000,
+      "icon": "cloud",
+      "temp": 5.199999999999999,
+      "low": null,
+      "mm": 0
+     },
+     {
+      "t": 1793278800000,
+      "icon": "cloud",
+      "temp": 5,
+      "low": null,
+      "mm": 0
+     }
+    ],
+    "events": [
+     {
+      "start": 1793210400000,
+      "end": 1793226600000,
+      "allDay": false,
+      "cal": 0,
+      "title": "Dinner"
+     },
+     {
+      "start": 1793228400000,
+      "end": 1793314800000,
+      "allDay": true,
+      "cal": 1,
+      "title": "Birthday Sam"
+     },
+     {
+      "start": 1793259000000,
+      "end": 1793261700000,
+      "allDay": false,
+      "cal": 0,
+      "title": "Dentist"
+     },
+     {
+      "start": 1793278800000,
+      "end": 1793282400000,
+      "allDay": false,
+      "cal": 0,
+      "title": "Call"
+     }
+    ],
+    "bins": [
+     {
+      "label": "Plastic",
+      "days": 1
+     },
+     {
+      "label": "Green",
+      "days": 3
+     },
+     {
+      "label": "Paper",
+      "days": 1
+     },
+     {
+      "label": "Rest",
+      "days": null
+     }
+    ],
+    "tonight": 17
+   },
+   "lang": "en",
+   "out": {
+    "head": "Tomorrow",
+    "items": [
+     {
+      "kind": "event",
+      "icon": "",
+      "bold": "08:30",
+      "text": "Dentist"
+     },
+     {
+      "kind": "bins",
+      "icon": "",
+      "bold": "Plastic + Paper",
+      "text": "put out tonight"
+     }
+    ]
+   }
+  },
+  {
+   "name": "no-entry-for-the-day",
+   "description": "The daily list stops before Thursday and its high is absent on Thursday: weather left out.",
+   "in": {
+    "now": 1793225100000,
+    "tz": 60,
+    "endHour": 7,
+    "daily": [
+     {
+      "t": 1793142000000,
+      "icon": "cloud",
+      "temp": 13,
+      "low": 7,
+      "mm": 0
+     },
+     {
+      "t": 1793228400000,
+      "icon": "rain",
+      "temp": null,
+      "low": 3,
+      "mm": 1
+     }
+    ],
+    "hourly": [
+     {
+      "t": 1793224800000,
+      "icon": "cloud",
+      "temp": 8,
+      "low": null,
+      "mm": 0
+     },
+     {
+      "t": 1793228400000,
+      "icon": "cloud",
+      "temp": 7.8,
+      "low": null,
+      "mm": 0
+     },
+     {
+      "t": 1793232000000,
+      "icon": "cloud",
+      "temp": 7.6,
+      "low": null,
+      "mm": 0
+     },
+     {
+      "t": 1793235600000,
+      "icon": "cloud",
+      "temp": 7.4,
+      "low": null,
+      "mm": 0
+     },
+     {
+      "t": 1793239200000,
+      "icon": "cloud",
+      "temp": 7.2,
+      "low": null,
+      "mm": 0
+     },
+     {
+      "t": 1793242800000,
+      "icon": "cloud",
+      "temp": 7,
+      "low": null,
+      "mm": 0
+     },
+     {
+      "t": 1793246400000,
+      "icon": "cloud",
+      "temp": 6.8,
+      "low": null,
+      "mm": 0
+     },
+     {
+      "t": 1793250000000,
+      "icon": "cloud",
+      "temp": 6.6,
+      "low": null,
+      "mm": 0
+     },
+     {
+      "t": 1793253600000,
+      "icon": "cloud",
+      "temp": 6.4,
+      "low": null,
+      "mm": 0
+     },
+     {
+      "t": 1793257200000,
+      "icon": "rain",
+      "temp": 6.2,
+      "low": null,
+      "mm": 0.4
+     },
+     {
+      "t": 1793260800000,
+      "icon": "rain",
+      "temp": 6,
+      "low": null,
+      "mm": 1.2
+     },
+     {
+      "t": 1793264400000,
+      "icon": "cloud",
+      "temp": 5.8,
+      "low": null,
+      "mm": 0
+     },
+     {
+      "t": 1793268000000,
+      "icon": "cloud",
+      "temp": 5.6,
+      "low": null,
+      "mm": 0
+     },
+     {
+      "t": 1793271600000,
+      "icon": "cloud",
+      "temp": 5.4,
+      "low": null,
+      "mm": 0
+     },
+     {
+      "t": 1793275200000,
+      "icon": "cloud",
+      "temp": 5.199999999999999,
+      "low": null,
+      "mm": 0
+     },
+     {
+      "t": 1793278800000,
+      "icon": "cloud",
+      "temp": 5,
+      "low": null,
+      "mm": 0
+     }
+    ],
+    "events": [
+     {
+      "start": 1793210400000,
+      "end": 1793226600000,
+      "allDay": false,
+      "cal": 0,
+      "title": "Dinner"
+     },
+     {
+      "start": 1793228400000,
+      "end": 1793314800000,
+      "allDay": true,
+      "cal": 1,
+      "title": "Birthday Sam"
+     },
+     {
+      "start": 1793259000000,
+      "end": 1793261700000,
+      "allDay": false,
+      "cal": 0,
+      "title": "Dentist"
+     },
+     {
+      "start": 1793278800000,
+      "end": 1793282400000,
+      "allDay": false,
+      "cal": 0,
+      "title": "Call"
+     }
+    ],
+    "bins": [
+     {
+      "label": "Plastic",
+      "days": 1
+     },
+     {
+      "label": "Green",
+      "days": 3
+     },
+     {
+      "label": "Paper",
+      "days": 1
+     },
+     {
+      "label": "Rest",
+      "days": null
+     }
+    ],
+    "tonight": 17
+   },
+   "lang": "nl",
+   "out": {
+    "head": "Morgen",
+    "items": [
+     {
+      "kind": "event",
+      "icon": "",
+      "bold": "08:30",
+      "text": "Dentist"
+     },
+     {
+      "kind": "bins",
+      "icon": "",
+      "bold": "Plastic + Paper",
+      "text": "vanavond buiten zetten"
+     }
+    ]
+   }
+  },
+  {
+   "name": "mm-absent-wet-by-drawing",
+   "description": "Hourly entries without precipitation: wet by drawing (snow at 06:00).",
+   "in": {
+    "now": 1793225100000,
+    "tz": 60,
+    "endHour": 7,
+    "daily": [
+     {
+      "t": 1793142000000,
+      "icon": "cloud",
+      "temp": 13,
+      "low": 7,
+      "mm": 0
+     },
+     {
+      "t": 1793228400000,
+      "icon": "rain",
+      "temp": 11.6,
+      "low": 4.4,
+      "mm": 3.2
+     },
+     {
+      "t": 1793314800000,
+      "icon": "sun",
+      "temp": 14,
+      "low": 5,
+      "mm": 0
+     },
+     {
+      "t": 1793401200000,
+      "icon": "partly",
+      "temp": 12,
+      "low": null,
+      "mm": 0
+     }
+    ],
+    "hourly": [
+     {
+      "t": 1793224800000,
+      "icon": "cloud",
+      "temp": 8,
+      "low": null,
+      "mm": null
+     },
+     {
+      "t": 1793228400000,
+      "icon": "cloud",
+      "temp": 7.8,
+      "low": null,
+      "mm": null
+     },
+     {
+      "t": 1793232000000,
+      "icon": "cloud",
+      "temp": 7.6,
+      "low": null,
+      "mm": null
+     },
+     {
+      "t": 1793235600000,
+      "icon": "cloud",
+      "temp": 7.4,
+      "low": null,
+      "mm": null
+     },
+     {
+      "t": 1793239200000,
+      "icon": "cloud",
+      "temp": 7.2,
+      "low": null,
+      "mm": null
+     },
+     {
+      "t": 1793242800000,
+      "icon": "cloud",
+      "temp": 7,
+      "low": null,
+      "mm": null
+     },
+     {
+      "t": 1793246400000,
+      "icon": "cloud",
+      "temp": 6.8,
+      "low": null,
+      "mm": null
+     },
+     {
+      "t": 1793250000000,
+      "icon": "snow",
+      "temp": 6.6,
+      "low": null,
+      "mm": null
+     },
+     {
+      "t": 1793253600000,
+      "icon": "cloud",
+      "temp": 6.4,
+      "low": null,
+      "mm": null
+     },
+     {
+      "t": 1793257200000,
+      "icon": "cloud",
+      "temp": 6.2,
+      "low": null,
+      "mm": null
+     },
+     {
+      "t": 1793260800000,
+      "icon": "cloud",
+      "temp": 6,
+      "low": null,
+      "mm": null
+     },
+     {
+      "t": 1793264400000,
+      "icon": "cloud",
+      "temp": 5.8,
+      "low": null,
+      "mm": null
+     },
+     {
+      "t": 1793268000000,
+      "icon": "cloud",
+      "temp": 5.6,
+      "low": null,
+      "mm": null
+     },
+     {
+      "t": 1793271600000,
+      "icon": "cloud",
+      "temp": 5.4,
+      "low": null,
+      "mm": null
+     },
+     {
+      "t": 1793275200000,
+      "icon": "cloud",
+      "temp": 5.199999999999999,
+      "low": null,
+      "mm": null
+     },
+     {
+      "t": 1793278800000,
+      "icon": "cloud",
+      "temp": 5,
+      "low": null,
+      "mm": null
+     }
+    ],
+    "events": [
+     {
+      "start": 1793210400000,
+      "end": 1793226600000,
+      "allDay": false,
+      "cal": 0,
+      "title": "Dinner"
+     },
+     {
+      "start": 1793228400000,
+      "end": 1793314800000,
+      "allDay": true,
+      "cal": 1,
+      "title": "Birthday Sam"
+     },
+     {
+      "start": 1793259000000,
+      "end": 1793261700000,
+      "allDay": false,
+      "cal": 0,
+      "title": "Dentist"
+     },
+     {
+      "start": 1793278800000,
+      "end": 1793282400000,
+      "allDay": false,
+      "cal": 0,
+      "title": "Call"
+     }
+    ],
+    "bins": [
+     {
+      "label": "Plastic",
+      "days": 1
+     },
+     {
+      "label": "Green",
+      "days": 3
+     },
+     {
+      "label": "Paper",
+      "days": 1
+     },
+     {
+      "label": "Rest",
+      "days": null
+     }
+    ],
+    "tonight": 17
+   },
+   "lang": "en",
+   "out": {
+    "head": "Tomorrow",
+    "items": [
+     {
+      "kind": "weather",
+      "icon": "rain",
+      "bold": "12° / 4°",
+      "text": "rain from 06:00"
+     },
+     {
+      "kind": "event",
+      "icon": "",
+      "bold": "08:30",
+      "text": "Dentist"
+     },
+     {
+      "kind": "bins",
+      "icon": "",
+      "bold": "Plastic + Paper",
+      "text": "put out tonight"
+     }
+    ]
+   }
+  },
+  {
+   "name": "mm-absent-wet-by-drawing",
+   "description": "Hourly entries without precipitation: wet by drawing (snow at 06:00).",
+   "in": {
+    "now": 1793225100000,
+    "tz": 60,
+    "endHour": 7,
+    "daily": [
+     {
+      "t": 1793142000000,
+      "icon": "cloud",
+      "temp": 13,
+      "low": 7,
+      "mm": 0
+     },
+     {
+      "t": 1793228400000,
+      "icon": "rain",
+      "temp": 11.6,
+      "low": 4.4,
+      "mm": 3.2
+     },
+     {
+      "t": 1793314800000,
+      "icon": "sun",
+      "temp": 14,
+      "low": 5,
+      "mm": 0
+     },
+     {
+      "t": 1793401200000,
+      "icon": "partly",
+      "temp": 12,
+      "low": null,
+      "mm": 0
+     }
+    ],
+    "hourly": [
+     {
+      "t": 1793224800000,
+      "icon": "cloud",
+      "temp": 8,
+      "low": null,
+      "mm": null
+     },
+     {
+      "t": 1793228400000,
+      "icon": "cloud",
+      "temp": 7.8,
+      "low": null,
+      "mm": null
+     },
+     {
+      "t": 1793232000000,
+      "icon": "cloud",
+      "temp": 7.6,
+      "low": null,
+      "mm": null
+     },
+     {
+      "t": 1793235600000,
+      "icon": "cloud",
+      "temp": 7.4,
+      "low": null,
+      "mm": null
+     },
+     {
+      "t": 1793239200000,
+      "icon": "cloud",
+      "temp": 7.2,
+      "low": null,
+      "mm": null
+     },
+     {
+      "t": 1793242800000,
+      "icon": "cloud",
+      "temp": 7,
+      "low": null,
+      "mm": null
+     },
+     {
+      "t": 1793246400000,
+      "icon": "cloud",
+      "temp": 6.8,
+      "low": null,
+      "mm": null
+     },
+     {
+      "t": 1793250000000,
+      "icon": "snow",
+      "temp": 6.6,
+      "low": null,
+      "mm": null
+     },
+     {
+      "t": 1793253600000,
+      "icon": "cloud",
+      "temp": 6.4,
+      "low": null,
+      "mm": null
+     },
+     {
+      "t": 1793257200000,
+      "icon": "cloud",
+      "temp": 6.2,
+      "low": null,
+      "mm": null
+     },
+     {
+      "t": 1793260800000,
+      "icon": "cloud",
+      "temp": 6,
+      "low": null,
+      "mm": null
+     },
+     {
+      "t": 1793264400000,
+      "icon": "cloud",
+      "temp": 5.8,
+      "low": null,
+      "mm": null
+     },
+     {
+      "t": 1793268000000,
+      "icon": "cloud",
+      "temp": 5.6,
+      "low": null,
+      "mm": null
+     },
+     {
+      "t": 1793271600000,
+      "icon": "cloud",
+      "temp": 5.4,
+      "low": null,
+      "mm": null
+     },
+     {
+      "t": 1793275200000,
+      "icon": "cloud",
+      "temp": 5.199999999999999,
+      "low": null,
+      "mm": null
+     },
+     {
+      "t": 1793278800000,
+      "icon": "cloud",
+      "temp": 5,
+      "low": null,
+      "mm": null
+     }
+    ],
+    "events": [
+     {
+      "start": 1793210400000,
+      "end": 1793226600000,
+      "allDay": false,
+      "cal": 0,
+      "title": "Dinner"
+     },
+     {
+      "start": 1793228400000,
+      "end": 1793314800000,
+      "allDay": true,
+      "cal": 1,
+      "title": "Birthday Sam"
+     },
+     {
+      "start": 1793259000000,
+      "end": 1793261700000,
+      "allDay": false,
+      "cal": 0,
+      "title": "Dentist"
+     },
+     {
+      "start": 1793278800000,
+      "end": 1793282400000,
+      "allDay": false,
+      "cal": 0,
+      "title": "Call"
+     }
+    ],
+    "bins": [
+     {
+      "label": "Plastic",
+      "days": 1
+     },
+     {
+      "label": "Green",
+      "days": 3
+     },
+     {
+      "label": "Paper",
+      "days": 1
+     },
+     {
+      "label": "Rest",
+      "days": null
+     }
+    ],
+    "tonight": 17
+   },
+   "lang": "nl",
+   "out": {
+    "head": "Morgen",
+    "items": [
+     {
+      "kind": "weather",
+      "icon": "rain",
+      "bold": "12° / 4°",
+      "text": "regen vanaf 06:00"
+     },
+     {
+      "kind": "event",
+      "icon": "",
+      "bold": "08:30",
+      "text": "Dentist"
+     },
+     {
+      "kind": "bins",
+      "icon": "",
+      "bold": "Plastic + Paper",
+      "text": "vanavond buiten zetten"
+     }
+    ]
+   }
+  },
+  {
+   "name": "today-glance",
+   "description": "Glance sleep face (#356): endHour TODAY_END (24) at 13:00 Thu = today. The rain at 08:00 / 09:00 is over (no text); Dentist (08:30–09:15) is over: Call at 14:00; Paper collected today.",
+   "in": {
+    "now": 1793275200000,
+    "tz": 60,
+    "endHour": 24,
+    "daily": [
+     {
+      "t": 1793142000000,
+      "icon": "cloud",
+      "temp": 13,
+      "low": 7,
+      "mm": 0
+     },
+     {
+      "t": 1793228400000,
+      "icon": "rain",
+      "temp": 11.6,
+      "low": 4.4,
+      "mm": 3.2
+     },
+     {
+      "t": 1793314800000,
+      "icon": "sun",
+      "temp": 14,
+      "low": 5,
+      "mm": 0
+     },
+     {
+      "t": 1793401200000,
+      "icon": "partly",
+      "temp": 12,
+      "low": null,
+      "mm": 0
+     }
+    ],
+    "hourly": [
+     {
+      "t": 1793224800000,
+      "icon": "cloud",
+      "temp": 8,
+      "low": null,
+      "mm": 0
+     },
+     {
+      "t": 1793228400000,
+      "icon": "cloud",
+      "temp": 7.8,
+      "low": null,
+      "mm": 0
+     },
+     {
+      "t": 1793232000000,
+      "icon": "cloud",
+      "temp": 7.6,
+      "low": null,
+      "mm": 0
+     },
+     {
+      "t": 1793235600000,
+      "icon": "cloud",
+      "temp": 7.4,
+      "low": null,
+      "mm": 0
+     },
+     {
+      "t": 1793239200000,
+      "icon": "cloud",
+      "temp": 7.2,
+      "low": null,
+      "mm": 0
+     },
+     {
+      "t": 1793242800000,
+      "icon": "cloud",
+      "temp": 7,
+      "low": null,
+      "mm": 0
+     },
+     {
+      "t": 1793246400000,
+      "icon": "cloud",
+      "temp": 6.8,
+      "low": null,
+      "mm": 0
+     },
+     {
+      "t": 1793250000000,
+      "icon": "cloud",
+      "temp": 6.6,
+      "low": null,
+      "mm": 0
+     },
+     {
+      "t": 1793253600000,
+      "icon": "cloud",
+      "temp": 6.4,
+      "low": null,
+      "mm": 0
+     },
+     {
+      "t": 1793257200000,
+      "icon": "rain",
+      "temp": 6.2,
+      "low": null,
+      "mm": 0.4
+     },
+     {
+      "t": 1793260800000,
+      "icon": "rain",
+      "temp": 6,
+      "low": null,
+      "mm": 1.2
+     },
+     {
+      "t": 1793264400000,
+      "icon": "cloud",
+      "temp": 5.8,
+      "low": null,
+      "mm": 0
+     },
+     {
+      "t": 1793268000000,
+      "icon": "cloud",
+      "temp": 5.6,
+      "low": null,
+      "mm": 0
+     },
+     {
+      "t": 1793271600000,
+      "icon": "cloud",
+      "temp": 5.4,
+      "low": null,
+      "mm": 0
+     },
+     {
+      "t": 1793275200000,
+      "icon": "cloud",
+      "temp": 5.199999999999999,
+      "low": null,
+      "mm": 0
+     },
+     {
+      "t": 1793278800000,
+      "icon": "cloud",
+      "temp": 5,
+      "low": null,
+      "mm": 0
+     }
+    ],
+    "events": [
+     {
+      "start": 1793210400000,
+      "end": 1793226600000,
+      "allDay": false,
+      "cal": 0,
+      "title": "Dinner"
+     },
+     {
+      "start": 1793228400000,
+      "end": 1793314800000,
+      "allDay": true,
+      "cal": 1,
+      "title": "Birthday Sam"
+     },
+     {
+      "start": 1793259000000,
+      "end": 1793261700000,
+      "allDay": false,
+      "cal": 0,
+      "title": "Dentist"
+     },
+     {
+      "start": 1793278800000,
+      "end": 1793282400000,
+      "allDay": false,
+      "cal": 0,
+      "title": "Call"
+     }
+    ],
+    "bins": [
+     {
+      "label": "Paper",
+      "days": 0
+     },
+     {
+      "label": "Green",
+      "days": 1
+     }
+    ],
+    "tonight": 17
+   },
+   "lang": "en",
+   "out": {
+    "head": "Today",
+    "items": [
+     {
+      "kind": "weather",
+      "icon": "rain",
+      "bold": "12° / 4°",
+      "text": ""
+     },
+     {
+      "kind": "event",
+      "icon": "",
+      "bold": "14:00",
+      "text": "Call"
+     },
+     {
+      "kind": "bins",
+      "icon": "",
+      "bold": "Paper",
+      "text": "collected today"
+     }
+    ]
+   }
+  },
+  {
+   "name": "today-glance",
+   "description": "Glance sleep face (#356): endHour TODAY_END (24) at 13:00 Thu = today. The rain at 08:00 / 09:00 is over (no text); Dentist (08:30–09:15) is over: Call at 14:00; Paper collected today.",
+   "in": {
+    "now": 1793275200000,
+    "tz": 60,
+    "endHour": 24,
+    "daily": [
+     {
+      "t": 1793142000000,
+      "icon": "cloud",
+      "temp": 13,
+      "low": 7,
+      "mm": 0
+     },
+     {
+      "t": 1793228400000,
+      "icon": "rain",
+      "temp": 11.6,
+      "low": 4.4,
+      "mm": 3.2
+     },
+     {
+      "t": 1793314800000,
+      "icon": "sun",
+      "temp": 14,
+      "low": 5,
+      "mm": 0
+     },
+     {
+      "t": 1793401200000,
+      "icon": "partly",
+      "temp": 12,
+      "low": null,
+      "mm": 0
+     }
+    ],
+    "hourly": [
+     {
+      "t": 1793224800000,
+      "icon": "cloud",
+      "temp": 8,
+      "low": null,
+      "mm": 0
+     },
+     {
+      "t": 1793228400000,
+      "icon": "cloud",
+      "temp": 7.8,
+      "low": null,
+      "mm": 0
+     },
+     {
+      "t": 1793232000000,
+      "icon": "cloud",
+      "temp": 7.6,
+      "low": null,
+      "mm": 0
+     },
+     {
+      "t": 1793235600000,
+      "icon": "cloud",
+      "temp": 7.4,
+      "low": null,
+      "mm": 0
+     },
+     {
+      "t": 1793239200000,
+      "icon": "cloud",
+      "temp": 7.2,
+      "low": null,
+      "mm": 0
+     },
+     {
+      "t": 1793242800000,
+      "icon": "cloud",
+      "temp": 7,
+      "low": null,
+      "mm": 0
+     },
+     {
+      "t": 1793246400000,
+      "icon": "cloud",
+      "temp": 6.8,
+      "low": null,
+      "mm": 0
+     },
+     {
+      "t": 1793250000000,
+      "icon": "cloud",
+      "temp": 6.6,
+      "low": null,
+      "mm": 0
+     },
+     {
+      "t": 1793253600000,
+      "icon": "cloud",
+      "temp": 6.4,
+      "low": null,
+      "mm": 0
+     },
+     {
+      "t": 1793257200000,
+      "icon": "rain",
+      "temp": 6.2,
+      "low": null,
+      "mm": 0.4
+     },
+     {
+      "t": 1793260800000,
+      "icon": "rain",
+      "temp": 6,
+      "low": null,
+      "mm": 1.2
+     },
+     {
+      "t": 1793264400000,
+      "icon": "cloud",
+      "temp": 5.8,
+      "low": null,
+      "mm": 0
+     },
+     {
+      "t": 1793268000000,
+      "icon": "cloud",
+      "temp": 5.6,
+      "low": null,
+      "mm": 0
+     },
+     {
+      "t": 1793271600000,
+      "icon": "cloud",
+      "temp": 5.4,
+      "low": null,
+      "mm": 0
+     },
+     {
+      "t": 1793275200000,
+      "icon": "cloud",
+      "temp": 5.199999999999999,
+      "low": null,
+      "mm": 0
+     },
+     {
+      "t": 1793278800000,
+      "icon": "cloud",
+      "temp": 5,
+      "low": null,
+      "mm": 0
+     }
+    ],
+    "events": [
+     {
+      "start": 1793210400000,
+      "end": 1793226600000,
+      "allDay": false,
+      "cal": 0,
+      "title": "Dinner"
+     },
+     {
+      "start": 1793228400000,
+      "end": 1793314800000,
+      "allDay": true,
+      "cal": 1,
+      "title": "Birthday Sam"
+     },
+     {
+      "start": 1793259000000,
+      "end": 1793261700000,
+      "allDay": false,
+      "cal": 0,
+      "title": "Dentist"
+     },
+     {
+      "start": 1793278800000,
+      "end": 1793282400000,
+      "allDay": false,
+      "cal": 0,
+      "title": "Call"
+     }
+    ],
+    "bins": [
+     {
+      "label": "Paper",
+      "days": 0
+     },
+     {
+      "label": "Green",
+      "days": 1
+     }
+    ],
+    "tonight": 17
+   },
+   "lang": "nl",
+   "out": {
+    "head": "Vandaag",
+    "items": [
+     {
+      "kind": "weather",
+      "icon": "rain",
+      "bold": "12° / 4°",
+      "text": ""
+     },
+     {
+      "kind": "event",
+      "icon": "",
+      "bold": "14:00",
+      "text": "Call"
+     },
+     {
+      "kind": "bins",
+      "icon": "",
+      "bold": "Paper",
+      "text": "vandaag opgehaald"
+     }
+    ]
+   }
+  },
+  {
+   "name": "today-all-over",
+   "description": "At 23:30 Thu with endHour 24 (quiet hours off): the timed events are over, the all-day one is not: \"all day\", Birthday Sam.",
+   "in": {
+    "now": 1793313000000,
+    "tz": 60,
+    "endHour": 24,
+    "daily": [
+     {
+      "t": 1793142000000,
+      "icon": "cloud",
+      "temp": 13,
+      "low": 7,
+      "mm": 0
+     },
+     {
+      "t": 1793228400000,
+      "icon": "rain",
+      "temp": 11.6,
+      "low": 4.4,
+      "mm": 3.2
+     },
+     {
+      "t": 1793314800000,
+      "icon": "sun",
+      "temp": 14,
+      "low": 5,
+      "mm": 0
+     },
+     {
+      "t": 1793401200000,
+      "icon": "partly",
+      "temp": 12,
+      "low": null,
+      "mm": 0
+     }
+    ],
+    "hourly": null,
+    "events": [
+     {
+      "start": 1793210400000,
+      "end": 1793226600000,
+      "allDay": false,
+      "cal": 0,
+      "title": "Dinner"
+     },
+     {
+      "start": 1793228400000,
+      "end": 1793314800000,
+      "allDay": true,
+      "cal": 1,
+      "title": "Birthday Sam"
+     },
+     {
+      "start": 1793259000000,
+      "end": 1793261700000,
+      "allDay": false,
+      "cal": 0,
+      "title": "Dentist"
+     },
+     {
+      "start": 1793278800000,
+      "end": 1793282400000,
+      "allDay": false,
+      "cal": 0,
+      "title": "Call"
+     }
+    ],
+    "bins": null,
+    "tonight": 17
+   },
+   "lang": "en",
+   "out": {
+    "head": "Today",
+    "items": [
+     {
+      "kind": "weather",
+      "icon": "rain",
+      "bold": "12° / 4°",
+      "text": ""
+     },
+     {
+      "kind": "event",
+      "icon": "",
+      "bold": "all day",
+      "text": "Birthday Sam"
+     }
+    ]
+   }
+  },
+  {
+   "name": "today-all-over",
+   "description": "At 23:30 Thu with endHour 24 (quiet hours off): the timed events are over, the all-day one is not: \"all day\", Birthday Sam.",
+   "in": {
+    "now": 1793313000000,
+    "tz": 60,
+    "endHour": 24,
+    "daily": [
+     {
+      "t": 1793142000000,
+      "icon": "cloud",
+      "temp": 13,
+      "low": 7,
+      "mm": 0
+     },
+     {
+      "t": 1793228400000,
+      "icon": "rain",
+      "temp": 11.6,
+      "low": 4.4,
+      "mm": 3.2
+     },
+     {
+      "t": 1793314800000,
+      "icon": "sun",
+      "temp": 14,
+      "low": 5,
+      "mm": 0
+     },
+     {
+      "t": 1793401200000,
+      "icon": "partly",
+      "temp": 12,
+      "low": null,
+      "mm": 0
+     }
+    ],
+    "hourly": null,
+    "events": [
+     {
+      "start": 1793210400000,
+      "end": 1793226600000,
+      "allDay": false,
+      "cal": 0,
+      "title": "Dinner"
+     },
+     {
+      "start": 1793228400000,
+      "end": 1793314800000,
+      "allDay": true,
+      "cal": 1,
+      "title": "Birthday Sam"
+     },
+     {
+      "start": 1793259000000,
+      "end": 1793261700000,
+      "allDay": false,
+      "cal": 0,
+      "title": "Dentist"
+     },
+     {
+      "start": 1793278800000,
+      "end": 1793282400000,
+      "allDay": false,
+      "cal": 0,
+      "title": "Call"
+     }
+    ],
+    "bins": null,
+    "tonight": 17
+   },
+   "lang": "nl",
+   "out": {
+    "head": "Vandaag",
+    "items": [
+     {
+      "kind": "weather",
+      "icon": "rain",
+      "bold": "12° / 4°",
+      "text": ""
+     },
+     {
+      "kind": "event",
+      "icon": "",
+      "bold": "hele dag",
+      "text": "Birthday Sam"
+     }
+    ]
+   }
+  },
+  {
+   "name": "utc-minus-5",
+   "description": "tz -300 at 23:05 local on the 28th: Thursday local; the daily entries at 05:00 UTC.",
+   "in": {
+    "now": 1793246700000,
+    "tz": -300,
+    "endHour": 7,
+    "daily": [
+     {
+      "t": 1793163600000,
+      "icon": "cloud",
+      "temp": 13,
+      "low": 7,
+      "mm": 0
+     },
+     {
+      "t": 1793250000000,
+      "icon": "rain",
+      "temp": 11.6,
+      "low": 4.4,
+      "mm": 3.2
+     },
+     {
+      "t": 1793336400000,
+      "icon": "sun",
+      "temp": 14,
+      "low": 5,
+      "mm": 0
+     },
+     {
+      "t": 1793422800000,
+      "icon": "partly",
+      "temp": 12,
+      "low": null,
+      "mm": 0
+     }
+    ],
+    "hourly": null,
+    "events": [
+     {
+      "start": 1793280600000,
+      "end": 1793282400000,
+      "allDay": false,
+      "cal": 0,
+      "title": "School run"
+     }
+    ],
+    "bins": [
+     {
+      "label": "Plastic",
+      "days": 1
+     },
+     {
+      "label": "Green",
+      "days": 3
+     },
+     {
+      "label": "Paper",
+      "days": 1
+     },
+     {
+      "label": "Rest",
+      "days": null
+     }
+    ],
+    "tonight": 17
+   },
+   "lang": "en",
+   "out": {
+    "head": "Tomorrow",
+    "items": [
+     {
+      "kind": "weather",
+      "icon": "rain",
+      "bold": "12° / 4°",
+      "text": ""
+     },
+     {
+      "kind": "event",
+      "icon": "",
+      "bold": "08:30",
+      "text": "School run"
+     },
+     {
+      "kind": "bins",
+      "icon": "",
+      "bold": "Plastic + Paper",
+      "text": "put out tonight"
+     }
+    ]
+   }
+  },
+  {
+   "name": "utc-minus-5",
+   "description": "tz -300 at 23:05 local on the 28th: Thursday local; the daily entries at 05:00 UTC.",
+   "in": {
+    "now": 1793246700000,
+    "tz": -300,
+    "endHour": 7,
+    "daily": [
+     {
+      "t": 1793163600000,
+      "icon": "cloud",
+      "temp": 13,
+      "low": 7,
+      "mm": 0
+     },
+     {
+      "t": 1793250000000,
+      "icon": "rain",
+      "temp": 11.6,
+      "low": 4.4,
+      "mm": 3.2
+     },
+     {
+      "t": 1793336400000,
+      "icon": "sun",
+      "temp": 14,
+      "low": 5,
+      "mm": 0
+     },
+     {
+      "t": 1793422800000,
+      "icon": "partly",
+      "temp": 12,
+      "low": null,
+      "mm": 0
+     }
+    ],
+    "hourly": null,
+    "events": [
+     {
+      "start": 1793280600000,
+      "end": 1793282400000,
+      "allDay": false,
+      "cal": 0,
+      "title": "School run"
+     }
+    ],
+    "bins": [
+     {
+      "label": "Plastic",
+      "days": 1
+     },
+     {
+      "label": "Green",
+      "days": 3
+     },
+     {
+      "label": "Paper",
+      "days": 1
+     },
+     {
+      "label": "Rest",
+      "days": null
+     }
+    ],
+    "tonight": 17
+   },
+   "lang": "nl",
+   "out": {
+    "head": "Morgen",
+    "items": [
+     {
+      "kind": "weather",
+      "icon": "rain",
+      "bold": "12° / 4°",
+      "text": ""
+     },
+     {
+      "kind": "event",
+      "icon": "",
+      "bold": "08:30",
+      "text": "School run"
+     },
+     {
+      "kind": "bins",
+      "icon": "",
+      "bold": "Plastic + Paper",
+      "text": "vanavond buiten zetten"
+     }
+    ]
+   }
+  }
+ ]
+}

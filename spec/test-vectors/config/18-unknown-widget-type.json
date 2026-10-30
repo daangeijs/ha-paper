@@ -1,10 +1,10 @@
 {
   "name": "18-unknown-widget-type",
   "description": "Rule: type must be one of the widget types.",
-  "input": "# HA Paper display config\nversion: 1\nscreens:\n  - id: a\n    widgets:\n      - {type: weather}\n",
+  "input": "# HA Paper display config\nversion: 1\nscreens:\n  - id: a\n    widgets:\n      - {type: radar}\n",
   "expect": {
     "ok": false,
     "line": 6,
-    "message": "Unknown widget type “weather”"
+    "message": "Unknown widget type “radar”"
   }
 }

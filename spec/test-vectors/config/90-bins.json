@@ -1,0 +1,47 @@
+{
+  "name": "90-bins",
+  "description": "A bins tile (#317): entities = space-separated sensor ids, labels = sensor.<id>=Name items split by \";\", tonight = the hour (0–23) from which the day before says \"put out tonight\"; a 1-wide tile shows the soonest bin.",
+  "input": "# HA Paper display config\nversion: 1\nscreens:\n  - id: a\n    widgets:\n      - {type: bins, entities: sensor.afval_papier sensor.waste_pmd, labels: sensor.afval_papier=Paper; sensor.waste_pmd=Plastic, tonight: 18, cs: 2}\n      - {type: bins, entities: sensor.waste_gft}\n      - {type: bins}\n",
+  "expect": {
+    "ok": true,
+    "apps": [
+      {
+        "id": "home",
+        "title": "Home"
+      },
+      {
+        "id": "house",
+        "title": "House"
+      },
+      {
+        "id": "travel",
+        "title": "Travel"
+      }
+    ],
+    "screens": [
+      {
+        "id": "a",
+        "app": "home",
+        "title": "a",
+        "cells": 4,
+        "widgets": [
+          {
+            "type": "bins",
+            "entities": "sensor.afval_papier sensor.waste_pmd",
+            "labels": "sensor.afval_papier=Paper; sensor.waste_pmd=Plastic",
+            "tonight": 18,
+            "cs": 2
+          },
+          {
+            "type": "bins",
+            "entities": "sensor.waste_gft"
+          },
+          {
+            "type": "bins"
+          }
+        ]
+      }
+    ],
+    "yaml": "# HA Paper display config\nversion: 1\nscreens:\n  - id: a\n    app: home\n    title: a\n    widgets:\n      - {type: bins, entities: sensor.afval_papier sensor.waste_pmd, labels: sensor.afval_papier=Paper; sensor.waste_pmd=Plastic, tonight: 18, cs: 2}\n      - {type: bins, entities: sensor.waste_gft}\n      - {type: bins}\n"
+  }
+}

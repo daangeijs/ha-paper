@@ -74,6 +74,22 @@ describe('B/W-only rule (lint)', () => {
   it('sees gray where it is allowed (boot face)', () => expect(graysIn(screen(emu({ mode: 'boot' })))).toEqual(['#555']));
 });
 
+// Agenda and Next tiles (#316): the demo week at Wed 28 Oct 07:42, Classic and Modern, black / white only.
+describe('agenda tiles render', () => {
+  beforeAll(() => { vi.stubEnv('TZ', 'Europe/Amsterdam'); });
+  afterAll(() => { vi.unstubAllEnvs(); });
+  const W = [{ type: 'agenda', entities: 'calendar.family calendar.work', cs: 2, rs: 2 }, { type: 'next', entities: 'calendar.family calendar.work', cs: 2 }, { type: 'next', entities: 'calendar.work', cs: 2 }];
+  for (const look of ['classic', 'geist'] as const) it(look + ': today first, the countdown pill, glyphs kept', () => {
+    const base = emu();
+    const e = emu({ now: new Date(2026, 9, 28, 7, 42), simHour: null, screens: [{ id: 'cal', app: 'home', title: 'Today', widgets: W } as any, ...base.state.screens.filter((s) => s.app === 'settings')], idx: 0, sub: 0,
+      cfg: { ...base.state.cfg, ...(look === 'classic' ? { style: 'classic' } : { style: 'sleek', typeface: look }) } as EmuState['cfg'] });
+    const h = html(e).slice(html(e).indexOf('data-x4-screen'));
+    expect(h).toContain('Today · Wed 28'); expect(h).toContain('Dentist'); expect(h).toContain('Book club at Zoë’s'); expect(h).toContain('+6 more this week');
+    expect(h).toContain('in 48 min'); expect(h).toContain('Lunch with the team'); expect(h).toContain('data-x4-pill');
+    expect(graysIn(h)).toEqual([]);
+  });
+});
+
 // History tile (#267): Classic and Modern, bars and line, the states without a chart; black / white only.
 describe('history tile renders', () => {
   beforeAll(() => { vi.stubEnv('TZ', 'Europe/Amsterdam'); });

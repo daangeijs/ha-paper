@@ -49,6 +49,7 @@ class DeviceServices : public Services {
  private:
   static void netTask(void*);
   void historyTiles(App& app, bool configChanged);   // #269
+  void agendaTiles(App& app);                          // #316: the config's calendar sets, when it changes
   Config bootConfig_;
   DisplaySettings bootSettings_;
   NetStatus published_;
@@ -58,6 +59,7 @@ class DeviceServices : public Services {
   uint32_t lastFulls_ = 0;   // App full refresh count seen by pump() (net/ha_report "last full refresh")
   std::string histApp_;      // app whose history tiles are fetched (#269)
   bool histPosted_ = false;
+  std::string agendaKeys_ = "-";   // calendar sets last posted (#316)
 };
 
 DeviceServices& deviceServices();

@@ -6,8 +6,10 @@ import { join } from 'node:path';
 import { validateYaml, cellsUsed, toYaml, sceneAction } from '../src/core/config.ts';
 import { sevOf, routeLevel, carEta, carLevel, SEV, CAR_FACTOR } from '../src/core/severity.ts';
 import { routeDepartures } from '../src/core/route.ts';
+import { binDays, binsView } from '../src/core/bins.ts';
+import { fieldDecode, fieldEncode, guestLayout, guestPayload, guestQr, guestView } from '../src/core/guestWifi.ts';
 import { logPush, logRing, logsQuery, logTail, redact, LOG_CAP, LOG_TAIL_CAP, type LogLevel, type LogRing, type LogsQuery } from '../src/core/logs.ts';
-import { BATT_HISTORY_N, BATT_SAMPLE_S, BATT_ZERO, battHistory, battStep, type BattIn } from '../src/core/battery.ts';
+import { BATT_HISTORY_N, BATT_SAMPLE_S, BATT_ZERO, GAUGE_RISE_PTS, GAUGE_RISE_READS, GAUGE_ZERO, battHistory, battStep, gaugeStep, type BattIn } from '../src/core/battery.ts';
 import { bootsJson, diagApply, lastCrash, type DiagOp, type DiagRing } from '../src/core/diag.ts';
 import { seedAnswerOk, seedPlan, SEED_TEMPLATE, templateEventFinal, type HaSnapshot } from '../src/core/seed.ts';
 import { houseData, seedAnswer, type House } from '../server/fake-ha.ts';
@@ -22,8 +24,16 @@ import { fmtNum, statSource } from '../src/core/format.ts';
 import { TZ_TABLE, currencySymbol, money, tzFor, validTzSetting } from '../src/core/locale.ts';
 import { STRINGS, LANGS, langOf, tr, dateLine, type Lang, type StrKey } from '../src/core/strings.ts';
 import { otaErrOf, otaLine, HTTP_LOW_MEMORY, type OtaLineIn } from '../src/core/otaStatus.ts';
-import { HISTORY_AGGS, attrSamples, axisTicks, bucketize, fromSamples, historyError, historySource, parseTime, chartSpan, dayLowHigh, defaultBucket, fromHistoryRows, fromStatistics, historySpec, lowHigh, parseSpan, resolveStyle, statsPeriod, statsType, yScale, type HistoryAgg, type HistoryStyle, type StatRow } from '../src/core/history.ts';
-import { chartKey, historyChart, type HistState } from '../src/core/historyChart.ts';
+import { HISTORY_AGGS, attrSamples, axisTicks, bucketize, joinSeries, pastSpec, fromSamples, historyError, historySource, parseTime, chartSpan, dayLowHigh, defaultBucket, fromHistoryRows, fromStatistics, historySpec, lowHigh, parseSpan, resolveStyle, statsPeriod, statsType, yScale, type HistoryAgg, type HistoryStyle, type StatRow } from '../src/core/history.ts';
+import { chartKey, historyChart, joinState, type HistState } from '../src/core/historyChart.ts';
+import { WX_ICONS, weatherView, wxEntries, wxIcon } from '../src/core/weather.ts';
+import { WX_ART, WX_GRID, WX_HERO_STROKE } from '../src/core/weatherArt.ts';
+import { agendaKey, agendaLines, cutTitle, demoAnswer, eventsRequest, nextView, parseAnswer, type AgendaFetch } from '../src/core/agenda.ts';
+import { TODAY_END, quietSources, quietTomorrow, type QuietIn } from '../src/core/quiet.ts';
+import type { WxEntry } from '../src/core/weather.ts';
+import type { CalEvent } from '../src/core/agenda.ts';
+import { mediaAction, mediaLayout, mediaView, parseFavorites, volumeAt, type MediaTarget } from '../src/core/media.ts';
+import { MORNING_EVENTS, MORNING_IDLE, MORNING_MS, morningSources, morningStep, morningView, type MorningState, type MorningTick } from '../src/core/morning.ts';
 
 const ROOT = join(import.meta.dirname, '..', '..');
 const OUT = join(ROOT, 'spec', 'test-vectors');
@@ -52,7 +62,7 @@ export const CONFIG_CASES: [string, string, string][] = [
   ['15-unknown-app', 'Rule: app must be one of the apps (without an apps: section: home | house | travel | settings).', H + scr('a', ['type: clock'], '    app: garden\n')],
   ['16-widget-outside-list', 'Rule: a widget line before that screen\'s "widgets:".', H + '  - id: a\n      - {type: clock}\n'],
   ['17-malformed-pair', 'Rule: every comma-separated part must be key: value.', H + scr('a', ['type clock'])],
-  ['18-unknown-widget-type', 'Rule: type must be one of the widget types.', H + scr('a', ['type: weather'])],
+  ['18-unknown-widget-type', 'Rule: type must be one of the widget types.', H + scr('a', ['type: radar'])],
   ['19-missing-type', 'Rule: a widget without type is an unknown type (quirk: the message literally says “undefined”).', H + scr('a', ['cs: 2'])],
   ['20-stat-wrong-domain', 'Rule: stat entity must be an HA entity_id in sensor / binary_sensor / input_number / number / climate / weather.', H + scr('a', ['type: clock', 'type: stat, entity: switch.coffee'])],
   ['21-entity-not-an-id', 'Rule: entity must look like domain.object_id ("constructor" is not one).', H + scr('a', ['type: stat, entity: constructor'])],
@@ -84,13 +94,29 @@ export const CONFIG_CASES: [string, string, string][] = [
   ['48-lightlist-bad-area', 'Rule: lightList areas are HA area ids (^[a-z0-9_]+$), not names.', H + scr('a', ['type: lightList, areas: kitchen Living Room'])],
   ['49-zonelist-bad-entity', 'Rule: zoneList entities are climate.* ids (any integration).', H + scr('a', ['type: zoneList, entities: sensor.living_temperature'])],
   ['50-user-routes', 'Routes are user tiles (#145): free label, mode train | bus | car (absent = train), entity = a sensor.* id; the route id is optional free text.', H + scr('t', ['type: route, label: To work, mode: train, entity: sensor.commute_departures, cs: 2', 'type: route, label: Bus 52, mode: bus, entity: sensor.bus_52, cs: 2', 'type: route, label: Drive, mode: car, entity: sensor.drive_time, cs: 2', 'type: route, route: my_line, entity: sensor.x4_route_my_line, cs: 2'], '    app: travel\n')],
-  ['51-legacy-route', 'Old catalog routes (`route: renkum_arn`, `route: car`, …, before #145) still parse: an empty user route without entity (the tile asks for a sensor; the console blocks saving until one is picked).', H + scr('t', ['type: route, route: renkum_arn, cs: 2', 'type: route, route: car, cs: 2'], '    app: travel\n')],
+  ['51-legacy-route', 'Old catalog routes (`route: home_centre`, `route: car`, …, before #145) still parse: an empty user route without entity (the tile asks for a sensor; the console blocks saving until one is picked).', H + scr('t', ['type: route, route: home_centre, cs: 2', 'type: route, route: car, cs: 2'], '    app: travel\n')],
   ['52-route-wrong-domain', 'Rule: a route entity must be a sensor.* id.', H + scr('t', ['type: route, label: Drive, entity: switch.car'], '    app: travel\n')],
+  // #319: the now playing tile on a media_player, with favorites (Name=type:id or Name=script.<id> / scene.<id>, split by ;)
+  ['319a-media-favorites', 'A media tile takes a media_player entity, an optional label and up to 6 favorites (#319); ids may hold colons and slashes.', H + scr('a', ['type: media, entity: media_player.living_room, cs: 2, favorites: Radio 1=music:http://icecast.omroep.nl/radio1-bb-mp3; Bedtime=script.good_night; Movie=scene.movie_night', 'type: media, entity: media_player.kitchen, label: Kitchen'])],
+  ['319b-media-wrong-domain', 'Rule: a media entity must be a media_player.* id.', H + scr('a', ['type: clock', 'type: media, entity: switch.speaker, cs: 2'])],
+  ['319c-media-no-entity', 'Rule: a media tile needs its entity.', H + scr('a', ['type: media, cs: 2'])],
+  ['319d-media-bad-favorite', 'Rule: a favorite is Name=type:id or Name=script.<id> / scene.<id>.', H + scr('a', ['type: media, entity: media_player.living_room, cs: 2, favorites: Radio=music:http://x; light.kitchen'])],
+  ['319e-media-too-many', 'Rule: at most 6 favorites.', H + scr('a', ['type: media, entity: media_player.living_room, cs: 2, favorites: A=music:1; B=music:2; C=music:3; D=music:4; E=music:5; F=music:6; G=music:7'])],
+  // #329: guest Wi-Fi; ssid / password fieldEncode'd (%XX for "%" "," "{" "}", control characters, edge spaces, a leading digit)
+  ['329a-guest-wifi', 'A guestWifi tile (#329): ssid, password (fieldEncode: %2C = ","), security WPA | WEP | nopass, hidden: true, password_entity (input_text / text / sensor) overriding password; values kept as written.', H + scr('a', ['type: guestWifi, ssid: Harbor Guest, password: tea%2C please, cs: 2, rs: 2', 'type: guestWifi, ssid: Lobby, security: nopass, hidden: true, cs: 2']) + scr('b', ['type: guestWifi, ssid: Attic, password: %3012345678, security: WEP, hidden: false', 'type: guestWifi, ssid: Harbor Guest, password_entity: input_text.guest_password, cs: 2'])],
+  ['329b-guest-wifi-security', 'Rule: security is WPA, WEP or nopass.', H + scr('a', ['type: guestWifi, ssid: Harbor Guest, password: x, security: WPA3, cs: 2, rs: 2'])],
+  ['329c-guest-wifi-hidden', 'Rule: hidden is true or false.', H + scr('a', ['type: guestWifi, ssid: Harbor Guest, password: x, hidden: yes, cs: 2, rs: 2'])],
+  ['329d-guest-wifi-password-entity', 'Rule: password_entity is an input_text / text / sensor entity; the message never repeats the ssid or password.', H + scr('a', ['type: guestWifi, ssid: Harbor Guest, password: x, password_entity: light.porch, cs: 2, rs: 2'])],
   ['66-zonelist-labels', 'A zoneList can rename rooms (#151): labels = "climate.<id>=Name" items split by ";"; kept as one string value, written back as is.', H + scr('a', ['type: zoneList, entities: climate.bathroom climate.bathroom_attic, labels: climate.bathroom_attic=Attic; climate.bathroom=Bathroom downstairs, cs: 4'])],
   ['67-zonelist-label-wrong-domain', 'Rule: a zoneList labels item names a climate.* entity (#151).', H + scr('a', ['type: zoneList, labels: sensor.bathroom=Bathroom'])],
   ['68-zonelist-label-no-name', 'Rule: a zoneList labels item is climate.<id>=Name with a name (#151).', H + scr('a', ['type: zoneList, labels: climate.bathroom'])],
   ['70-labels-on-panel-tiles', 'price, bars, the home battery gauge and thermo keep a label (#148): the panel draws it instead of the built-in title.', H + scr('a', ['type: price, label: Power', 'type: bars, series: solar, label: Solar today, cs: 2', 'type: gauge, label: Battery', 'type: thermo, zone: living_room, label: Living room, rs: 2'])],
   ['71-thermo-no-zone', 'A thermo tile without a zone parses (#148: the console palette adds it, then the user picks a climate entity); the panel shows "—".', H + scr('a', ['type: thermo, rs: 2'])],
+  ['90-bins', 'A bins tile (#317): entities = space-separated sensor ids, labels = sensor.<id>=Name items split by ";", tonight = the hour (0–23) from which the day before says "put out tonight"; a 1-wide tile shows the soonest bin.', H + scr('a', ['type: bins, entities: sensor.afval_papier sensor.waste_pmd, labels: sensor.afval_papier=Paper; sensor.waste_pmd=Plastic, tonight: 18, cs: 2', 'type: bins, entities: sensor.waste_gft', 'type: bins'])],
+  ['91-bins-wrong-domain', 'Rule: bins entities must be sensor.* ids.', H + scr('a', ['type: bins, entities: sensor.afval_papier calendar.afval, cs: 2'])],
+  ['92-bins-label-no-name', 'Rule: bins labels items must be sensor.<id>=Name.', H + scr('a', ['type: bins, entities: sensor.afval_papier, labels: sensor.afval_papier, cs: 2'])],
+  ['93-bins-tonight', 'Rule: bins tonight must be a whole hour 0–23.', H + scr('a', ['type: bins, entities: sensor.afval_papier, tonight: 24, cs: 2'])],
+  ['94-bins-too-many', 'Rule: at most 6 sensors on a bins tile.', H + scr('a', ['type: bins, entities: sensor.b1 sensor.b2 sensor.b3 sensor.b4 sensor.b5 sensor.b6 sensor.b7, cs: 2'])],
   ['58-stat-climate-weather', 'A stat tile takes a climate or weather entity (#161): it shows the temperature (stat-raw.json).', H + scr('a', ['type: stat, entity: climate.living_room', 'type: stat, entity: weather.forecast_home, label: Outside'])],
   ['45-label-free-text', 'Labels and titles are free text: spaces, %, accents (issue #80); surrounding spaces are trimmed.', H + scr('a', ['type: stat, entity: sensor.phone_battery, label: Batterij %', 'type: gauge, entity: sensor.phone_battery, label:  Température café ', 'type: switch, entity: switch.coffee, label: Koffie & thee'], '    title: Energie & café 100%\n')],
   // #159: Settings is built in. Older files keep parsing: the settings app entry is skipped, its screens and settings tiles are dropped.
@@ -113,6 +139,57 @@ function summarize(input: string) {
 
 export function configVectors() {
   return CONFIG_CASES.map(([name, description, input]) => ({ name, description, input, expect: summarize(input) }));
+}
+
+/** Weather tile (#318): config rules, condition → drawing, forecast lists → kept entries, and the tile's text. */
+export const WEATHER_CONFIG_CASES: [string, string, string][] = [
+  ['weather-full-and-half', 'A weather tile on a weather.* entity, full width: rs 2 (full screen) or rs 1 (top half), with a label.', H + scr('a', ['type: weather, entity: weather.home, cs: 4, rs: 2']) + scr('b', ['type: weather, entity: weather.forecast_home, label: Outside, cs: 4', 'type: clock, cs: 4'])],
+  ['weather-not-full-width', 'Rule: a weather tile is full width (cs: 4).', H + scr('a', ['type: weather, entity: weather.home, cs: 2, rs: 2'])],
+  ['weather-default-width', 'Rule: no cs is 1 wide, not full width.', H + scr('a', ['type: weather, entity: weather.home'])],
+  ['weather-wrong-domain', 'Rule: the entity must be a weather.* id.', H + scr('a', ['type: weather, entity: sensor.outdoor_temperature, cs: 4'])],
+  ['weather-no-entity', 'Rule: entity is required.', H + scr('a', ['type: weather, cs: 4'])],
+  ['weather-third', 'Rule: at most 2 weather tiles per config.', H + scr('a', ['type: weather, entity: weather.home, cs: 4']) + scr('b', ['type: weather, entity: weather.home, cs: 4']) + scr('c', ['type: weather, entity: weather.home, cs: 4'])],
+];
+export function weatherVectors() {
+  const NOW = HNOW, TZ = 60, HOUR = 3_600_000;
+  const iso = (t: number, tz: number) => { const d = new Date(t + tz * 60_000), a = Math.abs(tz); return d.toISOString().slice(0, 19) + (tz < 0 ? '-' : '+') + String(Math.floor(a / 60)).padStart(2, '0') + ':' + String(a % 60).padStart(2, '0'); };
+  const conds = ['sunny', 'clear-night', 'partlycloudy', 'cloudy', 'fog', 'rainy', 'pouring', 'snowy', 'snowy-rainy', 'hail', 'lightning', 'lightning-rainy', 'windy', 'windy-variant', 'exceptional', 'tornado', ''];
+  // met.no-like daily entries at 11:00 UTC from yesterday; one without a datetime, one with a bad one, a string number
+  const daily: Record<string, unknown>[] = [-1, 0, 1, 2, 3, 4, 5, 6, 7].map((k) => ({ datetime: iso(Date.UTC(2026, 9, 26 + k, 11), 0), condition: conds[(k + 3) % 9], temperature: 12 + (k % 3) + 0.456, templow: 5 - k * 1.5, precipitation: [0, 0.4, 8.25, 2, 0, 0.04, 12, 1, 0][k + 1], wind_speed: 14 }));
+  daily.splice(3, 0, { condition: 'sunny', temperature: 30 }, { datetime: 'tomorrow', temperature: 30 });
+  daily[5].temperature = '13.5';
+  delete daily[6].precipitation;
+  // hourly from 2 h before the hour holding now (local times), a shower from 19:00 local
+  const h0 = Math.floor(NOW / HOUR) * HOUR - 2 * HOUR;
+  const hourly = Array.from({ length: 30 }, (_, k) => ({ datetime: iso(h0 + k * HOUR, TZ), condition: k === 6 || k === 7 ? 'rainy' : 'cloudy', temperature: 11 - k * 0.25, precipitation: k === 0 ? 3 : k === 6 ? 0.6 : k === 7 ? 1.1 : 0 }));
+  const hourlyNow = hourly.map((e, k) => ({ ...e, precipitation: k === 2 ? 0.2 : 0 }));
+  const hourlyNoMm = hourly.map(({ precipitation: _, ...e }, k) => ({ ...e, condition: k === 9 ? 'snowy' : 'cloudy' }));
+  const attrs = { temperature: 11.4, apparent_temperature: 9.5, temperature_unit: '°C', wind_speed: 4, wind_speed_unit: 'Beaufort', wind_bearing: 225, precipitation_unit: 'mm' };
+  const entries = [
+    { name: 'daily', description: 'Daily from today (local date, tz +60): yesterday skipped, entries without a valid datetime skipped, at most 7; numbers to 2 decimals, a numeric string read, a missing field null.', kind: 'daily' as const, tz: TZ, raw: daily },
+    { name: 'daily-json-string', description: 'The same list as JSON text.', kind: 'daily' as const, tz: TZ, raw: JSON.stringify(daily) },
+    { name: 'hourly', description: 'Hourly from the hour holding now (15:00 local): earlier hours skipped, at most 16.', kind: 'hourly' as const, tz: TZ, raw: hourly },
+    { name: 'not-a-list', description: 'Not a list: no entries.', kind: 'hourly' as const, tz: TZ, raw: { forecast: [] } },
+  ].map((c) => ({ ...c, out: wxEntries(c.raw, c.kind, NOW, c.tz) }));
+  const views: { name: string; description: string; state: string | null; attrs: Record<string, unknown>; daily: unknown; hourly: unknown; tz: number; lang: Lang }[] = [
+    { name: 'full-en', description: 'Partly cloudy, feels 10°, high / low from today, 4 Bft SW, rain from 19:00 (18:00 UTC), the next 5 days with bars scaled to 10 mm or the wettest day.', state: 'partlycloudy', attrs, daily, hourly, tz: TZ, lang: 'en' },
+    { name: 'full-nl', description: 'The same in Dutch: decimal comma, ZW, vanaf 19:00, short weekday names.', state: 'partlycloudy', attrs, daily, hourly, tz: TZ, lang: 'nl' },
+    { name: 'kmh-text-bearing', description: 'Wind in km/h, a text bearing kept as is; no apparent_temperature = no "feels"; rain in the hour holding now = "now".', state: 'rainy', attrs: { temperature: -0.4, wind_speed: 19.6, wind_speed_unit: 'km/h', wind_bearing: 'NNW' }, daily, hourly: hourlyNow, tz: TZ, lang: 'en' },
+    { name: 'no-precipitation', description: 'Hourly entries without precipitation: wet by condition (snowy at 22:00); bearing 350° = N; an unknown condition by name.', state: 'tornado', attrs: { temperature: 3, wind_speed: 2.5, wind_speed_unit: 'm/s', wind_bearing: 350 }, daily, hourly: hourlyNoMm, tz: TZ, lang: 'en' },
+    { name: 'dry', description: 'No wet hour in the next 12 h: "none soon".', state: 'sunny', attrs, daily, hourly: hourly.map((e) => ({ ...e, precipitation: 0 })), tz: TZ, lang: 'nl' },
+    { name: 'no-forecast', description: 'No forecast answer yet (null): high / low / rain "—", no strip.', state: 'cloudy', attrs, daily: null, hourly: null, tz: TZ, lang: 'en' },
+    { name: 'unavailable', description: 'Unavailable entity: the gap, no temperature, no wind; the forecast still shows.', state: 'unavailable', attrs: {}, daily, hourly, tz: TZ, lang: 'en' },
+    { name: 'no-state', description: 'Not in the mirror yet: "—".', state: null, attrs: {}, daily: [], hourly: [], tz: TZ, lang: 'en' },
+    { name: 'inches-west', description: 'precipitation_unit in: bars scaled to at least 0.4 in; tz -300 shifts the local dates (today = the 26th).', state: 'cloudy', attrs: { ...attrs, precipitation_unit: 'in', wind_speed_unit: 'mph' }, daily: daily.map((e) => ({ ...e, precipitation: typeof e.precipitation === 'number' ? e.precipitation / 20 : e.precipitation })), hourly, tz: -300, lang: 'en' },
+  ];
+  return {
+    _doc: 'Weather tile (#318): emulator src/core/weather.ts (weatherError, wxIcon, wxEntries, weatherView). Firmware: core/weather.cpp, test_core test_weather_vectors. Times epoch ms; tz = local UTC offset in minutes; now = ' + iso(NOW, 0) + '. config: like config/*.json. icons: HA condition → drawing. entries: a weather.get_forecasts list → kept entries (t, icon, temp, low, mm; null = absent). views: entity state + attributes + both lists (raw, through wxEntries) → the tile text.',
+    now: NOW, icons: WX_ICONS,
+    config: WEATHER_CONFIG_CASES.map(([name, description, input]) => ({ name, description, input, expect: summarize(input) })),
+    conditions: conds.map((c) => ({ condition: c, icon: wxIcon(c) })),
+    entries,
+    views: views.map((v) => ({ ...v, out: weatherView({ state: v.state, attrs: v.attrs, daily: v.daily === null ? null : wxEntries(v.daily, 'daily', NOW, v.tz), hourly: v.hourly === null ? null : wxEntries(v.hourly, 'hourly', NOW, v.tz), now: NOW, tz: v.tz, lang: v.lang }) })),
+  };
 }
 
 /** History tile config cases (#265); in history.json next to the rest of the tile's vectors (firmware test_core runs them, #268). */
@@ -266,6 +343,10 @@ export const HISTORY_SERIES_CONFIG_CASES: [string, string, string][] = [
   ['series-hourly-bucket', 'Rule: an hourly forecast needs a bucket of 1h or more (a daily one 1d).', H + scr('a', ['type: history, entity: weather.home, window: 6h, bucket: 30m'])],
   ['series-ahead-too-long', 'Rule: ahead is 0 or a span, at most the window.', H + scr('a', ['type: history, entity: sensor.rain_nowcast, attribute: forecast, window: 2h, ahead: 3h'])],
   ['series-ahead-not-divided', 'Rule: the bucket divides ahead.', H + scr('a', ['type: history, entity: sensor.rain_nowcast, attribute: forecast, window: 2h, bucket: 30m, ahead: 45m'])],
+  ['series-past', 'Past and future in one chart (#307): past names a recorder entity for the part of the window before now; ahead is the rest. Kept as written.', H + scr('a', ['type: history, entity: binary_sensor.rain_expected, attribute: forecast, value: precipitation, past: sensor.rain_rate, window: 3h, ahead: 2h, bucket: 10m, agg: max, style: bars, cs: 4', 'type: history, entity: weather.home, past: sensor.outdoor_temperature, window: 48h, ahead: 24h, cs: 4'])],
+  ['series-past-on-recorder', 'Rule: past needs an attribute or a weather entity (a recorder tile is all past already).', H + scr('a', ['type: history, entity: sensor.outdoor_temperature, past: sensor.rain_rate'])],
+  ['series-past-wrong-domain', 'Rule: past is a sensor / input_number / number entity.', H + scr('a', ['type: history, entity: binary_sensor.rain_expected, attribute: forecast, past: binary_sensor.rain_expected, window: 3h, ahead: 2h'])],
+  ['series-past-no-ahead', 'Rule: with past, ahead is shorter than the window and not 0 (the default ahead is the whole window).', H + scr('a', ['type: history, entity: binary_sensor.rain_expected, attribute: forecast, past: sensor.rain_rate, window: 3h'])],
 ];
 
 export function historySeriesVectors() {
@@ -298,6 +379,18 @@ export function historySeriesVectors() {
       widget: w('entity: sensor.rain_nowcast, attribute: forecast'), raw: { precipitation: 3 } },
   ];
   const aggs = HISTORY_AGGS as readonly HistoryAgg[];
+  // #307: past (recorder rows of `past`) + future (the attribute) in one chart, per style
+  const gauge = histRows(HNOW - 75 * MIN, HNOW - 2 * MIN, (i) => Math.max(0, 1.6 * Math.sin(i / 2)), (i) => (i === 4 ? 'unavailable' : null));
+  const bothCases: { name: string; description: string; tz: number; widget: Record<string, string | number>; rows: { s: string; lu: number }[]; raw: unknown }[] = [
+    { name: 'rain-bars', description: 'Rain: 1 h of the gauge (max per 10 min) before the bucket holding now, then 2 h of the nowcast; an unavailable row leaves its bucket empty.', tz: 60,
+      widget: w('entity: binary_sensor.rain_expected, attribute: forecast, value: precipitation, past: sensor.rain_rate, window: 3h, ahead: 2h, bucket: 10m, agg: max, style: bars, cs: 4'), rows: gauge, raw: rain },
+    { name: 'rain-line', description: 'The same as a line (mean): the forecast line starts at the last past point.', tz: 60,
+      widget: w('entity: binary_sensor.rain_expected, attribute: forecast, value: precipitation, past: sensor.rain_rate, window: 3h, ahead: 2h, bucket: 10m, style: line, cs: 4'), rows: gauge, raw: rain },
+    { name: 'rain-step', description: 'Step: the forecast starts with the upright join at the Now edge.', tz: 60,
+      widget: w('entity: binary_sensor.rain_expected, attribute: forecast, value: precipitation, past: sensor.rain_rate, window: 2h, ahead: 1h, bucket: 15m, agg: max, style: step, cs: 4'), rows: gauge, raw: rain },
+    { name: 'rain-dots-no-past', description: 'Dots without past rows (the gauge has no history): the past buckets are gaps, forecast dots hollow.', tz: 60,
+      widget: w('entity: binary_sensor.rain_expected, attribute: forecast, value: precipitation, past: sensor.rain_rate, window: 3h, ahead: 2h, bucket: 15m, agg: max, style: dots, cs: 4'), rows: [], raw: rain },
+  ];
   return {
     _doc: 'History tile series from an attribute or weather.get_forecasts (#283): emulator src/core/history.ts (historySource, historyError, historySpec, parseTime, attrSamples, fromSamples, chartSpan / axisTicks with aheadMs). Firmware: core/history.cpp, core/history_series.cpp (#292), test_core test_history_series_vectors. Times are epoch ms; tz = local UTC offset in minutes. config: like config/*.json. spec: historySpec (aheadMs and source only for these sources). parseTime: input, tz → ms or null. series: raw attribute → samples → buckets per agg, plus the span and the axis.',
     now: HNOW,
@@ -316,6 +409,79 @@ export function historySeriesVectors() {
     axis: ([['10m', '1m', '10m'], ['1h', '5m', '1h'], ['2h', '5m', '2h'], ['2h', '10m', '1h'], ['3h', '15m', '3h'], ['3h', '30m', '1h'], ['6h', '30m', '6h'], ['48h', '1h', '48h'], ['48h', '2h', '24h'], ['7d', '1d', '7d']] as [string, string, string][])
       .map(([window, bucket, ahead]) => { const s = { windowMs: parseSpan(window) as number, bucketMs: parseSpan(bucket) as number, aheadMs: parseSpan(ahead) as number };
         return { window, bucket, ahead, tz: 60, span: chartSpan(s, HNOW, 60), out: axisTicks(s, HNOW, 60, 'en') }; }),
+    // #307: past + future. pastSpec: the recorder fetch (window, n); past: rows → fromHistoryRows → bucketize(pastSpec);
+    // ahead: raw → samples → fromSamples(spec); joined: joinSeries; chart: historyChart(spec, joined) with split (x of
+    // the Now marker), bars (ahead = drawn lighter), lines (past) / aheadLines (future, joined to the last past point), dots.
+    both: bothCases.map((c) => {
+      const sp = historySpec(c.widget), ps = pastSpec(sp), past = bucketize(fromHistoryRows(c.rows), ps, HNOW, c.tz);
+      const ahead = fromSamples(attrSamples(c.raw, sp.source!, sp.bucketMs, HNOW, c.tz), sp, HNOW, c.tz), joined = joinSeries(sp, past, ahead, HNOW, c.tz);
+      const ch = historyChart(sp, joined, 'ok', HNOW, c.tz, 'en', (v) => fmtNum(v, 'mm/h'));
+      return { name: c.name, description: c.description, tz: c.tz, widget: c.widget, error: historyError(c.widget), past: sp.past, pastSpec: { entity: ps.entity, windowMs: ps.windowMs, n: ps.n },
+        rows: c.rows, raw: c.raw, pastValues: past.values, aheadValues: ahead.values, joined: joined.values,
+        chart: { split: ch.split, latest: ch.dot ? ch.dot : null, bars: ch.bars, lines: ch.lines, aheadLines: ch.aheadLines, dots: ch.dots, key: chartKey(ch, joined.values) } };
+    }),
+    joinState: (['ok', 'loading', 'none', 'tooMany', 'needsStats'] as HistState[]).flatMap((past) => (['ok', 'loading', 'none', 'tooMany'] as HistState[]).map((ahead) => ({ past, ahead, out: joinState(past, ahead) }))),
+  };
+}
+
+/** Agenda and Next tiles (#316): config rules, the get_events request, titles, answers (whole WebSocket frames, as
+ *  the firmware streams them) and the tiles' lines at several times. Firmware: core/agenda.cpp, test_agenda. */
+const ANOW = Date.UTC(2026, 9, 28, 6, 42);   // Wednesday 28 Oct 2026 07:42 CET (tz 60)
+const AGENDA_CONFIG_CASES: [string, string, string][] = [
+  ['agenda-basic', 'An agenda tile and a next tile, each with its calendars (space-separated, 1–4). Keys kept as written.', H + scr('a', ['type: agenda, entities: calendar.family calendar.work, cs: 2, rs: 2', 'type: next, entities: calendar.family, label: Up next, cs: 2'])],
+  ['agenda-no-calendar', 'Rule: at least one calendar.', H + scr('a', ['type: agenda, cs: 2, rs: 2'])],
+  ['agenda-wrong-domain', 'Rule: calendars are calendar.* entities.', H + scr('a', ['type: next, entities: calendar.family sensor.x, cs: 2'])],
+  ['agenda-five-calendars', 'Rule: at most 4 calendars per tile.', H + scr('a', ['type: agenda, entities: calendar.a calendar.b calendar.c calendar.d calendar.e, cs: 2, rs: 2'])],
+  ['agenda-five-tiles', 'Rule: at most 4 agenda or next tiles in the config; the 5th fails on its own line.', H + scr('a', ['type: agenda, entities: calendar.a, cs: 2, rs: 2', 'type: next, entities: calendar.a, cs: 2', 'type: next, entities: calendar.b, cs: 2']) + scr('b', ['type: next, entities: calendar.c, cs: 2', 'type: next, entities: calendar.d, cs: 2'])],
+];
+const ev = (start: string, end: string, summary: unknown, extra: Record<string, unknown> = {}) => ({ start, end, summary, ...extra });
+const frame = (response: unknown, success = true) => JSON.stringify({ id: 9, type: 'result', success, result: { context: { id: '01JX', parent_id: null, user_id: null }, response } });
+export function agendaVectors() {
+  const fam = 'calendar.family', two = 'calendar.family calendar.work';
+  const many = Array.from({ length: 20 }, (_, i) => ev(new Date(ANOW + ((i * 7) % 20 - 3) * 3_600_000).toISOString(), new Date(ANOW + ((i * 7) % 20 - 2) * 3_600_000).toISOString(), 'Event ' + i));
+  // hand-written: escapes, a surrogate pair, nested values inside an event, entries that are not events
+  const escaped = '{"id":9,"type":"result","success":true,"result":{"context":{"id":"x","parent_id":null,"user_id":null},"response":{' +
+    '"calendar.other":{"events":[{"start":"2026-10-28T10:00:00+01:00","end":"2026-10-28T11:00:00+01:00","summary":"Not mine"}]},' +
+    '"calendar.family":{"events":[' +
+    String.raw`{"start":"2026-10-28T09:00:00+01:00","end":"2026-10-28T10:00:00+01:00","summary":"Café \"Zoë\" \\ \/ 😀","description":"start: 1999","location":null},` +
+    '{"summary":"No start","end":"2026-10-28T10:00:00+01:00"},' +
+    '{"start":1793170800,"end":"2026-10-28T10:00:00+01:00","summary":"Number start"},' +
+    '{"start":"2026-10-28T11:00:00+01:00","end":"2026-10-28T10:00:00+01:00","summary":null,"attendees":[{"start":"2026-10-27","summary":"inner"}],"rrule":{"start":"x"}},' +
+    '"not an event",42,null,[],' +
+    String.raw`{"start":"2026-10-27","end":"2026-10-30","summary":"Holiday\nweek  ","uid":"abc"},` +
+    '{"start":"2026-10-27T22:00:00Z","end":"2026-10-28T08:15:00+01:00","summary":"Night shift"},' +
+    '{"start":"2026-10-28T12:00:00.000+01:00","summary":"  Lunch, no end  "},' +
+    '{"start":"2026-10-28","summary":"Bin day"}' +
+    ']}}}}';
+  const parses: { name: string; key: string; now: number; tz: number; frame: string }[] = [
+    { name: 'demo-two-calendars', key: two, now: ANOW, tz: 60, frame: demoAnswer(two, ANOW, 60, 9) },
+    { name: 'demo-us-evening', key: two, now: Date.UTC(2026, 9, 29, 2, 10), tz: -300, frame: demoAnswer(two, Date.UTC(2026, 9, 29, 2, 10), -300, 9) },
+    { name: 'overflow-keeps-twelve', key: fam, now: ANOW, tz: 60, frame: frame({ [fam]: { events: many } }) },
+    { name: 'escapes-and-junk', key: fam, now: ANOW, tz: 60, frame: escaped },
+    { name: 'past-and-beyond-window', key: fam, now: ANOW, tz: 60, frame: frame({ [fam]: { events: [ev('2026-10-28T06:00:00+01:00', '2026-10-28T07:00:00+01:00', 'Ended'), ev('2026-11-04T00:00:00+01:00', '2026-11-04T01:00:00+01:00', 'Next week'), ev('2026-11-03T23:30:00+01:00', '2026-11-04T00:30:00+01:00', 'Last slot')] } }) },
+    { name: 'not-success', key: fam, now: ANOW, tz: 60, frame: '{"id":9,"type":"result","success":false,"error":{"code":"not_found","message":"Service calendar.get_events not found."}}' },
+    { name: 'truncated', key: fam, now: ANOW, tz: 60, frame: frame({ [fam]: { events: [ev('2026-10-28T09:00:00+01:00', '2026-10-28T10:00:00+01:00', 'Cut')] } }).slice(0, 120) },
+  ];
+  const parsed = parses.map((c) => ({ ...c, out: parseAnswer(c.frame, c.key, c.now, c.tz) }));
+  const viewOf = (f: AgendaFetch, now: number, tz: number) => (['en', 'nl'] as const).map((lang) => ({ lang,
+    lines4: agendaLines(f, now, tz, lang, 4), lines11: agendaLines(f, now, tz, lang, 11), next: nextView(f, now, tz, lang) }));
+  const demo = parsed[0].out!, esc = parsed[3].out!;
+  const at = (min: number) => ANOW + min * 60_000;
+  return {
+    _doc: 'Agenda and Next tiles (#316): emulator src/core/agenda.ts; firmware core/agenda.cpp, test_agenda. Times are epoch ms; tz = local UTC offset in minutes. config: like config/*.json. request: eventsRequest text (exact bytes). title: cutTitle (≤ 48 UTF-8 bytes). parse: a whole WebSocket result frame → parseAnswer (null = not a successful answer); the firmware streams the same text in any chunking. views: agendaLines (4 and 11 lines) and nextView of `fetch` at `now`, en and nl.',
+    config: AGENDA_CONFIG_CASES.map(([name, description, input]) => ({ name, description, input, expect: summarize(input) })),
+    key: [{ entities: 'calendar.work calendar.family calendar.work' }, { entities: 'calendar.b  calendar.a' }].map((w) => ({ widget: w, key: agendaKey({ type: 'agenda', ...w }) })),
+    request: ([[two, ANOW, 60, 42], [fam, Date.UTC(2026, 9, 29, 2, 10), -300, 7], [fam, Date.UTC(2026, 9, 27, 23, 30), 330, 1]] as [string, number, number, number][])
+      .map(([key, now, tz, id]) => ({ key, now, tz, id, out: eventsRequest(key, now, tz, id) })),
+    title: ['Dentist', '  padded  ', 'Line\nbreak\ttab', 'x'.repeat(60), 'a'.repeat(47) + 'é and more', 'b'.repeat(46) + '😀', 'ë'.repeat(30), 'c'.repeat(47) + ' d', '', '   ']
+      .map((input) => ({ input, out: cutTitle(input) })),
+    parse: parsed,
+    views: [
+      ...[0, 47, 48, 60, 120, 400, 960, 1000].map((m) => ({ name: 'demo +' + m + ' min', fetch: demo, now: at(m), tz: 60 })),
+      ...[0, 30, 180].map((m) => ({ name: 'escapes +' + m + ' min', fetch: esc, now: at(m), tz: 60 })),
+      { name: 'empty', fetch: { events: [], more: 0 }, now: ANOW, tz: 60 },
+      { name: 'overflow', fetch: parsed[2].out!, now: ANOW, tz: 60 },
+    ].map((c) => ({ ...c, out: viewOf(c.fetch, c.now, c.tz) })),
   };
 }
 
@@ -353,6 +519,185 @@ export function routeVectors() {
   return {
     description: 'Route tile departures (spec/SCHEMA.md route, #275). `departures` [{time HH:MM, delay, cancelled, info}] wins; else `upcoming` [{planned, actual, delay, track, direction, status}] with ISO timestamps (the NS departures integration): time = local HH:MM of actual, else planned; delay = `delay`, else max(0, round(actual − planned in minutes)); cancelled = status "cancelled" (the integration\'s statuses: on_time, delayed, cancelled); info = "Track ‹track› · ‹direction›" (strings routeTrack). Timestamps without an offset are local.',
     cases: cases.flatMap((c) => (['en', 'nl'] as const).map((lang) => ({ ...c, lang, out: routeDepartures(c.attrs, c.tz, lang) }))),
+  };
+}
+
+/** Bin day tile (#317): binDays per source shape, then binsView (rows, head, big, line, foot, pill, rest) in both
+ *  languages. attrs as the HA stream keeps them (scalars as text, lists as JSON text). */
+export function binsVectors() {
+  const at = (d: number, h: number, m: number, tz: number) => Date.UTC(2026, 9, d, h, m) - tz * 60_000;   // local Oct d, h:m
+  const now = at(28, 19, 5, 60);   // Wednesday 28 October 2026, 19:05 CET
+  const days: { name: string; state: string; attrs: Record<string, string>; now: number; tz: number }[] = [
+    { name: 'date-tomorrow', state: '2026-10-29', attrs: {}, now, tz: 60 },
+    { name: 'date-today', state: '2026-10-28', attrs: {}, now, tz: 60 },
+    { name: 'date-past', state: '2026-10-27', attrs: {}, now, tz: 60 },
+    { name: 'date-past-then-upcoming', state: '2026-10-27', attrs: { upcoming: '["2026-10-27","2026-11-10"]' }, now, tz: 60 },
+    { name: 'date-dutch', state: '03-11-2026', attrs: {}, now, tz: 60 },
+    { name: 'date-dutch-bad-month', state: '03-13-2026', attrs: {}, now, tz: 60 },
+    { name: 'date-with-offset', state: '2026-10-29T00:00:00+01:00', attrs: {}, now, tz: 60 },
+    { name: 'date-utc-next-local-day', state: '2026-10-28T23:30:00Z', attrs: {}, now, tz: 60 },
+    { name: 'days-state', state: '3', attrs: {}, now, tz: 60 },
+    { name: 'days-state-zero', state: '0', attrs: {}, now, tz: 60 },
+    { name: 'days-attr', state: 'Paper in 3 days', attrs: { daysTo: '3' }, now, tz: 60 },
+    { name: 'upcoming-dates', state: 'Paper', attrs: { upcoming: '["2026-10-20","2026-11-04"]' }, now, tz: 60 },
+    { name: 'upcoming-objects', state: 'Paper', attrs: { upcoming: '[{"date":"2026-11-02","type":"Paper"}]' }, now, tz: 60 },
+    { name: 'upcoming-not-json', state: 'Paper', attrs: { upcoming: 'soon' }, now, tz: 60 },
+    { name: 'text-only', state: 'Paper', attrs: {}, now, tz: 60 },
+    { name: 'unavailable', state: 'unavailable', attrs: { daysTo: '2' }, now, tz: 60 },
+    { name: 'unknown', state: 'unknown', attrs: {}, now, tz: 60 },
+    { name: 'summer-time-late', state: '2026-09-30', attrs: {}, now: at(29, 23, 30, 120) - 30 * 86_400_000, tz: 120 },
+  ];
+  const paper = { label: 'Paper', state: '2026-10-29', attrs: {} };
+  const plastic = { label: 'Plastic', state: '6', attrs: {} };
+  const green = { label: 'Green', state: 'Green in 7 days', attrs: { daysTo: '7' } };
+  const rest = { label: 'Rest', state: '09-11-2026', attrs: {} };
+  const views: { name: string; bins: { label: string; state: string; attrs: Record<string, string> }[]; now: number; tz: number; tonight: number }[] = [
+    { name: 'evening-before', bins: [plastic, paper, green, rest], now, tz: 60, tonight: 17 },
+    { name: 'before-tonight-hour', bins: [plastic, paper, green, rest], now: at(28, 16, 59, 60), tz: 60, tonight: 17 },
+    { name: 'tonight-hour-20', bins: [plastic, paper, green], now, tz: 60, tonight: 20 },
+    { name: 'collection-day', bins: [paper, green], now: at(29, 7, 0, 60), tz: 60, tonight: 17 },
+    { name: 'tie-joins-labels', bins: [paper, { label: 'Glass', state: '1', attrs: {} }, green], now, tz: 60, tonight: 17 },
+    { name: 'single-in-days', bins: [green], now, tz: 60, tonight: 17 },
+    { name: 'unknown-left-out', bins: [{ label: 'Paper', state: 'unknown', attrs: {} }, rest], now, tz: 60, tonight: 17 },
+    { name: 'none-known', bins: [{ label: 'Paper', state: 'unavailable', attrs: {} }], now, tz: 60, tonight: 17 },
+    { name: 'tonight-zero', bins: [paper], now: at(28, 0, 0, 60), tz: 60, tonight: 0 },
+  ];
+  return {
+    description: 'Bin day tile (spec/SCHEMA.md bins, #317). days: binDays(state, attrs, now, tz) = days from the local today to the next collection, null = unknown. The first source giving a day ≥ today wins: a date state (ISO, or DD-MM-YYYY), a whole-number state (days to), attribute daysTo, attribute upcoming (JSON list of dates or {date}). unavailable / unknown → null. views: binsView(bins, now, tz, tonight, lang): rows soonest first (config order on a tie), head = labels of the soonest day joined with " + ", big = Today / Tomorrow / in N days, line = "‹when› · ‹Weekday d›" or "‹Weekday d› · put out tonight" from tonight:00 the day before, foot (1-cell) = the date or "Put out tonight", pill = Tonight / Today / "", rest = the later rows.',
+    days: days.map((c) => ({ ...c, out: binDays(c.state, c.attrs, c.now, c.tz) })),
+    views: views.flatMap((c) => (['en', 'nl'] as const).map((lang) => ({ ...c, lang, out: binsView(c.bins, c.now, c.tz, c.tonight, lang) }))),
+  };
+}
+
+/** Good morning page (#330): morningStep over a night, morningSources per config, morningView in both languages. Thu 29
+ *  Oct 2026, CET (tz 60); made-up events. */
+export function morningVectors() {
+  const tz = 60, at = (d: number, h: number, m = 0) => Date.UTC(2026, 9, d, h, m) - tz * 60_000;
+  const tick = (now: number, hour: number, o: Partial<MorningTick> = {}): MorningTick => ({ now, hour, clockKnown: true, quiet: '23-07', enabled: true, ...o });
+  const seq: { name: string; ticks: MorningTick[] }[] = [
+    { name: 'night-then-morning-then-timeout', ticks: [tick(at(28, 22), 22), tick(at(28, 23), 23), tick(at(29, 6, 59), 6), tick(at(29, 7), 7), tick(at(29, 7, 19), 7), tick(at(29, 7, 20), 7), tick(at(29, 8), 8)] },
+    { name: 'setting-off', ticks: [tick(at(28, 23), 23, { enabled: false }), tick(at(29, 7), 7, { enabled: false }), tick(at(29, 7, 1), 7, { enabled: false })] },
+    { name: 'quiet-turned-off-at-night', ticks: [tick(at(29, 2), 2), tick(at(29, 2, 1), 2, { quiet: 'off' }), tick(at(29, 7), 7, { quiet: 'off' })] },
+    { name: 'clock-unknown-waits', ticks: [tick(at(29, 1), 1), tick(at(29, 7), 7, { clockKnown: false }), tick(at(29, 7, 2), 7)] },
+    { name: 'no-night-seen', ticks: [tick(at(29, 9), 9), tick(at(29, 9, 30), 9)] },
+    { name: 'window-00-06', ticks: [tick(at(29, 0), 0, { quiet: '00-06' }), tick(at(29, 6), 6, { quiet: '00-06' })] },
+  ];
+  const steps = seq.map((c) => {
+    let s: MorningState = MORNING_IDLE;
+    return { name: c.name, ticks: c.ticks.map((t) => { const o = morningStep(s, t); s = { armed: o.armed, until: o.until }; return { tick: t, out: o }; }) };
+  });
+  const w = (type: string, extra: Record<string, string> = {}) => ({ type, ...extra });
+  const sources = [
+    { name: 'all-three', screens: [{ widgets: [w('clock'), w('bins', { entities: 'sensor.paper sensor.plastic' })] }, { widgets: [w('weather', { entity: 'weather.home' }), w('agenda', { entities: 'calendar.family' })] }] },
+    { name: 'next-tile-counts', screens: [{ widgets: [w('next', { entities: 'calendar.work' }), w('agenda', { entities: 'calendar.family' })] }] },
+    { name: 'empty-ones-skipped', screens: [{ widgets: [w('weather'), w('agenda'), w('bins'), w('weather', { entity: 'weather.b' }), w('bins', { entities: 'sensor.x' })] }] },
+    { name: 'none', screens: [{ widgets: [w('clock'), w('stat', { entity: 'sensor.t' })] }] },
+  ].map((c) => ({ ...c, out: morningSources(c.screens) }));
+  const H = 3_600_000, now = at(29, 7, 5);
+  const daily = [{ t: Date.UTC(2026, 9, 29, 11), icon: 'partly', temp: 13.4, low: 5.6, mm: 1.2 }, { t: Date.UTC(2026, 9, 30, 11), icon: 'rain', temp: 10, low: 6, mm: 8 }];
+  const hourly = Array.from({ length: 16 }, (_, k) => ({ t: Date.UTC(2026, 9, 29, 6) + k * H, icon: k === 1 || k === 2 ? 'rain' : 'cloud', temp: 8 + k / 2, low: null, mm: k === 1 ? 0.6 : k === 2 ? 0.2 : 0 }));
+  const ev = (start: number, end: number, title: string, allDay = false) => ({ start, end, allDay, cal: 0, title });
+  const events = { events: [
+    ev(at(28, 22), at(29, 7, 30), 'Night shift'), ev(at(29, 0), at(30, 0), 'Bin day', true), ev(at(29, 8, 30), at(29, 9, 15), 'Dentist'),
+    ev(at(29, 12), at(29, 13), 'Lunch with Sam'), ev(at(29, 15), at(29, 16), ''), ev(at(29, 19, 30), at(29, 21), 'Book club'),
+    ev(at(30, 9), at(30, 10), 'Plumber') ], more: 0 };
+  const bins = [{ label: 'Paper', days: 0 }, { label: 'Plastic', days: 1 }, { label: 'Glass', days: 0 }, { label: 'Green', days: 6 }, { label: 'Rest', days: null }];
+  const views = [
+    { name: 'full', now, daily, hourly, events, bins },
+    { name: 'weather-only', now, daily, hourly, events: null, bins: null },
+    { name: 'rain-now', now: at(29, 8, 10), daily, hourly, events: null, bins: null },
+    { name: 'no-low-dry', now, daily: [{ ...daily[0], low: null }], hourly: hourly.map((e) => ({ ...e, mm: 0, icon: 'cloud' })), events: null, bins: null },
+    { name: 'rain-only-tomorrow', now: at(29, 18), daily: daily.slice(1), hourly: hourly.map((e, k) => ({ ...e, t: at(29, 18) + k * H, mm: k === 8 ? 1 : 0 })), events: null, bins: null },
+    { name: 'no-forecast-yet', now, daily: null, hourly: null, events: { events: [], more: 0 }, bins: [{ label: 'Green', days: 6 }] },
+    { name: 'events-short', now, daily: null, hourly: null, events: { events: events.events.slice(2, 4), more: 3 }, bins: [{ label: 'Paper', days: 1 }] },
+  ];
+  return {
+    description: 'Good morning page (#330, emulator src/core/morning.ts). steps: morningStep(state, tick) from {armed:false,until:0}, each tick feeding the previous out; clock unknown = no change; inside the quiet window = armed, until 0 (end when it was up); outside and armed = disarmed and, setting on and quiet not off, until = now + morningMs (start); until reached = 0 (end). sources: morningSources(screens) = [screen, widget] of the first weather tile with an entity, agenda/next tile with calendars, bins tile with sensors. views: morningView(in) per language (wx entries as kept: t epoch ms, temp/low/mm or null, icon name; events as kept, sorted).',
+    morningMs: MORNING_MS, maxEvents: MORNING_EVENTS, steps, sources,
+    views: views.flatMap((c) => (['en', 'nl'] as const).map((lang) => ({ ...c, tz, lang, out: morningView({ ...c, tz, lang } as Parameters<typeof morningView>[0]) }))),
+  };
+}
+
+/** Guest Wi-Fi tile (#329): WIFI: payload escaping, the screens.yaml field codec, the tile states, the QR modules
+ *  (qrcodegen: byte mode, ECC M, version 1–6, automatic mask, no ECC boost) and the tile geometry. Made-up networks. */
+export function guestWifiVectors() {
+  const payloads: [string, string, string, boolean][] = [
+    ['Harbor Guest', 'tea, please', 'WPA', false], ['Lobby', '', 'nopass', true], ['Attic', 'abcde', 'WEP', true],
+    ['a\\b;c,d:e"f', 'p;a:ss\\', 'WPA', false], ['Café Gäste', 'wäsche-42', 'WPA', false],
+  ];
+  const fields = ['plain', 'with, comma', ' lead', 'trail ', '100%', '{brace}', '00123456', '12345678', 'Café', 'a:b#c"d', 'tab\tin', ''];
+  const views: [string, Record<string, string | number>, string | null][] = [
+    ['empty', {}, null], ['no-password', { ssid: 'Harbor Guest' }, null], ['open', { ssid: 'Lobby', security: 'nopass', hidden: 'true' }, null],
+    ['wpa', { ssid: 'Harbor Guest', password: 'tea%2C please' }, null], ['wep-hidden', { ssid: 'Attic', password: '%3012345678', security: 'WEP', hidden: 'true' }, null],
+    ['bad-security-is-wpa', { ssid: 'Harbor Guest', password: 'x', security: 'WPA3' }, null],
+    ['entity-overrides', { ssid: 'Harbor Guest', password: 'old', password_entity: 'input_text.guest_password' }, 'otter-42'],
+    ['entity-unavailable', { ssid: 'Harbor Guest', password: 'old', password_entity: 'input_text.guest_password' }, 'unavailable'],
+    ['entity-unknown', { ssid: 'Harbor Guest', password_entity: 'input_text.guest_password' }, 'unknown'],
+    ['entity-missing', { ssid: 'Harbor Guest', password_entity: 'input_text.guest_password' }, null],
+    ['open-ignores-entity', { ssid: 'Lobby', security: 'nopass', password_entity: 'input_text.guest_password' }, null],
+    ['fits-version-6', { ssid: 'Harbor Guest', password: 'x'.repeat(76) }, null], ['too-long', { ssid: 'Harbor Guest', password: 'x'.repeat(90) }, null],
+  ];
+  const texts = ['WIFI:T:nopass;S:A;;', 'WIFI:T:WPA;S:Harbor Guest;P:tea\\, please;;', 'WIFI:T:WEP;S:Attic;P:0123456789;H:true;;',
+    'WIFI:T:WPA;S:Café Gäste;P:wäsche-42;;', 'WIFI:T:WPA;S:Harbor Guest;P:' + 'k'.repeat(50) + ';;', 'x'.repeat(106), 'x'.repeat(107), '12345', 'HELLO WORLD'];
+  const tiles: [number, number, number, number][] = [[380, 394, 2, 2], [380, 191, 2, 1], [184, 191, 1, 1], [184, 394, 1, 2], [772, 394, 4, 2], [772, 191, 4, 1], [384, 398, 2, 2], [384, 194, 2, 1]];
+  return {
+    description: 'Guest Wi-Fi tile (spec/SCHEMA.md guestWifi, #329). payload: guestPayload(ssid, password, security, hidden) = WIFI:T:<sec>;S:<ssid>;P:<pw>;H:true;; with \\ ; , : " backslash-escaped, no P for nopass, H only when hidden. fields: fieldEncode(value) and fieldDecode back. views: guestView(widget, pwState) (pwState null = the entity has no state). qr: guestQr(text) rows, "1" = dark, null = too long for version 6. layout: guestLayout(w, h, cs, rs, n) for n = 21..41 modules and 0 (no code).',
+    payload: payloads.map(([ssid, password, security, hidden]) => ({ ssid, password, security, hidden, out: guestPayload(ssid, password, security, hidden) })),
+    fields: fields.map((value) => ({ value, encoded: fieldEncode(value) })),
+    decode: ['%zz%4', '%41%2c', '%C3%A9', 'a%', 'a%00b'].map((v) => ({ value: v, out: fieldDecode(v) })),
+    views: views.map(([name, w, pw]) => ({ name, w, pwState: pw, out: guestView(w, pw ?? undefined) })),
+    qr: texts.map((text) => { const m = guestQr(text); return { text, size: m ? m.length : 0, rows: m ? m.map((r) => r.join('')) : null }; }),
+    layout: tiles.flatMap(([w, h, cs, rs]) => [0, 21, 25, 29, 33, 37, 41].map((n) => ({ w, h, cs, rs, n, out: guestLayout(w, h, cs, rs, n) }))),
+  };
+}
+
+export function quietTomorrowVectors() {
+  const at = (d: number, h: number, m: number, tz = 60) => Date.UTC(2026, 9, d, h, m) - tz * 60_000;   // local Oct d, h:m (CET)
+  const HOUR = 3_600_000;
+  const wx = (t: number, icon: WxEntry['icon'], temp: number | null, low: number | null, mm: number | null): WxEntry => ({ t, icon, temp, low, mm });
+  // daily at local midnight (as met.no at 23:00 UTC), Wed 28 … Sat 31
+  const daily = [wx(at(28, 0, 0), 'cloud', 13, 7, 0), wx(at(29, 0, 0), 'rain', 11.6, 4.4, 3.2), wx(at(30, 0, 0), 'sun', 14, 5, 0), wx(at(31, 0, 0), 'partly', 12, null, 0)];
+  // hourly from 23:00 Wed, 16 h; wet at 08:00 and 09:00 Thu
+  const hourly = Array.from({ length: 16 }, (_, k) => wx(at(28, 23, 0) + k * HOUR, k === 9 || k === 10 ? 'rain' : 'cloud', 8 - k * 0.2, null, k === 9 ? 0.4 : k === 10 ? 1.2 : 0));
+  const ev = (start: number, end: number, allDay: boolean, title: string, cal = 0): CalEvent => ({ start, end, allDay, cal, title });
+  const events = [ev(at(28, 19, 0), at(28, 23, 30), false, 'Dinner'), ev(at(29, 0, 0), at(30, 0, 0), true, 'Birthday Sam', 1), ev(at(29, 8, 30), at(29, 9, 15), false, 'Dentist'),
+    ev(at(29, 14, 0), at(29, 15, 0), false, 'Call')];
+  const bins = [{ label: 'Plastic', days: 1 }, { label: 'Green', days: 3 }, { label: 'Paper', days: 1 }, { label: 'Rest', days: null }];
+  const base: Omit<QuietIn, 'lang'> = { now: at(28, 23, 5), tz: 60, endHour: 7, daily, hourly, events, bins, tonight: 17 };
+  const cases: { name: string; description: string; in: Omit<QuietIn, 'lang'> }[] = [
+    { name: 'all', description: '23:05 Wed, window to 07:00: Thursday. Weather 12° / 4° with rain from 08:00, the first timed event (not the all-day one), two bins put out tonight; Green (3 days) and Rest (unknown) left out.', in: base },
+    { name: 'none', description: 'No weather, agenda or bins tile: no row.', in: { ...base, daily: null, hourly: null, events: null, bins: null } },
+    { name: 'after-midnight', description: '03:00 Thu (booted in the window): the day is today. Rain in the hour holding now is not over: from 03:00; bins collected today.',
+      in: { ...base, now: at(29, 3, 0), hourly: Array.from({ length: 16 }, (_, k) => wx(at(29, 2, 0) + k * HOUR, 'cloud', 6, null, k === 1 ? 0.2 : 0)), bins: [{ label: 'Paper', days: 0 }] } },
+    { name: 'before-tonight-hour', description: 'Window 22-06 at 22:00 with tonight at 23: "collected tomorrow"; a dry hourly forecast: no rain text.',
+      in: { ...base, now: at(28, 22, 0), endHour: 6, tonight: 23, hourly: hourly.map((e) => ({ ...e, mm: 0, icon: 'cloud' as const })) } },
+    { name: 'all-day-only', description: 'Only an all-day event and an untitled timed event on another day: "all day", the title.', in: { ...base, events: [events[0], events[1], ev(at(30, 9, 0), at(30, 10, 0), false, '')] } },
+    { name: 'untitled', description: 'An untitled timed event: Busy.', in: { ...base, events: [ev(at(29, 7, 45), at(29, 8, 0), false, '')] } },
+    { name: 'no-low-no-hourly', description: 'Saturday from 23:05 Fri: a daily entry without a low shows the high only; no hourly list: no rain text; no event on Saturday; the bins (days 1 from Friday) are put out tonight.',
+      in: { ...base, now: at(30, 23, 5), daily: [daily[3]], hourly: null } },
+    { name: 'no-entry-for-the-day', description: 'The daily list stops before Thursday and its high is absent on Thursday: weather left out.',
+      in: { ...base, daily: [daily[0], wx(at(29, 0, 0), 'rain', null, 3, 1)] } },
+    { name: 'mm-absent-wet-by-drawing', description: 'Hourly entries without precipitation: wet by drawing (snow at 06:00).',
+      in: { ...base, hourly: hourly.map((e, k) => ({ ...e, mm: null, icon: k === 7 ? 'snow' as const : 'cloud' as const })) } },
+    { name: 'today-glance', description: 'Glance sleep face (#356): endHour TODAY_END (24) at 13:00 Thu = today. The rain at 08:00 / 09:00 is over (no text); Dentist (08:30–09:15) is over: Call at 14:00; Paper collected today.',
+      in: { ...base, now: at(29, 13, 0), endHour: TODAY_END, bins: [{ label: 'Paper', days: 0 }, { label: 'Green', days: 1 }] } },
+    { name: 'today-all-over', description: 'At 23:30 Thu with endHour 24 (quiet hours off): the timed events are over, the all-day one is not: "all day", Birthday Sam.',
+      in: { ...base, now: at(29, 23, 30), endHour: TODAY_END, hourly: null, bins: null } },
+    { name: 'utc-minus-5', description: 'tz -300 at 23:05 local on the 28th: Thursday local; the daily entries at 05:00 UTC.',
+      in: { ...base, tz: -300, now: at(28, 23, 5, -300), daily: daily.map((e) => ({ ...e, t: e.t + 6 * HOUR })), hourly: null, events: [ev(at(29, 8, 30, -300), at(29, 9, 0, -300), false, 'School run')] } },
+  ];
+  const W = (type: string, f: Record<string, unknown> = {}) => ({ type, ...f });
+  const sources = [
+    { name: 'spread over pages', description: 'The first tile of each kind in screen then widget order.', screens: [{ widgets: [W('clock'), W('price'), W('stat', { entity: 'sensor.x' })] },
+      { widgets: [W('next', { entities: 'calendar.work' }), W('weather', { entity: 'weather.home', cs: 4 })] }, { widgets: [W('bins', { entities: 'sensor.paper sensor.plastic' }), W('agenda', { entities: 'calendar.family' }), W('weather', { entity: 'weather.other', cs: 4 })] }] },
+    { name: 'empty picks skipped', description: 'A weather tile without an entity, an agenda without calendars, a bins tile without sensors do not count.',
+      screens: [{ widgets: [W('weather', { entity: '' }), W('agenda'), W('bins', { entities: ' ' }), W('bins', { entities: 'sensor.paper' })] }] },
+    { name: 'none', description: 'No such tiles.', screens: [{ widgets: [W('clock'), W('stat', { entity: 'sensor.x' })] }, { widgets: [] }] },
+  ];
+  return {
+    _doc: 'Quiet face "Tomorrow" row (#328): emulator src/core/quiet.ts (quietSources, quietTomorrow), firmware core/tomorrow.h (test_core test_quiet_tomorrow_vectors). sources: the config\'s screens → [screen, widget] of the first weather / agenda-or-next / bins tile with a pick, null = none. items: the row from what the device keeps (no fetch): times epoch ms, tz = local UTC offset in minutes, endHour = the window\'s end hour (24 = always today, the glance sleep face #356), events not over (end > now), daily / hourly = kept forecast entries (weather.json entries), events = kept agenda events (agenda.ts CalEvent), bins = {label, days to the next collection or null}, tonight = the bins tile\'s hour; null = no source. out.head = Tomorrow / Today / \'\', out.items = [{kind, icon, bold, text}] in the order weather, event, bins.',
+    sources: sources.map((c) => ({ ...c, out: quietSources(c.screens) })),
+    items: cases.flatMap((c) => (['en', 'nl'] as const).map((lang) => ({ ...c, lang, out: quietTomorrow({ ...c.in, lang }) }))),
   };
 }
 
@@ -399,6 +744,26 @@ export function batteryVectors() {
       for (const o of c.ops) { const r = battStep(st, o); st = r.s; if (r.log) log.push(r.log); }
       return { name: c.name, ops: c.ops, log, battery: battHistory(st) };
     }),
+  };
+}
+
+/** Gauge filter (#327): reads in order from GAUGE_ZERO (power-on); each read gives the state after it. */
+export function gaugeFilterVectors() {
+  const c = (name: string, reads: [number, boolean][]) => {
+    let s = GAUGE_ZERO;
+    return { name, reads: reads.map(([raw, charging]) => { s = gaugeStep(s, raw, charging); return { raw, charging, shown: s.shown, rise: s.rise }; }) };
+  };
+  return {
+    description: 'Gauge filter (#327, emulator src/core/battery.ts gaugeStep, firmware core/gauge_filter.cpp). From power-on (shown -1), each read {raw % (< 0 = not read), charging = STAT or USB host} gives shown (the % reported everywhere) and rise (reads in a row ≥ ' + GAUGE_RISE_PTS + ' points above shown). Without a charger the shown % never rises, unless ' + GAUGE_RISE_READS + ' reads in a row are ≥ ' + GAUGE_RISE_PTS + ' points above it; falls pass at once; charging follows the gauge.',
+    cases: [
+      c('first read is shown as is', [[92, false]]),
+      c('rest rebound after a night asleep is held (beta.4: 92 → 94)', [[92, false], [94, false], [94, false], [93, false], [92, false], [91, false]]),
+      c('falls pass at once, small rises never', [[80, false], [78, false], [79, false], [79, false], [79, false], [77, false]]),
+      c('charging follows the gauge both ways; unplugged it holds again', [[50, false], [52, true], [51, true], [60, true], [62, false], [61, false]]),
+      c('a charge the board did not see: 3 reads in a row ≥ 5 points up', [[40, false], [80, false], [80, false], [81, false], [82, false]]),
+      c('a read below the confirm level restarts the count', [[40, false], [80, false], [80, false], [44, false], [80, false], [80, false], [80, false]]),
+      c('not read keeps the state, also before the first read', [[-1, false], [70, false], [-1, false], [90, false], [-1, false], [90, false], [90, false]]),
+    ],
   };
 }
 
@@ -484,6 +849,43 @@ export function sceneActionVectors() {
     ['an entity wins over scene: all_off', { type: 'scene', scene: 'all_off', entity: 'scene.movie_night' }],
   ];
   return { description: 'Scene tile tap (#146, spec/SCHEMA.md scene): the widget and the HA service call it makes.', cases: cases.map(([name, w]) => ({ name, widget: w, ...sceneAction(w) })) };
+}
+
+/** Now playing tile (#319, core media.ts): favorites parsing, the HA call per tap target, what the tile shows from the
+ *  player (attributes as the firmware keeps them: text), and what fits a cs × rs tile. */
+export function mediaVectors() {
+  const w = { type: 'media', entity: 'media_player.living_room', favorites: 'Radio 1=music:http://icecast.omroep.nl/radio1-bb-mp3; Jazz=playlist:spotify:playlist:37i9dQ; Bedtime=script.good_night; Movie=scene.movie_night' };
+  const fav = ['', 'Radio 1=music:http://x', ' A = music:1 ;; B=scene.b ', 'Spotify=playlist:spotify:playlist:37i9', 'Bad', '=music:1', 'X=music:', 'X=:id', 'X=light.kitchen', 'X=Music:1', 'X=audio/mpeg:http://x/a.mp3'];
+  const taps: [MediaTarget, number][] = [['prev', 0], ['play', 0], ['next', 0], ['down', 0], ['up', 0], ['fav', 0], ['fav', 1], ['fav', 2], ['fav', 3], ['fav', 4], ['set', 75], ['set', 0], ['set', 100], ['set', 7], ['set', 140], ['set', -3]];
+  const views: [string, string | null, Record<string, string>][] = [
+    ['playing with title, artist, volume', 'playing', { media_title: 'Evening Radio Hour', media_artist: 'Local station · live', volume_level: '0.32' }],
+    ['paused keeps the title', 'paused', { media_title: 'So What', media_artist: 'Miles Davis', volume_level: '1' }],
+    ['buffering', 'buffering', { media_title: 'Clair de lune' }],
+    ['idle without title', 'idle', { volume_level: '0.005' }],
+    ['standby counts as idle', 'standby', {}],
+    ['on counts as idle', 'on', { media_title: 'TV' }],
+    ['off drops title and artist', 'off', { media_title: 'Old', media_artist: 'Stale', volume_level: '0.5' }],
+    ['unavailable', 'unavailable', {}],
+    ['unknown', 'unknown', {}],
+    ['not in HA yet', null, {}],
+    ['volume out of range or text is no volume', 'playing', { media_title: ' Spaced ', volume_level: '1.5' }],
+    ['volume text', 'playing', { volume_level: 'loud' }],
+    ['VOLUME_SET in supported_features: the slider', 'playing', { volume_level: '0.32', supported_features: '152511' }],
+    ['VOLUME_STEP without VOLUME_SET: − / +', 'playing', { volume_level: '0.32', supported_features: '1024' }],
+    ['VOLUME_SET only', 'paused', { supported_features: '4' }],
+    ['supported_features not a number', 'playing', { supported_features: 'all' }],
+    ['supported_features negative', 'playing', { supported_features: '-4' }],
+  ];
+  const bars: [number, number, number][] = [[200, 200, 160], [320, 200, 160], [280, 200, 160], [150, 200, 160], [400, 200, 160], [281, 200, 160], [279, 200, 160], [50, 0, 0]];
+  const layouts: [number, number, number][] = [[1, 1, 0], [1, 1, 3], [2, 1, 0], [2, 1, 6], [4, 1, 6], [2, 2, 3], [2, 2, 6], [1, 2, 6], [4, 2, 6], [3, 2, 2]];
+  return {
+    description: 'Now playing tile (#319, spec/SCHEMA.md media). favorites: items of the favorites value (bad = rejected item). actions: the HA call per tap (fav = index into the valid favorites, or the volume % for set; null = none). views: what the tile shows from the state + attributes (text, like the firmware store; slider = VOLUME_SET in supported_features, #351). layouts: what fits cs × rs with n favorites. volumeAt: the slider level (%) of a tap / drag end at x on a bar from bx, bw wide (#351).',
+    favorites: fav.map((v) => ({ value: v, items: parseFavorites(v) })),
+    actions: taps.map(([t, i]) => ({ widget: w, target: t, fav: i, call: mediaAction(w, t, i) })),
+    views: views.map(([name, state, attrs]) => ({ name, state, attrs, view: mediaView(state, attrs) })),
+    layouts: layouts.map(([cs, rs, n]) => ({ cs, rs, n, layout: mediaLayout(cs, rs, n) })),
+    volumeAt: bars.map(([x, bx, bw]) => ({ x, bx, bw, level: volumeAt(x, bx, bw) })),
+  };
 }
 
 /** Stat tile source of a raw HA entity (#161): state + unit the tile formats. Attribute values as the firmware keeps
@@ -803,8 +1205,12 @@ if (process.argv[1] && process.argv[1].endsWith('gen-vectors.ts')) {
   for (const v of configVectors()) writeFileSync(join(dir, v.name + '.json'), JSON.stringify(v, null, 2) + '\n');
   writeFileSync(join(OUT, 'severity.json'), JSON.stringify(severityVectors(), null, 2) + '\n');
   writeFileSync(join(OUT, 'route-departures.json'), JSON.stringify(routeVectors(), null, 2) + '\n');
+  writeFileSync(join(OUT, 'bins.json'), JSON.stringify(binsVectors(), null, 2) + '\n');
+  writeFileSync(join(OUT, 'morning.json'), JSON.stringify(morningVectors(), null, 2) + '\n');
+  writeFileSync(join(OUT, 'guest-wifi.json'), JSON.stringify(guestWifiVectors(), null, 2) + '\n');
   writeFileSync(join(OUT, 'diag.json'), JSON.stringify(diagVectors(), null, 2) + '\n');
   writeFileSync(join(OUT, 'battery-history.json'), compactJson(batteryVectors()));
+  writeFileSync(join(OUT, 'gauge-filter.json'), compactJson(gaugeFilterVectors()));
   writeFileSync(join(OUT, 'logs.json'), JSON.stringify(logsVectors(), null, 2) + '\n');
   writeFileSync(join(OUT, 'seed.json'), JSON.stringify(seedVectors(), null, 2) + '\n');
   writeFileSync(join(OUT, 'energy-prefs.json'), JSON.stringify(energyPrefsVectors(), null, 2) + '\n');
@@ -813,10 +1219,15 @@ if (process.argv[1] && process.argv[1].endsWith('gen-vectors.ts')) {
   writeFileSync(join(OUT, 'list-pick.json'), JSON.stringify(listPickVectors(), null, 2) + '\n');
   writeFileSync(join(OUT, 'stat-raw.json'), JSON.stringify(statRawVectors(), null, 2) + '\n');
   writeFileSync(join(OUT, 'scene-action.json'), JSON.stringify(sceneActionVectors(), null, 2) + '\n');
+  writeFileSync(join(OUT, 'media.json'), JSON.stringify(mediaVectors(), null, 2) + '\n');
   writeFileSync(join(OUT, 'strings.json'), JSON.stringify(stringsVectors(), null, 2) + '\n');
   writeFileSync(join(OUT, 'locale.json'), JSON.stringify(localeVectors(), null, 2) + '\n');
   writeFileSync(join(OUT, 'history.json'), compactJson(historyVectors()));
   writeFileSync(join(OUT, 'history-series.json'), compactJson(historySeriesVectors()));
+  writeFileSync(join(ROOT, 'firmware', 'assets', 'weather-icons.json'), JSON.stringify({ _doc: 'GENERATED by emulator npm run vectors from src/core/weatherArt.ts (#318); firmware tools/icongen.py rasterises it.', grid: WX_GRID, heroStroke: WX_HERO_STROKE, icons: WX_ICONS.map((k) => ({ name: k, layers: WX_ART[k] })) }, null, 2) + '\n');
+  writeFileSync(join(OUT, 'weather.json'), JSON.stringify(weatherVectors(), null, 2) + '\n');
+  writeFileSync(join(OUT, 'agenda.json'), compactJson(agendaVectors()));
+  writeFileSync(join(OUT, 'quiet-tomorrow.json'), JSON.stringify(quietTomorrowVectors(), null, 1) + '\n');
   writeFileSync(join(OUT, 'ota-status.json'), JSON.stringify(otaStatusVectors(), null, 2) + '\n');
   writeFileSync(STRINGS_HEADER, stringsHeader());
   console.log('wrote ' + CONFIG_CASES.length + ' config vectors + severity.json to ' + OUT);

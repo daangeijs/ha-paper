@@ -1,5 +1,5 @@
 {
-  "description": "Quiet hours (#295, replaces night mode and the Sleep-at-night power mode). steps/default: the setting's choices. inWindow(hour, window): the window wraps midnight, off never. backAt(window, clock): the quiet face's \"Back at {}\" time, 12 h like the clock (no AM/PM), '' when off. tiles(types): the Home page widgets the quiet face shows: the first 3 of stat, gauge, price, thermo, in order. peekOnBoot(wake): a boot inside the window opens on the dashboard for 60 s unless a timer woke it. Emulator src/core/quiet.ts, firmware src/core/logic.h. The power decision is in power/07-quiet-end.json, the redraw rules in refresh.json, the light in frontlight.json, the settings migration in migrations/07-settings-quiet-hours.json.",
+  "description": "Quiet hours (#295, replaces night mode and the Sleep-at-night power mode). steps/default: the setting's choices. inWindow(hour, window): the window wraps midnight, off never. backAt(window, clock): the quiet face's \"Back at {}\" time, 12 h like the clock (no AM/PM), '' when off. The face's Tomorrow row (#328): quiet-tomorrow.json. peekOnBoot(wake): a boot inside the window opens on the dashboard for 60 s unless a timer woke it. Emulator src/core/quiet.ts, firmware src/core/logic.h. The power decision is in power/07-quiet-end.json, the redraw rules in refresh.json, the light in frontlight.json, the settings migration in migrations/07-settings-quiet-hours.json.",
   "steps": ["off", "22-06", "23-07", "00-06"],
   "default": "23-07",
   "peekMs": 60000,
@@ -21,12 +21,6 @@
     {"window": "20-00", "clock": "12", "expect": "12:00"},
     {"window": "20-00", "clock": "24", "expect": "00:00"},
     {"window": "off", "clock": "24", "expect": ""}
-  ],
-  "tiles": [
-    {"name": "default Home page", "types": ["clock", "price", "stat", "stat", "stat", "gauge", "stat"], "expect": [1, 2, 3]},
-    {"name": "lists, charts and switches are skipped", "types": ["lightList", "bars", "switch", "thermo", "gauge"], "expect": [3, 4]},
-    {"name": "only a clock", "types": ["clock"], "expect": []},
-    {"name": "empty page", "types": [], "expect": []}
   ],
   "peekOnBoot": [
     {"wake": "cold", "expect": true},

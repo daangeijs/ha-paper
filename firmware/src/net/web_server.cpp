@@ -34,6 +34,7 @@
 #include "net/time_sync.h"
 #include "net/util.h"
 #include "net/web_fallback.h"
+#include "net/www_ota.h"
 #include "core/entity_map.h"
 #include "core/ha_address.h"
 #include "core/input_spec.h"
@@ -345,6 +346,15 @@ void otaToJson(JsonObject o) {
   if (err) o["error"] = err;
   else o["error"] = nullptr;
   o["progress"] = st.otaProgressPct;   // extension
+  const WwwInfo w = wwwInfo();          // #350: the web console on the www partition
+  JsonObject wo = o["www"].to<JsonObject>();
+  if (w.version.empty()) wo["version"] = nullptr;
+  else wo["version"] = w.version;
+  if (w.sha256.empty()) wo["sha256"] = nullptr;
+  else wo["sha256"] = w.sha256;
+  wo["current"] = w.current;
+  wo["state"] = w.state;
+  wo["message"] = w.message;
   o["repo"] = otaRepo();               // extension ("" = not configured in this build)
 }
 
@@ -1239,7 +1249,8 @@ struct UploadState {   // POD: freed by the server with free()
   char manifest[1024];  // multipart part "manifest.json" ({version, sha256, size, notes}); never written to flash
 };
 
-bool isUpload(AsyncWebServerRequest* r) { return r->url() == "/api/v1/ota/upload"; }
+bool isWwwUpload(AsyncWebServerRequest* r) { return r->url() == "/api/v1/ota/upload-www"; }
+bool isUpload(AsyncWebServerRequest* r) { return r->url() == "/api/v1/ota/upload" || isWwwUpload(r); }
 
 class ApiHandler : public AsyncWebHandler {
  public:
@@ -1247,6 +1258,7 @@ class ApiHandler : public AsyncWebHandler {
   bool isRequestHandlerTrivial() const override { return false; }
 
   void handleBody(AsyncWebServerRequest* r, uint8_t* data, size_t len, size_t index, size_t total) override {
+    if (isWwwUpload(r)) return wwwChunk(r, data, len, index, total);
     if (isUpload(r)) return uploadChunk(r, data, len, index, total, index + len >= total);
     if (total > kMaxBody) return;   // handleRequest answers 413
     if (index == 0 && !r->_tempObject) {   // freed by the request with free(): PSRAM if there is any (#160)
@@ -1258,6 +1270,14 @@ class ApiHandler : public AsyncWebHandler {
 
   void handleUpload(AsyncWebServerRequest* r, const String& filename, size_t index, uint8_t* data, size_t len, bool final) override {
     if (!isUpload(r)) return;
+    if (isWwwUpload(r)) {   // raw body only: the image size must be known up front (core/www_image checkTarget)
+      UploadState* s = state(r);
+      if (s && !s->failed && !s->started) {
+        s->failed = true;
+        snprintf(s->err, sizeof s->err, "415:send www.bin as the raw body (Content-Type: application/octet-stream)");
+      }
+      return;
+    }
     // multipart: the manifest part must not end up in the image (it used to be appended to firmware.bin → 422)
     if (filename.endsWith(".json")) {
       UploadState* s = state(r);
@@ -1325,6 +1345,73 @@ class ApiHandler : public AsyncWebHandler {
       snprintf(s->err, sizeof s->err, "500:flash write failed");
     }
     (void)final;
+  }
+
+  // POST /ota/upload-www (#350): www.bin straight into the www partition; sha256 required (a bad image takes the
+  // console offline until a good one is written, so nothing unverified counts as done).
+  static void wwwChunk(AsyncWebServerRequest* r, uint8_t* data, size_t len, size_t index, size_t total) {
+    UploadState* s = state(r);
+    if (!s || s->failed) return;
+    if (index == 0) {
+      AuthResult a = auth().check(clientIp(r), bearerOf(r), cookieOf(r, Auth::kCookie), Scope::Write);
+      if (a.code == 0 && a.viaSession && !sessionWriteOk(r)) {
+        a.code = 403;
+        a.error = kCrossOrigin;
+      }
+      if (a.code) {
+        s->failed = true;
+        snprintf(s->err, sizeof s->err, "%d:%s", a.code, a.error.c_str());
+        return;
+      }
+      s->authed = true;
+      std::string sha = header(r, "X-SHA256");
+      if (r->hasParam("sha256")) sha = str(r->arg("sha256"));
+      if (sha.size() != 64) {
+        s->failed = true;
+        snprintf(s->err, sizeof s->err, "400:sha256 of www.bin required (?sha256= or X-SHA256)");
+        return;
+      }
+      std::string err;
+      if (int code = wwwWriteBegin(total, err)) {
+        s->failed = true;
+        snprintf(s->err, sizeof s->err, "%d:%s", code, err.c_str());
+        return;
+      }
+      s->started = true;
+    }
+    std::string err;
+    if (!wwwWriteChunk(data, len, &err)) {
+      s->failed = true;
+      snprintf(s->err, sizeof s->err, "500:%s", err.c_str());
+      wwwWriteAbort(err.c_str());
+    }
+  }
+
+  static void finishWwwUpload(AsyncWebServerRequest* r) {
+    UploadState* s = static_cast<UploadState*>(r->_tempObject);
+    if (!s) {
+      if (!authorize(r, Scope::Write)) return;
+      return sendError(r, 400, "send www.bin as the request body (application/octet-stream)");
+    }
+    if (s->failed) {
+      if (s->started) wwwWriteAbort("upload failed");
+      int code = atoi(s->err);
+      const char* msg = strchr(s->err, ':');
+      return sendError(r, code ? code : 500, msg ? msg + 1 : "upload failed");
+    }
+    if (!s->started) return sendError(r, 400, "no www.bin in the upload");
+    std::string sha = header(r, "X-SHA256");
+    if (r->hasParam("sha256")) sha = str(r->arg("sha256"));
+    std::string err, digest;
+    if (!wwwWriteEnd(sha, err, &digest)) return sendError(r, 422, err);
+    const WwwInfo w = wwwInfo();
+    JsonDocument d;
+    d["status"] = "written";
+    if (w.version.empty()) d["version"] = nullptr;
+    else d["version"] = w.version;
+    d["sha256"] = digest;
+    d["current"] = w.current;
+    sendJsonDoc(r, 200, d);
   }
 
   static void finishUpload(AsyncWebServerRequest* r) {
@@ -1496,6 +1583,7 @@ class ApiHandler : public AsyncWebHandler {
       return otaCheckReq(r);
     }
     if (path == "/api/v1/ota/upload" && POST) return finishUpload(r);
+    if (path == "/api/v1/ota/upload-www" && POST) return finishWwwUpload(r);
     if (path == "/api/v1/diagnostics" && GET) {
       if (!authorize(r, Scope::Read)) return;
       return sendJson(r, 200, diagReportJson());
@@ -1574,19 +1662,82 @@ class ApiHandler : public AsyncWebHandler {
 // ---------------------------------------------------------------- SPA + captive portal
 
 // Console files live on the `www` partition (www.bin), not on userdata (net/storage.h).
-bool wwwHas(const char* path) { return storage().wwwOk() && storage().www().exists(path); }
+bool wwwHas(const char* path) {
+  size_t n;
+  return wwwStat(path, n);
+}
 bool hasUi() { return wwwHas("/www/index.html.gz") || wwwHas("/www/index.html"); }
 
-void sendSpa(AsyncWebServerRequest* r) {
-  AsyncWebServerResponse* resp;
-  if (wwwHas("/www/index.html.gz")) {
-    resp = r->beginResponse(storage().www(), "/www/index.html.gz", "text/html");
-    resp->addHeader("Content-Encoding", "gzip");
-  } else if (wwwHas("/www/index.html")) {
-    resp = r->beginResponse(storage().www(), "/www/index.html", "text/html");
-  } else {
-    resp = r->beginResponse(200, "text/html", kFallbackPage);
+const char* mimeOf(const std::string& p) {
+  auto ends = [&](const char* e) { size_t n = strlen(e); return p.size() >= n && p.compare(p.size() - n, n, e) == 0; };
+  return ends(".html") ? "text/html" : ends(".js") ? "application/javascript" : ends(".css") ? "text/css"
+       : ends(".woff2") ? "font/woff2" : ends(".yaml") ? "application/yaml" : ends(".svg") ? "image/svg+xml"
+       : ends(".png") ? "image/png" : ends(".json") ? "application/json" : ends(".ico") ? "image/x-icon"
+       : ends(".txt") ? "text/plain" : "application/octet-stream";
+}
+
+// #350: console files go out chunk by chunk through wwwRead (open, seek, read, close under the www lock). No File
+// handle outlives a callback, so a console rewrite can unmount the partition at any time; a response cut by it ends
+// short. path: "/www/<file>" without .gz (the .gz is preferred).
+bool sendWwwFile(AsyncWebServerRequest* r, const std::string& path, const char* type = nullptr) {
+  size_t n = 0;
+  std::string f = path + ".gz";
+  const bool gz = wwwStat(f.c_str(), n);
+  if (!gz && !wwwStat((f = path).c_str(), n)) return false;
+  AsyncWebServerResponse* resp = r->beginResponse(type ? type : mimeOf(path), n, [f](uint8_t* buf, size_t max, size_t index) -> size_t {
+    const int k = wwwRead(f.c_str(), index, buf, max);
+    return k > 0 ? size_t(k) : 0;
+  });
+  if (gz) resp->addHeader("Content-Encoding", "gzip");
+  resp->addHeader("Cache-Control", "no-cache");
+  r->send(resp);
+  return true;
+}
+
+std::string htmlEsc(const std::string& s) {
+  std::string o;
+  for (char c : s) o += c == '<' ? "&lt;" : c == '>' ? "&gt;" : c == '&' ? "&amp;" : c == '"' ? "&quot;" : std::string(1, c);
+  return o;
+}
+
+// #350: the console on the www partition is not this firmware's (or is being / failed to be rewritten). The old
+// console stays one click away (/?console=old); a console from before #350 has no version.txt.
+bool consoleStale(AsyncWebServerRequest* r) { return !r->hasParam("console") && hasUi() && !wwwCurrent(); }
+
+void sendWwwPage(AsyncWebServerRequest* r) {
+  const WwwInfo w = wwwInfo();
+  const bool updating = std::strcmp(w.state, "updating") == 0, failed = std::strcmp(w.state, "failed") == 0;
+  const bool checks = otaRepo()[0] != '\0';
+  std::string h = "<!doctype html><html lang=\"en\"><head><meta charset=\"utf-8\">"
+                  "<meta name=\"viewport\" content=\"width=device-width,initial-scale=1\">";
+  if (updating || checks) h += "<meta http-equiv=\"refresh\" content=\"15\">";
+  h += "<title>HA Paper</title><style>body{font:16px/1.45 system-ui,sans-serif;max-width:520px;margin:0 auto;"
+       "padding:24px 16px}code{font-size:13px;word-break:break-all}.mut{color:#6f6c66;font-size:14px}</style>"
+       "</head><body><h1>";
+  h += updating ? "Updating the web console…" : failed ? "Web console not available" : "Web console out of date";
+  h += "</h1><p>Firmware v" + htmlEsc(firmwareVersion()) + ", console " +
+       (w.version.empty() ? std::string("from an older release") : "v" + htmlEsc(w.version)) + ".</p>";
+  if (failed) h += "<p>" + htmlEsc(w.message) + "</p>";
+  if (updating) h += "<p>This page reloads when it is done.</p>";
+  else if (checks) h += "<p>The display downloads the matching console from the release by itself. This page reloads.</p>";
+  if (!updating) {
+    h += "<p class=\"mut\">Or upload <code>www.bin</code> of v" + htmlEsc(firmwareVersion()) +
+         " with an API token: <code>curl -X POST -H \"Authorization: Bearer $X4_TOKEN\" --data-binary @www.bin "
+         "-H \"Content-Type: application/octet-stream\" \"http://" + htmlEsc(hostnameLocal()) +
+         "/api/v1/ota/upload-www?sha256=$(shasum -a 256 www.bin | cut -d' ' -f1)\"</code></p>";
+    if (!failed && hasUi()) h += "<p><a href=\"/?console=old\">Open the old console anyway</a></p>";
   }
+  h += "</body></html>";
+  AsyncWebServerResponse* resp = r->beginResponse(200, "text/html", h.c_str());
+  resp->addHeader("Cache-Control", "no-cache");
+  r->send(resp);
+}
+
+void sendSpa(AsyncWebServerRequest* r) {
+  const char* st = wwwInfo().state;
+  if (std::strcmp(st, "updating") == 0 || std::strcmp(st, "failed") == 0 || consoleStale(r)) return sendWwwPage(r);
+  if (sendWwwFile(r, "/www/index.html")) return;
+  AsyncWebServerResponse* resp = r->beginResponse(200, "text/html", kFallbackPage);
   resp->addHeader("Cache-Control", "no-cache");
   r->send(resp);
 }
@@ -1689,6 +1840,25 @@ void WebServer::begin() {
                 r->hasParam("charging") && str(r->arg("charging")) == "1", r->hasParam("mv") ? r->arg("mv").toInt() : 0);
     sendNoContent(r);
   });
+  // #300: display settings before any sign-in (PUT /settings needs a token): the contract suite turns quiet hours off
+  // on the fresh image, so a run at 23:00–07:00 links like one at noon. ?display={"quiet":"off"}, validated as PUT's.
+  g_server.on("/__qemu/settings", HTTP_POST, [](AsyncWebServerRequest* r) {
+    if (!r->hasParam("display")) return sendError(r, 400, "use ?display={\"quiet\":\"off\"}");
+    DisplaySettings s;
+    {
+      std::lock_guard<std::recursive_mutex> l(hub().mu);
+      s = hub().settings;
+    }
+    std::string err;
+    if (!Storage::settingsFromJson(str(r->arg("display")), s, &err, true)) return sendError(r, 422, "display." + err);
+    storage().saveSettings(s);
+    {
+      std::lock_guard<std::recursive_mutex> l(hub().mu);
+      hub().settings = s;
+      hub().settingsPending = true;
+    }
+    sendNoContent(r);
+  });
   g_server.on("/__qemu/state", HTTP_GET, [](AsyncWebServerRequest* r) {
     JsonDocument d;
     d["full"] = qemuDisplayStats().fulls();
@@ -1755,13 +1925,8 @@ void WebServer::begin() {
 
   // The REST API description (spec/openapi.yaml, packaged by scripts/build_ui.py). No auth: it holds no secrets.
   g_server.on("/openapi.yaml", HTTP_GET, [](AsyncWebServerRequest* r) {
-    if (!wwwHas("/www/openapi.yaml.gz")) return sendError(r, 404, "openapi.yaml is not in this firmware image");
-    AsyncWebServerResponse* resp = r->beginResponse(storage().www(), "/www/openapi.yaml.gz", "application/yaml");
-    resp->addHeader("Content-Encoding", "gzip");
-    resp->addHeader("Cache-Control", "no-cache");
-    r->send(resp);
+    if (!sendWwwFile(r, "/www/openapi.yaml", "application/yaml")) sendError(r, 404, "openapi.yaml is not in this firmware image");
   });
-  if (storage().wwwOk()) g_server.serveStatic("/", storage().www(), "/www/").setDefaultFile("index.html").setCacheControl("no-cache");
 
   g_server.onNotFound([](AsyncWebServerRequest* r) {
     if (captiveRedirect(r)) return;
@@ -1770,6 +1935,8 @@ void WebServer::begin() {
       const String& u = r->url();
       int dot = u.lastIndexOf('.');
       if (dot < 0 || u.lastIndexOf('/') > dot) return sendSpa(r);
+      // console files (app.js, app.css, fonts, version.txt) from the www partition (#350: no serveStatic File handles)
+      if (u.indexOf("..") < 0 && sendWwwFile(r, "/www" + str(u))) return;
     }
     sendError(r, 404, "not found");
   });

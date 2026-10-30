@@ -14,7 +14,9 @@ const char* const kKeys[] = {"display", "ota_channel", "tz", "name", "entities"}
 const char* const kDisplayKeys[] = {"brightness", "warmth", "lightTimeout", "quiet",      "returnHome", "standby", "clock",   "intervalSec",
                                     "fullEvery",  "cleanEvery", "otaAuto", "style",      "typeface", "surface", "haReport",
                                     "powerSave",  "wakeEvery", "liveMin",   // glance (#10)
-                                    "debugInput"};                         // #214
+                                    "emptyHouse",                          // #331
+                                    "debugInput",                          // #214
+                                    "morning"};                            // #330
 
 template <size_t N>
 bool known(const char* const (&table)[N], const std::string& k) {

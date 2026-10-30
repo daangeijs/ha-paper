@@ -15,6 +15,16 @@ namespace hist {
 constexpr size_t kMaxSamples = 400;   // per tile: a 5-min nowcast is ~49, an hourly forecast 48, 15-min solar 2 days 192
 using SampleList = std::vector<Sample, PsramAlloc<Sample>>;
 
+// Every scalar field of each object entry, for readers of more than one field (the weather tile, #318).
+struct RowFields {
+  virtual ~RowFields() = default;
+  virtual void rowField(const char* key, const char* v, size_t n, bool str) = 0;   // a scalar of the entry (null: "null")
+  virtual void rowEnd() = 0;                                                         // the entry closed
+};
+
+// history.ts numOf: a JSON number, or text /^-?\d+(\.\d+)?$/; else kNone
+double numText(const char* t, size_t n, bool str);
+
 class ListScanner {
  public:
   // path: object keys from the root to the list (none: the root is the list). Entries: objects (time from `time`,
@@ -22,6 +32,7 @@ class ListScanner {
   void begin(const char* const* path, int nPath, const std::string& value, const std::string& time, int64_t t0,
              int64_t step, int tz, SampleList* out);
   void feed(const char* p, size_t n);   // any chunking
+  void fields(RowFields* f) { fields_ = f; }   // after begin(), which clears it (#318)
   bool success() const { return success_; }   // a WS answer's "success": true
   bool broken() const { return broken_; }
   bool complete() const { return !broken_ && rootDone_ && depth_ == 0 && mode_ == Ws; }   // one whole JSON value
@@ -36,6 +47,8 @@ class ListScanner {
   void put(char c) { if (tokN_ < kTok) tok_[tokN_++] = c; else over_ = true; }
   void push(int64_t t, double v);
   SampleList* out_ = nullptr;
+  RowFields* fields_ = nullptr;
+  char fkey_[kField] = {};      // the entry's current key, for fields_
   char path_[kPath][kKey] = {};
   int nPath_ = 0;
   char value_[kField] = {}, time_[kField] = {};

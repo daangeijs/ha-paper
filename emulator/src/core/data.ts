@@ -132,7 +132,7 @@ export const APP: Record<string, App> = Object.fromEntries(APPS.map((a) => [a.id
 
 /** `label`: English (config, console defaults); the display and console show tr(lang, lk). */
 /** `info`: what the setting does (#190): the console's (i); the device tile shows title + value only (#310). */
-export type SettingDef = { label: string; lk: StrKey; info?: StrKey; fmt: (v: any, lang?: Lang) => string; step?: number; min?: number; max?: number; steps?: (string | number)[] };
+export type SettingDef = { label: string; lk: StrKey; info?: StrKey; fmt: (v: any, lang?: Lang) => string; step?: number; min?: number; max?: number; steps?: (string | number | boolean)[] };
 const SETTING_DEFS: Record<string, Omit<SettingDef, 'label'>> = {
   brightness: { lk: 'setBrightness', fmt: (v, lg = 'en') => (v === 0 ? tr(lg, 'off') : v + '%'), step: 10, min: 0, max: 100 },
   warmth: { lk: 'setWarmth', fmt: (v) => v + '%', step: 10, min: 0, max: 100 },
@@ -151,6 +151,8 @@ const SETTING_DEFS: Record<string, Omit<SettingDef, 'label'>> = {
   powerSave: { lk: 'setPowerSave', info: 'infoPowerSave', fmt: (v, lg = 'en') => { const k = ({ off: 'psOff', standby: 'psStandby', glance: 'psGlance' } as Record<string, StrKey>)[v]; return k ? tr(lg, k) : String(v); }, steps: ['glance', 'standby', 'off'] },
   // Quiet hours (#295, core/quiet.ts): replaces Display › Night mode and the "Sleep at night" power mode.
   quiet: { lk: 'setQuiet', info: 'infoQuiet', fmt: (v, lg = 'en') => (v === 'off' ? tr(lg, 'off') : v.split('-').map((x: string) => pad(+x)).join('–')), steps: ['off', '22-06', '23-07', '00-06'] },
+  // Good morning page (#330, core/morning.ts): on / off, under Quiet hours.
+  morning: { lk: 'setMorning', info: 'infoMorning', fmt: (v, lg = 'en') => tr(lg, v ? 'on' : 'off'), steps: [true, false] },
   wakeEvery: { lk: 'setWakeEvery', info: 'infoWakeEvery', fmt: (v) => v + ' min', steps: [15, 30, 60] },
   liveMin: { lk: 'setLiveMin', info: 'infoLiveMin', fmt: (v) => v + ' min', steps: [1, 3, 5, 10] },
 };
@@ -163,13 +165,13 @@ SETTINGS.fullEvery = SETTINGS.cleanEvery;
 /** `state`: HA's state when the display read the list (absent from firmware before #84). `dp`: HA display_precision (#85). */
 /** One GET /ha/entities row; `area`: HA area id (entity or device area, #127), absent = none. */
 export type HaEntity = { id: string; name: string; unit: string; state?: string; dp?: number; area?: string };
-/** Extra HA entities (beyond the logical sensors and the lights) with a mock state. */
-export const EXTRA_ENTITIES: (HaEntity & { state: string })[] = [
+/** Extra HA entities (beyond the logical sensors and the lights) with a mock state. `dc`: HA device_class. */
+export const EXTRA_ENTITIES: (HaEntity & { state: string; dc?: string })[] = [
   { id: 'sensor.outdoor_temperature', name: 'Outdoor temperature', unit: '°C', state: '11.4' },
   { id: 'sensor.outdoor_humidity', name: 'Outdoor humidity', unit: '%', state: '78.4', dp: 0 },
   { id: 'sensor.phone_battery', name: 'Phone battery', unit: '%', state: '57' },
   { id: 'sensor.car_battery', name: 'Car battery', unit: '%', state: '82' },
-  { id: 'binary_sensor.front_door', name: 'Front door', unit: '', state: 'off' },
+  { id: 'binary_sensor.front_door', name: 'Front door', unit: '', state: 'off', dc: 'door' },
   { id: 'binary_sensor.washing_machine', name: 'Washing machine running', unit: '', state: 'on' },
   { id: 'input_number.target_temp', name: 'Target temperature', unit: '°C', state: '20.5' },
   { id: 'number.ev_charge_limit', name: 'EV charge limit', unit: '%', state: '80' },
@@ -183,8 +185,37 @@ export const EXTRA_ENTITIES: (HaEntity & { state: string })[] = [
   // forecast series (#283): a rain nowcast with a `forecast` list of 5-minute {datetime, precipitation} entries ±2 h,
   // and a weather entity answering weather.get_forecasts (fake HA; the emulator draws core demoForecast)
   { id: 'binary_sensor.rain_expected', name: 'Rain expected', unit: '', state: 'on' },
+  { id: 'sensor.rain_rate', name: 'Rain rate', unit: 'mm/h', state: '0.4' },   // #307: a rain gauge, the past of the nowcast
   { id: 'weather.home', name: 'Home weather', unit: '', state: 'cloudy' },
+  { id: 'media_player.living_room', name: 'Living room speaker', unit: '', state: 'playing' },   // now playing tile (#319)
+  // agenda / next tiles (#316): calendars answering calendar.get_events (fake HA; the emulator draws core demoEvents)
+  { id: 'calendar.family', name: 'Family', unit: '', state: 'off' },
+  { id: 'calendar.work', name: 'Work', unit: '', state: 'off' },
+  // empty-house sleep (#331): persons in the Home zone (0 = nobody home), and an alarm for the Nobody home face
+  { id: 'zone.home', name: 'Home', unit: '', state: '1' },
+  { id: 'alarm_control_panel.house', name: 'House alarm', unit: '', state: 'disarmed' },
 ];
+/** The demo speaker's queue (#319): next / previous step through it; volume 0–1 like HA's volume_level; features = HA
+ *  supported_features (has VOLUME_SET: the tile's volume slider, #351). */
+export const DEMO_MEDIA = { id: 'media_player.living_room', volume: 0.32, features: 152_511, queue: [
+  { title: 'Evening Radio Hour', artist: 'Local station · live' },
+  { title: 'Clair de lune', artist: 'Claude Debussy' },
+  { title: 'So What', artist: 'Miles Davis' },
+] };
+/** Bin day demo sensors (#317), `days` from today: afvalwijzer-style date states and waste_collection_schedule-style
+ *  days-to states (state = days, attribute daysTo). The emulator and the fake HA date them from now (demoBinState). */
+export const DEMO_BINS: { id: string; name: string; days: number; shape: 'date' | 'days' }[] = [
+  { id: 'sensor.afval_papier', name: 'Afval papier', days: 1, shape: 'date' },
+  { id: 'sensor.afval_pmd', name: 'Afval PMD', days: 6, shape: 'date' },
+  { id: 'sensor.waste_gft', name: 'GFT', days: 7, shape: 'days' },
+  { id: 'sensor.waste_restafval', name: 'Restafval', days: 12, shape: 'days' },
+];
+/** A demo bin's HA state and attributes at `now` (local date). */
+export function demoBinState(b: (typeof DEMO_BINS)[number], now: Date): { state: string; attrs: Record<string, unknown> } {
+  if (b.shape === 'days') return { state: String(b.days), attrs: { daysTo: b.days } };
+  const d = new Date(now.getFullYear(), now.getMonth(), now.getDate() + b.days);
+  return { state: d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0'), attrs: { device_class: 'date' } };
+}
 const ENT_UNIT: Record<string, string> = { 'sensor.living_temperature': '°C' };
 /** Everything the mock HA offers to the picker: logical sensors, lights, extras. */
 export const HA_ENTITIES: HaEntity[] = [
@@ -193,6 +224,7 @@ export const HA_ENTITIES: HaEntity[] = [
   ...LIGHT_LIST.map((l) => ({ id: 'light.' + l.id, name: ROOM_NAME[l.room] + ' · ' + l.name, unit: '', area: l.room })),
   ...ZONE_LIST.map((z) => ({ id: 'climate.' + z.id, name: z.name, unit: '°C', ...(ROOM_NAME[z.id] ? { area: z.id } : {}) })),   // zoneList picker (#127)
   ...EXTRA_ENTITIES.map(({ id, name, unit }) => ({ id, name, unit })),
+  ...DEMO_BINS.map(({ id, name }) => ({ id, name, unit: '' })),   // #317
 ];
 
 /** Web console widget palette. Entity widgets ("Home Assistant") are added empty-handed: the console selects them so the user picks the entity. */
@@ -211,6 +243,8 @@ export const PALETTE = [
   { kind: 'gauge', label: 'Home battery', w: { type: 'gauge' } },
   { kind: 'price', label: 'Price now', w: { type: 'price' } },
   { kind: 'clock', label: 'Clock (2 wide)', w: { type: 'clock', cs: 2 } },
+  { kind: 'clock', label: 'Weather (full)', w: { type: 'weather', cs: 4, rs: 2 } },   // #318
+  { kind: 'clock', label: 'Weather (top half)', w: { type: 'weather', cs: 4 } },
   { kind: 'chart', label: 'Prices (4 wide)', w: { type: 'bars', series: 'prices', cs: 4 } },
   { kind: 'chart', label: 'Usage (2 wide)', w: { type: 'bars', series: 'usage', cs: 2 } },
   { kind: 'chart', label: 'Solar (2 wide)', w: { type: 'bars', series: 'solar', cs: 2 } },
@@ -222,15 +256,23 @@ export const PALETTE = [
   { kind: 'scene', label: 'Scene or script', w: { type: 'scene', cs: 2 } },
   { kind: 'scene', label: 'All lights off', w: { type: 'scene', scene: 'all_off', cs: 2 } },
   { kind: 'travel', label: 'Route', w: { type: 'route', cs: 2 } },
+  { kind: 'media', label: 'Now playing', w: { type: 'media', cs: 2 } },   // #319
+  { kind: 'clock', label: 'Bin day', w: { type: 'bins', cs: 2 } },   // #317: the console selects it to pick the sensors
+  { kind: 'clock', label: 'Guest Wi-Fi', w: { type: 'guestWifi', cs: 2, rs: 2 } },   // #329: the console selects it for the network
+  { kind: 'calendar', label: 'Agenda (tall)', w: { type: 'agenda', cs: 2, rs: 2 } },   // #316: the console then asks for calendars
+  { kind: 'calendar', label: 'Next event (2 wide)', w: { type: 'next', cs: 2 } },
 ];
-export const PAL_GROUPS: [string, string][] = [['ha', 'Home Assistant'], ['stat', 'Energy numbers'], ['price', 'Energy'], ['gauge', 'Energy'], ['chart', 'Charts'], ['clock', 'Basics'], ['travel', 'Travel'], ['light', 'Lights'], ['scene', 'Lights'], ['climate', 'Heating']];
+export const PAL_GROUPS: [string, string][] = [['ha', 'Home Assistant'], ['stat', 'Energy numbers'], ['price', 'Energy'], ['gauge', 'Energy'], ['chart', 'Charts'], ['clock', 'Basics'], ['travel', 'Travel'], ['light', 'Lights'], ['scene', 'Lights'], ['climate', 'Heating'], ['media', 'Media'], ['calendar', 'Calendar']];
 
 export const SCHEMA: { type: string; fields: string }[] = [
   { type: 'stat', fields: 'entity: sensor.solar_power, sensor.home_power, …' }, { type: 'price', fields: 'price now, cheap/high label; label' },
   { type: 'bars', fields: 'series: prices | usage | solar, label' }, { type: 'gauge', fields: 'home battery' }, { type: 'clock', fields: 'time and date' },
   { type: 'route', fields: 'label, mode: train | bus | car, entity: sensor.…' }, { type: 'lightList', fields: 'all lights by area (full screen)' },
   { type: 'switch', fields: 'entity: switch.… | light.… | input_boolean.… | fan.…' }, { type: 'zoneList', fields: 'all climate entities (full screen)' },
-  { type: 'thermo', fields: 'zone: climate object id, label' }, { type: 'history', fields: 'entity: sensor.… | input_number.… | number.…, window, bucket, agg, style, min, max, label; attribute, value, time, ahead (a list in an attribute); weather.…, forecast: hourly | daily' }, { type: 'scene', fields: 'entity: scene.… | script.…, label; none = all lights off' },
+  { type: 'thermo', fields: 'zone: climate object id, label' }, { type: 'history', fields: 'entity: sensor.… | input_number.… | number.…, window, bucket, agg, style, min, max, label; attribute, value, time, ahead (a list in an attribute); weather.…, forecast: hourly | daily' }, { type: 'scene', fields: 'entity: scene.… | script.…, label; none = all lights off' }, { type: 'media', fields: 'entity: media_player.…, label, favorites: Name=type:id; Name=script.…' },
+  { type: 'bins', fields: 'entities: sensor.… (one per bin), labels: sensor.…=Name; …, tonight: 17, label' },
+  { type: 'guestWifi', fields: 'ssid, password, security: WPA | WEP | nopass, hidden: true, password_entity: input_text.… | text.… | sensor.…' },
+  { type: 'weather', fields: 'entity: weather.…, label; cs: 4, rs: 2 (full) | 1 (top half)' },
 ];
 
 export const ENDPOINTS: [string, string, string, string][] = [

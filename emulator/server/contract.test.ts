@@ -27,7 +27,7 @@ import { listCounts } from '../src/core/paging.ts';
 import { LIST_BUDGET, listLowValue, listReading } from '../src/core/entityList.ts';
 import { startSimulator, type RunningSim } from './index.ts';
 import { HaSocket, exchangeCode } from './ha-client.ts';
-import { sha256, syntheticImage } from './ota.ts';
+import { sha256, syntheticImage, WWW_PARTITION_SIZE } from './ota.ts';
 import { SIM_OTA_REPO, tokenHash } from './device.ts';
 import { REAL_AREAS, REAL_DEVICES, REAL_ENTITIES, type RealEntity } from './fake-ha-real.ts';
 
@@ -141,7 +141,8 @@ async function checkHaAddress(b: string, haDev: string) {
   if (FAKE_HA_DEVICE_TLS) {   // #79: one real TLS handshake + certificate check on the device, within the probe timeout
     const t0 = Date.now();
     const tls = await start(FAKE_HA_DEVICE_TLS);
-    expect(tls.status, tls.text).toBe(200); expect(tls.json.authorize_url.startsWith(FAKE_HA_DEVICE_TLS + '/auth/authorize?')).toBe(true);
+    expect(tls.status, tls.text).toBe(200); expect(tls.json?.authorize_url, 'not JSON or no authorize_url (#300): ' + tls.text).toBeTypeOf('string');
+    expect(tls.json.authorize_url.startsWith(FAKE_HA_DEVICE_TLS + '/auth/authorize?')).toBe(true);
     expect(Date.now() - t0, 'https probe time').toBeLessThan(15_000);
     // #87: a TLS host that accepts and then stalls, answers late, or resets mid-handshake
     const tlsProbe = async (mode: string, delay_s = 0) => {
@@ -237,6 +238,10 @@ const mkToken = async (scope: 'read' | 'write') => {
 
 beforeAll(async () => {
   if (FAKE && !session) {
+    // #300: quiet hours (default 23-07) off before the first sign-in, so a night run links like one at noon; settings
+    // need a token until then, so the QEMU-only hook sets it. The first-run path below is unchanged.
+    const q = await http(base, 'POST', '/__qemu/settings?display=' + encodeURIComponent('{"quiet":"off"}'));
+    expect(q.status, q.text).toBe(204);
     // Real firmware + fake HA: sign in like a user would (first sign-in also links the display).
     // QEMU has no mDNS: the discovery result is injected (#90), then the typed address's errors are checked (#54).
     if (!(await http(base, 'GET', '/api/v1/console/state')).json.home_assistant?.linked) {
@@ -783,6 +788,48 @@ describe.skipIf(REAL && !FAKE)('fake HA recorder: statistics_during_period + his
   });
 });
 
+// #350: the web console on the www partition. Refusals happen before anything is written (any device); the write
+// round trip needs a real www.bin (X4_WWW_BIN, sim/qemu/contract.sh) or the simulator.
+const WWW_BIN = process.env.X4_WWW_BIN || '';
+describe('web console update (www partition, #350)', () => {
+  it.skipIf(NO_RW)('GET /ota www; POST /ota/upload-www refuses before writing; a wrong sha → failed; www.bin → current', async () => {
+    const ota = async () => (await http(base, 'GET', '/api/v1/ota', { token: rw })).json;
+    const before = await ota();
+    expect(before.www).toMatchObject({ current: expect.any(Boolean), state: expect.stringMatching(/^(current|stale|missing|failed)$/) });
+    if (!REAL || WWW_BIN) expect(before.www).toMatchObject({ version: before.installed, current: true, state: 'current' });
+    const up = (q: string, body: Uint8Array, token: string | null = rw) =>
+      http(base, 'POST', '/api/v1/ota/upload-www' + q, { token, body, type: 'application/octet-stream' });
+    const ff = '?sha256=' + 'f'.repeat(64);
+    expect((await up(ff, new Uint8Array(16), null)).status).toBe(401);
+    if (ro) expect((await up(ff, new Uint8Array(16), ro)).status).toBe(403);
+    const noSha = await up('', new Uint8Array(16));
+    expect(noSha.status).toBe(400); expect(noSha.json.error).toMatch(/sha256/);
+    const small = await up(ff, new Uint8Array(4096));
+    expect(small.status).toBe(413); expect(small.json.error).toMatch(/size of the www partition/);
+    expect((await ota()).www.state).toBe(before.www.state);   // nothing written
+    if (REAL && !WWW_BIN) return;
+    const img = WWW_BIN ? readFileSync(WWW_BIN) : Buffer.alloc(WWW_PARTITION_SIZE, 0x5a);
+    expect(img.length).toBe(WWW_PARTITION_SIZE);
+    const bad = await up(ff, new Uint8Array(img));
+    expect(bad.status).toBe(422); expect(bad.json.error).toMatch(/SHA-256 does not match/);
+    const failed = (await ota()).www;
+    expect(failed).toMatchObject({ current: false, state: 'failed' }); expect(failed.message).toMatch(/SHA-256/);
+    if (REAL) expect((await http(base, 'GET', '/')).text).toMatch(/Web console not available/);
+    const ok = await up('?sha256=' + sha256(img), new Uint8Array(img));
+    expect(ok.status).toBe(200);
+    expect(ok.json).toMatchObject({ status: 'written', version: before.installed, sha256: sha256(img), current: true });
+    expect((await ota()).www).toMatchObject({ version: before.installed, sha256: sha256(img), current: true, state: 'current', message: '' });
+    if (REAL) {
+      const page = await http(base, 'GET', '/');
+      expect(page.status).toBe(200); expect(page.text).not.toMatch(/Web console/);
+      // console files are read chunk by chunk from the partition (no serveStatic File handles across a rewrite)
+      expect((await http(base, 'GET', '/version.txt')).text.trim()).toBe(before.installed);
+      const js = await http(base, 'GET', '/app.js');
+      expect(js.status).toBe(200); expect(js.text.length).toBeGreaterThan(100_000);
+    }
+  }, 240_000);
+});
+
 describe.skipIf(REAL)('OTA', () => {
   it('check → available; upload with a wrong image → 422, nothing changed; right image → reboot into it', async () => {
     expect((await http(base, 'POST', '/api/v1/ota/check', { token: rw })).status).toBe(202);
@@ -795,7 +842,9 @@ describe.skipIf(REAL)('OTA', () => {
     const img = syntheticImage('0.4.0');
     const ok = await http(base, 'POST', '/api/v1/ota/upload', { token: rw, body: fd(img, { version: '0.4.0', sha256: sha256(img), size: img.length, notes: [] }) });
     expect(ok.status).toBe(202); expect(ok.json).toMatchObject({ status: 'rebooting', version: '0.4.0', sha256: sha256(img) });
-    await until(() => http(base, 'GET', '/api/v1/ota', { token: rw }), (r) => r.json.status === 'updated' && r.json.installed === '0.4.0');
+    const up = await until(() => http(base, 'GET', '/api/v1/ota', { token: rw }), (r) => r.json.status === 'updated' && r.json.installed === '0.4.0');
+    // #350: the confirmed image fetched the console of its own release
+    expect(up.json.www).toMatchObject({ version: '0.4.0', current: true, state: 'current' });
     const raw = await http(base, 'POST', '/api/v1/ota/upload?sha256=' + 'f'.repeat(64), { token: rw, body: new Uint8Array(img), type: 'application/octet-stream' });
     expect(raw.status).toBe(422);
   });
@@ -954,6 +1003,37 @@ describe('settings (x-firmware)', () => {
     const p = await put({ powerSave: 'off', wakeEvery: 30, liveMin: 5 });
     expect(p.status).toBe(200); expect(p.json.display).toMatchObject({ powerSave: 'off', wakeEvery: 30, liveMin: 5 });
     expect((await put(orig)).status).toBe(200);
+  });
+  it.skipIf(NO_RW)('empty-house source (#331): emptyHouse round trip, default off, exact 422 message', async () => {
+    const put = (display: object) => http(base, 'PUT', '/api/v1/settings', { token: rw, body: JSON.stringify({ display }), type: 'application/json' });
+    const g = await http(base, 'GET', '/api/v1/settings', { token: rw });
+    expect(typeof g.json.display.emptyHouse).toBe('string');
+    const orig = g.json.display.emptyHouse;
+    for (const bad of ['person.someone', 'zone', 1, 'Zone.Home']) {
+      const r = await put({ emptyHouse: bad });
+      expect(r.status, String(bad)).toBe(422); expect(r.json.error).toBe('display.emptyHouse must be "" or a zone, binary_sensor, input_boolean or group entity id');
+    }
+    for (const ok of ['zone.home', 'input_boolean.away_mode', '']) {
+      const p = await put({ emptyHouse: ok });
+      expect(p.status, ok).toBe(200); expect(p.json.display.emptyHouse).toBe(ok);
+    }
+    expect((await put({ emptyHouse: orig })).status).toBe(200);
+  });
+  it.skipIf(NO_RW)('good morning page (#330): morning round trip, default true, exact 422 message', async () => {
+    const put = (display: object) => http(base, 'PUT', '/api/v1/settings', { token: rw, body: JSON.stringify({ display }), type: 'application/json' });
+    const g = await http(base, 'GET', '/api/v1/settings', { token: rw });
+    expect(typeof g.json.display.morning).toBe('boolean');
+    const orig = g.json.display.morning;
+    for (const bad of ['true', 1]) {
+      const r = await put({ morning: bad });
+      expect(r.status, String(bad)).toBe(422); expect(r.json.error).toBe('display.morning must be true or false');
+    }
+    for (const v of [false, true]) {
+      const p = await put({ morning: v });
+      expect(p.status).toBe(200); expect(p.json.display.morning).toBe(v);
+      expect((await http(base, 'GET', '/api/v1/settings', { token: rw })).json.display.morning).toBe(v);
+    }
+    expect((await put({ morning: orig })).status).toBe(200);
   });
   it.skipIf(NO_RW)('front light timeout (#220): lightTimeout round trip, default 60, exact 422 message', async () => {
     const put = (display: object) => http(base, 'PUT', '/api/v1/settings', { token: rw, body: JSON.stringify({ display }), type: 'application/json' });
@@ -1160,6 +1240,16 @@ describe('diagnostics (x-firmware)', () => {
     expect(d.power_trail.before_boot === null || typeof d.power_trail.before_boot === 'string').toBe(true);
     expect(Array.isArray(d.power_trail.lines) && d.power_trail.lines.length <= 8).toBe(true);
     expect(d.power_trail.lines.every((l: unknown) => typeof l === 'string')).toBe(true);
+    expect(Number.isInteger(d.power_trail.empty_house_sleeps) && d.power_trail.empty_house_sleeps >= 0).toBe(true);   // #331
+    const ph = d.power_trail.phases;   // #327: awake phases; the device-sim has no power path (boot null, wakes [])
+    expect(Array.isArray(ph.wakes) && ph.wakes.length <= 12).toBe(true);
+    const keys = ['boot_ms', 'wifi_ms', 'ha_ms', 'render_ms', 'panel_ms', 'idle_ms', 'total_ms'];
+    for (const w of [ph.boot, ...ph.wakes].filter((x) => x !== null)) {
+      expect(['cold', 'timer', 'button', 'charger', 'other']).toContain(w.wake);
+      for (const k of keys) expect(Number.isInteger(w[k]) && w[k] >= 0, k).toBe(true);
+      expect(w.boot_ms + w.wifi_ms + w.ha_ms + w.idle_ms <= w.total_ms).toBe(true);
+    }
+    if (REAL) expect(ph.boot).not.toBeNull();   // firmware: this boot is measured
     expect(d.deep_sleep.armed_by === null ? !d.deep_sleep.armed : ['uptime', 'boots'].includes(d.deep_sleep.armed_by)).toBe(true);   // #231
     // #231 battery history: the first sample is taken as soon as the gauge is read (the device and the simulator both have one)
     expect(d.battery).toMatchObject({ interval_s: 300, fields: ['t', 'pct', 'mv', 'chg', 'usb', 'power', 'rssi'] });
@@ -1587,7 +1677,15 @@ describe.skipIf(NO_RW)('built-in Settings (#159)', () => {
   afterAll(async () => {
     // leave Settings first: a config push keeps the display on the page it shows, and the Settings pages always exist
     if (sim) await http(base, 'POST', '/__sim/control', { body: JSON.stringify({ screen: 'only' }), type: 'application/json' });
-    else if (await panel()) { await notBusy(); await input('key=home'); await notBusy(); }
+    else if (await panel()) {
+      // after 60 s idle the first key only brings the chrome / light back (#27, #220): press until the panel left Settings
+      const state = () => http(base, 'GET', '/__qemu/state');
+      for (let k = 0; k < 3 && (await state()).json?.screen !== 'only'; k++) {
+        await notBusy(); await input('key=home'); await notBusy();
+        await until(state, (r) => r.json?.screen === 'only', 15_000).catch(() => null);
+      }
+      expect((await state()).json?.screen, 'Home leaves the Settings page').toBe('only');
+    }
     if (original) expect((await put(original)).status).toBe(200);
     await putSettings({ display: { warmth } });
   });

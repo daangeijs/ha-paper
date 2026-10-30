@@ -10,6 +10,10 @@ async function until<T>(fn: () => T, ok: (v: T) => boolean, ms = 8000): Promise<
   const end = Date.now() + ms;
   for (;;) { const v = fn(); if (ok(v)) return v; if (Date.now() > end) throw new Error('timeout'); await new Promise((r) => setTimeout(r, 20)); }
 }
+/** The link is up and its setup is done (#341). `ha.connected` turns true before subscribe_entities is answered; the
+ *  first entity event comes after that answer, so by then the device's own fetchHistory('connected') has run. Without
+ *  this, a late answer under load lands inside the test's fetch: a second ('again') fetch doubles the HA calls. */
+const linked = (sim: RunningSim['sim']) => until(() => sim.ha.connected && sim.ha.lastEvent !== null, (c) => c);
 
 describe('history tiles (device simulator)', () => {
   let run: RunningSim | null = null;
@@ -18,7 +22,7 @@ describe('history tiles (device simulator)', () => {
   it('fetches the app shown only: statistics, history fallback, needs statistics, too many changes', async () => {
     run = await startSimulator({ port: 0, fakeHaPort: 0, haTickMs: 0, preset: 'installed', delays: FAST });
     const sim = run.sim, fake = run.fakeHa!;
-    await until(() => sim.ha.connected, (c) => c);
+    await linked(sim);
     fake.history.entities.set(CHATTY_ID, histEntity(CHATTY_ID, 'power', 'none'));   // 1 Hz, no state_class: history rows only
     const cfg: Config = { apps: [...sim.p.apps, { id: 'weather', title: 'Weather' }, { id: 'meters', title: 'Meters' }], screens: [...sim.p.screens,
       { id: 'outside', app: 'weather', title: 'Outside', widgets: [
@@ -58,7 +62,7 @@ describe('history tiles (device simulator)', () => {
   it('reads an attribute series and a weather forecast (#283)', async () => {
     run = await startSimulator({ port: 0, fakeHaPort: 0, haTickMs: 0, preset: 'installed', delays: FAST });
     const sim = run.sim, fake = run.fakeHa!;
-    await until(() => sim.ha.connected, (c) => c);
+    await linked(sim);
     const cfg: Config = { apps: [...sim.p.apps, { id: 'weather', title: 'Weather' }], screens: [...sim.p.screens,
       { id: 'rain', app: 'weather', title: 'Rain', widgets: [
         { type: 'history', entity: 'binary_sensor.rain_expected', attribute: 'forecast', value: 'precipitation', window: '2h', cs: 4 },   // 24 × 5 min ahead

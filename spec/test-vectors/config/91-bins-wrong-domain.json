@@ -1,0 +1,10 @@
+{
+  "name": "91-bins-wrong-domain",
+  "description": "Rule: bins entities must be sensor.* ids.",
+  "input": "# HA Paper display config\nversion: 1\nscreens:\n  - id: a\n    widgets:\n      - {type: bins, entities: sensor.afval_papier calendar.afval, cs: 2}\n",
+  "expect": {
+    "ok": false,
+    "line": 6,
+    "message": "bins: “calendar.afval” is not a sensor entity"
+  }
+}

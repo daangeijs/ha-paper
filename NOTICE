@@ -23,8 +23,10 @@ AsyncTCP 3.5.0                      LGPL-3.0
   (or put your copy in firmware/lib/) and rebuild; the result can be flashed with the steps in docs/FLASHING.md.
 
 ArduinoJson 7.4.3                   MIT    https://github.com/bblanchon/ArduinoJson
-QRCode 0.0.1 (ricmoo)               MIT    https://github.com/ricmoo/QRCode
   Fetched by PlatformIO (lib_deps).
+
+QR Code generator (Project Nayuki)   MIT    https://github.com/nayuki/QR-Code-generator
+  Vendored: firmware/lib/qrcodegen (C) and emulator/src/core/qrcodegen.ts (TypeScript), licence header in each file.
 
 Arduino core for ESP32 / ESP-IDF    Apache-2.0 (ESP-IDF), LGPL-2.1 (arduino-esp32 core), plus the licences of
   their bundled components (FreeRTOS: MIT, lwIP: BSD-3-Clause, mbedTLS: Apache-2.0, LittleFS: BSD-3-Clause, ...).

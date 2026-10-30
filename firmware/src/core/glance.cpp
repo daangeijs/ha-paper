@@ -59,6 +59,7 @@ StepOut step(const StepIn& i) {
   if (!i.ok) {
     const int fails = i.fails + 1;
     if (fails >= kOfflineAfter && !i.drawnOffline) return {true, "offline", fails, true};
+    if (i.hadSnapshot && i.changed > 0) return {true, "changed", fails, i.drawnOffline};   // #356: the face's date / quiet face
     return {false, "unreachable", fails, i.drawnOffline};
   }
   if (!i.hadSnapshot) return {true, "first", 0, false};

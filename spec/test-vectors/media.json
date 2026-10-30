@@ -1,0 +1,813 @@
+{
+  "description": "Now playing tile (#319, spec/SCHEMA.md media). favorites: items of the favorites value (bad = rejected item). actions: the HA call per tap (fav = index into the valid favorites, or the volume % for set; null = none). views: what the tile shows from the state + attributes (text, like the firmware store; slider = VOLUME_SET in supported_features, #351). layouts: what fits cs × rs with n favorites. volumeAt: the slider level (%) of a tap / drag end at x on a bar from bx, bw wide (#351).",
+  "favorites": [
+    {
+      "value": "",
+      "items": []
+    },
+    {
+      "value": "Radio 1=music:http://x",
+      "items": [
+        {
+          "label": "Radio 1",
+          "type": "music",
+          "id": "http://x"
+        }
+      ]
+    },
+    {
+      "value": " A = music:1 ;; B=scene.b ",
+      "items": [
+        {
+          "label": "A",
+          "type": "music",
+          "id": "1"
+        },
+        {
+          "label": "B",
+          "entity": "scene.b"
+        }
+      ]
+    },
+    {
+      "value": "Spotify=playlist:spotify:playlist:37i9",
+      "items": [
+        {
+          "label": "Spotify",
+          "type": "playlist",
+          "id": "spotify:playlist:37i9"
+        }
+      ]
+    },
+    {
+      "value": "Bad",
+      "items": [
+        {
+          "bad": "Bad"
+        }
+      ]
+    },
+    {
+      "value": "=music:1",
+      "items": [
+        {
+          "bad": "=music:1"
+        }
+      ]
+    },
+    {
+      "value": "X=music:",
+      "items": [
+        {
+          "bad": "X=music:"
+        }
+      ]
+    },
+    {
+      "value": "X=:id",
+      "items": [
+        {
+          "bad": "X=:id"
+        }
+      ]
+    },
+    {
+      "value": "X=light.kitchen",
+      "items": [
+        {
+          "bad": "X=light.kitchen"
+        }
+      ]
+    },
+    {
+      "value": "X=Music:1",
+      "items": [
+        {
+          "bad": "X=Music:1"
+        }
+      ]
+    },
+    {
+      "value": "X=audio/mpeg:http://x/a.mp3",
+      "items": [
+        {
+          "label": "X",
+          "type": "audio/mpeg",
+          "id": "http://x/a.mp3"
+        }
+      ]
+    }
+  ],
+  "actions": [
+    {
+      "widget": {
+        "type": "media",
+        "entity": "media_player.living_room",
+        "favorites": "Radio 1=music:http://icecast.omroep.nl/radio1-bb-mp3; Jazz=playlist:spotify:playlist:37i9dQ; Bedtime=script.good_night; Movie=scene.movie_night"
+      },
+      "target": "prev",
+      "fav": 0,
+      "call": {
+        "domain": "media_player",
+        "service": "media_previous_track",
+        "data": {
+          "entity_id": "media_player.living_room"
+        }
+      }
+    },
+    {
+      "widget": {
+        "type": "media",
+        "entity": "media_player.living_room",
+        "favorites": "Radio 1=music:http://icecast.omroep.nl/radio1-bb-mp3; Jazz=playlist:spotify:playlist:37i9dQ; Bedtime=script.good_night; Movie=scene.movie_night"
+      },
+      "target": "play",
+      "fav": 0,
+      "call": {
+        "domain": "media_player",
+        "service": "media_play_pause",
+        "data": {
+          "entity_id": "media_player.living_room"
+        }
+      }
+    },
+    {
+      "widget": {
+        "type": "media",
+        "entity": "media_player.living_room",
+        "favorites": "Radio 1=music:http://icecast.omroep.nl/radio1-bb-mp3; Jazz=playlist:spotify:playlist:37i9dQ; Bedtime=script.good_night; Movie=scene.movie_night"
+      },
+      "target": "next",
+      "fav": 0,
+      "call": {
+        "domain": "media_player",
+        "service": "media_next_track",
+        "data": {
+          "entity_id": "media_player.living_room"
+        }
+      }
+    },
+    {
+      "widget": {
+        "type": "media",
+        "entity": "media_player.living_room",
+        "favorites": "Radio 1=music:http://icecast.omroep.nl/radio1-bb-mp3; Jazz=playlist:spotify:playlist:37i9dQ; Bedtime=script.good_night; Movie=scene.movie_night"
+      },
+      "target": "down",
+      "fav": 0,
+      "call": {
+        "domain": "media_player",
+        "service": "volume_down",
+        "data": {
+          "entity_id": "media_player.living_room"
+        }
+      }
+    },
+    {
+      "widget": {
+        "type": "media",
+        "entity": "media_player.living_room",
+        "favorites": "Radio 1=music:http://icecast.omroep.nl/radio1-bb-mp3; Jazz=playlist:spotify:playlist:37i9dQ; Bedtime=script.good_night; Movie=scene.movie_night"
+      },
+      "target": "up",
+      "fav": 0,
+      "call": {
+        "domain": "media_player",
+        "service": "volume_up",
+        "data": {
+          "entity_id": "media_player.living_room"
+        }
+      }
+    },
+    {
+      "widget": {
+        "type": "media",
+        "entity": "media_player.living_room",
+        "favorites": "Radio 1=music:http://icecast.omroep.nl/radio1-bb-mp3; Jazz=playlist:spotify:playlist:37i9dQ; Bedtime=script.good_night; Movie=scene.movie_night"
+      },
+      "target": "fav",
+      "fav": 0,
+      "call": {
+        "domain": "media_player",
+        "service": "play_media",
+        "data": {
+          "entity_id": "media_player.living_room",
+          "media_content_id": "http://icecast.omroep.nl/radio1-bb-mp3",
+          "media_content_type": "music"
+        }
+      }
+    },
+    {
+      "widget": {
+        "type": "media",
+        "entity": "media_player.living_room",
+        "favorites": "Radio 1=music:http://icecast.omroep.nl/radio1-bb-mp3; Jazz=playlist:spotify:playlist:37i9dQ; Bedtime=script.good_night; Movie=scene.movie_night"
+      },
+      "target": "fav",
+      "fav": 1,
+      "call": {
+        "domain": "media_player",
+        "service": "play_media",
+        "data": {
+          "entity_id": "media_player.living_room",
+          "media_content_id": "spotify:playlist:37i9dQ",
+          "media_content_type": "playlist"
+        }
+      }
+    },
+    {
+      "widget": {
+        "type": "media",
+        "entity": "media_player.living_room",
+        "favorites": "Radio 1=music:http://icecast.omroep.nl/radio1-bb-mp3; Jazz=playlist:spotify:playlist:37i9dQ; Bedtime=script.good_night; Movie=scene.movie_night"
+      },
+      "target": "fav",
+      "fav": 2,
+      "call": {
+        "domain": "script",
+        "service": "turn_on",
+        "data": {
+          "entity_id": "script.good_night"
+        }
+      }
+    },
+    {
+      "widget": {
+        "type": "media",
+        "entity": "media_player.living_room",
+        "favorites": "Radio 1=music:http://icecast.omroep.nl/radio1-bb-mp3; Jazz=playlist:spotify:playlist:37i9dQ; Bedtime=script.good_night; Movie=scene.movie_night"
+      },
+      "target": "fav",
+      "fav": 3,
+      "call": {
+        "domain": "scene",
+        "service": "turn_on",
+        "data": {
+          "entity_id": "scene.movie_night"
+        }
+      }
+    },
+    {
+      "widget": {
+        "type": "media",
+        "entity": "media_player.living_room",
+        "favorites": "Radio 1=music:http://icecast.omroep.nl/radio1-bb-mp3; Jazz=playlist:spotify:playlist:37i9dQ; Bedtime=script.good_night; Movie=scene.movie_night"
+      },
+      "target": "fav",
+      "fav": 4,
+      "call": null
+    },
+    {
+      "widget": {
+        "type": "media",
+        "entity": "media_player.living_room",
+        "favorites": "Radio 1=music:http://icecast.omroep.nl/radio1-bb-mp3; Jazz=playlist:spotify:playlist:37i9dQ; Bedtime=script.good_night; Movie=scene.movie_night"
+      },
+      "target": "set",
+      "fav": 75,
+      "call": {
+        "domain": "media_player",
+        "service": "volume_set",
+        "data": {
+          "entity_id": "media_player.living_room",
+          "volume_level": 0.75
+        }
+      }
+    },
+    {
+      "widget": {
+        "type": "media",
+        "entity": "media_player.living_room",
+        "favorites": "Radio 1=music:http://icecast.omroep.nl/radio1-bb-mp3; Jazz=playlist:spotify:playlist:37i9dQ; Bedtime=script.good_night; Movie=scene.movie_night"
+      },
+      "target": "set",
+      "fav": 0,
+      "call": {
+        "domain": "media_player",
+        "service": "volume_set",
+        "data": {
+          "entity_id": "media_player.living_room",
+          "volume_level": 0
+        }
+      }
+    },
+    {
+      "widget": {
+        "type": "media",
+        "entity": "media_player.living_room",
+        "favorites": "Radio 1=music:http://icecast.omroep.nl/radio1-bb-mp3; Jazz=playlist:spotify:playlist:37i9dQ; Bedtime=script.good_night; Movie=scene.movie_night"
+      },
+      "target": "set",
+      "fav": 100,
+      "call": {
+        "domain": "media_player",
+        "service": "volume_set",
+        "data": {
+          "entity_id": "media_player.living_room",
+          "volume_level": 1
+        }
+      }
+    },
+    {
+      "widget": {
+        "type": "media",
+        "entity": "media_player.living_room",
+        "favorites": "Radio 1=music:http://icecast.omroep.nl/radio1-bb-mp3; Jazz=playlist:spotify:playlist:37i9dQ; Bedtime=script.good_night; Movie=scene.movie_night"
+      },
+      "target": "set",
+      "fav": 7,
+      "call": {
+        "domain": "media_player",
+        "service": "volume_set",
+        "data": {
+          "entity_id": "media_player.living_room",
+          "volume_level": 0.07
+        }
+      }
+    },
+    {
+      "widget": {
+        "type": "media",
+        "entity": "media_player.living_room",
+        "favorites": "Radio 1=music:http://icecast.omroep.nl/radio1-bb-mp3; Jazz=playlist:spotify:playlist:37i9dQ; Bedtime=script.good_night; Movie=scene.movie_night"
+      },
+      "target": "set",
+      "fav": 140,
+      "call": {
+        "domain": "media_player",
+        "service": "volume_set",
+        "data": {
+          "entity_id": "media_player.living_room",
+          "volume_level": 1
+        }
+      }
+    },
+    {
+      "widget": {
+        "type": "media",
+        "entity": "media_player.living_room",
+        "favorites": "Radio 1=music:http://icecast.omroep.nl/radio1-bb-mp3; Jazz=playlist:spotify:playlist:37i9dQ; Bedtime=script.good_night; Movie=scene.movie_night"
+      },
+      "target": "set",
+      "fav": -3,
+      "call": {
+        "domain": "media_player",
+        "service": "volume_set",
+        "data": {
+          "entity_id": "media_player.living_room",
+          "volume_level": 0
+        }
+      }
+    }
+  ],
+  "views": [
+    {
+      "name": "playing with title, artist, volume",
+      "state": "playing",
+      "attrs": {
+        "media_title": "Evening Radio Hour",
+        "media_artist": "Local station · live",
+        "volume_level": "0.32"
+      },
+      "view": {
+        "gap": null,
+        "phase": "playing",
+        "title": "Evening Radio Hour",
+        "artist": "Local station · live",
+        "vol": 32,
+        "slider": false
+      }
+    },
+    {
+      "name": "paused keeps the title",
+      "state": "paused",
+      "attrs": {
+        "media_title": "So What",
+        "media_artist": "Miles Davis",
+        "volume_level": "1"
+      },
+      "view": {
+        "gap": null,
+        "phase": "paused",
+        "title": "So What",
+        "artist": "Miles Davis",
+        "vol": 100,
+        "slider": false
+      }
+    },
+    {
+      "name": "buffering",
+      "state": "buffering",
+      "attrs": {
+        "media_title": "Clair de lune"
+      },
+      "view": {
+        "gap": null,
+        "phase": "buffering",
+        "title": "Clair de lune",
+        "artist": "",
+        "vol": null,
+        "slider": false
+      }
+    },
+    {
+      "name": "idle without title",
+      "state": "idle",
+      "attrs": {
+        "volume_level": "0.005"
+      },
+      "view": {
+        "gap": null,
+        "phase": "idle",
+        "title": "",
+        "artist": "",
+        "vol": 1,
+        "slider": false
+      }
+    },
+    {
+      "name": "standby counts as idle",
+      "state": "standby",
+      "attrs": {},
+      "view": {
+        "gap": null,
+        "phase": "idle",
+        "title": "",
+        "artist": "",
+        "vol": null,
+        "slider": false
+      }
+    },
+    {
+      "name": "on counts as idle",
+      "state": "on",
+      "attrs": {
+        "media_title": "TV"
+      },
+      "view": {
+        "gap": null,
+        "phase": "idle",
+        "title": "TV",
+        "artist": "",
+        "vol": null,
+        "slider": false
+      }
+    },
+    {
+      "name": "off drops title and artist",
+      "state": "off",
+      "attrs": {
+        "media_title": "Old",
+        "media_artist": "Stale",
+        "volume_level": "0.5"
+      },
+      "view": {
+        "gap": null,
+        "phase": "off",
+        "title": "",
+        "artist": "",
+        "vol": 50,
+        "slider": false
+      }
+    },
+    {
+      "name": "unavailable",
+      "state": "unavailable",
+      "attrs": {},
+      "view": {
+        "gap": "unavailable",
+        "phase": "idle",
+        "title": "",
+        "artist": "",
+        "vol": null,
+        "slider": false
+      }
+    },
+    {
+      "name": "unknown",
+      "state": "unknown",
+      "attrs": {},
+      "view": {
+        "gap": "unknown",
+        "phase": "idle",
+        "title": "",
+        "artist": "",
+        "vol": null,
+        "slider": false
+      }
+    },
+    {
+      "name": "not in HA yet",
+      "state": null,
+      "attrs": {},
+      "view": {
+        "gap": null,
+        "phase": "idle",
+        "title": "",
+        "artist": "",
+        "vol": null,
+        "slider": false
+      }
+    },
+    {
+      "name": "volume out of range or text is no volume",
+      "state": "playing",
+      "attrs": {
+        "media_title": " Spaced ",
+        "volume_level": "1.5"
+      },
+      "view": {
+        "gap": null,
+        "phase": "playing",
+        "title": "Spaced",
+        "artist": "",
+        "vol": null,
+        "slider": false
+      }
+    },
+    {
+      "name": "volume text",
+      "state": "playing",
+      "attrs": {
+        "volume_level": "loud"
+      },
+      "view": {
+        "gap": null,
+        "phase": "playing",
+        "title": "",
+        "artist": "",
+        "vol": null,
+        "slider": false
+      }
+    },
+    {
+      "name": "VOLUME_SET in supported_features: the slider",
+      "state": "playing",
+      "attrs": {
+        "volume_level": "0.32",
+        "supported_features": "152511"
+      },
+      "view": {
+        "gap": null,
+        "phase": "playing",
+        "title": "",
+        "artist": "",
+        "vol": 32,
+        "slider": true
+      }
+    },
+    {
+      "name": "VOLUME_STEP without VOLUME_SET: − / +",
+      "state": "playing",
+      "attrs": {
+        "volume_level": "0.32",
+        "supported_features": "1024"
+      },
+      "view": {
+        "gap": null,
+        "phase": "playing",
+        "title": "",
+        "artist": "",
+        "vol": 32,
+        "slider": false
+      }
+    },
+    {
+      "name": "VOLUME_SET only",
+      "state": "paused",
+      "attrs": {
+        "supported_features": "4"
+      },
+      "view": {
+        "gap": null,
+        "phase": "paused",
+        "title": "",
+        "artist": "",
+        "vol": null,
+        "slider": true
+      }
+    },
+    {
+      "name": "supported_features not a number",
+      "state": "playing",
+      "attrs": {
+        "supported_features": "all"
+      },
+      "view": {
+        "gap": null,
+        "phase": "playing",
+        "title": "",
+        "artist": "",
+        "vol": null,
+        "slider": false
+      }
+    },
+    {
+      "name": "supported_features negative",
+      "state": "playing",
+      "attrs": {
+        "supported_features": "-4"
+      },
+      "view": {
+        "gap": null,
+        "phase": "playing",
+        "title": "",
+        "artist": "",
+        "vol": null,
+        "slider": false
+      }
+    }
+  ],
+  "layouts": [
+    {
+      "cs": 1,
+      "rs": 1,
+      "n": 0,
+      "layout": {
+        "volume": false,
+        "inlineCols": 1,
+        "inlineShown": 0,
+        "star": false,
+        "pickCols": 1,
+        "pickRows": 4,
+        "pickShown": 0
+      }
+    },
+    {
+      "cs": 1,
+      "rs": 1,
+      "n": 3,
+      "layout": {
+        "volume": false,
+        "inlineCols": 1,
+        "inlineShown": 0,
+        "star": true,
+        "pickCols": 1,
+        "pickRows": 4,
+        "pickShown": 3
+      }
+    },
+    {
+      "cs": 2,
+      "rs": 1,
+      "n": 0,
+      "layout": {
+        "volume": true,
+        "inlineCols": 2,
+        "inlineShown": 0,
+        "star": false,
+        "pickCols": 2,
+        "pickRows": 4,
+        "pickShown": 0
+      }
+    },
+    {
+      "cs": 2,
+      "rs": 1,
+      "n": 6,
+      "layout": {
+        "volume": true,
+        "inlineCols": 2,
+        "inlineShown": 0,
+        "star": true,
+        "pickCols": 2,
+        "pickRows": 4,
+        "pickShown": 6
+      }
+    },
+    {
+      "cs": 4,
+      "rs": 1,
+      "n": 6,
+      "layout": {
+        "volume": true,
+        "inlineCols": 2,
+        "inlineShown": 0,
+        "star": true,
+        "pickCols": 2,
+        "pickRows": 4,
+        "pickShown": 6
+      }
+    },
+    {
+      "cs": 2,
+      "rs": 2,
+      "n": 3,
+      "layout": {
+        "volume": true,
+        "inlineCols": 2,
+        "inlineShown": 3,
+        "star": false,
+        "pickCols": 2,
+        "pickRows": 8,
+        "pickShown": 3
+      }
+    },
+    {
+      "cs": 2,
+      "rs": 2,
+      "n": 6,
+      "layout": {
+        "volume": true,
+        "inlineCols": 2,
+        "inlineShown": 6,
+        "star": false,
+        "pickCols": 2,
+        "pickRows": 8,
+        "pickShown": 6
+      }
+    },
+    {
+      "cs": 1,
+      "rs": 2,
+      "n": 6,
+      "layout": {
+        "volume": false,
+        "inlineCols": 1,
+        "inlineShown": 4,
+        "star": true,
+        "pickCols": 1,
+        "pickRows": 8,
+        "pickShown": 6
+      }
+    },
+    {
+      "cs": 4,
+      "rs": 2,
+      "n": 6,
+      "layout": {
+        "volume": true,
+        "inlineCols": 2,
+        "inlineShown": 6,
+        "star": false,
+        "pickCols": 2,
+        "pickRows": 8,
+        "pickShown": 6
+      }
+    },
+    {
+      "cs": 3,
+      "rs": 2,
+      "n": 2,
+      "layout": {
+        "volume": true,
+        "inlineCols": 2,
+        "inlineShown": 2,
+        "star": false,
+        "pickCols": 2,
+        "pickRows": 8,
+        "pickShown": 2
+      }
+    }
+  ],
+  "volumeAt": [
+    {
+      "x": 200,
+      "bx": 200,
+      "bw": 160,
+      "level": 0
+    },
+    {
+      "x": 320,
+      "bx": 200,
+      "bw": 160,
+      "level": 75
+    },
+    {
+      "x": 280,
+      "bx": 200,
+      "bw": 160,
+      "level": 50
+    },
+    {
+      "x": 150,
+      "bx": 200,
+      "bw": 160,
+      "level": 0
+    },
+    {
+      "x": 400,
+      "bx": 200,
+      "bw": 160,
+      "level": 100
+    },
+    {
+      "x": 281,
+      "bx": 200,
+      "bw": 160,
+      "level": 51
+    },
+    {
+      "x": 279,
+      "bx": 200,
+      "bw": 160,
+      "level": 49
+    },
+    {
+      "x": 50,
+      "bx": 0,
+      "bw": 0,
+      "level": 0
+    }
+  ]
+}

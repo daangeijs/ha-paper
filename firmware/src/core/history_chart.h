@@ -14,6 +14,9 @@ namespace hist {
 enum class State : uint8_t { Ok, Loading, None, TooMany, NeedsStats };
 const char* stateName(State s);            // "ok" | "loading" | "none" | "tooMany" | "needsStats"
 const char* stateText(State s, Lang l);    // the plot's centred text; "" for Ok / Loading
+// #307: a tile with past has two fetches: data from either = Ok; else Loading while either loads; else the forecast's
+// verdict, or the recorder's when the forecast has none (emulator joinState).
+State joinState(State past, State ahead);
 
 // A value printed on the plot (#304, labels: true): beside bucket i's point, on the side with more room.
 enum class LabelKind : uint8_t { Max, Min, Last };
@@ -37,7 +40,13 @@ struct Chart {
   double threshold = kNone;    // #304: dashed line height, NaN when unset / outside the range / not Ok
   int nLabels = 0;
   Label labels[3];             // #304: max, then min, then last (each only when it has its own spot)
+  // #307 (past): buckets from `split` on are the forecast, drawn lighter (outline bars, dashed line, hollow dots); a
+  // dotted Now marker at splitX(). -1 = no past part. A forecast line / step starts at the last past point (joined()).
+  int split = -1;
   bool gap(int i) const { return !v || !has(v[i]); }
+  bool ahead(int i) const { return split >= 0 && i >= split; }
+  bool joined() const { return split > 0 && split < n && !gap(split - 1) && !gap(split); }
+  double splitX() const { return edge(split); }
   double y(double val) const;                          // value → height, clamped to 0…1, 4 decimals
   double barB(int i) const { return y(v[i] < 0 ? v[i] : 0); }
   double barT(int i) const { return y(v[i] > 0 ? v[i] : 0); }

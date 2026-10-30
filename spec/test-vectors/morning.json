@@ -1,0 +1,2292 @@
+{
+  "description": "Good morning page (#330, emulator src/core/morning.ts). steps: morningStep(state, tick) from {armed:false,until:0}, each tick feeding the previous out; clock unknown = no change; inside the quiet window = armed, until 0 (end when it was up); outside and armed = disarmed and, setting on and quiet not off, until = now + morningMs (start); until reached = 0 (end). sources: morningSources(screens) = [screen, widget] of the first weather tile with an entity, agenda/next tile with calendars, bins tile with sensors. views: morningView(in) per language (wx entries as kept: t epoch ms, temp/low/mm or null, icon name; events as kept, sorted).",
+  "morningMs": 1200000,
+  "maxEvents": 4,
+  "steps": [
+    {
+      "name": "night-then-morning-then-timeout",
+      "ticks": [
+        {
+          "tick": {
+            "now": 1793221200000,
+            "hour": 22,
+            "clockKnown": true,
+            "quiet": "23-07",
+            "enabled": true
+          },
+          "out": {
+            "armed": false,
+            "until": 0,
+            "start": false,
+            "end": false
+          }
+        },
+        {
+          "tick": {
+            "now": 1793224800000,
+            "hour": 23,
+            "clockKnown": true,
+            "quiet": "23-07",
+            "enabled": true
+          },
+          "out": {
+            "armed": true,
+            "until": 0,
+            "start": false,
+            "end": false
+          }
+        },
+        {
+          "tick": {
+            "now": 1793253540000,
+            "hour": 6,
+            "clockKnown": true,
+            "quiet": "23-07",
+            "enabled": true
+          },
+          "out": {
+            "armed": true,
+            "until": 0,
+            "start": false,
+            "end": false
+          }
+        },
+        {
+          "tick": {
+            "now": 1793253600000,
+            "hour": 7,
+            "clockKnown": true,
+            "quiet": "23-07",
+            "enabled": true
+          },
+          "out": {
+            "armed": false,
+            "until": 1793254800000,
+            "start": true,
+            "end": false
+          }
+        },
+        {
+          "tick": {
+            "now": 1793254740000,
+            "hour": 7,
+            "clockKnown": true,
+            "quiet": "23-07",
+            "enabled": true
+          },
+          "out": {
+            "armed": false,
+            "until": 1793254800000,
+            "start": false,
+            "end": false
+          }
+        },
+        {
+          "tick": {
+            "now": 1793254800000,
+            "hour": 7,
+            "clockKnown": true,
+            "quiet": "23-07",
+            "enabled": true
+          },
+          "out": {
+            "armed": false,
+            "until": 0,
+            "start": false,
+            "end": true
+          }
+        },
+        {
+          "tick": {
+            "now": 1793257200000,
+            "hour": 8,
+            "clockKnown": true,
+            "quiet": "23-07",
+            "enabled": true
+          },
+          "out": {
+            "armed": false,
+            "until": 0,
+            "start": false,
+            "end": false
+          }
+        }
+      ]
+    },
+    {
+      "name": "setting-off",
+      "ticks": [
+        {
+          "tick": {
+            "now": 1793224800000,
+            "hour": 23,
+            "clockKnown": true,
+            "quiet": "23-07",
+            "enabled": false
+          },
+          "out": {
+            "armed": true,
+            "until": 0,
+            "start": false,
+            "end": false
+          }
+        },
+        {
+          "tick": {
+            "now": 1793253600000,
+            "hour": 7,
+            "clockKnown": true,
+            "quiet": "23-07",
+            "enabled": false
+          },
+          "out": {
+            "armed": false,
+            "until": 0,
+            "start": false,
+            "end": false
+          }
+        },
+        {
+          "tick": {
+            "now": 1793253660000,
+            "hour": 7,
+            "clockKnown": true,
+            "quiet": "23-07",
+            "enabled": false
+          },
+          "out": {
+            "armed": false,
+            "until": 0,
+            "start": false,
+            "end": false
+          }
+        }
+      ]
+    },
+    {
+      "name": "quiet-turned-off-at-night",
+      "ticks": [
+        {
+          "tick": {
+            "now": 1793235600000,
+            "hour": 2,
+            "clockKnown": true,
+            "quiet": "23-07",
+            "enabled": true
+          },
+          "out": {
+            "armed": true,
+            "until": 0,
+            "start": false,
+            "end": false
+          }
+        },
+        {
+          "tick": {
+            "now": 1793235660000,
+            "hour": 2,
+            "clockKnown": true,
+            "quiet": "off",
+            "enabled": true
+          },
+          "out": {
+            "armed": false,
+            "until": 0,
+            "start": false,
+            "end": false
+          }
+        },
+        {
+          "tick": {
+            "now": 1793253600000,
+            "hour": 7,
+            "clockKnown": true,
+            "quiet": "off",
+            "enabled": true
+          },
+          "out": {
+            "armed": false,
+            "until": 0,
+            "start": false,
+            "end": false
+          }
+        }
+      ]
+    },
+    {
+      "name": "clock-unknown-waits",
+      "ticks": [
+        {
+          "tick": {
+            "now": 1793232000000,
+            "hour": 1,
+            "clockKnown": true,
+            "quiet": "23-07",
+            "enabled": true
+          },
+          "out": {
+            "armed": true,
+            "until": 0,
+            "start": false,
+            "end": false
+          }
+        },
+        {
+          "tick": {
+            "now": 1793253600000,
+            "hour": 7,
+            "clockKnown": false,
+            "quiet": "23-07",
+            "enabled": true
+          },
+          "out": {
+            "armed": true,
+            "until": 0,
+            "start": false,
+            "end": false
+          }
+        },
+        {
+          "tick": {
+            "now": 1793253720000,
+            "hour": 7,
+            "clockKnown": true,
+            "quiet": "23-07",
+            "enabled": true
+          },
+          "out": {
+            "armed": false,
+            "until": 1793254920000,
+            "start": true,
+            "end": false
+          }
+        }
+      ]
+    },
+    {
+      "name": "no-night-seen",
+      "ticks": [
+        {
+          "tick": {
+            "now": 1793260800000,
+            "hour": 9,
+            "clockKnown": true,
+            "quiet": "23-07",
+            "enabled": true
+          },
+          "out": {
+            "armed": false,
+            "until": 0,
+            "start": false,
+            "end": false
+          }
+        },
+        {
+          "tick": {
+            "now": 1793262600000,
+            "hour": 9,
+            "clockKnown": true,
+            "quiet": "23-07",
+            "enabled": true
+          },
+          "out": {
+            "armed": false,
+            "until": 0,
+            "start": false,
+            "end": false
+          }
+        }
+      ]
+    },
+    {
+      "name": "window-00-06",
+      "ticks": [
+        {
+          "tick": {
+            "now": 1793228400000,
+            "hour": 0,
+            "clockKnown": true,
+            "quiet": "00-06",
+            "enabled": true
+          },
+          "out": {
+            "armed": true,
+            "until": 0,
+            "start": false,
+            "end": false
+          }
+        },
+        {
+          "tick": {
+            "now": 1793250000000,
+            "hour": 6,
+            "clockKnown": true,
+            "quiet": "00-06",
+            "enabled": true
+          },
+          "out": {
+            "armed": false,
+            "until": 1793251200000,
+            "start": true,
+            "end": false
+          }
+        }
+      ]
+    }
+  ],
+  "sources": [
+    {
+      "name": "all-three",
+      "screens": [
+        {
+          "widgets": [
+            {
+              "type": "clock"
+            },
+            {
+              "type": "bins",
+              "entities": "sensor.paper sensor.plastic"
+            }
+          ]
+        },
+        {
+          "widgets": [
+            {
+              "type": "weather",
+              "entity": "weather.home"
+            },
+            {
+              "type": "agenda",
+              "entities": "calendar.family"
+            }
+          ]
+        }
+      ],
+      "out": {
+        "weather": [
+          1,
+          0
+        ],
+        "agenda": [
+          1,
+          1
+        ],
+        "bins": [
+          0,
+          1
+        ]
+      }
+    },
+    {
+      "name": "next-tile-counts",
+      "screens": [
+        {
+          "widgets": [
+            {
+              "type": "next",
+              "entities": "calendar.work"
+            },
+            {
+              "type": "agenda",
+              "entities": "calendar.family"
+            }
+          ]
+        }
+      ],
+      "out": {
+        "weather": null,
+        "agenda": [
+          0,
+          0
+        ],
+        "bins": null
+      }
+    },
+    {
+      "name": "empty-ones-skipped",
+      "screens": [
+        {
+          "widgets": [
+            {
+              "type": "weather"
+            },
+            {
+              "type": "agenda"
+            },
+            {
+              "type": "bins"
+            },
+            {
+              "type": "weather",
+              "entity": "weather.b"
+            },
+            {
+              "type": "bins",
+              "entities": "sensor.x"
+            }
+          ]
+        }
+      ],
+      "out": {
+        "weather": [
+          0,
+          3
+        ],
+        "agenda": null,
+        "bins": [
+          0,
+          4
+        ]
+      }
+    },
+    {
+      "name": "none",
+      "screens": [
+        {
+          "widgets": [
+            {
+              "type": "clock"
+            },
+            {
+              "type": "stat",
+              "entity": "sensor.t"
+            }
+          ]
+        }
+      ],
+      "out": {
+        "weather": null,
+        "agenda": null,
+        "bins": null
+      }
+    }
+  ],
+  "views": [
+    {
+      "name": "full",
+      "now": 1793253900000,
+      "daily": [
+        {
+          "t": 1793271600000,
+          "icon": "partly",
+          "temp": 13.4,
+          "low": 5.6,
+          "mm": 1.2
+        },
+        {
+          "t": 1793358000000,
+          "icon": "rain",
+          "temp": 10,
+          "low": 6,
+          "mm": 8
+        }
+      ],
+      "hourly": [
+        {
+          "t": 1793253600000,
+          "icon": "cloud",
+          "temp": 8,
+          "low": null,
+          "mm": 0
+        },
+        {
+          "t": 1793257200000,
+          "icon": "rain",
+          "temp": 8.5,
+          "low": null,
+          "mm": 0.6
+        },
+        {
+          "t": 1793260800000,
+          "icon": "rain",
+          "temp": 9,
+          "low": null,
+          "mm": 0.2
+        },
+        {
+          "t": 1793264400000,
+          "icon": "cloud",
+          "temp": 9.5,
+          "low": null,
+          "mm": 0
+        },
+        {
+          "t": 1793268000000,
+          "icon": "cloud",
+          "temp": 10,
+          "low": null,
+          "mm": 0
+        },
+        {
+          "t": 1793271600000,
+          "icon": "cloud",
+          "temp": 10.5,
+          "low": null,
+          "mm": 0
+        },
+        {
+          "t": 1793275200000,
+          "icon": "cloud",
+          "temp": 11,
+          "low": null,
+          "mm": 0
+        },
+        {
+          "t": 1793278800000,
+          "icon": "cloud",
+          "temp": 11.5,
+          "low": null,
+          "mm": 0
+        },
+        {
+          "t": 1793282400000,
+          "icon": "cloud",
+          "temp": 12,
+          "low": null,
+          "mm": 0
+        },
+        {
+          "t": 1793286000000,
+          "icon": "cloud",
+          "temp": 12.5,
+          "low": null,
+          "mm": 0
+        },
+        {
+          "t": 1793289600000,
+          "icon": "cloud",
+          "temp": 13,
+          "low": null,
+          "mm": 0
+        },
+        {
+          "t": 1793293200000,
+          "icon": "cloud",
+          "temp": 13.5,
+          "low": null,
+          "mm": 0
+        },
+        {
+          "t": 1793296800000,
+          "icon": "cloud",
+          "temp": 14,
+          "low": null,
+          "mm": 0
+        },
+        {
+          "t": 1793300400000,
+          "icon": "cloud",
+          "temp": 14.5,
+          "low": null,
+          "mm": 0
+        },
+        {
+          "t": 1793304000000,
+          "icon": "cloud",
+          "temp": 15,
+          "low": null,
+          "mm": 0
+        },
+        {
+          "t": 1793307600000,
+          "icon": "cloud",
+          "temp": 15.5,
+          "low": null,
+          "mm": 0
+        }
+      ],
+      "events": {
+        "events": [
+          {
+            "start": 1793221200000,
+            "end": 1793255400000,
+            "allDay": false,
+            "cal": 0,
+            "title": "Night shift"
+          },
+          {
+            "start": 1793228400000,
+            "end": 1793314800000,
+            "allDay": true,
+            "cal": 0,
+            "title": "Bin day"
+          },
+          {
+            "start": 1793259000000,
+            "end": 1793261700000,
+            "allDay": false,
+            "cal": 0,
+            "title": "Dentist"
+          },
+          {
+            "start": 1793271600000,
+            "end": 1793275200000,
+            "allDay": false,
+            "cal": 0,
+            "title": "Lunch with Sam"
+          },
+          {
+            "start": 1793282400000,
+            "end": 1793286000000,
+            "allDay": false,
+            "cal": 0,
+            "title": ""
+          },
+          {
+            "start": 1793298600000,
+            "end": 1793304000000,
+            "allDay": false,
+            "cal": 0,
+            "title": "Book club"
+          },
+          {
+            "start": 1793347200000,
+            "end": 1793350800000,
+            "allDay": false,
+            "cal": 0,
+            "title": "Plumber"
+          }
+        ],
+        "more": 0
+      },
+      "bins": [
+        {
+          "label": "Paper",
+          "days": 0
+        },
+        {
+          "label": "Plastic",
+          "days": 1
+        },
+        {
+          "label": "Glass",
+          "days": 0
+        },
+        {
+          "label": "Green",
+          "days": 6
+        },
+        {
+          "label": "Rest",
+          "days": null
+        }
+      ],
+      "tz": 60,
+      "lang": "en",
+      "out": {
+        "head": "Good morning",
+        "date": "Thursday 29 October",
+        "weather": {
+          "icon": "partly",
+          "temps": "13° / 6°",
+          "rain": "Rain from 08:00"
+        },
+        "events": [
+          {
+            "time": "–07:30",
+            "title": "Night shift"
+          },
+          {
+            "time": "all day",
+            "title": "Bin day"
+          },
+          {
+            "time": "08:30",
+            "title": "Dentist"
+          },
+          {
+            "time": "12:00",
+            "title": "Lunch with Sam"
+          }
+        ],
+        "more": "+2 more today",
+        "bins": [
+          {
+            "labels": "Paper + Glass",
+            "when": "collected today"
+          },
+          {
+            "labels": "Plastic",
+            "when": "put out tonight"
+          }
+        ]
+      }
+    },
+    {
+      "name": "full",
+      "now": 1793253900000,
+      "daily": [
+        {
+          "t": 1793271600000,
+          "icon": "partly",
+          "temp": 13.4,
+          "low": 5.6,
+          "mm": 1.2
+        },
+        {
+          "t": 1793358000000,
+          "icon": "rain",
+          "temp": 10,
+          "low": 6,
+          "mm": 8
+        }
+      ],
+      "hourly": [
+        {
+          "t": 1793253600000,
+          "icon": "cloud",
+          "temp": 8,
+          "low": null,
+          "mm": 0
+        },
+        {
+          "t": 1793257200000,
+          "icon": "rain",
+          "temp": 8.5,
+          "low": null,
+          "mm": 0.6
+        },
+        {
+          "t": 1793260800000,
+          "icon": "rain",
+          "temp": 9,
+          "low": null,
+          "mm": 0.2
+        },
+        {
+          "t": 1793264400000,
+          "icon": "cloud",
+          "temp": 9.5,
+          "low": null,
+          "mm": 0
+        },
+        {
+          "t": 1793268000000,
+          "icon": "cloud",
+          "temp": 10,
+          "low": null,
+          "mm": 0
+        },
+        {
+          "t": 1793271600000,
+          "icon": "cloud",
+          "temp": 10.5,
+          "low": null,
+          "mm": 0
+        },
+        {
+          "t": 1793275200000,
+          "icon": "cloud",
+          "temp": 11,
+          "low": null,
+          "mm": 0
+        },
+        {
+          "t": 1793278800000,
+          "icon": "cloud",
+          "temp": 11.5,
+          "low": null,
+          "mm": 0
+        },
+        {
+          "t": 1793282400000,
+          "icon": "cloud",
+          "temp": 12,
+          "low": null,
+          "mm": 0
+        },
+        {
+          "t": 1793286000000,
+          "icon": "cloud",
+          "temp": 12.5,
+          "low": null,
+          "mm": 0
+        },
+        {
+          "t": 1793289600000,
+          "icon": "cloud",
+          "temp": 13,
+          "low": null,
+          "mm": 0
+        },
+        {
+          "t": 1793293200000,
+          "icon": "cloud",
+          "temp": 13.5,
+          "low": null,
+          "mm": 0
+        },
+        {
+          "t": 1793296800000,
+          "icon": "cloud",
+          "temp": 14,
+          "low": null,
+          "mm": 0
+        },
+        {
+          "t": 1793300400000,
+          "icon": "cloud",
+          "temp": 14.5,
+          "low": null,
+          "mm": 0
+        },
+        {
+          "t": 1793304000000,
+          "icon": "cloud",
+          "temp": 15,
+          "low": null,
+          "mm": 0
+        },
+        {
+          "t": 1793307600000,
+          "icon": "cloud",
+          "temp": 15.5,
+          "low": null,
+          "mm": 0
+        }
+      ],
+      "events": {
+        "events": [
+          {
+            "start": 1793221200000,
+            "end": 1793255400000,
+            "allDay": false,
+            "cal": 0,
+            "title": "Night shift"
+          },
+          {
+            "start": 1793228400000,
+            "end": 1793314800000,
+            "allDay": true,
+            "cal": 0,
+            "title": "Bin day"
+          },
+          {
+            "start": 1793259000000,
+            "end": 1793261700000,
+            "allDay": false,
+            "cal": 0,
+            "title": "Dentist"
+          },
+          {
+            "start": 1793271600000,
+            "end": 1793275200000,
+            "allDay": false,
+            "cal": 0,
+            "title": "Lunch with Sam"
+          },
+          {
+            "start": 1793282400000,
+            "end": 1793286000000,
+            "allDay": false,
+            "cal": 0,
+            "title": ""
+          },
+          {
+            "start": 1793298600000,
+            "end": 1793304000000,
+            "allDay": false,
+            "cal": 0,
+            "title": "Book club"
+          },
+          {
+            "start": 1793347200000,
+            "end": 1793350800000,
+            "allDay": false,
+            "cal": 0,
+            "title": "Plumber"
+          }
+        ],
+        "more": 0
+      },
+      "bins": [
+        {
+          "label": "Paper",
+          "days": 0
+        },
+        {
+          "label": "Plastic",
+          "days": 1
+        },
+        {
+          "label": "Glass",
+          "days": 0
+        },
+        {
+          "label": "Green",
+          "days": 6
+        },
+        {
+          "label": "Rest",
+          "days": null
+        }
+      ],
+      "tz": 60,
+      "lang": "nl",
+      "out": {
+        "head": "Goedemorgen",
+        "date": "Donderdag 29 oktober",
+        "weather": {
+          "icon": "partly",
+          "temps": "13° / 6°",
+          "rain": "Regen vanaf 08:00"
+        },
+        "events": [
+          {
+            "time": "–07:30",
+            "title": "Night shift"
+          },
+          {
+            "time": "hele dag",
+            "title": "Bin day"
+          },
+          {
+            "time": "08:30",
+            "title": "Dentist"
+          },
+          {
+            "time": "12:00",
+            "title": "Lunch with Sam"
+          }
+        ],
+        "more": "+2 meer vandaag",
+        "bins": [
+          {
+            "labels": "Paper + Glass",
+            "when": "vandaag opgehaald"
+          },
+          {
+            "labels": "Plastic",
+            "when": "vanavond buiten zetten"
+          }
+        ]
+      }
+    },
+    {
+      "name": "weather-only",
+      "now": 1793253900000,
+      "daily": [
+        {
+          "t": 1793271600000,
+          "icon": "partly",
+          "temp": 13.4,
+          "low": 5.6,
+          "mm": 1.2
+        },
+        {
+          "t": 1793358000000,
+          "icon": "rain",
+          "temp": 10,
+          "low": 6,
+          "mm": 8
+        }
+      ],
+      "hourly": [
+        {
+          "t": 1793253600000,
+          "icon": "cloud",
+          "temp": 8,
+          "low": null,
+          "mm": 0
+        },
+        {
+          "t": 1793257200000,
+          "icon": "rain",
+          "temp": 8.5,
+          "low": null,
+          "mm": 0.6
+        },
+        {
+          "t": 1793260800000,
+          "icon": "rain",
+          "temp": 9,
+          "low": null,
+          "mm": 0.2
+        },
+        {
+          "t": 1793264400000,
+          "icon": "cloud",
+          "temp": 9.5,
+          "low": null,
+          "mm": 0
+        },
+        {
+          "t": 1793268000000,
+          "icon": "cloud",
+          "temp": 10,
+          "low": null,
+          "mm": 0
+        },
+        {
+          "t": 1793271600000,
+          "icon": "cloud",
+          "temp": 10.5,
+          "low": null,
+          "mm": 0
+        },
+        {
+          "t": 1793275200000,
+          "icon": "cloud",
+          "temp": 11,
+          "low": null,
+          "mm": 0
+        },
+        {
+          "t": 1793278800000,
+          "icon": "cloud",
+          "temp": 11.5,
+          "low": null,
+          "mm": 0
+        },
+        {
+          "t": 1793282400000,
+          "icon": "cloud",
+          "temp": 12,
+          "low": null,
+          "mm": 0
+        },
+        {
+          "t": 1793286000000,
+          "icon": "cloud",
+          "temp": 12.5,
+          "low": null,
+          "mm": 0
+        },
+        {
+          "t": 1793289600000,
+          "icon": "cloud",
+          "temp": 13,
+          "low": null,
+          "mm": 0
+        },
+        {
+          "t": 1793293200000,
+          "icon": "cloud",
+          "temp": 13.5,
+          "low": null,
+          "mm": 0
+        },
+        {
+          "t": 1793296800000,
+          "icon": "cloud",
+          "temp": 14,
+          "low": null,
+          "mm": 0
+        },
+        {
+          "t": 1793300400000,
+          "icon": "cloud",
+          "temp": 14.5,
+          "low": null,
+          "mm": 0
+        },
+        {
+          "t": 1793304000000,
+          "icon": "cloud",
+          "temp": 15,
+          "low": null,
+          "mm": 0
+        },
+        {
+          "t": 1793307600000,
+          "icon": "cloud",
+          "temp": 15.5,
+          "low": null,
+          "mm": 0
+        }
+      ],
+      "events": null,
+      "bins": null,
+      "tz": 60,
+      "lang": "en",
+      "out": {
+        "head": "Good morning",
+        "date": "Thursday 29 October",
+        "weather": {
+          "icon": "partly",
+          "temps": "13° / 6°",
+          "rain": "Rain from 08:00"
+        },
+        "events": [],
+        "more": "",
+        "bins": []
+      }
+    },
+    {
+      "name": "weather-only",
+      "now": 1793253900000,
+      "daily": [
+        {
+          "t": 1793271600000,
+          "icon": "partly",
+          "temp": 13.4,
+          "low": 5.6,
+          "mm": 1.2
+        },
+        {
+          "t": 1793358000000,
+          "icon": "rain",
+          "temp": 10,
+          "low": 6,
+          "mm": 8
+        }
+      ],
+      "hourly": [
+        {
+          "t": 1793253600000,
+          "icon": "cloud",
+          "temp": 8,
+          "low": null,
+          "mm": 0
+        },
+        {
+          "t": 1793257200000,
+          "icon": "rain",
+          "temp": 8.5,
+          "low": null,
+          "mm": 0.6
+        },
+        {
+          "t": 1793260800000,
+          "icon": "rain",
+          "temp": 9,
+          "low": null,
+          "mm": 0.2
+        },
+        {
+          "t": 1793264400000,
+          "icon": "cloud",
+          "temp": 9.5,
+          "low": null,
+          "mm": 0
+        },
+        {
+          "t": 1793268000000,
+          "icon": "cloud",
+          "temp": 10,
+          "low": null,
+          "mm": 0
+        },
+        {
+          "t": 1793271600000,
+          "icon": "cloud",
+          "temp": 10.5,
+          "low": null,
+          "mm": 0
+        },
+        {
+          "t": 1793275200000,
+          "icon": "cloud",
+          "temp": 11,
+          "low": null,
+          "mm": 0
+        },
+        {
+          "t": 1793278800000,
+          "icon": "cloud",
+          "temp": 11.5,
+          "low": null,
+          "mm": 0
+        },
+        {
+          "t": 1793282400000,
+          "icon": "cloud",
+          "temp": 12,
+          "low": null,
+          "mm": 0
+        },
+        {
+          "t": 1793286000000,
+          "icon": "cloud",
+          "temp": 12.5,
+          "low": null,
+          "mm": 0
+        },
+        {
+          "t": 1793289600000,
+          "icon": "cloud",
+          "temp": 13,
+          "low": null,
+          "mm": 0
+        },
+        {
+          "t": 1793293200000,
+          "icon": "cloud",
+          "temp": 13.5,
+          "low": null,
+          "mm": 0
+        },
+        {
+          "t": 1793296800000,
+          "icon": "cloud",
+          "temp": 14,
+          "low": null,
+          "mm": 0
+        },
+        {
+          "t": 1793300400000,
+          "icon": "cloud",
+          "temp": 14.5,
+          "low": null,
+          "mm": 0
+        },
+        {
+          "t": 1793304000000,
+          "icon": "cloud",
+          "temp": 15,
+          "low": null,
+          "mm": 0
+        },
+        {
+          "t": 1793307600000,
+          "icon": "cloud",
+          "temp": 15.5,
+          "low": null,
+          "mm": 0
+        }
+      ],
+      "events": null,
+      "bins": null,
+      "tz": 60,
+      "lang": "nl",
+      "out": {
+        "head": "Goedemorgen",
+        "date": "Donderdag 29 oktober",
+        "weather": {
+          "icon": "partly",
+          "temps": "13° / 6°",
+          "rain": "Regen vanaf 08:00"
+        },
+        "events": [],
+        "more": "",
+        "bins": []
+      }
+    },
+    {
+      "name": "rain-now",
+      "now": 1793257800000,
+      "daily": [
+        {
+          "t": 1793271600000,
+          "icon": "partly",
+          "temp": 13.4,
+          "low": 5.6,
+          "mm": 1.2
+        },
+        {
+          "t": 1793358000000,
+          "icon": "rain",
+          "temp": 10,
+          "low": 6,
+          "mm": 8
+        }
+      ],
+      "hourly": [
+        {
+          "t": 1793253600000,
+          "icon": "cloud",
+          "temp": 8,
+          "low": null,
+          "mm": 0
+        },
+        {
+          "t": 1793257200000,
+          "icon": "rain",
+          "temp": 8.5,
+          "low": null,
+          "mm": 0.6
+        },
+        {
+          "t": 1793260800000,
+          "icon": "rain",
+          "temp": 9,
+          "low": null,
+          "mm": 0.2
+        },
+        {
+          "t": 1793264400000,
+          "icon": "cloud",
+          "temp": 9.5,
+          "low": null,
+          "mm": 0
+        },
+        {
+          "t": 1793268000000,
+          "icon": "cloud",
+          "temp": 10,
+          "low": null,
+          "mm": 0
+        },
+        {
+          "t": 1793271600000,
+          "icon": "cloud",
+          "temp": 10.5,
+          "low": null,
+          "mm": 0
+        },
+        {
+          "t": 1793275200000,
+          "icon": "cloud",
+          "temp": 11,
+          "low": null,
+          "mm": 0
+        },
+        {
+          "t": 1793278800000,
+          "icon": "cloud",
+          "temp": 11.5,
+          "low": null,
+          "mm": 0
+        },
+        {
+          "t": 1793282400000,
+          "icon": "cloud",
+          "temp": 12,
+          "low": null,
+          "mm": 0
+        },
+        {
+          "t": 1793286000000,
+          "icon": "cloud",
+          "temp": 12.5,
+          "low": null,
+          "mm": 0
+        },
+        {
+          "t": 1793289600000,
+          "icon": "cloud",
+          "temp": 13,
+          "low": null,
+          "mm": 0
+        },
+        {
+          "t": 1793293200000,
+          "icon": "cloud",
+          "temp": 13.5,
+          "low": null,
+          "mm": 0
+        },
+        {
+          "t": 1793296800000,
+          "icon": "cloud",
+          "temp": 14,
+          "low": null,
+          "mm": 0
+        },
+        {
+          "t": 1793300400000,
+          "icon": "cloud",
+          "temp": 14.5,
+          "low": null,
+          "mm": 0
+        },
+        {
+          "t": 1793304000000,
+          "icon": "cloud",
+          "temp": 15,
+          "low": null,
+          "mm": 0
+        },
+        {
+          "t": 1793307600000,
+          "icon": "cloud",
+          "temp": 15.5,
+          "low": null,
+          "mm": 0
+        }
+      ],
+      "events": null,
+      "bins": null,
+      "tz": 60,
+      "lang": "en",
+      "out": {
+        "head": "Good morning",
+        "date": "Thursday 29 October",
+        "weather": {
+          "icon": "partly",
+          "temps": "13° / 6°",
+          "rain": "Rain now"
+        },
+        "events": [],
+        "more": "",
+        "bins": []
+      }
+    },
+    {
+      "name": "rain-now",
+      "now": 1793257800000,
+      "daily": [
+        {
+          "t": 1793271600000,
+          "icon": "partly",
+          "temp": 13.4,
+          "low": 5.6,
+          "mm": 1.2
+        },
+        {
+          "t": 1793358000000,
+          "icon": "rain",
+          "temp": 10,
+          "low": 6,
+          "mm": 8
+        }
+      ],
+      "hourly": [
+        {
+          "t": 1793253600000,
+          "icon": "cloud",
+          "temp": 8,
+          "low": null,
+          "mm": 0
+        },
+        {
+          "t": 1793257200000,
+          "icon": "rain",
+          "temp": 8.5,
+          "low": null,
+          "mm": 0.6
+        },
+        {
+          "t": 1793260800000,
+          "icon": "rain",
+          "temp": 9,
+          "low": null,
+          "mm": 0.2
+        },
+        {
+          "t": 1793264400000,
+          "icon": "cloud",
+          "temp": 9.5,
+          "low": null,
+          "mm": 0
+        },
+        {
+          "t": 1793268000000,
+          "icon": "cloud",
+          "temp": 10,
+          "low": null,
+          "mm": 0
+        },
+        {
+          "t": 1793271600000,
+          "icon": "cloud",
+          "temp": 10.5,
+          "low": null,
+          "mm": 0
+        },
+        {
+          "t": 1793275200000,
+          "icon": "cloud",
+          "temp": 11,
+          "low": null,
+          "mm": 0
+        },
+        {
+          "t": 1793278800000,
+          "icon": "cloud",
+          "temp": 11.5,
+          "low": null,
+          "mm": 0
+        },
+        {
+          "t": 1793282400000,
+          "icon": "cloud",
+          "temp": 12,
+          "low": null,
+          "mm": 0
+        },
+        {
+          "t": 1793286000000,
+          "icon": "cloud",
+          "temp": 12.5,
+          "low": null,
+          "mm": 0
+        },
+        {
+          "t": 1793289600000,
+          "icon": "cloud",
+          "temp": 13,
+          "low": null,
+          "mm": 0
+        },
+        {
+          "t": 1793293200000,
+          "icon": "cloud",
+          "temp": 13.5,
+          "low": null,
+          "mm": 0
+        },
+        {
+          "t": 1793296800000,
+          "icon": "cloud",
+          "temp": 14,
+          "low": null,
+          "mm": 0
+        },
+        {
+          "t": 1793300400000,
+          "icon": "cloud",
+          "temp": 14.5,
+          "low": null,
+          "mm": 0
+        },
+        {
+          "t": 1793304000000,
+          "icon": "cloud",
+          "temp": 15,
+          "low": null,
+          "mm": 0
+        },
+        {
+          "t": 1793307600000,
+          "icon": "cloud",
+          "temp": 15.5,
+          "low": null,
+          "mm": 0
+        }
+      ],
+      "events": null,
+      "bins": null,
+      "tz": 60,
+      "lang": "nl",
+      "out": {
+        "head": "Goedemorgen",
+        "date": "Donderdag 29 oktober",
+        "weather": {
+          "icon": "partly",
+          "temps": "13° / 6°",
+          "rain": "Nu regen"
+        },
+        "events": [],
+        "more": "",
+        "bins": []
+      }
+    },
+    {
+      "name": "no-low-dry",
+      "now": 1793253900000,
+      "daily": [
+        {
+          "t": 1793271600000,
+          "icon": "partly",
+          "temp": 13.4,
+          "low": null,
+          "mm": 1.2
+        }
+      ],
+      "hourly": [
+        {
+          "t": 1793253600000,
+          "icon": "cloud",
+          "temp": 8,
+          "low": null,
+          "mm": 0
+        },
+        {
+          "t": 1793257200000,
+          "icon": "cloud",
+          "temp": 8.5,
+          "low": null,
+          "mm": 0
+        },
+        {
+          "t": 1793260800000,
+          "icon": "cloud",
+          "temp": 9,
+          "low": null,
+          "mm": 0
+        },
+        {
+          "t": 1793264400000,
+          "icon": "cloud",
+          "temp": 9.5,
+          "low": null,
+          "mm": 0
+        },
+        {
+          "t": 1793268000000,
+          "icon": "cloud",
+          "temp": 10,
+          "low": null,
+          "mm": 0
+        },
+        {
+          "t": 1793271600000,
+          "icon": "cloud",
+          "temp": 10.5,
+          "low": null,
+          "mm": 0
+        },
+        {
+          "t": 1793275200000,
+          "icon": "cloud",
+          "temp": 11,
+          "low": null,
+          "mm": 0
+        },
+        {
+          "t": 1793278800000,
+          "icon": "cloud",
+          "temp": 11.5,
+          "low": null,
+          "mm": 0
+        },
+        {
+          "t": 1793282400000,
+          "icon": "cloud",
+          "temp": 12,
+          "low": null,
+          "mm": 0
+        },
+        {
+          "t": 1793286000000,
+          "icon": "cloud",
+          "temp": 12.5,
+          "low": null,
+          "mm": 0
+        },
+        {
+          "t": 1793289600000,
+          "icon": "cloud",
+          "temp": 13,
+          "low": null,
+          "mm": 0
+        },
+        {
+          "t": 1793293200000,
+          "icon": "cloud",
+          "temp": 13.5,
+          "low": null,
+          "mm": 0
+        },
+        {
+          "t": 1793296800000,
+          "icon": "cloud",
+          "temp": 14,
+          "low": null,
+          "mm": 0
+        },
+        {
+          "t": 1793300400000,
+          "icon": "cloud",
+          "temp": 14.5,
+          "low": null,
+          "mm": 0
+        },
+        {
+          "t": 1793304000000,
+          "icon": "cloud",
+          "temp": 15,
+          "low": null,
+          "mm": 0
+        },
+        {
+          "t": 1793307600000,
+          "icon": "cloud",
+          "temp": 15.5,
+          "low": null,
+          "mm": 0
+        }
+      ],
+      "events": null,
+      "bins": null,
+      "tz": 60,
+      "lang": "en",
+      "out": {
+        "head": "Good morning",
+        "date": "Thursday 29 October",
+        "weather": {
+          "icon": "partly",
+          "temps": "13°",
+          "rain": ""
+        },
+        "events": [],
+        "more": "",
+        "bins": []
+      }
+    },
+    {
+      "name": "no-low-dry",
+      "now": 1793253900000,
+      "daily": [
+        {
+          "t": 1793271600000,
+          "icon": "partly",
+          "temp": 13.4,
+          "low": null,
+          "mm": 1.2
+        }
+      ],
+      "hourly": [
+        {
+          "t": 1793253600000,
+          "icon": "cloud",
+          "temp": 8,
+          "low": null,
+          "mm": 0
+        },
+        {
+          "t": 1793257200000,
+          "icon": "cloud",
+          "temp": 8.5,
+          "low": null,
+          "mm": 0
+        },
+        {
+          "t": 1793260800000,
+          "icon": "cloud",
+          "temp": 9,
+          "low": null,
+          "mm": 0
+        },
+        {
+          "t": 1793264400000,
+          "icon": "cloud",
+          "temp": 9.5,
+          "low": null,
+          "mm": 0
+        },
+        {
+          "t": 1793268000000,
+          "icon": "cloud",
+          "temp": 10,
+          "low": null,
+          "mm": 0
+        },
+        {
+          "t": 1793271600000,
+          "icon": "cloud",
+          "temp": 10.5,
+          "low": null,
+          "mm": 0
+        },
+        {
+          "t": 1793275200000,
+          "icon": "cloud",
+          "temp": 11,
+          "low": null,
+          "mm": 0
+        },
+        {
+          "t": 1793278800000,
+          "icon": "cloud",
+          "temp": 11.5,
+          "low": null,
+          "mm": 0
+        },
+        {
+          "t": 1793282400000,
+          "icon": "cloud",
+          "temp": 12,
+          "low": null,
+          "mm": 0
+        },
+        {
+          "t": 1793286000000,
+          "icon": "cloud",
+          "temp": 12.5,
+          "low": null,
+          "mm": 0
+        },
+        {
+          "t": 1793289600000,
+          "icon": "cloud",
+          "temp": 13,
+          "low": null,
+          "mm": 0
+        },
+        {
+          "t": 1793293200000,
+          "icon": "cloud",
+          "temp": 13.5,
+          "low": null,
+          "mm": 0
+        },
+        {
+          "t": 1793296800000,
+          "icon": "cloud",
+          "temp": 14,
+          "low": null,
+          "mm": 0
+        },
+        {
+          "t": 1793300400000,
+          "icon": "cloud",
+          "temp": 14.5,
+          "low": null,
+          "mm": 0
+        },
+        {
+          "t": 1793304000000,
+          "icon": "cloud",
+          "temp": 15,
+          "low": null,
+          "mm": 0
+        },
+        {
+          "t": 1793307600000,
+          "icon": "cloud",
+          "temp": 15.5,
+          "low": null,
+          "mm": 0
+        }
+      ],
+      "events": null,
+      "bins": null,
+      "tz": 60,
+      "lang": "nl",
+      "out": {
+        "head": "Goedemorgen",
+        "date": "Donderdag 29 oktober",
+        "weather": {
+          "icon": "partly",
+          "temps": "13°",
+          "rain": ""
+        },
+        "events": [],
+        "more": "",
+        "bins": []
+      }
+    },
+    {
+      "name": "rain-only-tomorrow",
+      "now": 1793293200000,
+      "daily": [
+        {
+          "t": 1793358000000,
+          "icon": "rain",
+          "temp": 10,
+          "low": 6,
+          "mm": 8
+        }
+      ],
+      "hourly": [
+        {
+          "t": 1793293200000,
+          "icon": "cloud",
+          "temp": 8,
+          "low": null,
+          "mm": 0
+        },
+        {
+          "t": 1793296800000,
+          "icon": "rain",
+          "temp": 8.5,
+          "low": null,
+          "mm": 0
+        },
+        {
+          "t": 1793300400000,
+          "icon": "rain",
+          "temp": 9,
+          "low": null,
+          "mm": 0
+        },
+        {
+          "t": 1793304000000,
+          "icon": "cloud",
+          "temp": 9.5,
+          "low": null,
+          "mm": 0
+        },
+        {
+          "t": 1793307600000,
+          "icon": "cloud",
+          "temp": 10,
+          "low": null,
+          "mm": 0
+        },
+        {
+          "t": 1793311200000,
+          "icon": "cloud",
+          "temp": 10.5,
+          "low": null,
+          "mm": 0
+        },
+        {
+          "t": 1793314800000,
+          "icon": "cloud",
+          "temp": 11,
+          "low": null,
+          "mm": 0
+        },
+        {
+          "t": 1793318400000,
+          "icon": "cloud",
+          "temp": 11.5,
+          "low": null,
+          "mm": 0
+        },
+        {
+          "t": 1793322000000,
+          "icon": "cloud",
+          "temp": 12,
+          "low": null,
+          "mm": 1
+        },
+        {
+          "t": 1793325600000,
+          "icon": "cloud",
+          "temp": 12.5,
+          "low": null,
+          "mm": 0
+        },
+        {
+          "t": 1793329200000,
+          "icon": "cloud",
+          "temp": 13,
+          "low": null,
+          "mm": 0
+        },
+        {
+          "t": 1793332800000,
+          "icon": "cloud",
+          "temp": 13.5,
+          "low": null,
+          "mm": 0
+        },
+        {
+          "t": 1793336400000,
+          "icon": "cloud",
+          "temp": 14,
+          "low": null,
+          "mm": 0
+        },
+        {
+          "t": 1793340000000,
+          "icon": "cloud",
+          "temp": 14.5,
+          "low": null,
+          "mm": 0
+        },
+        {
+          "t": 1793343600000,
+          "icon": "cloud",
+          "temp": 15,
+          "low": null,
+          "mm": 0
+        },
+        {
+          "t": 1793347200000,
+          "icon": "cloud",
+          "temp": 15.5,
+          "low": null,
+          "mm": 0
+        }
+      ],
+      "events": null,
+      "bins": null,
+      "tz": 60,
+      "lang": "en",
+      "out": {
+        "head": "Good morning",
+        "date": "Thursday 29 October",
+        "weather": null,
+        "events": [],
+        "more": "",
+        "bins": []
+      }
+    },
+    {
+      "name": "rain-only-tomorrow",
+      "now": 1793293200000,
+      "daily": [
+        {
+          "t": 1793358000000,
+          "icon": "rain",
+          "temp": 10,
+          "low": 6,
+          "mm": 8
+        }
+      ],
+      "hourly": [
+        {
+          "t": 1793293200000,
+          "icon": "cloud",
+          "temp": 8,
+          "low": null,
+          "mm": 0
+        },
+        {
+          "t": 1793296800000,
+          "icon": "rain",
+          "temp": 8.5,
+          "low": null,
+          "mm": 0
+        },
+        {
+          "t": 1793300400000,
+          "icon": "rain",
+          "temp": 9,
+          "low": null,
+          "mm": 0
+        },
+        {
+          "t": 1793304000000,
+          "icon": "cloud",
+          "temp": 9.5,
+          "low": null,
+          "mm": 0
+        },
+        {
+          "t": 1793307600000,
+          "icon": "cloud",
+          "temp": 10,
+          "low": null,
+          "mm": 0
+        },
+        {
+          "t": 1793311200000,
+          "icon": "cloud",
+          "temp": 10.5,
+          "low": null,
+          "mm": 0
+        },
+        {
+          "t": 1793314800000,
+          "icon": "cloud",
+          "temp": 11,
+          "low": null,
+          "mm": 0
+        },
+        {
+          "t": 1793318400000,
+          "icon": "cloud",
+          "temp": 11.5,
+          "low": null,
+          "mm": 0
+        },
+        {
+          "t": 1793322000000,
+          "icon": "cloud",
+          "temp": 12,
+          "low": null,
+          "mm": 1
+        },
+        {
+          "t": 1793325600000,
+          "icon": "cloud",
+          "temp": 12.5,
+          "low": null,
+          "mm": 0
+        },
+        {
+          "t": 1793329200000,
+          "icon": "cloud",
+          "temp": 13,
+          "low": null,
+          "mm": 0
+        },
+        {
+          "t": 1793332800000,
+          "icon": "cloud",
+          "temp": 13.5,
+          "low": null,
+          "mm": 0
+        },
+        {
+          "t": 1793336400000,
+          "icon": "cloud",
+          "temp": 14,
+          "low": null,
+          "mm": 0
+        },
+        {
+          "t": 1793340000000,
+          "icon": "cloud",
+          "temp": 14.5,
+          "low": null,
+          "mm": 0
+        },
+        {
+          "t": 1793343600000,
+          "icon": "cloud",
+          "temp": 15,
+          "low": null,
+          "mm": 0
+        },
+        {
+          "t": 1793347200000,
+          "icon": "cloud",
+          "temp": 15.5,
+          "low": null,
+          "mm": 0
+        }
+      ],
+      "events": null,
+      "bins": null,
+      "tz": 60,
+      "lang": "nl",
+      "out": {
+        "head": "Goedemorgen",
+        "date": "Donderdag 29 oktober",
+        "weather": null,
+        "events": [],
+        "more": "",
+        "bins": []
+      }
+    },
+    {
+      "name": "no-forecast-yet",
+      "now": 1793253900000,
+      "daily": null,
+      "hourly": null,
+      "events": {
+        "events": [],
+        "more": 0
+      },
+      "bins": [
+        {
+          "label": "Green",
+          "days": 6
+        }
+      ],
+      "tz": 60,
+      "lang": "en",
+      "out": {
+        "head": "Good morning",
+        "date": "Thursday 29 October",
+        "weather": null,
+        "events": [],
+        "more": "",
+        "bins": []
+      }
+    },
+    {
+      "name": "no-forecast-yet",
+      "now": 1793253900000,
+      "daily": null,
+      "hourly": null,
+      "events": {
+        "events": [],
+        "more": 0
+      },
+      "bins": [
+        {
+          "label": "Green",
+          "days": 6
+        }
+      ],
+      "tz": 60,
+      "lang": "nl",
+      "out": {
+        "head": "Goedemorgen",
+        "date": "Donderdag 29 oktober",
+        "weather": null,
+        "events": [],
+        "more": "",
+        "bins": []
+      }
+    },
+    {
+      "name": "events-short",
+      "now": 1793253900000,
+      "daily": null,
+      "hourly": null,
+      "events": {
+        "events": [
+          {
+            "start": 1793259000000,
+            "end": 1793261700000,
+            "allDay": false,
+            "cal": 0,
+            "title": "Dentist"
+          },
+          {
+            "start": 1793271600000,
+            "end": 1793275200000,
+            "allDay": false,
+            "cal": 0,
+            "title": "Lunch with Sam"
+          }
+        ],
+        "more": 3
+      },
+      "bins": [
+        {
+          "label": "Paper",
+          "days": 1
+        }
+      ],
+      "tz": 60,
+      "lang": "en",
+      "out": {
+        "head": "Good morning",
+        "date": "Thursday 29 October",
+        "weather": null,
+        "events": [
+          {
+            "time": "08:30",
+            "title": "Dentist"
+          },
+          {
+            "time": "12:00",
+            "title": "Lunch with Sam"
+          }
+        ],
+        "more": "",
+        "bins": [
+          {
+            "labels": "Paper",
+            "when": "put out tonight"
+          }
+        ]
+      }
+    },
+    {
+      "name": "events-short",
+      "now": 1793253900000,
+      "daily": null,
+      "hourly": null,
+      "events": {
+        "events": [
+          {
+            "start": 1793259000000,
+            "end": 1793261700000,
+            "allDay": false,
+            "cal": 0,
+            "title": "Dentist"
+          },
+          {
+            "start": 1793271600000,
+            "end": 1793275200000,
+            "allDay": false,
+            "cal": 0,
+            "title": "Lunch with Sam"
+          }
+        ],
+        "more": 3
+      },
+      "bins": [
+        {
+          "label": "Paper",
+          "days": 1
+        }
+      ],
+      "tz": 60,
+      "lang": "nl",
+      "out": {
+        "head": "Goedemorgen",
+        "date": "Donderdag 29 oktober",
+        "weather": null,
+        "events": [
+          {
+            "time": "08:30",
+            "title": "Dentist"
+          },
+          {
+            "time": "12:00",
+            "title": "Lunch with Sam"
+          }
+        ],
+        "more": "",
+        "bins": [
+          {
+            "labels": "Paper",
+            "when": "vanavond buiten zetten"
+          }
+        ]
+      }
+    }
+  ]
+}

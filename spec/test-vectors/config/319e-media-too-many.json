@@ -1,0 +1,10 @@
+{
+  "name": "319e-media-too-many",
+  "description": "Rule: at most 6 favorites.",
+  "input": "# HA Paper display config\nversion: 1\nscreens:\n  - id: a\n    widgets:\n      - {type: media, entity: media_player.living_room, cs: 2, favorites: A=music:1; B=music:2; C=music:3; D=music:4; E=music:5; F=music:6; G=music:7}\n",
+  "expect": {
+    "ok": false,
+    "line": 6,
+    "message": "media: at most 6 favorites"
+  }
+}

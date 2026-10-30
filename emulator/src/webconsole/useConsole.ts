@@ -6,6 +6,7 @@ import { barsFor, entityGap, hm, type EntityGap } from '../core/format.ts';
 import { reportLine, type ReportStatus } from '../core/haReport.ts';
 import { toYaml, parseYaml, wLabel, cellsUsed, gridLayout, listOf, MAX_CELLS, MAX_APPS, MAX_USER_APPS, userConfig, BARS_SERIES, ENTITY_DOMAINS, GAUGE_DEFAULT_ENTITY, LIST_PICKS, ROUTE_MODES, type Config, type Screen, type Widget } from '../core/config.ts';
 import { settingsPages, type DeviceSettings, type SettingField, type SettingsPatch } from '../core/settings.ts';
+import { DEFAULT_EMPTY_SOURCE, validEmptySource } from '../core/emptyHouse.ts';
 import { fmtUptime, type Diagnostics } from '../core/diag.ts';
 import { armLine } from '../core/glance.ts';
 import { parseHaAddress } from '../core/haAddress.ts';
@@ -13,13 +14,19 @@ import { consoleLang, tr, trMsg, trParts, type StrKey } from '../core/strings.ts
 import { DeviceUnreachableError, type DeviceApi, type DeviceSnapshot, type EntityLists, type OtaView } from './DeviceApi.ts';
 import { otaLine } from '../core/otaStatus.ts';
 import { HISTORY_AGGS, WINDOW_DEFAULT, historySource, parseSpan } from '../core/history.ts';
+import { AGENDA_TYPES } from '../core/agenda.ts';
 import { HA_NO_ANSWER } from './httpApi.ts';
-import { loadAdvPage, loadView, saveAdvPage, saveView, tileCrops, tileValueFor, useScreenPreview, useScreenValues, type AdvPage, type ScreenView } from './preview.ts';
+import { MAX_FAVORITES, favoritesOf, parseFavorites } from '../core/media.ts';
+import { setFavorites } from './configEdit.ts';
+import { loadAdvPage, loadView, panelAspect, panelPlace, saveAdvPage, saveView, tileCrops, tileValueFor, useScreenPreview, useScreenValues, type AdvPage, type ScreenView } from './preview.ts';
 import { CLASSIC_GRID, SLEEK_GRID } from '../core/paging.ts';
 import { fromKey, logicalSource, nowLine, sharedLine, sharedWith, tileLogical } from './tileSource.ts';
 import { loadPreviewSeen, savePreviewSeen } from './checklist.ts';
 import { useDeviceLogs } from './logsView.ts';
-import { addApp, addTile, cleanLabel, clearPicks, pickGroups, togglePick, entitiesFor, hasLabelField, pickDomains, pickedEntity, setBarsSeries, setHistoryKey, setHistorySource, historyWindows, historyIssue, bucketsFor, entityIssue, entityValue, firstIssue, matches, moveApp, moveScreen, moveTile, nudgeTile, rankEntities,
+import { binRows, setBinLabel, toggleBin } from './binsEdit.ts';
+import { setGuestField, type GuestKey } from './guestEdit.ts';
+import { fieldDecode, GUEST_PW_DOMAINS, GUEST_SECURITY } from '../core/guestWifi.ts';
+import { addApp, addTile, cleanLabel, clearPicks, pickGroups, togglePick, entitiesFor, hasLabelField, pickDomains, pickedEntity, setBarsSeries, setHistoryKey, setHistorySource, historyWindows, historyIssue, agendaIssue, bucketsFor, entityIssue, entityValue, firstIssue, matches, moveApp, moveScreen, moveTile, nudgeTile, rankEntities,
   capHides, removeApp, removeTile, renameApp, resizeTile, setSceneAllOff, setTileEntity, setTileLabel, tileSize, titleIssue, type TileEdit } from './configEdit.ts';
 
 type Tab = 'screens' | 'device' | 'advanced';
@@ -116,7 +123,9 @@ export function useConsole(api: DeviceApi, initial: DeviceSnapshot | null = null
   const liveValue = (w: Widget, j: number) => (values && lv && pushedSc ? tileValueFor(w, pushedSc.widgets[j], lv.values[j]) : '');
   // #189: each card shows its tile cropped from the display's own render (grid per display style, so after settings)
   const shot = useScreenPreview(api, values && pushed ? cur!.id : null, rev);
-  const crops = shot && pushedSc && cur && W.settings ? tileCrops(cur.widgets, pushedSc.widgets, W.settings.display.style === 'sleek' ? SLEEK_GRID : CLASSIC_GRID) : [];
+  const grid = W.settings?.display.style === 'sleek' ? SLEEK_GRID : CLASSIC_GRID;
+  const crops = shot && pushedSc && cur && W.settings ? tileCrops(cur.widgets, pushedSc.widgets, grid) : [];
+  const place = (col: number, row: number, cs: number, rs: number) => (values ? panelPlace(grid, col, row, cs, rs) : null);
   // First-run checklist (#91): "preview checked" once the Values view was open in this browser.
   const [previewSeen, setPreviewSeen] = useState(loadPreviewSeen);
   useEffect(() => { if (values && !previewSeen) { setPreviewSeen(true); savePreviewSeen(); } }, [values, previewSeen]);
@@ -148,7 +157,7 @@ export function useConsole(api: DeviceApi, initial: DeviceSnapshot | null = null
   const addNew = (w: Widget, cell?: [number, number], pal?: Pal) => {
     if (!cur) return;
     const r = addTile(cur.widgets, w, cell);
-    tileEdit(r, typeof r === 'string' || !pickDomains(w.type) ? -1 : r.sel);
+    tileEdit(r, typeof r === 'string' || !(pickDomains(w.type) || w.type === 'guestWifi') ? -1 : r.sel);   // #329: guest Wi-Fi opens its fields
     if (typeof r !== 'string' && pickDomains(w.type)) setWeb({ qEntity: '', pend: pal ? { ...pal, screen: cur.id, j: r.sel } : null });
   };
   const removeAt = (j: number) => { if (!cur || !cur.widgets[j]) return; commit(removeTile(cur.widgets, j), -1); };
@@ -169,6 +178,8 @@ export function useConsole(api: DeviceApi, initial: DeviceSnapshot | null = null
 
   // ---- Home Assistant entities for the picker (GET /ha/entities; not ready yet → retry every 2 s) ----
   const [ents, setEnts] = useState<{ ready: boolean; list: HaEntity[]; areas: { id: string; name: string }[]; lists?: EntityLists; error: string }>({ ready: false, list: [], areas: [], error: '' });
+  const [fav, setFav] = useState({ name: '', target: '' });   // media tile: the favorite being added (#319)
+  const [guestShow, setGuestShow] = useState(false);   // guest Wi-Fi tile: password field shown plain (#329)
   const signedIn = phase === 'in';
   useEffect(() => {
     if (!signedIn) return;
@@ -330,7 +341,7 @@ export function useConsole(api: DeviceApi, initial: DeviceSnapshot | null = null
     openScreen: (id: string) => setWeb({ tab: 'screens', sel: Math.max(0, draft.findIndex((s) => s.id === id)), selW: -1, qScreens: '' }),
     screenViews: ([['names', 'viewNames'], ['values', 'viewValues']] as [ScreenView, StrKey][]).map(([k, key]) => ({ label: t(key), on: view === k, ...seg(view === k),
       pick: () => { setView(k); saveView(k); setWeb({ selW: -1 }); } })),
-    isValues: values,
+    isValues: values, panelAspect: panelAspect(grid),
     pvLine: !values ? '' : !pushed ? t('pvNotPushed')
       : lvErr ? t('pvNoValues', tm(lvErr.text))
       : lv ? t('pvLive', hm(lv.at) + ':' + String(lv.at.getSeconds()).padStart(2, '0')) + (W.dirty ? ' · ' + t('pvPushedVersion') : '') : t('loading'),
@@ -372,16 +383,16 @@ export function useConsole(api: DeviceApi, initial: DeviceSnapshot | null = null
     // drop targets: all 8 cells (tiles are drawn on top of the occupied ones)
     cells: Array.from({ length: 8 }, (_, k) => {
       const col = (k % 4) + 1, row = Math.floor(k / 4) + 1;
-      return { col, row, border: W.dropCell === k ? '2px solid #1d1d1f' : '1.5px dashed #c2beb5', bg: W.dropCell === k ? '#F6F5F2' : 'transparent',
+      return { col, row, place: place(col, row, 1, 1), border: W.dropCell === k ? '2px solid #1d1d1f' : '1.5px dashed #c2beb5', bg: W.dropCell === k ? '#F6F5F2' : 'transparent',
         over: (e: DragEvent) => { e.preventDefault(); if (W.dropCell !== k) setWeb({ dropCell: k }); },
         leave: () => setWeb({ dropCell: -1 }),
         drop: (e: DragEvent) => { e.preventDefault(); dropAt({ cell: [col, row] }); } };
     }),
     unplaced: cur ? gridLayout(cur.widgets).filter((c) => !c).length : 0,
-    blocks: cur ? gridLayout(cur.widgets).map((c, j) => ({ c, w: cur.widgets[j], j })).filter((o) => o.c).map(({ c, w, j }) => ({ j, col: c!.col, row: c!.row, cs: c!.cs, rs: c!.rs, name: liveValue(w, j) || nameAt(w, j),
+    blocks: cur ? gridLayout(cur.widgets).map((c, j) => ({ c, w: cur.widgets[j], j })).filter((o) => o.c).map(({ c, w, j }) => ({ j, col: c!.col, row: c!.row, cs: c!.cs, rs: c!.rs, place: place(c!.col, c!.row, c!.cs, c!.rs), name: liveValue(w, j) || nameAt(w, j),
       // #184: no widget type, size or entity id on the card; the names are HA's friendly names
       sub: liveValue(w, j) ? nameAt(w, j) : capNote(w) || (gapOf(w.entity) ? gapWord(gapOf(w.entity)!, true) : ''), border: j === selW ? '3px solid #1d1d1f' : '1.5px solid #1d1d1f', bg: j === selW ? '#F6F5F2' : '#fff',
-      on: j === selW, bad: !!entityIssue(w, ents.ready ? ents.list : null)?.hard || !!historyIssue(w),
+      on: j === selW, bad: !!entityIssue(w, ents.ready ? ents.list : null)?.hard || !!historyIssue(w) || !!agendaIssue(w),
       aria: nameAt(w, j) + (liveValue(w, j) ? ', ' + liveValue(w, j) : '') + ', ' + tileSize(w) + ', column ' + c!.col + ', row ' + c!.row,
       crop: crops[j] && shot ? { url: shot.url, box: `${crops[j]!.x} ${crops[j]!.y} ${crops[j]!.w} ${crops[j]!.h}` } : null,
       select: () => setWeb({ selW: j === selW ? -1 : j, srcOpen: false, qSrc: '', srcFlip: false, srcMsg: null }),
@@ -398,16 +409,21 @@ export function useConsole(api: DeviceApi, initial: DeviceSnapshot | null = null
     hasSel: !!sw, selName: sw ? nameAt(sw, selW) : '',
     // list picker (#127): which lights / areas a lightList shows, which climate entities a zoneList shows
     hasListPicker: !!sw && !!LIST_PICKS[sw.type],
-    listTitle: sw ? t(sw.type === 'lightList' ? 'pickLights' : 'pickRooms') : '',
+    listTitle: sw ? t(sw.type === 'lightList' ? 'pickLights' : AGENDA_TYPES.includes(sw.type) ? 'pickCalendars' : 'pickRooms') : '',
     listCount: sw && LIST_PICKS[sw.type] ? (() => { const n = Object.keys(LIST_PICKS[sw.type]).reduce((a, k) => a + listOf(sw, k).length, 0);
-      return n ? t('pickCount', n) : capNote(sw) || t(sw.type === 'lightList' ? 'pickAllLights' : 'pickAllRooms'); })() : '',
-    listPicked: !!sw && !!LIST_PICKS[sw.type] && Object.keys(LIST_PICKS[sw.type]).some((k) => listOf(sw, k).length),
+      return n ? t('pickCount', n) : capNote(sw) || t(sw.type === 'lightList' ? 'pickAllLights' : AGENDA_TYPES.includes(sw.type) ? 'pickCalendarHint' : 'pickAllRooms'); })() : '',
+    listPicked: !!sw && !!LIST_PICKS[sw.type] && !AGENDA_TYPES.includes(sw.type) && Object.keys(LIST_PICKS[sw.type]).some((k) => listOf(sw, k).length),
     listShowAll: t('pickShowAll'), listSearch: t('pickSearch'), listAreaLabel: t('pickArea'),
     clearList: () => { if (cur) commit(clearPicks(cur.widgets, selW), selW); },
     listGroups: sw && LIST_PICKS[sw.type] ? pickGroups(ents.list, ents.areas, sw, W.qEntity, t('pickNoArea')).map((g) => ({ ...g,
       toggle: () => { if (cur && g.area) commit(togglePick(cur.widgets, selW, 'areas', g.area), selW); },
       rows: g.rows.map((r) => ({ ...r, toggle: () => { if (cur && !r.viaArea) commit(togglePick(cur.widgets, selW, 'entities', r.id), selW); } })) })) : [],
     listEmpty: ents.ready && !!sw && !!LIST_PICKS[sw.type] && !pickGroups(ents.list, ents.areas, sw, W.qEntity, '').length,
+    // bin day tile (#317): tick each bin's sensor, name it
+    hasBinsPicker: !!sw && sw.type === 'bins', binsTitle: t('pickBins'), binsHint: t('pickBinsHint'),
+    binRows: sw && sw.type === 'bins' ? binRows(ents.list, sw, W.qEntity).map((r) => ({ ...r, nameLabel: t('binName', r.name),
+      toggle: () => { if (cur) commit(toggleBin(cur.widgets, selW, r.id), selW); },
+      setLabel: (e: ChangeEvent<HTMLInputElement>) => { if (cur) commit(setBinLabel(cur.widgets, selW, r.id, e.target.value, true), selW); } })) : [],
     // entity picker (stat / gauge / switch)
     hasPicker: !!sw && !!pickDomains(sw.type, sw),
     pickerHint: sw && pickDomains(sw.type, sw) ? t('pickerHint', pickDomains(sw.type, sw)!.join(', ')) : '',
@@ -466,6 +482,9 @@ export function useConsole(api: DeviceApi, initial: DeviceSnapshot | null = null
         histAttr: h?.attribute === undefined ? '' : String(h.attribute), setHistAttr: field('attribute'),
         histValue: h?.value === undefined ? '' : String(h.value), setHistValue: field('value'), histValueHint: src === 'forecast' ? 'temperature' : 'value',
         histTime: h?.time === undefined ? '' : String(h.time), setHistTime: field('time'),
+        // #307: a recorder entity drawn before now
+        histPast: h?.past === undefined ? '' : String(h.past), setHistPast: (e: ChangeEvent<HTMLInputElement>) => put('past', e.target.value.replace(/[^a-z0-9_.]/g, '')),
+        histPastIds: ents.ready ? ents.list.filter((e) => /^(sensor|input_number|number)\./.test(e.id) && !!e.unit).map((e) => e.id) : [],
         histAheads: ([['next', 'aheadNext', undefined], ['around', 'aheadAround', half], ['past', 'aheadPast', '0']] as const).map(([k, lk, v]) => opt(t(lk), ahead === k, () => put('ahead', v))),
         histForecasts: ([['hourly', 'fcHourly'], ['daily', 'fcDaily']] as const).map(([k, lk]) => opt(t(lk), String(h?.forecast ?? 'hourly') === k, () => put('forecast', k === 'hourly' ? undefined : k))),
         histWindows: (wins.includes(win) ? wins : [...wins, win]).map((x) => opt(x, win === x, () => put('window', x === WINDOW_DEFAULT ? undefined : x))),
@@ -480,6 +499,41 @@ export function useConsole(api: DeviceApi, initial: DeviceSnapshot | null = null
         setHistMin: (e: ChangeEvent<HTMLInputElement>) => put('min', e.target.value.replace(/[^-\d.]/g, '')),
         setHistMax: (e: ChangeEvent<HTMLInputElement>) => put('max', e.target.value.replace(/[^-\d.]/g, '')),
         histErr: err ? tm(err.msg) : '',
+      };
+    })(),
+    // now playing tile (#319): favorites as free type:id entries or HA's scripts / scenes (no browse_media: the display
+    // has no media browser to proxy, emulator/deviations/319-media-favorites.md)
+    isMedia: !!sw && sw.type === 'media',
+    ...(() => {
+      const m = sw && sw.type === 'media' ? sw : null; const fs = m ? favoritesOf(m) : [];
+      const runs = ents.list.filter((e) => /^(script|scene)\./.test(e.id));
+      const clean = (x: string) => x.replace(/[,;=]/g, '').trim();
+      const target = fav.target.trim(), name = clean(fav.name) || clean(runs.find((e) => e.id === target)?.name ?? '');
+      const p = target ? parseFavorites(name + '=' + target)[0] : null, ok = !!p && !('bad' in p);
+      return {
+        favList: fs.map((f, k) => ({ label: f.label, target: f.entity ? (runs.find((e) => e.id === f.entity)?.name ?? f.entity) : f.type + ':' + f.id, removeLabel: t('favRemove', f.label),
+          remove: () => { if (cur) commit(setFavorites(cur.widgets, selW, fs.filter((_, j) => j !== k)), selW); } })),
+        favName: fav.name, favTarget: fav.target, favRuns: runs.map((e) => ({ id: e.id, name: e.name })),
+        setFavName: (e: ChangeEvent<HTMLInputElement>) => setFav((x) => ({ ...x, name: e.target.value.replace(/[,;=]/g, '') })),
+        setFavTarget: (e: ChangeEvent<HTMLInputElement>) => setFav((x) => ({ ...x, target: e.target.value.replace(/[,;\s]/g, '') })),
+        favCanAdd: ok && !!name && fs.length < MAX_FAVORITES, favErr: target && !ok ? t('favBad') : '',
+        addFav: () => { if (!cur || !ok || !name || fs.length >= MAX_FAVORITES) return; commit(setFavorites(cur.widgets, selW, [...fs, { ...(p as object), label: name }]), selW); setFav({ name: '', target: '' }); },
+      };
+    })(),
+    // guest Wi-Fi tile (#329): network, password (masked unless shown), security, hidden, optional password entity
+    isGuest: !!sw && sw.type === 'guestWifi',
+    ...(() => {
+      const g = sw && sw.type === 'guestWifi' ? sw : null;
+      const put = (k: GuestKey, v: string) => { if (cur) commit(setGuestField(cur.widgets, selW, k, v), selW); };
+      const sec = String(g?.security ?? 'WPA');
+      return {
+        guestSsid: g ? fieldDecode(g.ssid) : '', setGuestSsid: (e: ChangeEvent<HTMLInputElement>) => put('ssid', e.target.value),
+        guestPw: g ? fieldDecode(g.password) : '', setGuestPw: (e: ChangeEvent<HTMLInputElement>) => put('password', e.target.value),
+        guestShow, toggleGuestShow: () => setGuestShow((x) => !x), guestOpen: sec === 'nopass',
+        guestSecs: GUEST_SECURITY.map((k) => ({ label: k === 'nopass' ? t('guestSecOpen') : k, ...seg(sec === k), pick: () => put('security', k) })),
+        guestHidden: g?.hidden === 'true', toggleGuestHidden: () => put('hidden', g?.hidden === 'true' ? '' : 'true'),
+        guestPwEntity: g?.password_entity === undefined ? '' : String(g.password_entity), setGuestPwEntity: (e: ChangeEvent<HTMLInputElement>) => put('password_entity', e.target.value),
+        guestPwEntities: ents.list.filter((e) => GUEST_PW_DOMAINS.includes(e.id.split('.')[0])).map((e) => ({ id: e.id, name: e.name })),
       };
     })(),
     removeSel: () => removeAt(selW),
@@ -551,8 +605,11 @@ export function useConsole(api: DeviceApi, initial: DeviceSnapshot | null = null
       const st = W.settings as Record<string, unknown> & DeviceSettings;
       const curV = f.top ? st[f.key] : (st.display as Record<string, unknown>)[f.key];
       // tz (#147): "From Home Assistant · Europe/Amsterdam"; a POSIX string set over the API is offered as itself
-      const values = curV !== undefined && !f.values.includes(curV as string) ? [curV as string, ...f.values] : f.values;
-      const optLabel = (v: string | number | boolean) => f.fmt(v, lang) + (f.key === 'tz' && v === '' && st.tz_ha ? ' · ' + st.tz_ha : '');
+      // #331: the presence source also offers HA's on/off entities (off = nobody home), named like the picker
+      const fv = f.key === 'emptyHouse' ? [...f.values, ...ents.list.map((e) => e.id).filter((id) => id !== DEFAULT_EMPTY_SOURCE && validEmptySource(id))] : f.values;
+      const values = curV !== undefined && !fv.includes(curV as string) ? [curV as string, ...fv] : fv;
+      const optLabel = (v: string | number | boolean) => (f.key === 'emptyHouse' && v !== '' && names[String(v)] ? names[String(v)] + ' · ' + v : f.fmt(v, lang))
+        + (f.key === 'tz' && v === '' && st.tz_ha ? ' · ' + st.tz_ha : '');
       return { key: f.key, label: t(f.label), info: f.info ? t(f.info) : '', infoOpen: !!W.infoOpen[f.key],
         toggleInfo: () => setW((w) => ({ ...w, infoOpen: { ...w.infoOpen, [f.key]: !w.infoOpen[f.key] } })), value: curV === undefined ? '' : String(curV), options: values.map((v) => ({ value: String(v), label: optLabel(v) })),
         change: (e: ChangeEvent<HTMLSelectElement>) => { const raw = e.target.value; const v = typeof f.values[0] === 'number' ? Number(raw) : typeof f.values[0] === 'boolean' ? raw === 'true' : raw; putSetting(f, v); } };

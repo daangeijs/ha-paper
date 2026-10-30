@@ -142,18 +142,16 @@ class PowerHold {
 // ---------- quiet hours / idle / swipe ----------
 // Quiet hours (#295, emulator core/quiet.ts, spec/test-vectors/quiet.json): one window that replaced night mode and the
 // "Sleep at night" power mode. Inside it (clock known, not peeking, not in setup) the quiet face is up: "Back at 07:00",
-// the date and the Home page's first values, no clock; no data redraws; standby shows it too. On battery the power
+// the date and a "Tomorrow" row (#328, core/tomorrow.h), no clock; no data redraws; standby shows it too. On battery the power
 // rules sleep to the window end. A key or tap = the dashboard for kPeekMs, also as the first screen of a boot that a
 // timer did not cause. The front light follows its timeout.
 bool isNightHour(int hour, const std::string& window);   // in the window ("23-07" wraps midnight; "off" never)
 int nightEndHour(const std::string& window);              // -1 for off
 constexpr uint32_t kPeekMs = 60000;
 constexpr const char* kDefaultQuiet = "23-07";
-constexpr int kQuietTiles = 3;
 bool validQuiet(const std::string& v);                                          // "off" or "HH-HH", hours 00–23
 std::string quietFromNight(const std::string* night);                           // settings 1 → 2: window or default
 std::string quietBackAt(const std::string& window, const std::string& clock);   // "07:00" / "7:00" (12 h); "" off
-std::vector<int> quietTiles(const std::vector<std::string>& types);             // first 3 stat/gauge/price/thermo
 bool peekOnBoot(const std::string& wake);                                       // cold|timer|button|charger|other
 int idleMinutes(const std::string& setting);              // "5" → 5, "never"/"0"/"" → 0
 struct IdleDecision { bool standby = false; bool goHome = false; };
@@ -172,6 +170,7 @@ constexpr int kDefaultLightTimeout = 60;
 bool validLightTimeout(int sec);
 bool lightTimedOut(uint32_t idleMs, int timeoutSec);
 int frontlightPct(int brightness, bool standby, bool lightOut);   // quiet hours leave it to the timeout (#295)
+bool lightOnBoot(const std::string& wake);   // #357: off after a timer wake (cold|timer|button|charger|other)
 // The first key/tap (not Power) after the timeout only turns the light back on; on the quiet face it shows the dashboard.
 bool lightWakeConsumes(int brightness, bool standby, bool quiet, bool lightOut, bool power);
 // Swipe: |dx| > 60, mostly horizontal (|dx| > 1.5 |dy|), < 800 ms. Returns nav dir (+1 next / -1 prev) or 0.

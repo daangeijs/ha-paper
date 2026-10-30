@@ -1,0 +1,78 @@
+{
+  "description": "Gauge filter (#327, emulator src/core/battery.ts gaugeStep, firmware core/gauge_filter.cpp). From power-on (shown -1), each read {raw % (< 0 = not read), charging = STAT or USB host} gives shown (the % reported everywhere) and rise (reads in a row ≥ 5 points above shown). Without a charger the shown % never rises, unless 3 reads in a row are ≥ 5 points above it; falls pass at once; charging follows the gauge.",
+  "cases": [
+    {
+      "name": "first read is shown as is",
+      "reads": [
+        {"raw": 92, "charging": false, "shown": 92, "rise": 0}
+      ]
+    },
+    {
+      "name": "rest rebound after a night asleep is held (beta.4: 92 → 94)",
+      "reads": [
+        {"raw": 92, "charging": false, "shown": 92, "rise": 0},
+        {"raw": 94, "charging": false, "shown": 92, "rise": 0},
+        {"raw": 94, "charging": false, "shown": 92, "rise": 0},
+        {"raw": 93, "charging": false, "shown": 92, "rise": 0},
+        {"raw": 92, "charging": false, "shown": 92, "rise": 0},
+        {"raw": 91, "charging": false, "shown": 91, "rise": 0}
+      ]
+    },
+    {
+      "name": "falls pass at once, small rises never",
+      "reads": [
+        {"raw": 80, "charging": false, "shown": 80, "rise": 0},
+        {"raw": 78, "charging": false, "shown": 78, "rise": 0},
+        {"raw": 79, "charging": false, "shown": 78, "rise": 0},
+        {"raw": 79, "charging": false, "shown": 78, "rise": 0},
+        {"raw": 79, "charging": false, "shown": 78, "rise": 0},
+        {"raw": 77, "charging": false, "shown": 77, "rise": 0}
+      ]
+    },
+    {
+      "name": "charging follows the gauge both ways; unplugged it holds again",
+      "reads": [
+        {"raw": 50, "charging": false, "shown": 50, "rise": 0},
+        {"raw": 52, "charging": true, "shown": 52, "rise": 0},
+        {"raw": 51, "charging": true, "shown": 51, "rise": 0},
+        {"raw": 60, "charging": true, "shown": 60, "rise": 0},
+        {"raw": 62, "charging": false, "shown": 60, "rise": 0},
+        {"raw": 61, "charging": false, "shown": 60, "rise": 0}
+      ]
+    },
+    {
+      "name": "a charge the board did not see: 3 reads in a row ≥ 5 points up",
+      "reads": [
+        {"raw": 40, "charging": false, "shown": 40, "rise": 0},
+        {"raw": 80, "charging": false, "shown": 40, "rise": 1},
+        {"raw": 80, "charging": false, "shown": 40, "rise": 2},
+        {"raw": 81, "charging": false, "shown": 81, "rise": 0},
+        {"raw": 82, "charging": false, "shown": 81, "rise": 0}
+      ]
+    },
+    {
+      "name": "a read below the confirm level restarts the count",
+      "reads": [
+        {"raw": 40, "charging": false, "shown": 40, "rise": 0},
+        {"raw": 80, "charging": false, "shown": 40, "rise": 1},
+        {"raw": 80, "charging": false, "shown": 40, "rise": 2},
+        {"raw": 44, "charging": false, "shown": 40, "rise": 0},
+        {"raw": 80, "charging": false, "shown": 40, "rise": 1},
+        {"raw": 80, "charging": false, "shown": 40, "rise": 2},
+        {"raw": 80, "charging": false, "shown": 80, "rise": 0}
+      ]
+    },
+    {
+      "name": "not read keeps the state, also before the first read",
+      "reads": [
+        {"raw": -1, "charging": false, "shown": -1, "rise": 0},
+        {"raw": 70, "charging": false, "shown": 70, "rise": 0},
+        {"raw": -1, "charging": false, "shown": 70, "rise": 0},
+        {"raw": 90, "charging": false, "shown": 70, "rise": 1},
+        {"raw": -1, "charging": false, "shown": 70, "rise": 1},
+        {"raw": 90, "charging": false, "shown": 70, "rise": 2},
+        {"raw": 90, "charging": false, "shown": 90, "rise": 0}
+      ]
+    }
+  ]
+}

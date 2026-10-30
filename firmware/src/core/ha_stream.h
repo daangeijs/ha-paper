@@ -17,7 +17,8 @@ namespace x4 {
 // Attribute names read by core/home.cpp and core/entity_map.cpp (list in entities.h). A new reader → add it here.
 bool keepAttr(const char* key);
 // Per-entity extras (#292): the attribute a history tile charts, kept for that entity only. Replaces the set; true when
-// it changed. keepAttrFor: keepAttr, or one of these.
+// it changed. keepAttrFor: keepAttr, or one of these. setAttrs also keeps a door / window binary_sensor's
+// device_class (#331), and a media_player's supported_features (#351).
 bool setExtraAttrs(const std::vector<std::pair<std::string, std::string>>& entityAttr);
 bool keepAttrFor(const char* entity, const char* key);
 // Scalar as text ("" for null, "true"/"false", numbers as JSON); arrays/objects as JSON text.

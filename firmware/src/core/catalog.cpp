@@ -6,7 +6,8 @@ namespace x4 {
 
 const std::vector<const char*>& widgetTypes() {
   static const std::vector<const char*> v = {"clock", "stat", "price", "gauge", "bars", "route", "lightList", "switch",
-                                             "light", "scene", "zoneList", "thermo", "history", "setting", "ota", "wifi", "ha", "about"};
+                                             "light", "scene", "zoneList", "thermo", "history", "media", "bins", "weather", "guestWifi", "setting", "ota", "wifi", "ha", "about",
+                                             "agenda", "next"};   // #316
   return v;
 }
 
@@ -56,6 +57,7 @@ const std::vector<SettingDef>& settingDefs() {
       {"style", S::setStyle}, {"typeface", S::setTypeface}, {"surface", S::setSurface},   // display styles (device setting)
       {"powerSave", S::setPowerSave}, {"wakeEvery", S::setWakeEvery}, {"liveMin", S::setLiveMin},   // glance (#10)
       {"quiet", S::setQuiet},   // quiet hours (#295)
+      {"morning", S::setMorning},   // Good morning page (#330)
   };
   return v;
 }
@@ -90,11 +92,13 @@ std::string ghostLabel(const Widget& w, Lang l) {
   auto f = [&](const char* k) { auto it = w.fields.find(k); return it == w.fields.end() ? std::string() : it->second; };
   if (!f("label").empty()) return f("label");
   if (w.type == "stat") { if (auto* e = findEntity(f("entity"))) return tr(l, e->label); return f("entity"); }
-  if (w.type == "switch" || (w.type == "scene" && !f("entity").empty())) return f("entity");
+  if (w.type == "switch" || w.type == "media" || (w.type == "scene" && !f("entity").empty())) return f("entity");
   if (w.type == "route") return f("entity").empty() ? tr(l, S::palRoute) : f("entity");
   if (w.type == "gauge" && !f("entity").empty() && f("entity") != kGaugeDefaultEntity) return f("entity");
   static const struct { const char* type; S label; } M[] = {{"price", S::priceNow}, {"gauge", S::homeBattery}, {"bars", S::todayPerHour},
-                                                         {"zoneList", S::rooms}, {"lightList", S::lights}, {"thermo", S::room}, {"scene", S::scene}};
+                                                         {"zoneList", S::rooms}, {"lightList", S::lights}, {"thermo", S::room}, {"scene", S::scene},
+                                                         {"bins", S::binsTitle}, {"guestWifi", S::guestTitle}, {"weather", S::wxWeather},
+                                                         {"agenda", S::agTitle}, {"next", S::agNext}};   // #316
   for (auto& m : M) if (w.type == m.type) return tr(l, m.label);
   return tr(l, S::data);
 }

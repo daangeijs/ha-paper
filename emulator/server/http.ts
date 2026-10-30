@@ -16,7 +16,7 @@ import type { StoredToken } from '../src/core/auth.ts';
 import { logsQueryOf } from '../src/core/logs.ts';
 import { mergeSettings, PRESETS, presetState, verifyImage, type DeviceSim, type Preset } from './device.ts';
 import { readBuffer } from './fake-ha.ts';
-import { parseMultipart, sha256, uploadVersion, type Manifest } from './ota.ts';
+import { parseMultipart, sha256, uploadVersion, WWW_PARTITION_SIZE, type Manifest } from './ota.ts';
 import { previewPng } from './png.ts';
 import { INPUT_SPEC_ERROR, parseInputSpec } from '../src/core/inputSpec.ts';
 import { OTA_ERRS } from '../src/core/otaStatus.ts';
@@ -227,6 +227,23 @@ export function createDeviceHandler(sim: DeviceSim, o: HandlerOptions) {
         const e = sim.otaCheck(); if (e) return err(409, e);
         return send(202, { status: 'checking' });
       }
+      case path === '/ota/upload-www': {   // #350, firmware web_server.cpp wwwChunk/finishWwwUpload
+        if (method !== 'POST') return bad(); if (!need('write')) return;
+        if (/multipart\//i.test(String(req.headers['content-type'] || ''))) return err(415, 'send www.bin as the raw body (Content-Type: application/octet-stream)');
+        const want = String(u.searchParams.get('sha256') || req.headers['x-sha256'] || '').toLowerCase();
+        if (want.length !== 64) return err(400, 'sha256 of www.bin required (?sha256= or X-SHA256)');
+        if (sim.otaRun.status === 'verifying') return err(409, 'the new firmware is not confirmed yet — try again in a minute');
+        if (sim.otaBusy) return err(409, 'a firmware update is running');
+        if (sim.battery < 30) return err(409, 'Battery at ' + sim.battery + '% — charge to 30% first');
+        if (Number(req.headers['content-length'] || 0) !== WWW_PARTITION_SIZE) return err(413, 'www.bin must be exactly the size of the www partition (' + WWW_PARTITION_SIZE + ' bytes)');
+        const img = await readBuffer(req, WWW_PARTITION_SIZE);
+        const got = sha256(img);
+        if (img.length !== WWW_PARTITION_SIZE) { const m = 'www.bin is incomplete — the console is offline until a good www.bin is written'; sim.wwwFailed(m); return err(422, m); }
+        if (got !== want) { const m = 'SHA-256 does not match — the console is offline until a good www.bin is written'; sim.wwwFailed(m); return err(422, m); }
+        sim.wwwWritten(got);
+        const w = sim.wwwState();
+        return send(200, { status: 'written', version: w.version, sha256: got, current: w.current });
+      }
       case path === '/ota/upload': {
         if (method !== 'POST') return bad(); if (!need('write')) return;
         if (sim.battery < 30) return err(409, 'Battery at ' + sim.battery + '% — charge to 30% first');
@@ -432,6 +449,7 @@ export function createDeviceHandler(sim: DeviceSim, o: HandlerOptions) {
         if (!PRESETS.includes(b.preset)) return err(400, 'preset must be one of ' + PRESETS.join(', '));
         sim.ha.socket?.close(); sim.ha.socket = null; sim.ha.connected = false; sim.ha.access = null; sim.ha.entities.clear();
         sim.p = presetState(b.preset as Preset, sim.p.ha.url, b.preset === 'installed' ? sim.presetLink() : null); sim.sessions.clear(); sim.otaRun = { status: 'idle', avail: null, lastCheck: null, message: '' };
+        sim.www = { version: sim.p.ota.fw, sha256: null, failed: '' };
         sim.wifiRun = { state: 'idle' }; sim.save(); sim.boot('preset ' + b.preset); void sim.connectHa();
       }
       if (typeof b.battery === 'number') sim.battery = b.battery;

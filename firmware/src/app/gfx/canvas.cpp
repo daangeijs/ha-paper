@@ -387,6 +387,23 @@ void Canvas::line(int x0, int y0, int x1, int y1, int th, Ink c) {
   }
 }
 
+int Canvas::dashedLine(int x0, int y0, int x1, int y1, int th, int dash, int gapLen, Ink c, int phase) {
+  rec("d%d,%d,%d,%d,%d,%d,%d;", x0, y0, x1, y1, th, dash, phase);
+  const int dx = std::abs(x1 - x0), dy = -std::abs(y1 - y0), sx = x0 < x1 ? 1 : -1, sy = y0 < y1 ? 1 : -1, o = th / 2;
+  const int period = std::max(1, dash + gapLen);
+  int err = dx + dy;
+  for (;;) {
+    if (fb_ && phase % period < dash)
+      for (int y = y0 - o; y < y0 - o + th; ++y) span(y, x0 - o, x0 - o + th, c);
+    if (x0 == x1 && y0 == y1) break;
+    ++phase;
+    int e2 = 2 * err;
+    if (e2 >= dy) { err += dy; x0 += sx; }
+    if (e2 <= dx) { err += dx; y0 += sy; }
+  }
+  return phase;
+}
+
 void Canvas::circle(int cx, int cy, int r, Ink fc, int bw, Ink border) {
   Rect rr{int16_t(cx - r), int16_t(cy - r), int16_t(2 * r), int16_t(2 * r)};
   rec("C%d,%d,%d,%d,%d,%d;", cx, cy, r, int(fc), bw, int(border));
@@ -421,6 +438,18 @@ void Canvas::qr(int x, int y, int px, const std::string& text) {
   for (int r = 0; r < m.size; ++r)
     for (int c = 0; c < m.size; ++c)
       if (m.at(c, r)) fill(Rect{int16_t(ox + c * scale), int16_t(oy + r * scale), int16_t(scale), int16_t(scale)}, Ink::Black);
+  rec_ = save;
+}
+
+void Canvas::qrModules(int x, int y, int scale, const QrMatrix& m) {
+  uint32_t h = 0x811c9dc5u;
+  for (uint8_t b : m.modules) h = (h ^ b) * 0x01000193u;
+  rec("q%d,%d,%d,%d:%08x;", x, y, scale, m.size, unsigned(h));
+  if (!fb_) return;
+  std::string* save = rec_; rec_ = nullptr;
+  for (int r = 0; r < m.size; ++r)
+    for (int c = 0; c < m.size; ++c)
+      if (m.at(c, r)) fill(Rect{int16_t(x + c * scale), int16_t(y + r * scale), int16_t(scale), int16_t(scale)}, Ink::Black);
   rec_ = save;
 }
 
@@ -688,6 +717,10 @@ void Canvas::arcImpl(int cx, int cy, double rad, double stroke, double fromDeg, 
 
 void Canvas::hit(Rect r, std::function<void()> fn) {
   if (hits_) hits_->push_back(Hit{r, std::move(fn), region_});
+}
+
+void Canvas::slider(Rect r, std::function<void()> fn) {
+  if (hits_) hits_->push_back(Hit{r, std::move(fn), region_, true});
 }
 
 }  // namespace x4

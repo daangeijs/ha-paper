@@ -27,15 +27,17 @@ class Display {
 
 enum class Key : uint8_t { Prev, Next, Home, Power };
 struct InputEvent {
-  enum class Kind : uint8_t { KeyDown, Tap, Swipe } kind;
-  Key key;        // KeyDown
-  int16_t x, y;   // Tap position / swipe start
-  int8_t dir;     // Swipe: -1 = left (next), +1 = right (prev)
+  enum class Kind : uint8_t { KeyDown, Tap, Swipe, Drag } kind;
+  Key key;          // KeyDown
+  int16_t x, y;     // Tap position / swipe or drag start
+  int8_t dir;       // Swipe: -1 = left (next), +1 = right (prev)
+  int16_t ex, ey;   // Swipe / Drag (#351): where the finger lifted; Drag = moved ≥ 60 px, not a swipe
 };
 
 // charging = charger STAT; usb = a USB host is seen (HWCDC SOF). Neither sees a full battery on a dumb charger.
 // known: gauge read at least once; mv: cell voltage (CW2017 VCELL, #73), 0 = unknown (no CW2017, or VCELL not read)
-struct PowerInfo { uint8_t batteryPct; bool charging; bool usb; bool known = true; uint16_t mv = 0; };
+// batteryPct is filtered (#327, core/gauge_filter.h: no rise without a charger); rawPct is the gauge's own last read
+struct PowerInfo { uint8_t batteryPct; bool charging; bool usb; bool known = true; uint16_t mv = 0; uint8_t rawPct = 0; };
 
 class Board {
  public:

@@ -325,7 +325,7 @@ std::map<std::string, std::string> entityGaps(const Config& cfg, const EntitySto
   std::map<std::string, std::string> out;
   for (auto& sc : cfg.screens)
     for (auto& w : sc.widgets) {
-      if (w.type != "stat" && w.type != "gauge" && w.type != "switch" && w.type != "route") continue;
+      if (w.type != "stat" && w.type != "gauge" && w.type != "switch" && w.type != "route" && w.type != "media") continue;
       std::string id = w.field("entity");
       if (id.empty() || findEntity(id) || id == kGaugeDefaultEntity) continue;
       EntityGap g = entityGap(store.get(id));

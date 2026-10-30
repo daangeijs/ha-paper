@@ -33,7 +33,7 @@ export function snapshotDiff(prev: Snapshot | null, next: Snapshot, ignore: read
 
 export type GlanceIn = {
   ok: boolean;              // HA answered within the 20 s cap
-  changed: string[];        // snapshotDiff() of this wake (ok only)
+  changed: string[];        // snapshotDiff() of this wake (unreachable: what the face shows without new data, #356)
   hadSnapshot: boolean;     // a valid snapshot was in RTC memory
   fails: number;            // failed wakes in a row before this one
   drawnOffline: boolean;    // the panel shows the offline mark
@@ -47,6 +47,8 @@ export function glanceStep(i: GlanceIn): GlanceOut {
   if (!i.ok) {
     const fails = i.fails + 1;
     if (fails >= GLANCE_OFFLINE_AFTER && !i.drawnOffline) return { redraw: true, reason: 'offline', fails, drawnOffline: true };
+    // #356: a transition wake moves the face itself (its date at midnight, the quiet face): drawn without new data
+    if (i.hadSnapshot && i.changed.length) return { redraw: true, reason: 'changed', fails, drawnOffline: i.drawnOffline };
     return { redraw: false, reason: 'unreachable', fails, drawnOffline: i.drawnOffline };
   }
   const done = (redraw: boolean, reason: GlanceReason): GlanceOut => ({ redraw, reason, fails: 0, drawnOffline: false });

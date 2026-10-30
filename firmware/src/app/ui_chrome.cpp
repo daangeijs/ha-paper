@@ -3,7 +3,9 @@
 #include <algorithm>
 #include <ctime>
 #include "app/app_impl.h"
+#include "core/bins.h"
 #include "core/catalog.h"
+#include "core/empty_house.h"
 #include "core/json.h"
 
 namespace x4 {
@@ -73,13 +75,13 @@ Rect barTimeRect(I& a) {
   if (sleek()) return sleekBarTimeRect(a);
   TextOpts ct; ct.tabular = true;
   int right = a.chr.pager ? kScreenW - 6 - kZonePager - 12 : kScreenW - 6, w = Canvas().textWidth("00:00", B(22), ct);
-  if (!a.asleepAt.empty()) w = Canvas().textWidth(a.t(S::asleepBar, a.asleepAt), R(18));   // #299
+  if (!a.asleepAt.empty()) w = Canvas().textWidth(a.t(S::asleepBar), B(18));   // #299, #333: no time of day
   return rc(right - w, 8, w, 40);
 }
 void barTime(Canvas& c, I& a) {
   if (sleek()) { sleekBarTime(c, a); return; }
   Rect r = barTimeRect(a);
-  if (!a.asleepAt.empty()) { c.textRight(r.x + r.w, 35, a.t(S::asleepBar, a.asleepAt), R(18)); return; }   // #299: not live
+  if (!a.asleepAt.empty()) { c.textRight(r.x + r.w, 35, a.t(S::asleepBar), B(18)); return; }   // #299: not live
   TextOpts ct; ct.tabular = true;
   c.textRight(r.x + r.w, 37, a.now.clock, B(22), ct);
 }
@@ -274,7 +276,7 @@ Rect faceTimeRect(I& a) {
   return rc(kScreenW / 2 - w / 2, bl - ch - 6, w, ch + 12);
 }
 void faceTime(Canvas& c, I& a) {
-  c.textCenter(kScreenW / 2, faceBl(a), a.asleepAt.empty() ? a.now.clock : a.asleepAt, B(150), faceClockOpts());
+  c.textCenter(kScreenW / 2, faceBl(a), a.asleepAt.empty() ? a.now.clock : a.now.day, B(150), faceClockOpts());   // #333
 }
 
 // #199: stats at 26 px (names R26, values B26), date B28, footer R18. Standby (4 stats) is a centred 2×2 grid.
@@ -282,7 +284,7 @@ static const int kFaceStatGap = 40, kFaceRowH = 36;
 static void bigClockFace(Canvas& c, I& a, int top, const std::vector<std::pair<std::string, std::string>>& stats, const std::string& foot,
                          bool grid) {
   int bl = top + 108;
-  c.textCenter(kScreenW / 2, bl + 20 + 28, a.now.date, B(28));
+  c.textCenter(kScreenW / 2, bl + 20 + 28, a.asleepAt.empty() ? a.now.date : a.now.dayLine, B(28));
   int sb = bl + 48 + 22 + 30, n = int(stats.size());
   std::vector<int> wd;
   for (auto& s : stats) wd.push_back(pairW(c, s.first, s.second, 26));
@@ -305,62 +307,147 @@ static void bigClockFace(Canvas& c, I& a, int top, const std::vector<std::pair<s
   c.textCenter(kScreenW / 2, sb + 12 + 26, foot, R(18), C(Ink::Black));
 }
 
-// Quiet face (#295, emulator Device.tsx QUIET FACE): "Back at 07:00" instead of a clock (a deep-sleeping panel would
-// keep a wrong time all night), the date, the Home page's first values as their tiles show them, frozen when the face
-// went up, wrapping into centred rows (CSS flex-wrap); "as of HH:MM" only when the data was stale. One column, centred.
-static std::string tileName(I& a, const Widget& w) {
-  if (!w.field("label").empty()) return w.field("label");
-  const std::string id = w.field("entity");
-  if (w.type == "stat") return statText(id, a.data, a.now.h, a.statEntity(id), a.lang).label;
-  if (w.type == "price") return a.t(S::price);
-  if (w.type == "gauge") return !id.empty() && id != kGaugeDefaultEntity ? friendlyName(id, a.store.get(id)) : std::string(a.t(S::homeBattery));
-  if (w.type == "thermo") {
-    const ZoneState* z = a.data.zone(w.field("zone"));
-    return z ? z->name : w.field("zone").empty() ? std::string(a.t(S::room)) : w.field("zone");
+// The Tomorrow / Today row (#328, core/tomorrow.h) from the first weather, agenda and bins tiles' data; endHour: the
+// quiet window's end (Tomorrow after it) or quiet::kTodayEnd (the glance face, #356).
+quiet::Row quietRow(I& a, int endHour) {
+  const auto& scs = a.cfg.screens;
+  const quiet::Sources src = quiet::sources(scs);
+  auto tile = [&](const quiet::Ref& r) -> const Widget* { return r.screen < 0 ? nullptr : &scs[size_t(r.screen)].widgets[size_t(r.widget)]; };
+  quiet::In in;
+  in.now = a.now.epochMs; in.tz = a.now.tz; in.lang = a.lang; in.endHour = endHour;
+  if (const Widget* w = tile(src.weather)) in.fc = a.wxOf(w->field("entity"));
+  if (const Widget* w = tile(src.agenda)) {
+    const auto* slot = a.agendaOf(agenda::keyOf(w->field("entities")));
+    if (slot && slot->state == agenda::State::Ok) in.events = &slot->f;
   }
-  return ghostLabel(w, a.lang);
+  std::vector<quiet::BinDay> days;
+  if (const Widget* w = tile(src.bins)) {
+    for (auto& b : bins::inputs(w->field("entities"), w->field("labels"), a.store)) days.push_back({b.label, bins::days(b.v, in.now, in.tz)});
+    in.bins = &days;
+    in.tonight = bins::tonightHour(w->field("tonight"));
+  }
+  return quiet::tomorrow(in);
 }
 
-std::vector<std::pair<std::string, std::string>> quietRows(I& a) {
-  std::vector<std::pair<std::string, std::string>> out;
-  int first = -1;   // Home = the first screen of the first app with screens (App::Impl::home)
-  for (auto& ap : a.appList()) if ((first = firstScreenOfApp(a.cfg, ap.id)) >= 0) break;
-  if (first < 0) return out;
-  const Screen& sc = a.cfg.screens[size_t(first)];
-  std::vector<std::string> types;
-  for (auto& w : sc.widgets) types.push_back(w.type);
-  for (int i : quietTiles(types)) out.push_back({tileName(a, sc.widgets[size_t(i)]), tileValue(a, sc.widgets[size_t(i)])});
-  return out;
+std::string staleAt(I& a) {
+  const int64_t last = a.svc.status().haLastDataEpoch;
+  if (!nightStale(a.board.epochSeconds(), last)) return "";
+  time_t tt = time_t(last); struct tm tm; localtime_r(&tt, &tm);
+  return pad2(tm.tm_hour) + ":" + pad2(tm.tm_min);
 }
 
-void quietFace(Canvas& c, I& a) {
-  const auto& rows = a.snap.rows;
-  const std::string foot = a.snap.asOf.empty() ? std::string() : a.t(S::asOf, a.snap.asOf);
-  std::vector<std::pair<int, int>> lines;   // [first, last] row index per line
+namespace {
+// One sleep face (#356, emulator Device.tsx SLEEP FACE): no clock (a deep-sleeping panel would keep a wrong time). A
+// 52 px title, a 28 px line under it, then either the Tomorrow / Today row (a head, one centred line per item: a 44 px
+// weather drawing, the bold part, the text) or facts wrapping into centred rows, and an 18 px footer.
+struct SleepFace {
+  std::string title, sub;
+  const quiet::Row* row = nullptr;
+  std::vector<std::pair<std::string, std::string>> facts;   // label, bold value
+  std::string foot;
+};
+
+void sleepFace(Canvas& c, const SleepFace& f) {
+  static const quiet::Row kNoRow;
+  const quiet::Row& row = f.row ? *f.row : kNoRow;
+  const int n = int(row.items.size()), maxW = kScreenW - 40;
+  std::vector<std::pair<int, int>> lines;   // [first, last] fact index per line
   std::vector<int> lw;
-  for (int i = 0, n = int(rows.size()); i < n;) {
-    int j = i, w = pairW(c, rows[size_t(i)].first, rows[size_t(i)].second, 26);
-    while (j + 1 < n && w + kFaceStatGap + pairW(c, rows[size_t(j + 1)].first, rows[size_t(j + 1)].second, 26) <= kScreenW - 40)
-      w += kFaceStatGap + pairW(c, rows[size_t(j + 1)].first, rows[size_t(j + 1)].second, 26), ++j;
+  for (int i = 0, m = int(f.facts.size()); i < m;) {
+    auto pw = [&](int k) { return pairW(c, f.facts[size_t(k)].first, f.facts[size_t(k)].second, 26); };
+    int j = i, w = pw(i);
+    while (j + 1 < m && w + kFaceStatGap + pw(j + 1) <= maxW) w += kFaceStatGap + pw(j + 1), ++j;
     lines.push_back({i, j}), lw.push_back(w);
     i = j + 1;
   }
-  // flex column, gap 10: 52 px line, date 34, rows (margin 22, 31 px lines, gap 10), footer (margin 10, 22)
   const int nl = int(lines.size());
-  const int h = 52 + 10 + 34 + (nl ? 10 + 22 + nl * 31 + (nl - 1) * 10 : 0) + (foot.empty() ? 0 : 10 + 10 + 22);
+  // flex column, gap 10: title 52, sub 34, row (margin 22, head 22, then gap 10 + 44 px per item) or facts (margin 22,
+  // 31 px lines, gap 10), footer (margin 10, 22)
+  const int h = 52 + 10 + 34 + (n ? 10 + 22 + 22 + n * (10 + 44) : 0) + (nl ? 10 + 22 + nl * 31 + (nl - 1) * 10 : 0) +
+                (f.foot.empty() ? 0 : 10 + 10 + 22);
   int y = (kScreenH - h) / 2;
-  c.textCenter(kScreenW / 2, baseline(y, B(52), 1.0), a.t(S::quietBack, quietBackAt(a.set.quiet, a.set.clock)), B(52));
+  c.textCenter(kScreenW / 2, baseline(y, B(52), 1.0), f.title, B(52));
   y += 52 + 10;
-  c.textCenter(kScreenW / 2, baseline(y, B(28), 1.2), a.now.date, B(28));
+  c.textCenter(kScreenW / 2, baseline(y, B(28), 1.2), f.sub, B(28));
   y += 34;
+  if (n) {
+    y += 10 + 22;
+    c.textCenter(kScreenW / 2, baseline(y, R(18), 1.2), row.head, R(18));
+    y += 22;
+  }
+  for (const auto& it : row.items) {
+    y += 10;
+    const std::string rest = it.text.empty() ? std::string() : " " + it.text;
+    const int iw = it.icon >= 0 ? 44 + 10 : 0, bw = c.textWidth(it.bold, B(26));
+    const int w = std::min(maxW, iw + bw + (rest.empty() ? 0 : c.textWidth(rest, R(26))));
+    int x = kScreenW / 2 - w / 2;
+    if (it.icon >= 0) c.icon(Icon(int(Icon::WxSun44) + it.icon), x, y, Ink::Black);
+    x += iw;
+    const int bl = baseline(y + 6, B(26), 1.2);
+    TextOpts o; o.maxW = maxW - iw;
+    x += c.text(x, bl, it.bold, B(26), o);
+    if (!rest.empty()) { o.maxW = std::max(0, w - iw - bw); if (o.maxW > 0) c.text(x, bl, rest, R(26), o); }
+    y += 44;
+  }
   if (nl) y += 10 + 22;
   for (int k = 0; k < nl; ++k) {
     int x = kScreenW / 2 - lw[size_t(k)] / 2, bl = baseline(y, B(26), 1.2);
     for (int i = lines[size_t(k)].first; i <= lines[size_t(k)].second; ++i)
-      x += boldPair(c, x, bl, rows[size_t(i)].first, rows[size_t(i)].second, 26) + kFaceStatGap;
+      x += boldPair(c, x, bl, f.facts[size_t(i)].first, f.facts[size_t(i)].second, 26) + kFaceStatGap;
     y += 31 + (k + 1 < nl ? 10 : 0);
   }
-  if (!foot.empty()) c.textCenter(kScreenW / 2, baseline(y + 10 + 10, R(18), 1.2), foot, R(18), C(Ink::Black));
+  if (!f.foot.empty()) c.textCenter(kScreenW / 2, baseline(y + 10 + 10, R(18), 1.2), f.foot, R(18), C(Ink::Black));
+}
+}  // namespace
+
+// Quiet face (#295): "Back at 07:00", the date, the "Tomorrow" row (#328) built when the face went up, "as of HH:MM"
+// only when the data was stale.
+void quietFace(Canvas& c, I& a) {
+  SleepFace f;
+  f.title = a.t(S::quietBack, quietBackAt(a.set.quiet, a.set.clock));
+  f.sub = a.now.date;
+  f.row = &a.snap.row;
+  if (!a.snap.asOf.empty()) f.foot = a.t(S::asOf, a.snap.asOf);
+  sleepFace(c, f);
+}
+
+// Nobody home face (#331): "Nobody home", "Next update ~16:05", up to three facts (inside temperature, doors / windows,
+// alarm; a fact without a source is dropped), no "Updated" (#333). Doors and the alarm come from the entities the
+// display watches (a door or alarm tile on some screen).
+void emptyFace(Canvas& c, I& a) {
+  std::vector<FactEntity> ents;
+  for (auto& kv : a.store.all()) {
+    const std::string& id = kv.first;
+    if (id.rfind("binary_sensor.", 0) != 0 && id.rfind("alarm_control_panel.", 0) != 0) continue;
+    auto dc = kv.second.attrs.find("device_class");
+    ents.push_back({id, friendlyName(id, &kv.second), std::string(kv.second.state.c_str()),
+                    dc == kv.second.attrs.end() ? std::string() : std::string(dc->second.c_str())});
+  }
+  const HouseFacts h = houseFacts(a.data.inside.ok, a.data.inside.v, std::move(ents));
+  SleepFace f;
+  if (h.hasInside) f.facts.push_back({a.t(S::inside), fmtNum(h.inside, "°C") + "°"});
+  if (h.hasOpen) {
+    if (h.open == 1) f.facts.push_back({h.firstOpen, a.t(S::factOpen)});
+    else f.facts.push_back({a.t(S::factDoors), h.open ? a.t(S::factNOpen, std::to_string(h.open)) : std::string(a.t(S::factClosed))});
+  }
+  if (h.alarm != Alarm::None)
+    f.facts.push_back({a.t(S::factAlarm), a.t(h.alarm == Alarm::Armed ? S::alarmArmed : h.alarm == Alarm::Triggered ? S::alarmTriggered : S::alarmOff)});
+  f.title = a.t(S::emptyTitle);
+  f.sub = a.t(S::emptyNext, emptyNextAt(a.now.h * 3600 + a.now.m * 60, a.set.quiet, a.set.clock));
+  sleepFace(c, f);
+}
+
+// Glance sleep face (#356): "Asleep · press to wake", the date, the "Today" row (values that stay true until the next
+// timer wake), "as of HH:MM" only when the data was stale. Built at each render: a glance wake compares its signature.
+void glanceFace(Canvas& c, I& a) {
+  SleepFace f;
+  f.title = a.t(S::sleepHead);
+  f.sub = a.now.date;
+  const quiet::Row row = quietRow(a, quiet::kTodayEnd);
+  f.row = &row;
+  const std::string at = staleAt(a);
+  if (!at.empty()) f.foot = a.t(S::asOf, at);
+  sleepFace(c, f);
 }
 
 void standbyFace(Canvas& c, I& a) {
@@ -377,7 +464,7 @@ void standbyFace(Canvas& c, I& a) {
   int64_t e = a.svc.status().haLastDataEpoch;
   if (e > 0) { time_t t = time_t(e); struct tm tm; localtime_r(&t, &tm); upd = pad2(tm.tm_hour) + ":" + pad2(tm.tm_min); }
   bigClockFace(c, a, kStandbyTop, {{a.t(S::solar), solar}, {a.t(S::battery), batt}, {a.t(S::price), price}, {a.t(S::heating), heat}},
-               a.asleepAt.empty() ? a.t(S::standbyFoot, upd) : a.t(S::asleepFoot, a.asleepAt), true);
+               a.asleepAt.empty() ? a.t(S::standbyFoot, upd) : std::string(a.t(S::asleepFoot)), true);
 }
 
 void updatingFace(Canvas& c, I& a) {

@@ -1,13 +1,86 @@
-// Device: hardware frame (keys) + the 800 × 480 e-ink screen (boot, main UI, quiet face, standby, OTA overlays).
+// Device: hardware frame (keys) + the 800 × 480 e-ink screen (boot, main UI, sleep face, standby, OTA overlays).
 // Markup converted mechanically from Main.dc.html lines 29–769 (RECREATE.md Option C mapping).
-import { Fragment, type CSSProperties } from 'react';
+import { Fragment, useState, type CSSProperties } from 'react';
+import { volumeAt } from '../core/media.ts';
 import type { Vals } from '../emulator/Emulator.tsx';
 import { HOST, SIM_IP } from '../core/data.ts';
 import { currency } from '../core/locale.ts';
 import { fitMiddle } from '../core/format.ts';
-import { TRACK, TRACK_PAINT } from '../core/panel.ts';
+import { HATCH, TRACK, TRACK_PAINT } from '../core/panel.ts';
+import { WX_ART, WX_GRID, WX_HERO_STROKE } from '../core/weatherArt.ts';
+import { BinsTile } from './BinsTile.tsx';
+import { GuestWifiTile } from './GuestWifiTile.tsx';
 
 /** No value in Home Assistant (unavailable / unknown, #86): a 28 px ring, bottom on the value's baseline. */
+/** Now playing tile (#319): header (name, volume, state pill or ★), title + artist, inline favorites (2 high), transport
+ *  and volume buttons; ★ swaps the body for the favorites picker (last cell ×). Glyphs are drawn shapes, like the firmware. */
+const MBTN = 48;
+function MediaGlyph({ k, fg }: { k: string; fg: string }) {
+  const p: Record<string, string> = { prev: 'M6 5h3v14H6zM20 5v14L10 12z', next: 'M4 5l10 7-10 7zM15 5h3v14h-3z', play: 'M7 4l13 8-13 8z', pause: 'M6 5h4v14H6zM14 5h4v14h-4z',
+    down: 'M5 11h14v3H5z', up: 'M5 11h14v3H5zM10.5 5.5h3v13h-3z', star: 'M12 2l2.9 6.6 7.1.6-5.4 4.7 1.6 7L12 17.3 5.8 21l1.6-7L2 9.2l7.1-.6z' };
+  return <svg width="22" height="22" viewBox="0 0 24 24" aria-hidden="true"><path d={p[k]} fill={fg} /></svg>;
+}
+/** Volume slider (#351): a 48 px bar filled to the level, the % at the free end. A tap or drag shows the new level
+ *  right away and sends one volume_set on release (core volumeAt). Pointer events stop here: no page swipe. */
+function VolumeBar({ level, pill, set }: { level: number | null; pill: boolean; set: (n: number) => void }) {
+  const [drag, setDrag] = useState<number | null>(null);
+  const at = (e: React.PointerEvent<HTMLDivElement>) => { const b = e.currentTarget.getBoundingClientRect(); return volumeAt(e.clientX, b.left, b.width); };
+  const v = drag ?? level ?? 0, low = v < 55;
+  return (
+    <div role="slider" tabIndex={0} aria-label="Volume" aria-valuemin={0} aria-valuemax={100} aria-valuenow={v} style={{ position: "relative", flex: "1", minWidth: "0", height: `${MBTN}px`, boxSizing: "border-box",
+      border: pill ? "0" : "2px solid #111", borderRadius: pill ? `${MBTN / 2}px` : "8px", background: "#ECEBE5", overflow: "hidden", touchAction: "none", cursor: "pointer" }}
+      onPointerDown={(e) => { e.stopPropagation(); e.currentTarget.setPointerCapture(e.pointerId); setDrag(at(e)); }}
+      onPointerMove={(e) => { if (drag !== null) setDrag(at(e)); }}
+      onPointerUp={(e) => { e.stopPropagation(); if (drag === null) return; const n = at(e); setDrag(null); set(n); }}
+      onPointerCancel={() => setDrag(null)}
+      onKeyDown={(e) => { const d = e.key === 'ArrowRight' ? 5 : e.key === 'ArrowLeft' ? -5 : 0; if (d) set(Math.max(0, Math.min(100, (level ?? 0) + d))); }}>
+      {v > 0 && <div style={{ position: "absolute", left: "0", top: "0", bottom: "0", width: `${v}%`, minWidth: pill ? `${MBTN}px` : "0", background: "#111", borderRadius: pill ? `${MBTN / 2}px` : "6px" }} />}
+      <span style={{ position: "absolute", top: "0", bottom: "0", display: "flex", alignItems: "center", [low ? "right" : "left"]: "12px", color: low ? "#111" : "#ECEBE5",
+        fontSize: "18px", fontWeight: "700", fontVariantNumeric: "tabular-nums" }}>{drag === null && level === null ? '—' : v + '%'}</span>
+    </div>);
+}
+function MediaTile({ w }: { w: any }) {
+  const pill = w.radius === 20;   // Sleek: pill buttons without outline (firmware btnBox)
+  const btn = (k: string, label: string, fn: () => void, dark = false, size = MBTN) => (
+    <button key={k} className="ink-btn" aria-label={label} onClick={fn} style={{ flex: "none", width: `${size}px`, height: `${size}px`, display: "flex", alignItems: "center", justifyContent: "center", padding: "0",
+      border: pill ? "0" : "2px solid #111", borderRadius: pill ? "50%" : "8px", background: dark ? "#111" : "#ECEBE5" }}><MediaGlyph k={k} fg={dark ? "#ECEBE5" : "#111"} /></button>);
+  const cell = (key: string, label: string, fn: () => void, center = false) => (
+    <button key={key} className="ink-btn" onClick={fn} style={{ minWidth: "0", minHeight: "0", padding: "0 10px", border: pill ? "0" : "2px solid #111", borderRadius: pill ? "20px" : "8px", background: "#ECEBE5",
+      fontSize: "18px", fontWeight: "700", textAlign: center ? "center" : "left", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{label}</button>);
+  if (w.picking) return (
+    <div style={{ flex: "1", minHeight: "0", padding: "8px 14px", display: "grid", gap: "6px", gridTemplateColumns: `repeat(${w.pickCols}, minmax(0, 1fr))`, gridTemplateRows: `repeat(${w.pickRows}, minmax(0, 1fr))` }}>
+      {w.picks.map((f: any, k: number) => cell('f' + k, f.label, f.pick))}
+      {cell('x', '×', w.close, true)}
+    </div>);
+  return (
+    <div style={{ flex: "1", minHeight: "0", padding: "12px 14px", display: "flex", flexDirection: "column" }}>
+      <div style={{ height: "24px", flex: "none", display: "flex", alignItems: "center", gap: "8px" }}>
+        <span style={{ flex: "1", minWidth: "0", fontSize: "20px", fontWeight: "700", textTransform: "uppercase", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{w.label}</span>
+        {!!w.vol && <span style={{ flex: "none", fontSize: "18px", fontVariantNumeric: "tabular-nums" }}>{w.vol}</span>}
+        {w.narrow && w.star ? btn('star', w.favTitle, w.open, false, 32)
+          : !w.gap && <span style={{ flex: "none", height: "24px", boxSizing: "border-box", padding: "0 6px", border: "2px solid #111", borderRadius: "7px", background: w.playing ? "#111" : "transparent", color: w.playing ? "#ECEBE5" : "#111",
+            fontSize: "14px", fontWeight: "700", textTransform: "uppercase", lineHeight: "20px" }}>{w.word}</span>}
+      </div>
+      {w.gap
+        ? <div style={{ marginTop: "12px", display: "flex", alignItems: "center", gap: "8px", fontSize: "16px" }}><GapRing />{w.gapText}</div>
+        : <>
+          <div style={{ marginTop: "8px", fontSize: (w.rs || 1) > 1 ? "34px" : "28px", fontWeight: "700", lineHeight: "1.15", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{w.title}</div>
+          <div style={{ fontSize: "18px", lineHeight: "22px", height: "22px", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{w.artist}</div>
+        </>}
+      {w.favs.length > 0 && (
+        <div style={{ flex: "1", minHeight: "0", margin: "12px 0 10px", display: "grid", gap: "6px", gridTemplateColumns: `repeat(${w.favCols}, minmax(0, 1fr))`, gridTemplateRows: "repeat(4, minmax(0, 44px))" }}>
+          {w.favs.map((f: any, k: number) => cell('f' + k, f.label, f.pick))}
+        </div>)}
+      <div style={{ marginTop: "auto", flex: "none", display: "flex", alignItems: "center", gap: w.narrow ? "6px" : "8px" }}>
+        {btn('prev', 'Previous', w.prev)}{btn(w.playing ? 'pause' : 'play', w.playing ? 'Pause' : 'Play', w.play, true)}{btn('next', 'Next', w.next)}
+        {w.hasVol && <span style={{ width: "8px" }} />}
+        {w.hasVol && btn('down', 'Volume down', w.down)}{w.hasVol && btn('up', 'Volume up', w.up)}
+        {w.slider && <span style={{ width: "8px", flex: "none" }} />}
+        {w.slider && <VolumeBar level={w.level} pill={pill} set={w.setVol} />}
+        {!w.narrow && w.star && <span style={{ marginLeft: w.slider ? "0" : "auto" }}>{btn('star', w.favTitle, w.open)}</span>}
+      </div>
+    </div>);
+}
 const GapRing = () => <span aria-hidden="true" style={{ flex: "none", display: "inline-block", width: "28px", height: "28px", border: "3px solid #111", borderRadius: "50%", boxSizing: "border-box" }} />;
 // History tile (#267): bars from zero or an auto-ranged line, gaps left blank, the open bucket solid ink (bars) or a
 // dot (line); axis ticks and low / high with their times below. Classic: 2 px rules, uppercase name; Modern: card,
@@ -25,7 +98,7 @@ function HistoryPlot({ w, sleek }: { w: any; sleek: boolean }) {
       <div data-x4-history={w.histStyle} style={{ position: "relative", flex: "1", minHeight: "24px", marginTop: "4px", borderBottom: w.isBarChart && !w.hasState && w.zeroPct !== null ? "0" : "2px dotted #111" }}>
         {w.isBarChart && !w.hasState && (<div style={{ position: "absolute", inset: "0", display: "flex", gap: w.barGap }}>
           {(w.hBars).map((b: any, i_b: number) => (<div key={i_b} style={{ position: "relative", flex: "1", minWidth: "0" }}>
-            {!b.gap && <div style={{ position: "absolute", left: "0", right: "0", bottom: b.bottom, height: b.h, background: b.bg, borderRadius: sleek ? "4px" : "2px 2px 0 0" }}></div>}
+            {!b.gap && <div style={{ position: "absolute", left: "0", right: "0", bottom: b.bottom, height: b.h, background: b.bg, border: b.line, boxSizing: "border-box", borderRadius: sleek ? "4px" : "2px 2px 0 0" }}></div>}
           </div>))}
         </div>)}
         {w.isBarChart && !w.hasState && w.zeroPct !== null && (<div style={{ position: "absolute", left: "0", right: "0", bottom: w.zeroPct, height: "2px", marginBottom: "-1px", background: "#111" }}></div>)}
@@ -33,8 +106,10 @@ function HistoryPlot({ w, sleek }: { w: any; sleek: boolean }) {
         {!w.hasState && w.thresholdPct !== null && (<div data-x4-threshold="" style={{ position: "absolute", left: "0", right: "0", bottom: w.thresholdPct, height: "2px", marginBottom: "-1px", background: "repeating-linear-gradient(90deg, #111 0 6px, transparent 6px 10px)" }}></div>)}
         {w.isLine && !w.hasState && (<svg viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden="true" style={{ position: "absolute", inset: "0", width: "100%", height: "100%", overflow: "visible" }}>
           {(w.paths).map((d: string, i_p: number) => (<path key={i_p} d={d} fill="none" stroke="#111" strokeWidth={sleek ? 3 : 2} strokeLinejoin={w.isStep ? "miter" : "round"} strokeLinecap={w.isStep ? "square" : "round"} vectorEffect="non-scaling-stroke" />))}
+          {(w.aheadPaths).map((d: string, i_p: number) => (<path key={'a' + i_p} data-x4-ahead="" d={d} fill="none" stroke="#111" strokeWidth={sleek ? 3 : 2} strokeDasharray="6 4" strokeLinejoin="miter" strokeLinecap="butt" vectorEffect="non-scaling-stroke" />))}
         </svg>)}
-        {!w.hasState && (w.dots).map((p: any, i_d: number) => (<div key={'d' + i_d} style={{ position: "absolute", left: p.left, bottom: p.bottom, width: w.dotPx + "px", height: w.dotPx + "px", transform: "translate(-50%, 50%)", borderRadius: "50%", background: "#111" }}></div>))}
+        {!w.hasState && (w.dots).map((p: any, i_d: number) => (<div key={'d' + i_d} style={{ position: "absolute", left: p.left, bottom: p.bottom, width: w.dotPx + "px", height: w.dotPx + "px", transform: "translate(-50%, 50%)", borderRadius: "50%", background: p.hollow ? "transparent" : "#111", border: p.hollow ? "2px solid #111" : "0", boxSizing: "border-box" }}></div>))}
+        {!w.hasState && w.splitPct !== null && (<div data-x4-now="" style={{ position: "absolute", top: "0", bottom: "0", left: w.splitPct, width: "0", marginLeft: "-1px", borderLeft: "2px dotted #111" }}></div>)}
         {!w.isBarChart && !w.hasState && !!w.dot && (<div style={{ position: "absolute", left: w.dot.left, bottom: w.dot.bottom, width: "12px", height: "12px", transform: "translate(-50%, 50%)", borderRadius: "50%", background: "#111", border: "2px solid #ECEBE5" }}></div>)}
         {!w.hasState && (w.labels).map((l: any, i_l: number) => (<span key={'l' + i_l} data-x4-label="" style={{ position: "absolute", left: l.left, bottom: `clamp(0px, calc(${l.bottom} - 9px), calc(100% - 18px))`, transform: `translateX(${l.shift})`, height: "18px", lineHeight: "18px", padding: "0 3px", background: "#ECEBE5", fontSize: small, fontWeight: sleek ? "600" : "700", fontVariantNumeric: "tabular-nums", whiteSpace: "nowrap" }}>{l.text}</span>))}
         {w.hasState && (<div style={{ position: "absolute", inset: "0", display: "flex", alignItems: "center", justifyContent: "center", fontSize: "18px", fontWeight: "700", textAlign: "center" }}>{w.stateText}</div>)}
@@ -43,6 +118,93 @@ function HistoryPlot({ w, sleek }: { w: any; sleek: boolean }) {
         {(w.ticks).map((t: any, i_t: number) => (<span key={i_t} style={{ position: "absolute", left: t.left, transform: `translateX(${t.shift})`, whiteSpace: "nowrap" }}>{t.text}</span>))}
       </div>
       {!!(w.hasLowHigh) && (<div style={{ flex: "none", display: "flex", justifyContent: "space-between", flexWrap: "wrap", columnGap: "12px", fontSize: small, fontWeight: sleek ? "600" : "700", fontVariantNumeric: "tabular-nums", whiteSpace: "nowrap", overflow: "hidden" }}><span>{w.low}</span><span>{w.high}</span></div>)}
+    </div>
+  );
+}
+
+/** A weather drawing (#318, core/weatherArt.ts): ink layers through a mask, erase layers cut back to paper. hero: the
+ *  120 px size with lighter strokes (the firmware's second bitmap). */
+function WxArt({ icon, size, hero }: { icon: string; size: number; hero?: boolean }) {
+  const k = hero ? WX_HERO_STROKE : 1, id = 'wx-' + icon + (hero ? '-h' : '');
+  return (
+    <svg data-x4-wx={icon} width={size} height={size} viewBox={`0 0 ${WX_GRID} ${WX_GRID}`} aria-hidden="true" style={{ flex: "none", display: "block" }}>
+      <mask id={id} maskUnits="userSpaceOnUse" x="0" y="0" width={WX_GRID} height={WX_GRID}>
+        {(WX_ART as Record<string, { mode: string; d: string; w?: number }[]>)[icon].map((l, i) => (
+          <path key={i} d={l.d} fill={l.mode === 'stroke' ? 'none' : l.mode === 'erase' ? '#000' : '#fff'} stroke={l.mode === 'fill' ? 'none' : l.mode === 'erase' ? '#000' : '#fff'}
+            strokeWidth={(l.w ?? 0) * k} strokeLinecap="round" strokeLinejoin="round" />))}
+      </mask>
+      <rect width={WX_GRID} height={WX_GRID} fill="#111" mask={`url(#${id})`} />
+    </svg>
+  );
+}
+
+/** Weather tile (#318, core/weather.ts weatherView): the hero row (drawing, temperature, condition, high / low / wind /
+ *  rain) and, full screen, the 5-day strip with rain bars (solid from half the scale, else hatched). Classic: one frame
+ *  with a rule; Modern: two cards. */
+function WeatherTile({ w, sleek }: { w: any; sleek: boolean }) {
+  const x = w.wx, card = sleek ? { background: "#DEDCD5", borderRadius: "20px" } : {};
+  const big = sleek ? { fontFamily: "var(--fd)", fontStretch: "var(--fs)", fontSize: "calc(104px * var(--fk))" } : { fontSize: "92px" };
+  return (
+    <div style={{ flex: "1", minHeight: "0", display: "flex", flexDirection: "column", gap: sleek ? "10px" : "0" }}>
+      <div data-x4-wxhero="" style={{ ...card, flex: "1", minHeight: "0", display: "flex", alignItems: "center", gap: "24px", padding: "8px 24px" }}>
+        <WxArt icon={x.icon} size={120} hero />
+        <div style={{ minWidth: "0" }}>
+          <div style={{ ...big, fontWeight: "700", lineHeight: "0.95", letterSpacing: "-2px", fontVariantNumeric: "tabular-nums", display: "flex", alignItems: "center", gap: "12px" }}>{x.gap ? <GapRing /> : x.temp}</div>
+          <div style={{ fontSize: "21px", fontWeight: sleek ? "600" : "700", marginTop: "6px", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{x.gap ? w.gapText : [x.cond, x.feels].filter(Boolean).join(' · ')}</div>
+        </div>
+        <div style={{ marginLeft: "auto", flex: "none", fontSize: "19px", lineHeight: "1.6", textAlign: "right", whiteSpace: "nowrap", fontVariantNumeric: "tabular-nums" }}>
+          <div>{w.lHigh} <b>{x.high}</b>&nbsp;&nbsp;{w.lLow} <b>{x.low}</b></div>
+          <div>{w.lWind} <b>{x.wind}</b></div>
+          <div>{w.lRain} <b>{x.rain}</b></div>
+        </div>
+      </div>
+      {!!w.tall && (<div data-x4-wxstrip="" style={{ ...card, flex: "1", minHeight: "0", padding: "10px 16px", borderTop: sleek ? "0" : "2px solid #111", display: "grid", gridTemplateColumns: "repeat(5, 1fr)", textAlign: "center" }}>
+        {!x.days.length && <div style={{ gridColumn: "1 / -1", alignSelf: "center", fontSize: "18px", fontWeight: "700" }}>{w.noForecast}</div>}
+        {(x.days).map((d: any, i: number) => (<div key={i} style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: "4px", minHeight: "0" }}>
+          <b style={{ fontSize: "18px" }}>{d.name}</b>
+          <WxArt icon={d.icon} size={44} />
+          <span style={{ fontSize: "22px", fontWeight: "700", fontVariantNumeric: "tabular-nums", whiteSpace: "nowrap" }}>{d.hi} <span style={{ fontSize: "19px", fontWeight: "400" }}>{d.lo}</span></span>
+          <div style={{ width: "60%", flex: "1", minHeight: "8px", maxHeight: "34px", display: "flex", alignItems: "flex-end", borderBottom: "2px solid #111" }}>
+            {d.bar > 0 && <div style={{ width: "100%", height: `max(2px, ${(d.bar * 100).toFixed(1)}%)`, background: d.bar >= 0.5 ? "#111" : HATCH }}></div>}
+          </div>
+          <span style={{ fontSize: "15px", fontVariantNumeric: "tabular-nums", minHeight: "18px" }}>{d.mm}</span>
+        </div>))}
+      </div>)}
+    </div>
+  );
+}
+
+// Agenda and Next tiles (#316, core/agenda.ts): day headers and timed rows at a fixed 25 px pitch (the firmware's
+// ui_tiles agendaTile / nextTile), "+N more this week" at the foot; Next = title (2 lines), times, an inverted pill.
+function AgendaPlot({ w, sleek }: { w: any; sleek: boolean }) {
+  const ell = { whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" } as const;
+  return (
+    <div style={{ flex: "1", minHeight: "0", padding: sleek ? "14px 18px 10px" : "10px 14px 8px", display: "flex", flexDirection: "column" }}>
+      <div style={{ fontSize: sleek ? "16px" : "20px", fontWeight: sleek ? "600" : "700", textTransform: sleek ? "none" : "uppercase", lineHeight: "24px", ...ell }}>{w.label}</div>
+      <div style={{ marginTop: "6px", flex: "1", minHeight: "0" }}>
+        {!!w.empty && <div style={{ height: "25px", lineHeight: "25px", fontSize: sleek ? "17px" : "19px" }}>{w.empty}</div>}
+        {(w.lines).map((l: any, i: number) => ('day' in l
+          ? <div key={i} data-x4-day="" style={{ height: "25px", boxSizing: "border-box", paddingTop: "6px", borderTop: i ? "2px dotted #111" : "2px solid transparent", fontSize: sleek ? "14px" : "15px", fontWeight: "700", letterSpacing: sleek ? "0" : "1px", textTransform: sleek ? "none" : "uppercase", lineHeight: "15px", ...ell }}>{l.day}</div>
+          : <div key={i} style={{ height: "25px", lineHeight: "25px", display: "grid", gridTemplateColumns: "70px 1fr", columnGap: "8px" }}>
+              <span style={{ fontSize: l.allDay ? (sleek ? "15px" : "17px") : (sleek ? "17px" : "19px"), fontWeight: l.allDay ? "400" : "700", fontVariantNumeric: "tabular-nums", ...ell }}>{l.time}</span>
+              <span style={{ minWidth: "0", fontSize: sleek ? "17px" : "19px", ...ell }}>{l.title}</span>
+            </div>))}
+      </div>
+      {!!w.more && <div style={{ flex: "none", fontSize: sleek ? "15px" : "17px", lineHeight: "22px" }}>{w.more}</div>}
+    </div>
+  );
+}
+function NextPlot({ w, sleek }: { w: any; sleek: boolean }) {
+  return (
+    <div style={{ flex: "1", minHeight: "0", padding: sleek ? "14px 18px 10px" : "10px 14px 8px", display: "flex", flexDirection: "column" }}>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: "8px", height: "24px" }}>
+        <span style={{ minWidth: "0", fontSize: sleek ? "16px" : "20px", fontWeight: sleek ? "600" : "700", textTransform: sleek ? "none" : "uppercase", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{w.label}</span>
+        {!!w.pill && <span data-x4-pill="" style={{ flex: "none", height: "22px", lineHeight: "22px", padding: sleek ? "0 10px" : "0 6px", borderRadius: sleek ? "11px" : "4px", background: "#111", color: "#ECEBE5", fontSize: sleek ? "13px" : "16px", fontWeight: "700", textTransform: sleek ? "none" : "uppercase" }}>{w.pill}</span>}
+      </div>
+      {w.has
+        ? (<><div style={{ marginTop: "10px", fontSize: sleek ? "26px" : "30px", fontWeight: "700", lineHeight: sleek ? "30px" : "34px", maxHeight: sleek ? "60px" : "68px", overflow: "hidden", overflowWrap: "anywhere" }}>{w.title}</div>
+            <div style={{ marginTop: "4px", fontSize: sleek ? "17px" : "19px", fontVariantNumeric: "tabular-nums" }}>{w.when}</div></>)
+        : <div style={{ marginTop: "10px", fontSize: sleek ? "17px" : "19px" }}>{w.title}</div>}
     </div>
   );
 }
@@ -155,7 +317,7 @@ export function Device({ v }: { v: Vals }) {
                         <div style={{ width: "3px", height: "6px", background: "#111", borderRadius: "0 1px 1px 0" }}></div>
                       </div>
                     </div>)}
-                    {!!(v.chromeClock) && !!(v.asleepMark) && (<div style={{ flex: "none", fontSize: "18px", fontWeight: "400" }}>{v.asleepMark}</div>)}
+                    {!!(v.chromeClock) && !!(v.asleepMark) && (<div style={{ flex: "none", fontSize: "18px", fontWeight: "700" }}>{v.asleepMark}</div>)}
                     {!!(v.chromeClock) && !(v.asleepMark) && (<div style={{ position: "relative", flex: "none", fontSize: "22px", fontWeight: "700", fontVariantNumeric: "tabular-nums" }}>{v.clock}{!!(v.timeDirty) && (<><div className="dirty"></div></>)}</div>)}
                   </div>
                   {/* zone 3: page navigation (fixed 176); hidden in ambient (#27) */}
@@ -205,7 +367,7 @@ export function Device({ v }: { v: Vals }) {
                       {!!(v.battLow) && (<><span style={{ fontSize: "14px", fontWeight: "700" }}>{v.devBatt}%</span></>)}
                       <div style={{ width: "24px", height: "12px", borderRadius: "4px", background: TRACK, overflow: "hidden" }}><div style={{ height: "100%", width: `${v.devBatt}%`, background: "#111" }}></div></div>
                     </div>)}
-                    {!!(v.chromeClock) && !!(v.asleepMark) && (<div style={{ flex: "none", fontSize: "16px", fontWeight: "600" }}>{v.asleepMark}</div>)}
+                    {!!(v.chromeClock) && !!(v.asleepMark) && (<div style={{ flex: "none", height: "32px", boxSizing: "border-box", padding: "0 14px", borderRadius: "16px", background: "#111", color: "#ECEBE5", display: "flex", alignItems: "center", fontSize: "16px", fontWeight: "600" }}>{v.asleepMark}</div>)}
                     {!!(v.chromeClock) && !(v.asleepMark) && (<div style={{ position: "relative", flex: "none", fontFamily: "var(--fd)", fontStretch: "var(--fs)", fontSize: "calc(24px * var(--fk))", fontWeight: "700", fontVariantNumeric: "tabular-nums" }}>{v.clock}{!!(v.timeDirty) && (<><div className="dirty"></div></>)}</div>)}
                   </div>
                   {!!(v.chromePager) && (<div style={{ flex: "none", height: "52px", boxSizing: "border-box", padding: "4px", borderRadius: "26px", background: "#DEDCD5", display: "flex", alignItems: "center", gap: "2px" }}>
@@ -280,12 +442,14 @@ export function Device({ v }: { v: Vals }) {
                       {/* sleek clock: inverted hero card with day progress */}
                       {!!(w.sClock) && (<>
                         <div style={{ flex: "1", minHeight: "0", padding: "16px 20px 14px", display: "flex", flexDirection: "column", justifyContent: "space-between" }}>
-                          <div style={{ display: "flex", justifyContent: "space-between", gap: "10px", fontSize: "16px", fontWeight: "600", color: "#ECEBE5" }}><span>{v.clockHead}</span><span>{v.dayMonth}</span></div>
-                          <div style={{ fontFamily: "var(--fd)", fontStretch: "var(--fs)", fontSize: `calc(${w.big}px * var(--fk))`, fontWeight: "700", lineHeight: "0.82", letterSpacing: "-3px", fontVariantNumeric: "tabular-nums" }}>{v.clock}</div>
-                          <div style={{ display: "flex", flexDirection: "column", gap: "5px" }}>
+                          <div style={{ display: "flex", justifyContent: "space-between", gap: "10px", fontSize: "16px", fontWeight: "600", color: "#ECEBE5" }}><span>{v.clockHead}</span><span>{v.clockMonth}</span></div>
+                          <div style={{ fontFamily: "var(--fd)", fontStretch: "var(--fs)", fontSize: `calc(${w.big}px * var(--fk))`, fontWeight: "700", lineHeight: "0.82", letterSpacing: "-3px", fontVariantNumeric: "tabular-nums" }}>{v.asleepMark ? v.dayNum : v.clock}</div>
+                          {/* asleep (#333): no day progress (a time of day); a paper "Asleep" pill in its place */}
+                          {!!(v.asleepMark) && (<div style={{ alignSelf: "flex-start", height: "28px", boxSizing: "border-box", padding: "0 12px", borderRadius: "14px", background: "#ECEBE5", color: "#111", display: "flex", alignItems: "center", fontSize: "16px", fontWeight: "600" }}>{v.asleepMark}</div>)}
+                          {!(v.asleepMark) && (<div style={{ display: "flex", flexDirection: "column", gap: "5px" }}>
                             <div style={{ height: "6px", borderRadius: "3px", background: "linear-gradient(#ECEBE5, #ECEBE5) 0 2px / 100% 2px no-repeat", overflow: "hidden" }}><div style={{ width: `${w.dayPct}%`, height: "100%", background: "#ECEBE5", borderRadius: "3px" }}></div></div>
                             <div style={{ display: "flex", justifyContent: "space-between", fontSize: "12px", color: "#ECEBE5", fontVariantNumeric: "tabular-nums" }}><span>00</span><span>06</span><span>12</span><span>18</span><span>24</span></div>
-                          </div>
+                          </div>)}
                         </div>
                         {!!(w.clockDirty) && (<><div className="dirty" style={{ top: "40px" }}></div></>)}
                       </>)}
@@ -343,6 +507,9 @@ export function Device({ v }: { v: Vals }) {
 
                       {/* sleek history chart (#267) */}
                       {!!(w.sHistory) && <HistoryPlot w={w} sleek={true} />}
+                      {!!(w.sBins) && <BinsTile w={w} sleek={true} />}
+                      {!!(w.sAgenda) && <AgendaPlot w={w} sleek={true} />}
+                      {!!(w.sNext) && <NextPlot w={w} sleek={true} />}
 
                       {/* sleek thermostat: 270° dial with set-point marker */}
                       {!!(w.sThermo) && (<>
@@ -484,8 +651,8 @@ export function Device({ v }: { v: Vals }) {
                       {/* clock */}
                       {!!(w.isClock) && (<>
                         <div style={{ flex: "1", padding: "12px 18px", display: "flex", flexDirection: "column", justifyContent: "center", gap: "4px" }}>
-                          <div style={{ position: "relative", fontSize: "92px", fontWeight: "700", letterSpacing: "-4px", lineHeight: "0.95", fontVariantNumeric: "tabular-nums" }}>{v.clock}{!!(w.clockDirty) && (<><div className="dirty"></div></>)}</div>
-                          <div style={{ fontSize: "20px", fontWeight: "700" }}>{v.clockSub}</div>
+                          <div style={{ position: "relative", fontSize: "92px", fontWeight: "700", letterSpacing: "-4px", lineHeight: "0.95", fontVariantNumeric: "tabular-nums" }}>{v.asleepMark ? v.dayNum : v.clock}{!!(w.clockDirty) && (<><div className="dirty"></div></>)}</div>
+                          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", gap: "10px" }}><span style={{ fontSize: "20px", fontWeight: "700" }}>{v.clockSub}</span>{!!(v.asleepMark) && (<span style={{ fontSize: "18px", fontWeight: "700" }}>{v.asleepMark}</span>)}</div>
                         </div>
                       </>)}
 
@@ -531,8 +698,14 @@ export function Device({ v }: { v: Vals }) {
                         </div>
                       </>)}
 
+                      {/* weather (#318), both looks */}
+                      {!!(w.isWeather) && <WeatherTile w={w} sleek={!!w.wxSleek} />}
+
                       {/* history chart (#267) */}
                       {!!(w.isHistory) && <HistoryPlot w={w} sleek={false} />}
+                      {!!(w.isBins) && <BinsTile w={w} sleek={false} />}
+                      {!!(w.isAgenda) && <AgendaPlot w={w} sleek={false} />}
+                      {!!(w.isNext) && <NextPlot w={w} sleek={false} />}
 
                       {/* thermostat tile */}
                       {!!(w.isThermo) && (<>
@@ -642,6 +815,12 @@ export function Device({ v }: { v: Vals }) {
                           </div>)}
                         </div>
                       </>)}
+
+                      {/* now playing (#319): Classic layout in both styles (Sleek: pill buttons); firmware ui_tiles.cpp mediaTile */}
+                      {!!(w.isMedia) && <MediaTile w={w} />}
+
+                      {/* guest Wi-Fi (#329): one layout in both styles; firmware app/ui_guest.cpp */}
+                      {!!(w.isGuest) && <GuestWifiTile w={w} />}
 
                       {/* scene */}
                       {!!(w.isScene) && (<>
@@ -1042,17 +1221,59 @@ export function Device({ v }: { v: Vals }) {
               </div>
             </>)}
 
-            {/* QUIET FACE (#295): no clock (a sleeping panel would show a wrong time), the end of quiet hours, the date and
-                the Home page's first values, frozen when the face went up. Firmware app/ui_chrome.cpp quietFace. */}
-            {!!(v.isQuiet) && (<>
+            {/* SLEEP FACE (#295 quiet hours, #331 Nobody home, #356 glance sleep): no clock (a sleeping panel would show a
+                wrong time). A title ("Back at 07:00" / "Nobody home" / "Asleep · press to wake"), a line under it (the date /
+                "Next update ~16:05"), then the Tomorrow / Today row (#328, core/quiet.ts quietTomorrow: a head, one centred line
+                per item: weather drawing, bold part, text) or the Nobody home facts, and "as of 22:14" when the data was stale.
+                Firmware app/ui_chrome.cpp sleepFace. */}
+            {!!(v.face) && (<>
               <div style={{ position: "absolute", inset: "0", background: "#ECEBE5", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: "10px" }}>
-                <div style={{ fontSize: "52px", fontWeight: "700", lineHeight: "1" }}>{v.quietBack}</div>
-                <div style={{ fontSize: "28px", fontWeight: "700" }}>{v.dateText}</div>
-                {!!(v.quietRows.length) && (<div style={{ display: "flex", flexWrap: "wrap", justifyContent: "center", maxWidth: "760px", columnGap: "40px", rowGap: "10px", marginTop: "22px", fontSize: "26px" }}>
-                  {(v.quietRows).map((r: any, i_r: number) => (<Fragment key={i_r}><span>{r.label} <b>{r.value}</b></span></Fragment>))}
+                <div style={{ fontSize: "52px", fontWeight: "700", lineHeight: "1", whiteSpace: "nowrap" }}>{v.face.title}</div>
+                <div style={{ fontSize: "28px", fontWeight: "700" }}>{v.face.sub}</div>
+                {!!(v.face.items.length) && (<div style={{ display: "flex", flexDirection: "column", alignItems: "center", maxWidth: "760px", gap: "10px", marginTop: "22px", fontSize: "26px" }}>
+                  <div style={{ fontSize: "18px", lineHeight: "22px" }}>{v.face.head}</div>
+                  {(v.face.items).map((r: any, i_r: number) => (<Fragment key={i_r}><div style={{ display: "flex", alignItems: "center", gap: "10px", height: "44px", whiteSpace: "nowrap" }}>
+                    {!!(r.icon) && (<WxArt icon={r.icon} size={44} />)}<span><b>{r.bold}</b>{r.text ? ' ' + r.text : ''}</span>
+                  </div></Fragment>))}
                 </div>)}
-                {!!(v.quietAsOf) && (<div style={{ fontSize: "18px", color: "#111", marginTop: "10px" }}>{v.quietAsOf}</div>)}
-                <button aria-label="Show dashboard" onClick={v.peek} style={{ position: "absolute", inset: "0", background: "none", border: "0" }}></button>
+                {!!(v.face.facts.length) && (<div style={{ display: "flex", flexWrap: "wrap", justifyContent: "center", maxWidth: "760px", columnGap: "40px", rowGap: "10px", marginTop: "22px", fontSize: "26px" }}>
+                  {(v.face.facts).map((r: any, i_r: number) => (<Fragment key={i_r}><span>{r.label} <b>{r.value}</b></span></Fragment>))}
+                </div>)}
+                {!!(v.face.foot) && (<div style={{ fontSize: "18px", color: "#111", marginTop: "10px" }}>{v.face.foot}</div>)}
+                {!!(v.face.tap) && (<button aria-label="Show dashboard" onClick={v.peek} style={{ position: "absolute", inset: "0", background: "none", border: "0" }}></button>)}
+              </div>
+            </>)}
+
+            {/* GOOD MORNING (#330): the first wake after quiet hours, 20 min or one press. Greeting + date, today's weather on
+                the right; today's events, then bins due today / tonight. Rows without a source are left out; the block is
+                centred vertically. Sizes are the firmware's font sizes (app/ui_morning.cpp morningFace). */}
+            {!!(v.isMorning && v.morning) && (<>
+              <div style={{ position: "absolute", inset: "0", background: "#ECEBE5", display: "flex", flexDirection: "column", justifyContent: "center", gap: "20px", padding: "0 56px", boxSizing: "border-box" }}>
+                <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: "24px" }}>
+                  <div>
+                    <div style={{ fontSize: "46px", fontWeight: "700", lineHeight: "1" }}>{v.morning.head}</div>
+                    <div style={{ fontSize: "26px", fontWeight: "700", lineHeight: "1.2", marginTop: "10px" }}>{v.morning.date}</div>
+                  </div>
+                  {!!(v.morning.weather) && (<div style={{ display: "flex", alignItems: "center", gap: "14px" }}>
+                    {!!(v.morning.weather.icon) && (<WxArt icon={v.morning.weather.icon} size={44} />)}
+                    <div>
+                      {!!(v.morning.weather.temps) && (<div style={{ fontSize: "34px", fontWeight: "700", lineHeight: "1.1", fontVariantNumeric: "tabular-nums" }}>{v.morning.weather.temps}</div>)}
+                      {!!(v.morning.weather.rain) && (<div style={{ fontSize: "26px", lineHeight: "1.25" }}>{v.morning.weather.rain}</div>)}
+                    </div>
+                  </div>)}
+                </div>
+                {!!(v.morning.events.length || v.morning.bins.length) && (<div style={{ height: "2px", background: "#111" }}></div>)}
+                {!!(v.morning.events.length) && (<div style={{ display: "flex", flexDirection: "column", gap: "6px" }}>
+                  {(v.morning.events).map((e: any, i_e: number) => (<Fragment key={i_e}><div style={{ display: "flex", fontSize: "26px", lineHeight: "1.25" }}>
+                    <span style={{ fontWeight: "700", width: "128px", flex: "none", fontVariantNumeric: "tabular-nums" }}>{e.time}</span>
+                    <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{e.title}</span>
+                  </div></Fragment>))}
+                  {!!(v.morning.more) && (<div style={{ fontSize: "18px", lineHeight: "1.2", paddingLeft: "128px" }}>{v.morning.more}</div>)}
+                </div>)}
+                {!!(v.morning.bins.length) && (<div style={{ display: "flex", flexDirection: "column", gap: "6px" }}>
+                  {(v.morning.bins).map((b: any, i_b: number) => (<Fragment key={i_b}><div style={{ fontSize: "26px", lineHeight: "1.25", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}><b>{b.labels}</b> · {b.when}</div></Fragment>))}
+                </div>)}
+                <button aria-label="Show start page" onClick={v.morningDone} style={{ position: "absolute", inset: "0", background: "none", border: "0" }}></button>
               </div>
             </>)}
 
@@ -1082,8 +1303,8 @@ export function Device({ v }: { v: Vals }) {
             {/* STANDBY */}
             {!!(v.isSleeping) && (<>
               <div style={{ position: "absolute", inset: "0", background: "#ECEBE5", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: "10px" }}>
-                <div className="num" style={{ position: "relative", fontSize: "150px", fontWeight: "700", letterSpacing: "-7px", lineHeight: "0.9", fontVariantNumeric: "tabular-nums" }}>{v.clock}{!!(v.timeDirty) && (<><div className="dirty"></div></>)}</div>
-                <div style={{ fontSize: "28px", fontWeight: "700" }}>{v.dateText}</div>
+                <div className="num" style={{ position: "relative", fontSize: "150px", fontWeight: "700", letterSpacing: "-7px", lineHeight: "0.9", fontVariantNumeric: "tabular-nums" }}>{v.asleepMark ? v.dayNum : v.clock}{!!(v.timeDirty) && (<><div className="dirty"></div></>)}</div>
+                <div style={{ fontSize: "28px", fontWeight: "700" }}>{v.asleepMark ? v.asleepDate : v.dateText}</div>
                 <div style={{ display: "grid", gridTemplateColumns: "auto auto", columnGap: "40px", rowGap: "10px", marginTop: "22px", fontSize: "26px" }}>
                   <span>{v.t('solar')} <b>{v.standbySolar}</b></span><span>{v.t('battery')} <b>{v.standbyBatt}</b></span><span>{v.t('price')} <b>{v.standbyPrice}</b></span><span>{v.t('heating')} <b>{v.standbyHeat}</b></span>
                 </div>

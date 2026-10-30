@@ -1,5 +1,5 @@
 {
-  "description": "Glance wakes (#10, emulator src/core/glance.ts, firmware core/glance.cpp). snapshotDiff: region key -> hash maps (prev null = no valid snapshot in RTC), ignore = clock regions; result sorted. glanceStep: what a wake does with its result. wifiFast: how to reconnect from the RTC Wi-Fi cache. liveNow: live mode after a key press. arm: first-boot safety per firmware version, armed after ARM_BOOTS = 3 confirmed boots with network or (#231) ARM_UPTIME_MIN = 30 min of one boot with network and a confirmed image (stored = null: none; ops count = this boot confirmed; then up = [netUpMin, otaPendingVerify] when present; by = armedBy). tally (#178): wake counters since power-on in RTC memory, ops in order from zero: [\"wake\", sleptAtEpoch, wakeAtEpoch, nowEpoch] (slept = clock when known and not backwards, else planned timer, else 0), [\"glance\", ok, redraw, wifiMs|null, haMs|null, totalMs], [\"sleep\", awakeMs, fullRefreshes, partialRefreshes].",
+  "description": "Glance wakes (#10, emulator src/core/glance.ts, firmware core/glance.cpp). snapshotDiff: region key -> hash maps (prev null = no valid snapshot in RTC), ignore = clock regions; result sorted. glanceStep: what a wake does with its result (unreachable: changed = what the face shows without new data, #356). wifiFast: how to reconnect from the RTC Wi-Fi cache. liveNow: live mode after a key press. arm: first-boot safety per firmware version, armed after ARM_BOOTS = 3 confirmed boots with network or (#231) ARM_UPTIME_MIN = 30 min of one boot with network and a confirmed image (stored = null: none; ops count = this boot confirmed; then up = [netUpMin, otaPendingVerify] when present; by = armedBy). tally (#178): wake counters since power-on in RTC memory, ops in order from zero: [\"wake\", sleptAtEpoch, wakeAtEpoch, nowEpoch] (slept = clock when known and not backwards, else planned timer, else 0), [\"glance\", ok, redraw, wifiMs|null, haMs|null, totalMs], [\"sleep\", awakeMs, fullRefreshes, partialRefreshes].",
   "snapshotDiff": [
     {
       "name": "no snapshot: every region but the clock",
@@ -181,6 +181,25 @@
       "out": {
         "redraw": false,
         "reason": "unreachable",
+        "fails": 1,
+        "drawnOffline": false
+      }
+    },
+    {
+      "name": "HA unreachable at a transition wake (#356): the face itself changed (its date at midnight, the quiet face) → drawn without new data",
+      "in": {
+        "ok": false,
+        "changed": [
+          "sleep"
+        ],
+        "hadSnapshot": true,
+        "fails": 0,
+        "drawnOffline": false,
+        "minSinceDraw": 540
+      },
+      "out": {
+        "redraw": true,
+        "reason": "changed",
         "fails": 1,
         "drawnOffline": false
       }

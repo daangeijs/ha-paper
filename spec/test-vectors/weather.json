@@ -1,0 +1,3050 @@
+{
+  "_doc": "Weather tile (#318): emulator src/core/weather.ts (weatherError, wxIcon, wxEntries, weatherView). Firmware: core/weather.cpp, test_core test_weather_vectors. Times epoch ms; tz = local UTC offset in minutes; now = 2026-10-26T14:37:00+00:00. config: like config/*.json. icons: HA condition → drawing. entries: a weather.get_forecasts list → kept entries (t, icon, temp, low, mm; null = absent). views: entity state + attributes + both lists (raw, through wxEntries) → the tile text.",
+  "now": 1793025420000,
+  "icons": [
+    "sun",
+    "moon",
+    "partly",
+    "cloud",
+    "fog",
+    "rain",
+    "pour",
+    "snow",
+    "sleet",
+    "thunder",
+    "wind",
+    "alert"
+  ],
+  "config": [
+    {
+      "name": "weather-full-and-half",
+      "description": "A weather tile on a weather.* entity, full width: rs 2 (full screen) or rs 1 (top half), with a label.",
+      "input": "# HA Paper display config\nversion: 1\nscreens:\n  - id: a\n    widgets:\n      - {type: weather, entity: weather.home, cs: 4, rs: 2}\n  - id: b\n    widgets:\n      - {type: weather, entity: weather.forecast_home, label: Outside, cs: 4}\n      - {type: clock, cs: 4}\n",
+      "expect": {
+        "ok": true,
+        "apps": [
+          {
+            "id": "home",
+            "title": "Home"
+          },
+          {
+            "id": "house",
+            "title": "House"
+          },
+          {
+            "id": "travel",
+            "title": "Travel"
+          }
+        ],
+        "screens": [
+          {
+            "id": "a",
+            "app": "home",
+            "title": "a",
+            "cells": 8,
+            "widgets": [
+              {
+                "type": "weather",
+                "entity": "weather.home",
+                "cs": 4,
+                "rs": 2
+              }
+            ]
+          },
+          {
+            "id": "b",
+            "app": "home",
+            "title": "b",
+            "cells": 8,
+            "widgets": [
+              {
+                "type": "weather",
+                "entity": "weather.forecast_home",
+                "label": "Outside",
+                "cs": 4
+              },
+              {
+                "type": "clock",
+                "cs": 4
+              }
+            ]
+          }
+        ],
+        "yaml": "# HA Paper display config\nversion: 1\nscreens:\n  - id: a\n    app: home\n    title: a\n    widgets:\n      - {type: weather, entity: weather.home, cs: 4, rs: 2}\n  - id: b\n    app: home\n    title: b\n    widgets:\n      - {type: weather, entity: weather.forecast_home, label: Outside, cs: 4}\n      - {type: clock, cs: 4}\n"
+      }
+    },
+    {
+      "name": "weather-not-full-width",
+      "description": "Rule: a weather tile is full width (cs: 4).",
+      "input": "# HA Paper display config\nversion: 1\nscreens:\n  - id: a\n    widgets:\n      - {type: weather, entity: weather.home, cs: 2, rs: 2}\n",
+      "expect": {
+        "ok": false,
+        "line": 6,
+        "message": "weather: needs the full width (cs: 4)"
+      }
+    },
+    {
+      "name": "weather-default-width",
+      "description": "Rule: no cs is 1 wide, not full width.",
+      "input": "# HA Paper display config\nversion: 1\nscreens:\n  - id: a\n    widgets:\n      - {type: weather, entity: weather.home}\n",
+      "expect": {
+        "ok": false,
+        "line": 6,
+        "message": "weather: needs the full width (cs: 4)"
+      }
+    },
+    {
+      "name": "weather-wrong-domain",
+      "description": "Rule: the entity must be a weather.* id.",
+      "input": "# HA Paper display config\nversion: 1\nscreens:\n  - id: a\n    widgets:\n      - {type: weather, entity: sensor.outdoor_temperature, cs: 4}\n",
+      "expect": {
+        "ok": false,
+        "line": 6,
+        "message": "weather: “sensor.outdoor_temperature” is not a weather entity"
+      }
+    },
+    {
+      "name": "weather-no-entity",
+      "description": "Rule: entity is required.",
+      "input": "# HA Paper display config\nversion: 1\nscreens:\n  - id: a\n    widgets:\n      - {type: weather, cs: 4}\n",
+      "expect": {
+        "ok": false,
+        "line": 6,
+        "message": "weather: “undefined” is not a weather entity"
+      }
+    },
+    {
+      "name": "weather-third",
+      "description": "Rule: at most 2 weather tiles per config.",
+      "input": "# HA Paper display config\nversion: 1\nscreens:\n  - id: a\n    widgets:\n      - {type: weather, entity: weather.home, cs: 4}\n  - id: b\n    widgets:\n      - {type: weather, entity: weather.home, cs: 4}\n  - id: c\n    widgets:\n      - {type: weather, entity: weather.home, cs: 4}\n",
+      "expect": {
+        "ok": false,
+        "line": 12,
+        "message": "At most 2 weather tiles"
+      }
+    }
+  ],
+  "conditions": [
+    {
+      "condition": "sunny",
+      "icon": "sun"
+    },
+    {
+      "condition": "clear-night",
+      "icon": "moon"
+    },
+    {
+      "condition": "partlycloudy",
+      "icon": "partly"
+    },
+    {
+      "condition": "cloudy",
+      "icon": "cloud"
+    },
+    {
+      "condition": "fog",
+      "icon": "fog"
+    },
+    {
+      "condition": "rainy",
+      "icon": "rain"
+    },
+    {
+      "condition": "pouring",
+      "icon": "pour"
+    },
+    {
+      "condition": "snowy",
+      "icon": "snow"
+    },
+    {
+      "condition": "snowy-rainy",
+      "icon": "sleet"
+    },
+    {
+      "condition": "hail",
+      "icon": "sleet"
+    },
+    {
+      "condition": "lightning",
+      "icon": "thunder"
+    },
+    {
+      "condition": "lightning-rainy",
+      "icon": "thunder"
+    },
+    {
+      "condition": "windy",
+      "icon": "wind"
+    },
+    {
+      "condition": "windy-variant",
+      "icon": "wind"
+    },
+    {
+      "condition": "exceptional",
+      "icon": "alert"
+    },
+    {
+      "condition": "tornado",
+      "icon": "cloud"
+    },
+    {
+      "condition": "",
+      "icon": "cloud"
+    }
+  ],
+  "entries": [
+    {
+      "name": "daily",
+      "description": "Daily from today (local date, tz +60): yesterday skipped, entries without a valid datetime skipped, at most 7; numbers to 2 decimals, a numeric string read, a missing field null.",
+      "kind": "daily",
+      "tz": 60,
+      "raw": [
+        {
+          "datetime": "2026-10-25T11:00:00+00:00",
+          "condition": "partlycloudy",
+          "temperature": 11.456,
+          "templow": 6.5,
+          "precipitation": 0,
+          "wind_speed": 14
+        },
+        {
+          "datetime": "2026-10-26T11:00:00+00:00",
+          "condition": "cloudy",
+          "temperature": 12.456,
+          "templow": 5,
+          "precipitation": 0.4,
+          "wind_speed": 14
+        },
+        {
+          "datetime": "2026-10-27T11:00:00+00:00",
+          "condition": "fog",
+          "temperature": 13.456,
+          "templow": 3.5,
+          "precipitation": 8.25,
+          "wind_speed": 14
+        },
+        {
+          "condition": "sunny",
+          "temperature": 30
+        },
+        {
+          "datetime": "tomorrow",
+          "temperature": 30
+        },
+        {
+          "datetime": "2026-10-28T11:00:00+00:00",
+          "condition": "rainy",
+          "temperature": "13.5",
+          "templow": 2,
+          "precipitation": 2,
+          "wind_speed": 14
+        },
+        {
+          "datetime": "2026-10-29T11:00:00+00:00",
+          "condition": "pouring",
+          "temperature": 12.456,
+          "templow": 0.5,
+          "wind_speed": 14
+        },
+        {
+          "datetime": "2026-10-30T11:00:00+00:00",
+          "condition": "snowy",
+          "temperature": 13.456,
+          "templow": -1,
+          "precipitation": 0.04,
+          "wind_speed": 14
+        },
+        {
+          "datetime": "2026-10-31T11:00:00+00:00",
+          "condition": "snowy-rainy",
+          "temperature": 14.456,
+          "templow": -2.5,
+          "precipitation": 12,
+          "wind_speed": 14
+        },
+        {
+          "datetime": "2026-11-01T11:00:00+00:00",
+          "condition": "sunny",
+          "temperature": 12.456,
+          "templow": -4,
+          "precipitation": 1,
+          "wind_speed": 14
+        },
+        {
+          "datetime": "2026-11-02T11:00:00+00:00",
+          "condition": "clear-night",
+          "temperature": 13.456,
+          "templow": -5.5,
+          "precipitation": 0,
+          "wind_speed": 14
+        }
+      ],
+      "out": [
+        {
+          "t": 1793012400000,
+          "icon": "cloud",
+          "temp": 12.46,
+          "low": 5,
+          "mm": 0.4
+        },
+        {
+          "t": 1793098800000,
+          "icon": "fog",
+          "temp": 13.46,
+          "low": 3.5,
+          "mm": 8.25
+        },
+        {
+          "t": 1793185200000,
+          "icon": "rain",
+          "temp": 13.5,
+          "low": 2,
+          "mm": 2
+        },
+        {
+          "t": 1793271600000,
+          "icon": "pour",
+          "temp": 12.46,
+          "low": 0.5,
+          "mm": null
+        },
+        {
+          "t": 1793358000000,
+          "icon": "snow",
+          "temp": 13.46,
+          "low": -1,
+          "mm": 0.04
+        },
+        {
+          "t": 1793444400000,
+          "icon": "sleet",
+          "temp": 14.46,
+          "low": -2.5,
+          "mm": 12
+        },
+        {
+          "t": 1793530800000,
+          "icon": "sun",
+          "temp": 12.46,
+          "low": -4,
+          "mm": 1
+        }
+      ]
+    },
+    {
+      "name": "daily-json-string",
+      "description": "The same list as JSON text.",
+      "kind": "daily",
+      "tz": 60,
+      "raw": "[{\"datetime\":\"2026-10-25T11:00:00+00:00\",\"condition\":\"partlycloudy\",\"temperature\":11.456,\"templow\":6.5,\"precipitation\":0,\"wind_speed\":14},{\"datetime\":\"2026-10-26T11:00:00+00:00\",\"condition\":\"cloudy\",\"temperature\":12.456,\"templow\":5,\"precipitation\":0.4,\"wind_speed\":14},{\"datetime\":\"2026-10-27T11:00:00+00:00\",\"condition\":\"fog\",\"temperature\":13.456,\"templow\":3.5,\"precipitation\":8.25,\"wind_speed\":14},{\"condition\":\"sunny\",\"temperature\":30},{\"datetime\":\"tomorrow\",\"temperature\":30},{\"datetime\":\"2026-10-28T11:00:00+00:00\",\"condition\":\"rainy\",\"temperature\":\"13.5\",\"templow\":2,\"precipitation\":2,\"wind_speed\":14},{\"datetime\":\"2026-10-29T11:00:00+00:00\",\"condition\":\"pouring\",\"temperature\":12.456,\"templow\":0.5,\"wind_speed\":14},{\"datetime\":\"2026-10-30T11:00:00+00:00\",\"condition\":\"snowy\",\"temperature\":13.456,\"templow\":-1,\"precipitation\":0.04,\"wind_speed\":14},{\"datetime\":\"2026-10-31T11:00:00+00:00\",\"condition\":\"snowy-rainy\",\"temperature\":14.456,\"templow\":-2.5,\"precipitation\":12,\"wind_speed\":14},{\"datetime\":\"2026-11-01T11:00:00+00:00\",\"condition\":\"sunny\",\"temperature\":12.456,\"templow\":-4,\"precipitation\":1,\"wind_speed\":14},{\"datetime\":\"2026-11-02T11:00:00+00:00\",\"condition\":\"clear-night\",\"temperature\":13.456,\"templow\":-5.5,\"precipitation\":0,\"wind_speed\":14}]",
+      "out": [
+        {
+          "t": 1793012400000,
+          "icon": "cloud",
+          "temp": 12.46,
+          "low": 5,
+          "mm": 0.4
+        },
+        {
+          "t": 1793098800000,
+          "icon": "fog",
+          "temp": 13.46,
+          "low": 3.5,
+          "mm": 8.25
+        },
+        {
+          "t": 1793185200000,
+          "icon": "rain",
+          "temp": 13.5,
+          "low": 2,
+          "mm": 2
+        },
+        {
+          "t": 1793271600000,
+          "icon": "pour",
+          "temp": 12.46,
+          "low": 0.5,
+          "mm": null
+        },
+        {
+          "t": 1793358000000,
+          "icon": "snow",
+          "temp": 13.46,
+          "low": -1,
+          "mm": 0.04
+        },
+        {
+          "t": 1793444400000,
+          "icon": "sleet",
+          "temp": 14.46,
+          "low": -2.5,
+          "mm": 12
+        },
+        {
+          "t": 1793530800000,
+          "icon": "sun",
+          "temp": 12.46,
+          "low": -4,
+          "mm": 1
+        }
+      ]
+    },
+    {
+      "name": "hourly",
+      "description": "Hourly from the hour holding now (15:00 local): earlier hours skipped, at most 16.",
+      "kind": "hourly",
+      "tz": 60,
+      "raw": [
+        {
+          "datetime": "2026-10-26T13:00:00+01:00",
+          "condition": "cloudy",
+          "temperature": 11,
+          "precipitation": 3
+        },
+        {
+          "datetime": "2026-10-26T14:00:00+01:00",
+          "condition": "cloudy",
+          "temperature": 10.75,
+          "precipitation": 0
+        },
+        {
+          "datetime": "2026-10-26T15:00:00+01:00",
+          "condition": "cloudy",
+          "temperature": 10.5,
+          "precipitation": 0
+        },
+        {
+          "datetime": "2026-10-26T16:00:00+01:00",
+          "condition": "cloudy",
+          "temperature": 10.25,
+          "precipitation": 0
+        },
+        {
+          "datetime": "2026-10-26T17:00:00+01:00",
+          "condition": "cloudy",
+          "temperature": 10,
+          "precipitation": 0
+        },
+        {
+          "datetime": "2026-10-26T18:00:00+01:00",
+          "condition": "cloudy",
+          "temperature": 9.75,
+          "precipitation": 0
+        },
+        {
+          "datetime": "2026-10-26T19:00:00+01:00",
+          "condition": "rainy",
+          "temperature": 9.5,
+          "precipitation": 0.6
+        },
+        {
+          "datetime": "2026-10-26T20:00:00+01:00",
+          "condition": "rainy",
+          "temperature": 9.25,
+          "precipitation": 1.1
+        },
+        {
+          "datetime": "2026-10-26T21:00:00+01:00",
+          "condition": "cloudy",
+          "temperature": 9,
+          "precipitation": 0
+        },
+        {
+          "datetime": "2026-10-26T22:00:00+01:00",
+          "condition": "cloudy",
+          "temperature": 8.75,
+          "precipitation": 0
+        },
+        {
+          "datetime": "2026-10-26T23:00:00+01:00",
+          "condition": "cloudy",
+          "temperature": 8.5,
+          "precipitation": 0
+        },
+        {
+          "datetime": "2026-10-27T00:00:00+01:00",
+          "condition": "cloudy",
+          "temperature": 8.25,
+          "precipitation": 0
+        },
+        {
+          "datetime": "2026-10-27T01:00:00+01:00",
+          "condition": "cloudy",
+          "temperature": 8,
+          "precipitation": 0
+        },
+        {
+          "datetime": "2026-10-27T02:00:00+01:00",
+          "condition": "cloudy",
+          "temperature": 7.75,
+          "precipitation": 0
+        },
+        {
+          "datetime": "2026-10-27T03:00:00+01:00",
+          "condition": "cloudy",
+          "temperature": 7.5,
+          "precipitation": 0
+        },
+        {
+          "datetime": "2026-10-27T04:00:00+01:00",
+          "condition": "cloudy",
+          "temperature": 7.25,
+          "precipitation": 0
+        },
+        {
+          "datetime": "2026-10-27T05:00:00+01:00",
+          "condition": "cloudy",
+          "temperature": 7,
+          "precipitation": 0
+        },
+        {
+          "datetime": "2026-10-27T06:00:00+01:00",
+          "condition": "cloudy",
+          "temperature": 6.75,
+          "precipitation": 0
+        },
+        {
+          "datetime": "2026-10-27T07:00:00+01:00",
+          "condition": "cloudy",
+          "temperature": 6.5,
+          "precipitation": 0
+        },
+        {
+          "datetime": "2026-10-27T08:00:00+01:00",
+          "condition": "cloudy",
+          "temperature": 6.25,
+          "precipitation": 0
+        },
+        {
+          "datetime": "2026-10-27T09:00:00+01:00",
+          "condition": "cloudy",
+          "temperature": 6,
+          "precipitation": 0
+        },
+        {
+          "datetime": "2026-10-27T10:00:00+01:00",
+          "condition": "cloudy",
+          "temperature": 5.75,
+          "precipitation": 0
+        },
+        {
+          "datetime": "2026-10-27T11:00:00+01:00",
+          "condition": "cloudy",
+          "temperature": 5.5,
+          "precipitation": 0
+        },
+        {
+          "datetime": "2026-10-27T12:00:00+01:00",
+          "condition": "cloudy",
+          "temperature": 5.25,
+          "precipitation": 0
+        },
+        {
+          "datetime": "2026-10-27T13:00:00+01:00",
+          "condition": "cloudy",
+          "temperature": 5,
+          "precipitation": 0
+        },
+        {
+          "datetime": "2026-10-27T14:00:00+01:00",
+          "condition": "cloudy",
+          "temperature": 4.75,
+          "precipitation": 0
+        },
+        {
+          "datetime": "2026-10-27T15:00:00+01:00",
+          "condition": "cloudy",
+          "temperature": 4.5,
+          "precipitation": 0
+        },
+        {
+          "datetime": "2026-10-27T16:00:00+01:00",
+          "condition": "cloudy",
+          "temperature": 4.25,
+          "precipitation": 0
+        },
+        {
+          "datetime": "2026-10-27T17:00:00+01:00",
+          "condition": "cloudy",
+          "temperature": 4,
+          "precipitation": 0
+        },
+        {
+          "datetime": "2026-10-27T18:00:00+01:00",
+          "condition": "cloudy",
+          "temperature": 3.75,
+          "precipitation": 0
+        }
+      ],
+      "out": [
+        {
+          "t": 1793023200000,
+          "icon": "cloud",
+          "temp": 10.5,
+          "low": null,
+          "mm": 0
+        },
+        {
+          "t": 1793026800000,
+          "icon": "cloud",
+          "temp": 10.25,
+          "low": null,
+          "mm": 0
+        },
+        {
+          "t": 1793030400000,
+          "icon": "cloud",
+          "temp": 10,
+          "low": null,
+          "mm": 0
+        },
+        {
+          "t": 1793034000000,
+          "icon": "cloud",
+          "temp": 9.75,
+          "low": null,
+          "mm": 0
+        },
+        {
+          "t": 1793037600000,
+          "icon": "rain",
+          "temp": 9.5,
+          "low": null,
+          "mm": 0.6
+        },
+        {
+          "t": 1793041200000,
+          "icon": "rain",
+          "temp": 9.25,
+          "low": null,
+          "mm": 1.1
+        },
+        {
+          "t": 1793044800000,
+          "icon": "cloud",
+          "temp": 9,
+          "low": null,
+          "mm": 0
+        },
+        {
+          "t": 1793048400000,
+          "icon": "cloud",
+          "temp": 8.75,
+          "low": null,
+          "mm": 0
+        },
+        {
+          "t": 1793052000000,
+          "icon": "cloud",
+          "temp": 8.5,
+          "low": null,
+          "mm": 0
+        },
+        {
+          "t": 1793055600000,
+          "icon": "cloud",
+          "temp": 8.25,
+          "low": null,
+          "mm": 0
+        },
+        {
+          "t": 1793059200000,
+          "icon": "cloud",
+          "temp": 8,
+          "low": null,
+          "mm": 0
+        },
+        {
+          "t": 1793062800000,
+          "icon": "cloud",
+          "temp": 7.75,
+          "low": null,
+          "mm": 0
+        },
+        {
+          "t": 1793066400000,
+          "icon": "cloud",
+          "temp": 7.5,
+          "low": null,
+          "mm": 0
+        },
+        {
+          "t": 1793070000000,
+          "icon": "cloud",
+          "temp": 7.25,
+          "low": null,
+          "mm": 0
+        },
+        {
+          "t": 1793073600000,
+          "icon": "cloud",
+          "temp": 7,
+          "low": null,
+          "mm": 0
+        },
+        {
+          "t": 1793077200000,
+          "icon": "cloud",
+          "temp": 6.75,
+          "low": null,
+          "mm": 0
+        }
+      ]
+    },
+    {
+      "name": "not-a-list",
+      "description": "Not a list: no entries.",
+      "kind": "hourly",
+      "tz": 60,
+      "raw": {
+        "forecast": []
+      },
+      "out": []
+    }
+  ],
+  "views": [
+    {
+      "name": "full-en",
+      "description": "Partly cloudy, feels 10°, high / low from today, 4 Bft SW, rain from 19:00 (18:00 UTC), the next 5 days with bars scaled to 10 mm or the wettest day.",
+      "state": "partlycloudy",
+      "attrs": {
+        "temperature": 11.4,
+        "apparent_temperature": 9.5,
+        "temperature_unit": "°C",
+        "wind_speed": 4,
+        "wind_speed_unit": "Beaufort",
+        "wind_bearing": 225,
+        "precipitation_unit": "mm"
+      },
+      "daily": [
+        {
+          "datetime": "2026-10-25T11:00:00+00:00",
+          "condition": "partlycloudy",
+          "temperature": 11.456,
+          "templow": 6.5,
+          "precipitation": 0,
+          "wind_speed": 14
+        },
+        {
+          "datetime": "2026-10-26T11:00:00+00:00",
+          "condition": "cloudy",
+          "temperature": 12.456,
+          "templow": 5,
+          "precipitation": 0.4,
+          "wind_speed": 14
+        },
+        {
+          "datetime": "2026-10-27T11:00:00+00:00",
+          "condition": "fog",
+          "temperature": 13.456,
+          "templow": 3.5,
+          "precipitation": 8.25,
+          "wind_speed": 14
+        },
+        {
+          "condition": "sunny",
+          "temperature": 30
+        },
+        {
+          "datetime": "tomorrow",
+          "temperature": 30
+        },
+        {
+          "datetime": "2026-10-28T11:00:00+00:00",
+          "condition": "rainy",
+          "temperature": "13.5",
+          "templow": 2,
+          "precipitation": 2,
+          "wind_speed": 14
+        },
+        {
+          "datetime": "2026-10-29T11:00:00+00:00",
+          "condition": "pouring",
+          "temperature": 12.456,
+          "templow": 0.5,
+          "wind_speed": 14
+        },
+        {
+          "datetime": "2026-10-30T11:00:00+00:00",
+          "condition": "snowy",
+          "temperature": 13.456,
+          "templow": -1,
+          "precipitation": 0.04,
+          "wind_speed": 14
+        },
+        {
+          "datetime": "2026-10-31T11:00:00+00:00",
+          "condition": "snowy-rainy",
+          "temperature": 14.456,
+          "templow": -2.5,
+          "precipitation": 12,
+          "wind_speed": 14
+        },
+        {
+          "datetime": "2026-11-01T11:00:00+00:00",
+          "condition": "sunny",
+          "temperature": 12.456,
+          "templow": -4,
+          "precipitation": 1,
+          "wind_speed": 14
+        },
+        {
+          "datetime": "2026-11-02T11:00:00+00:00",
+          "condition": "clear-night",
+          "temperature": 13.456,
+          "templow": -5.5,
+          "precipitation": 0,
+          "wind_speed": 14
+        }
+      ],
+      "hourly": [
+        {
+          "datetime": "2026-10-26T13:00:00+01:00",
+          "condition": "cloudy",
+          "temperature": 11,
+          "precipitation": 3
+        },
+        {
+          "datetime": "2026-10-26T14:00:00+01:00",
+          "condition": "cloudy",
+          "temperature": 10.75,
+          "precipitation": 0
+        },
+        {
+          "datetime": "2026-10-26T15:00:00+01:00",
+          "condition": "cloudy",
+          "temperature": 10.5,
+          "precipitation": 0
+        },
+        {
+          "datetime": "2026-10-26T16:00:00+01:00",
+          "condition": "cloudy",
+          "temperature": 10.25,
+          "precipitation": 0
+        },
+        {
+          "datetime": "2026-10-26T17:00:00+01:00",
+          "condition": "cloudy",
+          "temperature": 10,
+          "precipitation": 0
+        },
+        {
+          "datetime": "2026-10-26T18:00:00+01:00",
+          "condition": "cloudy",
+          "temperature": 9.75,
+          "precipitation": 0
+        },
+        {
+          "datetime": "2026-10-26T19:00:00+01:00",
+          "condition": "rainy",
+          "temperature": 9.5,
+          "precipitation": 0.6
+        },
+        {
+          "datetime": "2026-10-26T20:00:00+01:00",
+          "condition": "rainy",
+          "temperature": 9.25,
+          "precipitation": 1.1
+        },
+        {
+          "datetime": "2026-10-26T21:00:00+01:00",
+          "condition": "cloudy",
+          "temperature": 9,
+          "precipitation": 0
+        },
+        {
+          "datetime": "2026-10-26T22:00:00+01:00",
+          "condition": "cloudy",
+          "temperature": 8.75,
+          "precipitation": 0
+        },
+        {
+          "datetime": "2026-10-26T23:00:00+01:00",
+          "condition": "cloudy",
+          "temperature": 8.5,
+          "precipitation": 0
+        },
+        {
+          "datetime": "2026-10-27T00:00:00+01:00",
+          "condition": "cloudy",
+          "temperature": 8.25,
+          "precipitation": 0
+        },
+        {
+          "datetime": "2026-10-27T01:00:00+01:00",
+          "condition": "cloudy",
+          "temperature": 8,
+          "precipitation": 0
+        },
+        {
+          "datetime": "2026-10-27T02:00:00+01:00",
+          "condition": "cloudy",
+          "temperature": 7.75,
+          "precipitation": 0
+        },
+        {
+          "datetime": "2026-10-27T03:00:00+01:00",
+          "condition": "cloudy",
+          "temperature": 7.5,
+          "precipitation": 0
+        },
+        {
+          "datetime": "2026-10-27T04:00:00+01:00",
+          "condition": "cloudy",
+          "temperature": 7.25,
+          "precipitation": 0
+        },
+        {
+          "datetime": "2026-10-27T05:00:00+01:00",
+          "condition": "cloudy",
+          "temperature": 7,
+          "precipitation": 0
+        },
+        {
+          "datetime": "2026-10-27T06:00:00+01:00",
+          "condition": "cloudy",
+          "temperature": 6.75,
+          "precipitation": 0
+        },
+        {
+          "datetime": "2026-10-27T07:00:00+01:00",
+          "condition": "cloudy",
+          "temperature": 6.5,
+          "precipitation": 0
+        },
+        {
+          "datetime": "2026-10-27T08:00:00+01:00",
+          "condition": "cloudy",
+          "temperature": 6.25,
+          "precipitation": 0
+        },
+        {
+          "datetime": "2026-10-27T09:00:00+01:00",
+          "condition": "cloudy",
+          "temperature": 6,
+          "precipitation": 0
+        },
+        {
+          "datetime": "2026-10-27T10:00:00+01:00",
+          "condition": "cloudy",
+          "temperature": 5.75,
+          "precipitation": 0
+        },
+        {
+          "datetime": "2026-10-27T11:00:00+01:00",
+          "condition": "cloudy",
+          "temperature": 5.5,
+          "precipitation": 0
+        },
+        {
+          "datetime": "2026-10-27T12:00:00+01:00",
+          "condition": "cloudy",
+          "temperature": 5.25,
+          "precipitation": 0
+        },
+        {
+          "datetime": "2026-10-27T13:00:00+01:00",
+          "condition": "cloudy",
+          "temperature": 5,
+          "precipitation": 0
+        },
+        {
+          "datetime": "2026-10-27T14:00:00+01:00",
+          "condition": "cloudy",
+          "temperature": 4.75,
+          "precipitation": 0
+        },
+        {
+          "datetime": "2026-10-27T15:00:00+01:00",
+          "condition": "cloudy",
+          "temperature": 4.5,
+          "precipitation": 0
+        },
+        {
+          "datetime": "2026-10-27T16:00:00+01:00",
+          "condition": "cloudy",
+          "temperature": 4.25,
+          "precipitation": 0
+        },
+        {
+          "datetime": "2026-10-27T17:00:00+01:00",
+          "condition": "cloudy",
+          "temperature": 4,
+          "precipitation": 0
+        },
+        {
+          "datetime": "2026-10-27T18:00:00+01:00",
+          "condition": "cloudy",
+          "temperature": 3.75,
+          "precipitation": 0
+        }
+      ],
+      "tz": 60,
+      "lang": "en",
+      "out": {
+        "gap": null,
+        "icon": "partly",
+        "temp": "11°",
+        "cond": "Partly cloudy",
+        "feels": "feels 10°",
+        "high": "12°",
+        "low": "5°",
+        "wind": "4 Bft SW",
+        "rain": "from 19:00",
+        "days": [
+          {
+            "name": "Tue",
+            "icon": "fog",
+            "hi": "13°",
+            "lo": "4°",
+            "mm": "8 mm",
+            "bar": 0.688
+          },
+          {
+            "name": "Wed",
+            "icon": "rain",
+            "hi": "14°",
+            "lo": "2°",
+            "mm": "2 mm",
+            "bar": 0.167
+          },
+          {
+            "name": "Thu",
+            "icon": "pour",
+            "hi": "12°",
+            "lo": "1°",
+            "mm": "",
+            "bar": 0
+          },
+          {
+            "name": "Fri",
+            "icon": "snow",
+            "hi": "13°",
+            "lo": "-1°",
+            "mm": "dry",
+            "bar": 0.003
+          },
+          {
+            "name": "Sat",
+            "icon": "sleet",
+            "hi": "14°",
+            "lo": "-2°",
+            "mm": "12 mm",
+            "bar": 1
+          }
+        ],
+        "forecast": true
+      }
+    },
+    {
+      "name": "full-nl",
+      "description": "The same in Dutch: decimal comma, ZW, vanaf 19:00, short weekday names.",
+      "state": "partlycloudy",
+      "attrs": {
+        "temperature": 11.4,
+        "apparent_temperature": 9.5,
+        "temperature_unit": "°C",
+        "wind_speed": 4,
+        "wind_speed_unit": "Beaufort",
+        "wind_bearing": 225,
+        "precipitation_unit": "mm"
+      },
+      "daily": [
+        {
+          "datetime": "2026-10-25T11:00:00+00:00",
+          "condition": "partlycloudy",
+          "temperature": 11.456,
+          "templow": 6.5,
+          "precipitation": 0,
+          "wind_speed": 14
+        },
+        {
+          "datetime": "2026-10-26T11:00:00+00:00",
+          "condition": "cloudy",
+          "temperature": 12.456,
+          "templow": 5,
+          "precipitation": 0.4,
+          "wind_speed": 14
+        },
+        {
+          "datetime": "2026-10-27T11:00:00+00:00",
+          "condition": "fog",
+          "temperature": 13.456,
+          "templow": 3.5,
+          "precipitation": 8.25,
+          "wind_speed": 14
+        },
+        {
+          "condition": "sunny",
+          "temperature": 30
+        },
+        {
+          "datetime": "tomorrow",
+          "temperature": 30
+        },
+        {
+          "datetime": "2026-10-28T11:00:00+00:00",
+          "condition": "rainy",
+          "temperature": "13.5",
+          "templow": 2,
+          "precipitation": 2,
+          "wind_speed": 14
+        },
+        {
+          "datetime": "2026-10-29T11:00:00+00:00",
+          "condition": "pouring",
+          "temperature": 12.456,
+          "templow": 0.5,
+          "wind_speed": 14
+        },
+        {
+          "datetime": "2026-10-30T11:00:00+00:00",
+          "condition": "snowy",
+          "temperature": 13.456,
+          "templow": -1,
+          "precipitation": 0.04,
+          "wind_speed": 14
+        },
+        {
+          "datetime": "2026-10-31T11:00:00+00:00",
+          "condition": "snowy-rainy",
+          "temperature": 14.456,
+          "templow": -2.5,
+          "precipitation": 12,
+          "wind_speed": 14
+        },
+        {
+          "datetime": "2026-11-01T11:00:00+00:00",
+          "condition": "sunny",
+          "temperature": 12.456,
+          "templow": -4,
+          "precipitation": 1,
+          "wind_speed": 14
+        },
+        {
+          "datetime": "2026-11-02T11:00:00+00:00",
+          "condition": "clear-night",
+          "temperature": 13.456,
+          "templow": -5.5,
+          "precipitation": 0,
+          "wind_speed": 14
+        }
+      ],
+      "hourly": [
+        {
+          "datetime": "2026-10-26T13:00:00+01:00",
+          "condition": "cloudy",
+          "temperature": 11,
+          "precipitation": 3
+        },
+        {
+          "datetime": "2026-10-26T14:00:00+01:00",
+          "condition": "cloudy",
+          "temperature": 10.75,
+          "precipitation": 0
+        },
+        {
+          "datetime": "2026-10-26T15:00:00+01:00",
+          "condition": "cloudy",
+          "temperature": 10.5,
+          "precipitation": 0
+        },
+        {
+          "datetime": "2026-10-26T16:00:00+01:00",
+          "condition": "cloudy",
+          "temperature": 10.25,
+          "precipitation": 0
+        },
+        {
+          "datetime": "2026-10-26T17:00:00+01:00",
+          "condition": "cloudy",
+          "temperature": 10,
+          "precipitation": 0
+        },
+        {
+          "datetime": "2026-10-26T18:00:00+01:00",
+          "condition": "cloudy",
+          "temperature": 9.75,
+          "precipitation": 0
+        },
+        {
+          "datetime": "2026-10-26T19:00:00+01:00",
+          "condition": "rainy",
+          "temperature": 9.5,
+          "precipitation": 0.6
+        },
+        {
+          "datetime": "2026-10-26T20:00:00+01:00",
+          "condition": "rainy",
+          "temperature": 9.25,
+          "precipitation": 1.1
+        },
+        {
+          "datetime": "2026-10-26T21:00:00+01:00",
+          "condition": "cloudy",
+          "temperature": 9,
+          "precipitation": 0
+        },
+        {
+          "datetime": "2026-10-26T22:00:00+01:00",
+          "condition": "cloudy",
+          "temperature": 8.75,
+          "precipitation": 0
+        },
+        {
+          "datetime": "2026-10-26T23:00:00+01:00",
+          "condition": "cloudy",
+          "temperature": 8.5,
+          "precipitation": 0
+        },
+        {
+          "datetime": "2026-10-27T00:00:00+01:00",
+          "condition": "cloudy",
+          "temperature": 8.25,
+          "precipitation": 0
+        },
+        {
+          "datetime": "2026-10-27T01:00:00+01:00",
+          "condition": "cloudy",
+          "temperature": 8,
+          "precipitation": 0
+        },
+        {
+          "datetime": "2026-10-27T02:00:00+01:00",
+          "condition": "cloudy",
+          "temperature": 7.75,
+          "precipitation": 0
+        },
+        {
+          "datetime": "2026-10-27T03:00:00+01:00",
+          "condition": "cloudy",
+          "temperature": 7.5,
+          "precipitation": 0
+        },
+        {
+          "datetime": "2026-10-27T04:00:00+01:00",
+          "condition": "cloudy",
+          "temperature": 7.25,
+          "precipitation": 0
+        },
+        {
+          "datetime": "2026-10-27T05:00:00+01:00",
+          "condition": "cloudy",
+          "temperature": 7,
+          "precipitation": 0
+        },
+        {
+          "datetime": "2026-10-27T06:00:00+01:00",
+          "condition": "cloudy",
+          "temperature": 6.75,
+          "precipitation": 0
+        },
+        {
+          "datetime": "2026-10-27T07:00:00+01:00",
+          "condition": "cloudy",
+          "temperature": 6.5,
+          "precipitation": 0
+        },
+        {
+          "datetime": "2026-10-27T08:00:00+01:00",
+          "condition": "cloudy",
+          "temperature": 6.25,
+          "precipitation": 0
+        },
+        {
+          "datetime": "2026-10-27T09:00:00+01:00",
+          "condition": "cloudy",
+          "temperature": 6,
+          "precipitation": 0
+        },
+        {
+          "datetime": "2026-10-27T10:00:00+01:00",
+          "condition": "cloudy",
+          "temperature": 5.75,
+          "precipitation": 0
+        },
+        {
+          "datetime": "2026-10-27T11:00:00+01:00",
+          "condition": "cloudy",
+          "temperature": 5.5,
+          "precipitation": 0
+        },
+        {
+          "datetime": "2026-10-27T12:00:00+01:00",
+          "condition": "cloudy",
+          "temperature": 5.25,
+          "precipitation": 0
+        },
+        {
+          "datetime": "2026-10-27T13:00:00+01:00",
+          "condition": "cloudy",
+          "temperature": 5,
+          "precipitation": 0
+        },
+        {
+          "datetime": "2026-10-27T14:00:00+01:00",
+          "condition": "cloudy",
+          "temperature": 4.75,
+          "precipitation": 0
+        },
+        {
+          "datetime": "2026-10-27T15:00:00+01:00",
+          "condition": "cloudy",
+          "temperature": 4.5,
+          "precipitation": 0
+        },
+        {
+          "datetime": "2026-10-27T16:00:00+01:00",
+          "condition": "cloudy",
+          "temperature": 4.25,
+          "precipitation": 0
+        },
+        {
+          "datetime": "2026-10-27T17:00:00+01:00",
+          "condition": "cloudy",
+          "temperature": 4,
+          "precipitation": 0
+        },
+        {
+          "datetime": "2026-10-27T18:00:00+01:00",
+          "condition": "cloudy",
+          "temperature": 3.75,
+          "precipitation": 0
+        }
+      ],
+      "tz": 60,
+      "lang": "nl",
+      "out": {
+        "gap": null,
+        "icon": "partly",
+        "temp": "11°",
+        "cond": "Half bewolkt",
+        "feels": "voelt als 10°",
+        "high": "12°",
+        "low": "5°",
+        "wind": "4 Bft ZW",
+        "rain": "vanaf 19:00",
+        "days": [
+          {
+            "name": "di",
+            "icon": "fog",
+            "hi": "13°",
+            "lo": "4°",
+            "mm": "8 mm",
+            "bar": 0.688
+          },
+          {
+            "name": "wo",
+            "icon": "rain",
+            "hi": "14°",
+            "lo": "2°",
+            "mm": "2 mm",
+            "bar": 0.167
+          },
+          {
+            "name": "do",
+            "icon": "pour",
+            "hi": "12°",
+            "lo": "1°",
+            "mm": "",
+            "bar": 0
+          },
+          {
+            "name": "vr",
+            "icon": "snow",
+            "hi": "13°",
+            "lo": "-1°",
+            "mm": "droog",
+            "bar": 0.003
+          },
+          {
+            "name": "za",
+            "icon": "sleet",
+            "hi": "14°",
+            "lo": "-2°",
+            "mm": "12 mm",
+            "bar": 1
+          }
+        ],
+        "forecast": true
+      }
+    },
+    {
+      "name": "kmh-text-bearing",
+      "description": "Wind in km/h, a text bearing kept as is; no apparent_temperature = no \"feels\"; rain in the hour holding now = \"now\".",
+      "state": "rainy",
+      "attrs": {
+        "temperature": -0.4,
+        "wind_speed": 19.6,
+        "wind_speed_unit": "km/h",
+        "wind_bearing": "NNW"
+      },
+      "daily": [
+        {
+          "datetime": "2026-10-25T11:00:00+00:00",
+          "condition": "partlycloudy",
+          "temperature": 11.456,
+          "templow": 6.5,
+          "precipitation": 0,
+          "wind_speed": 14
+        },
+        {
+          "datetime": "2026-10-26T11:00:00+00:00",
+          "condition": "cloudy",
+          "temperature": 12.456,
+          "templow": 5,
+          "precipitation": 0.4,
+          "wind_speed": 14
+        },
+        {
+          "datetime": "2026-10-27T11:00:00+00:00",
+          "condition": "fog",
+          "temperature": 13.456,
+          "templow": 3.5,
+          "precipitation": 8.25,
+          "wind_speed": 14
+        },
+        {
+          "condition": "sunny",
+          "temperature": 30
+        },
+        {
+          "datetime": "tomorrow",
+          "temperature": 30
+        },
+        {
+          "datetime": "2026-10-28T11:00:00+00:00",
+          "condition": "rainy",
+          "temperature": "13.5",
+          "templow": 2,
+          "precipitation": 2,
+          "wind_speed": 14
+        },
+        {
+          "datetime": "2026-10-29T11:00:00+00:00",
+          "condition": "pouring",
+          "temperature": 12.456,
+          "templow": 0.5,
+          "wind_speed": 14
+        },
+        {
+          "datetime": "2026-10-30T11:00:00+00:00",
+          "condition": "snowy",
+          "temperature": 13.456,
+          "templow": -1,
+          "precipitation": 0.04,
+          "wind_speed": 14
+        },
+        {
+          "datetime": "2026-10-31T11:00:00+00:00",
+          "condition": "snowy-rainy",
+          "temperature": 14.456,
+          "templow": -2.5,
+          "precipitation": 12,
+          "wind_speed": 14
+        },
+        {
+          "datetime": "2026-11-01T11:00:00+00:00",
+          "condition": "sunny",
+          "temperature": 12.456,
+          "templow": -4,
+          "precipitation": 1,
+          "wind_speed": 14
+        },
+        {
+          "datetime": "2026-11-02T11:00:00+00:00",
+          "condition": "clear-night",
+          "temperature": 13.456,
+          "templow": -5.5,
+          "precipitation": 0,
+          "wind_speed": 14
+        }
+      ],
+      "hourly": [
+        {
+          "datetime": "2026-10-26T13:00:00+01:00",
+          "condition": "cloudy",
+          "temperature": 11,
+          "precipitation": 0
+        },
+        {
+          "datetime": "2026-10-26T14:00:00+01:00",
+          "condition": "cloudy",
+          "temperature": 10.75,
+          "precipitation": 0
+        },
+        {
+          "datetime": "2026-10-26T15:00:00+01:00",
+          "condition": "cloudy",
+          "temperature": 10.5,
+          "precipitation": 0.2
+        },
+        {
+          "datetime": "2026-10-26T16:00:00+01:00",
+          "condition": "cloudy",
+          "temperature": 10.25,
+          "precipitation": 0
+        },
+        {
+          "datetime": "2026-10-26T17:00:00+01:00",
+          "condition": "cloudy",
+          "temperature": 10,
+          "precipitation": 0
+        },
+        {
+          "datetime": "2026-10-26T18:00:00+01:00",
+          "condition": "cloudy",
+          "temperature": 9.75,
+          "precipitation": 0
+        },
+        {
+          "datetime": "2026-10-26T19:00:00+01:00",
+          "condition": "rainy",
+          "temperature": 9.5,
+          "precipitation": 0
+        },
+        {
+          "datetime": "2026-10-26T20:00:00+01:00",
+          "condition": "rainy",
+          "temperature": 9.25,
+          "precipitation": 0
+        },
+        {
+          "datetime": "2026-10-26T21:00:00+01:00",
+          "condition": "cloudy",
+          "temperature": 9,
+          "precipitation": 0
+        },
+        {
+          "datetime": "2026-10-26T22:00:00+01:00",
+          "condition": "cloudy",
+          "temperature": 8.75,
+          "precipitation": 0
+        },
+        {
+          "datetime": "2026-10-26T23:00:00+01:00",
+          "condition": "cloudy",
+          "temperature": 8.5,
+          "precipitation": 0
+        },
+        {
+          "datetime": "2026-10-27T00:00:00+01:00",
+          "condition": "cloudy",
+          "temperature": 8.25,
+          "precipitation": 0
+        },
+        {
+          "datetime": "2026-10-27T01:00:00+01:00",
+          "condition": "cloudy",
+          "temperature": 8,
+          "precipitation": 0
+        },
+        {
+          "datetime": "2026-10-27T02:00:00+01:00",
+          "condition": "cloudy",
+          "temperature": 7.75,
+          "precipitation": 0
+        },
+        {
+          "datetime": "2026-10-27T03:00:00+01:00",
+          "condition": "cloudy",
+          "temperature": 7.5,
+          "precipitation": 0
+        },
+        {
+          "datetime": "2026-10-27T04:00:00+01:00",
+          "condition": "cloudy",
+          "temperature": 7.25,
+          "precipitation": 0
+        },
+        {
+          "datetime": "2026-10-27T05:00:00+01:00",
+          "condition": "cloudy",
+          "temperature": 7,
+          "precipitation": 0
+        },
+        {
+          "datetime": "2026-10-27T06:00:00+01:00",
+          "condition": "cloudy",
+          "temperature": 6.75,
+          "precipitation": 0
+        },
+        {
+          "datetime": "2026-10-27T07:00:00+01:00",
+          "condition": "cloudy",
+          "temperature": 6.5,
+          "precipitation": 0
+        },
+        {
+          "datetime": "2026-10-27T08:00:00+01:00",
+          "condition": "cloudy",
+          "temperature": 6.25,
+          "precipitation": 0
+        },
+        {
+          "datetime": "2026-10-27T09:00:00+01:00",
+          "condition": "cloudy",
+          "temperature": 6,
+          "precipitation": 0
+        },
+        {
+          "datetime": "2026-10-27T10:00:00+01:00",
+          "condition": "cloudy",
+          "temperature": 5.75,
+          "precipitation": 0
+        },
+        {
+          "datetime": "2026-10-27T11:00:00+01:00",
+          "condition": "cloudy",
+          "temperature": 5.5,
+          "precipitation": 0
+        },
+        {
+          "datetime": "2026-10-27T12:00:00+01:00",
+          "condition": "cloudy",
+          "temperature": 5.25,
+          "precipitation": 0
+        },
+        {
+          "datetime": "2026-10-27T13:00:00+01:00",
+          "condition": "cloudy",
+          "temperature": 5,
+          "precipitation": 0
+        },
+        {
+          "datetime": "2026-10-27T14:00:00+01:00",
+          "condition": "cloudy",
+          "temperature": 4.75,
+          "precipitation": 0
+        },
+        {
+          "datetime": "2026-10-27T15:00:00+01:00",
+          "condition": "cloudy",
+          "temperature": 4.5,
+          "precipitation": 0
+        },
+        {
+          "datetime": "2026-10-27T16:00:00+01:00",
+          "condition": "cloudy",
+          "temperature": 4.25,
+          "precipitation": 0
+        },
+        {
+          "datetime": "2026-10-27T17:00:00+01:00",
+          "condition": "cloudy",
+          "temperature": 4,
+          "precipitation": 0
+        },
+        {
+          "datetime": "2026-10-27T18:00:00+01:00",
+          "condition": "cloudy",
+          "temperature": 3.75,
+          "precipitation": 0
+        }
+      ],
+      "tz": 60,
+      "lang": "en",
+      "out": {
+        "gap": null,
+        "icon": "rain",
+        "temp": "0°",
+        "cond": "Rain",
+        "feels": "",
+        "high": "12°",
+        "low": "5°",
+        "wind": "20 km/h NNW",
+        "rain": "now",
+        "days": [
+          {
+            "name": "Tue",
+            "icon": "fog",
+            "hi": "13°",
+            "lo": "4°",
+            "mm": "8 mm",
+            "bar": 0.688
+          },
+          {
+            "name": "Wed",
+            "icon": "rain",
+            "hi": "14°",
+            "lo": "2°",
+            "mm": "2 mm",
+            "bar": 0.167
+          },
+          {
+            "name": "Thu",
+            "icon": "pour",
+            "hi": "12°",
+            "lo": "1°",
+            "mm": "",
+            "bar": 0
+          },
+          {
+            "name": "Fri",
+            "icon": "snow",
+            "hi": "13°",
+            "lo": "-1°",
+            "mm": "dry",
+            "bar": 0.003
+          },
+          {
+            "name": "Sat",
+            "icon": "sleet",
+            "hi": "14°",
+            "lo": "-2°",
+            "mm": "12 mm",
+            "bar": 1
+          }
+        ],
+        "forecast": true
+      }
+    },
+    {
+      "name": "no-precipitation",
+      "description": "Hourly entries without precipitation: wet by condition (snowy at 22:00); bearing 350° = N; an unknown condition by name.",
+      "state": "tornado",
+      "attrs": {
+        "temperature": 3,
+        "wind_speed": 2.5,
+        "wind_speed_unit": "m/s",
+        "wind_bearing": 350
+      },
+      "daily": [
+        {
+          "datetime": "2026-10-25T11:00:00+00:00",
+          "condition": "partlycloudy",
+          "temperature": 11.456,
+          "templow": 6.5,
+          "precipitation": 0,
+          "wind_speed": 14
+        },
+        {
+          "datetime": "2026-10-26T11:00:00+00:00",
+          "condition": "cloudy",
+          "temperature": 12.456,
+          "templow": 5,
+          "precipitation": 0.4,
+          "wind_speed": 14
+        },
+        {
+          "datetime": "2026-10-27T11:00:00+00:00",
+          "condition": "fog",
+          "temperature": 13.456,
+          "templow": 3.5,
+          "precipitation": 8.25,
+          "wind_speed": 14
+        },
+        {
+          "condition": "sunny",
+          "temperature": 30
+        },
+        {
+          "datetime": "tomorrow",
+          "temperature": 30
+        },
+        {
+          "datetime": "2026-10-28T11:00:00+00:00",
+          "condition": "rainy",
+          "temperature": "13.5",
+          "templow": 2,
+          "precipitation": 2,
+          "wind_speed": 14
+        },
+        {
+          "datetime": "2026-10-29T11:00:00+00:00",
+          "condition": "pouring",
+          "temperature": 12.456,
+          "templow": 0.5,
+          "wind_speed": 14
+        },
+        {
+          "datetime": "2026-10-30T11:00:00+00:00",
+          "condition": "snowy",
+          "temperature": 13.456,
+          "templow": -1,
+          "precipitation": 0.04,
+          "wind_speed": 14
+        },
+        {
+          "datetime": "2026-10-31T11:00:00+00:00",
+          "condition": "snowy-rainy",
+          "temperature": 14.456,
+          "templow": -2.5,
+          "precipitation": 12,
+          "wind_speed": 14
+        },
+        {
+          "datetime": "2026-11-01T11:00:00+00:00",
+          "condition": "sunny",
+          "temperature": 12.456,
+          "templow": -4,
+          "precipitation": 1,
+          "wind_speed": 14
+        },
+        {
+          "datetime": "2026-11-02T11:00:00+00:00",
+          "condition": "clear-night",
+          "temperature": 13.456,
+          "templow": -5.5,
+          "precipitation": 0,
+          "wind_speed": 14
+        }
+      ],
+      "hourly": [
+        {
+          "datetime": "2026-10-26T13:00:00+01:00",
+          "condition": "cloudy",
+          "temperature": 11
+        },
+        {
+          "datetime": "2026-10-26T14:00:00+01:00",
+          "condition": "cloudy",
+          "temperature": 10.75
+        },
+        {
+          "datetime": "2026-10-26T15:00:00+01:00",
+          "condition": "cloudy",
+          "temperature": 10.5
+        },
+        {
+          "datetime": "2026-10-26T16:00:00+01:00",
+          "condition": "cloudy",
+          "temperature": 10.25
+        },
+        {
+          "datetime": "2026-10-26T17:00:00+01:00",
+          "condition": "cloudy",
+          "temperature": 10
+        },
+        {
+          "datetime": "2026-10-26T18:00:00+01:00",
+          "condition": "cloudy",
+          "temperature": 9.75
+        },
+        {
+          "datetime": "2026-10-26T19:00:00+01:00",
+          "condition": "cloudy",
+          "temperature": 9.5
+        },
+        {
+          "datetime": "2026-10-26T20:00:00+01:00",
+          "condition": "cloudy",
+          "temperature": 9.25
+        },
+        {
+          "datetime": "2026-10-26T21:00:00+01:00",
+          "condition": "cloudy",
+          "temperature": 9
+        },
+        {
+          "datetime": "2026-10-26T22:00:00+01:00",
+          "condition": "snowy",
+          "temperature": 8.75
+        },
+        {
+          "datetime": "2026-10-26T23:00:00+01:00",
+          "condition": "cloudy",
+          "temperature": 8.5
+        },
+        {
+          "datetime": "2026-10-27T00:00:00+01:00",
+          "condition": "cloudy",
+          "temperature": 8.25
+        },
+        {
+          "datetime": "2026-10-27T01:00:00+01:00",
+          "condition": "cloudy",
+          "temperature": 8
+        },
+        {
+          "datetime": "2026-10-27T02:00:00+01:00",
+          "condition": "cloudy",
+          "temperature": 7.75
+        },
+        {
+          "datetime": "2026-10-27T03:00:00+01:00",
+          "condition": "cloudy",
+          "temperature": 7.5
+        },
+        {
+          "datetime": "2026-10-27T04:00:00+01:00",
+          "condition": "cloudy",
+          "temperature": 7.25
+        },
+        {
+          "datetime": "2026-10-27T05:00:00+01:00",
+          "condition": "cloudy",
+          "temperature": 7
+        },
+        {
+          "datetime": "2026-10-27T06:00:00+01:00",
+          "condition": "cloudy",
+          "temperature": 6.75
+        },
+        {
+          "datetime": "2026-10-27T07:00:00+01:00",
+          "condition": "cloudy",
+          "temperature": 6.5
+        },
+        {
+          "datetime": "2026-10-27T08:00:00+01:00",
+          "condition": "cloudy",
+          "temperature": 6.25
+        },
+        {
+          "datetime": "2026-10-27T09:00:00+01:00",
+          "condition": "cloudy",
+          "temperature": 6
+        },
+        {
+          "datetime": "2026-10-27T10:00:00+01:00",
+          "condition": "cloudy",
+          "temperature": 5.75
+        },
+        {
+          "datetime": "2026-10-27T11:00:00+01:00",
+          "condition": "cloudy",
+          "temperature": 5.5
+        },
+        {
+          "datetime": "2026-10-27T12:00:00+01:00",
+          "condition": "cloudy",
+          "temperature": 5.25
+        },
+        {
+          "datetime": "2026-10-27T13:00:00+01:00",
+          "condition": "cloudy",
+          "temperature": 5
+        },
+        {
+          "datetime": "2026-10-27T14:00:00+01:00",
+          "condition": "cloudy",
+          "temperature": 4.75
+        },
+        {
+          "datetime": "2026-10-27T15:00:00+01:00",
+          "condition": "cloudy",
+          "temperature": 4.5
+        },
+        {
+          "datetime": "2026-10-27T16:00:00+01:00",
+          "condition": "cloudy",
+          "temperature": 4.25
+        },
+        {
+          "datetime": "2026-10-27T17:00:00+01:00",
+          "condition": "cloudy",
+          "temperature": 4
+        },
+        {
+          "datetime": "2026-10-27T18:00:00+01:00",
+          "condition": "cloudy",
+          "temperature": 3.75
+        }
+      ],
+      "tz": 60,
+      "lang": "en",
+      "out": {
+        "gap": null,
+        "icon": "cloud",
+        "temp": "3°",
+        "cond": "tornado",
+        "feels": "",
+        "high": "12°",
+        "low": "5°",
+        "wind": "3 m/s N",
+        "rain": "from 22:00",
+        "days": [
+          {
+            "name": "Tue",
+            "icon": "fog",
+            "hi": "13°",
+            "lo": "4°",
+            "mm": "8 mm",
+            "bar": 0.688
+          },
+          {
+            "name": "Wed",
+            "icon": "rain",
+            "hi": "14°",
+            "lo": "2°",
+            "mm": "2 mm",
+            "bar": 0.167
+          },
+          {
+            "name": "Thu",
+            "icon": "pour",
+            "hi": "12°",
+            "lo": "1°",
+            "mm": "",
+            "bar": 0
+          },
+          {
+            "name": "Fri",
+            "icon": "snow",
+            "hi": "13°",
+            "lo": "-1°",
+            "mm": "dry",
+            "bar": 0.003
+          },
+          {
+            "name": "Sat",
+            "icon": "sleet",
+            "hi": "14°",
+            "lo": "-2°",
+            "mm": "12 mm",
+            "bar": 1
+          }
+        ],
+        "forecast": true
+      }
+    },
+    {
+      "name": "dry",
+      "description": "No wet hour in the next 12 h: \"none soon\".",
+      "state": "sunny",
+      "attrs": {
+        "temperature": 11.4,
+        "apparent_temperature": 9.5,
+        "temperature_unit": "°C",
+        "wind_speed": 4,
+        "wind_speed_unit": "Beaufort",
+        "wind_bearing": 225,
+        "precipitation_unit": "mm"
+      },
+      "daily": [
+        {
+          "datetime": "2026-10-25T11:00:00+00:00",
+          "condition": "partlycloudy",
+          "temperature": 11.456,
+          "templow": 6.5,
+          "precipitation": 0,
+          "wind_speed": 14
+        },
+        {
+          "datetime": "2026-10-26T11:00:00+00:00",
+          "condition": "cloudy",
+          "temperature": 12.456,
+          "templow": 5,
+          "precipitation": 0.4,
+          "wind_speed": 14
+        },
+        {
+          "datetime": "2026-10-27T11:00:00+00:00",
+          "condition": "fog",
+          "temperature": 13.456,
+          "templow": 3.5,
+          "precipitation": 8.25,
+          "wind_speed": 14
+        },
+        {
+          "condition": "sunny",
+          "temperature": 30
+        },
+        {
+          "datetime": "tomorrow",
+          "temperature": 30
+        },
+        {
+          "datetime": "2026-10-28T11:00:00+00:00",
+          "condition": "rainy",
+          "temperature": "13.5",
+          "templow": 2,
+          "precipitation": 2,
+          "wind_speed": 14
+        },
+        {
+          "datetime": "2026-10-29T11:00:00+00:00",
+          "condition": "pouring",
+          "temperature": 12.456,
+          "templow": 0.5,
+          "wind_speed": 14
+        },
+        {
+          "datetime": "2026-10-30T11:00:00+00:00",
+          "condition": "snowy",
+          "temperature": 13.456,
+          "templow": -1,
+          "precipitation": 0.04,
+          "wind_speed": 14
+        },
+        {
+          "datetime": "2026-10-31T11:00:00+00:00",
+          "condition": "snowy-rainy",
+          "temperature": 14.456,
+          "templow": -2.5,
+          "precipitation": 12,
+          "wind_speed": 14
+        },
+        {
+          "datetime": "2026-11-01T11:00:00+00:00",
+          "condition": "sunny",
+          "temperature": 12.456,
+          "templow": -4,
+          "precipitation": 1,
+          "wind_speed": 14
+        },
+        {
+          "datetime": "2026-11-02T11:00:00+00:00",
+          "condition": "clear-night",
+          "temperature": 13.456,
+          "templow": -5.5,
+          "precipitation": 0,
+          "wind_speed": 14
+        }
+      ],
+      "hourly": [
+        {
+          "datetime": "2026-10-26T13:00:00+01:00",
+          "condition": "cloudy",
+          "temperature": 11,
+          "precipitation": 0
+        },
+        {
+          "datetime": "2026-10-26T14:00:00+01:00",
+          "condition": "cloudy",
+          "temperature": 10.75,
+          "precipitation": 0
+        },
+        {
+          "datetime": "2026-10-26T15:00:00+01:00",
+          "condition": "cloudy",
+          "temperature": 10.5,
+          "precipitation": 0
+        },
+        {
+          "datetime": "2026-10-26T16:00:00+01:00",
+          "condition": "cloudy",
+          "temperature": 10.25,
+          "precipitation": 0
+        },
+        {
+          "datetime": "2026-10-26T17:00:00+01:00",
+          "condition": "cloudy",
+          "temperature": 10,
+          "precipitation": 0
+        },
+        {
+          "datetime": "2026-10-26T18:00:00+01:00",
+          "condition": "cloudy",
+          "temperature": 9.75,
+          "precipitation": 0
+        },
+        {
+          "datetime": "2026-10-26T19:00:00+01:00",
+          "condition": "rainy",
+          "temperature": 9.5,
+          "precipitation": 0
+        },
+        {
+          "datetime": "2026-10-26T20:00:00+01:00",
+          "condition": "rainy",
+          "temperature": 9.25,
+          "precipitation": 0
+        },
+        {
+          "datetime": "2026-10-26T21:00:00+01:00",
+          "condition": "cloudy",
+          "temperature": 9,
+          "precipitation": 0
+        },
+        {
+          "datetime": "2026-10-26T22:00:00+01:00",
+          "condition": "cloudy",
+          "temperature": 8.75,
+          "precipitation": 0
+        },
+        {
+          "datetime": "2026-10-26T23:00:00+01:00",
+          "condition": "cloudy",
+          "temperature": 8.5,
+          "precipitation": 0
+        },
+        {
+          "datetime": "2026-10-27T00:00:00+01:00",
+          "condition": "cloudy",
+          "temperature": 8.25,
+          "precipitation": 0
+        },
+        {
+          "datetime": "2026-10-27T01:00:00+01:00",
+          "condition": "cloudy",
+          "temperature": 8,
+          "precipitation": 0
+        },
+        {
+          "datetime": "2026-10-27T02:00:00+01:00",
+          "condition": "cloudy",
+          "temperature": 7.75,
+          "precipitation": 0
+        },
+        {
+          "datetime": "2026-10-27T03:00:00+01:00",
+          "condition": "cloudy",
+          "temperature": 7.5,
+          "precipitation": 0
+        },
+        {
+          "datetime": "2026-10-27T04:00:00+01:00",
+          "condition": "cloudy",
+          "temperature": 7.25,
+          "precipitation": 0
+        },
+        {
+          "datetime": "2026-10-27T05:00:00+01:00",
+          "condition": "cloudy",
+          "temperature": 7,
+          "precipitation": 0
+        },
+        {
+          "datetime": "2026-10-27T06:00:00+01:00",
+          "condition": "cloudy",
+          "temperature": 6.75,
+          "precipitation": 0
+        },
+        {
+          "datetime": "2026-10-27T07:00:00+01:00",
+          "condition": "cloudy",
+          "temperature": 6.5,
+          "precipitation": 0
+        },
+        {
+          "datetime": "2026-10-27T08:00:00+01:00",
+          "condition": "cloudy",
+          "temperature": 6.25,
+          "precipitation": 0
+        },
+        {
+          "datetime": "2026-10-27T09:00:00+01:00",
+          "condition": "cloudy",
+          "temperature": 6,
+          "precipitation": 0
+        },
+        {
+          "datetime": "2026-10-27T10:00:00+01:00",
+          "condition": "cloudy",
+          "temperature": 5.75,
+          "precipitation": 0
+        },
+        {
+          "datetime": "2026-10-27T11:00:00+01:00",
+          "condition": "cloudy",
+          "temperature": 5.5,
+          "precipitation": 0
+        },
+        {
+          "datetime": "2026-10-27T12:00:00+01:00",
+          "condition": "cloudy",
+          "temperature": 5.25,
+          "precipitation": 0
+        },
+        {
+          "datetime": "2026-10-27T13:00:00+01:00",
+          "condition": "cloudy",
+          "temperature": 5,
+          "precipitation": 0
+        },
+        {
+          "datetime": "2026-10-27T14:00:00+01:00",
+          "condition": "cloudy",
+          "temperature": 4.75,
+          "precipitation": 0
+        },
+        {
+          "datetime": "2026-10-27T15:00:00+01:00",
+          "condition": "cloudy",
+          "temperature": 4.5,
+          "precipitation": 0
+        },
+        {
+          "datetime": "2026-10-27T16:00:00+01:00",
+          "condition": "cloudy",
+          "temperature": 4.25,
+          "precipitation": 0
+        },
+        {
+          "datetime": "2026-10-27T17:00:00+01:00",
+          "condition": "cloudy",
+          "temperature": 4,
+          "precipitation": 0
+        },
+        {
+          "datetime": "2026-10-27T18:00:00+01:00",
+          "condition": "cloudy",
+          "temperature": 3.75,
+          "precipitation": 0
+        }
+      ],
+      "tz": 60,
+      "lang": "nl",
+      "out": {
+        "gap": null,
+        "icon": "sun",
+        "temp": "11°",
+        "cond": "Zonnig",
+        "feels": "voelt als 10°",
+        "high": "12°",
+        "low": "5°",
+        "wind": "4 Bft ZW",
+        "rain": "voorlopig niet",
+        "days": [
+          {
+            "name": "di",
+            "icon": "fog",
+            "hi": "13°",
+            "lo": "4°",
+            "mm": "8 mm",
+            "bar": 0.688
+          },
+          {
+            "name": "wo",
+            "icon": "rain",
+            "hi": "14°",
+            "lo": "2°",
+            "mm": "2 mm",
+            "bar": 0.167
+          },
+          {
+            "name": "do",
+            "icon": "pour",
+            "hi": "12°",
+            "lo": "1°",
+            "mm": "",
+            "bar": 0
+          },
+          {
+            "name": "vr",
+            "icon": "snow",
+            "hi": "13°",
+            "lo": "-1°",
+            "mm": "droog",
+            "bar": 0.003
+          },
+          {
+            "name": "za",
+            "icon": "sleet",
+            "hi": "14°",
+            "lo": "-2°",
+            "mm": "12 mm",
+            "bar": 1
+          }
+        ],
+        "forecast": true
+      }
+    },
+    {
+      "name": "no-forecast",
+      "description": "No forecast answer yet (null): high / low / rain \"—\", no strip.",
+      "state": "cloudy",
+      "attrs": {
+        "temperature": 11.4,
+        "apparent_temperature": 9.5,
+        "temperature_unit": "°C",
+        "wind_speed": 4,
+        "wind_speed_unit": "Beaufort",
+        "wind_bearing": 225,
+        "precipitation_unit": "mm"
+      },
+      "daily": null,
+      "hourly": null,
+      "tz": 60,
+      "lang": "en",
+      "out": {
+        "gap": null,
+        "icon": "cloud",
+        "temp": "11°",
+        "cond": "Cloudy",
+        "feels": "feels 10°",
+        "high": "—",
+        "low": "—",
+        "wind": "4 Bft SW",
+        "rain": "—",
+        "days": [],
+        "forecast": false
+      }
+    },
+    {
+      "name": "unavailable",
+      "description": "Unavailable entity: the gap, no temperature, no wind; the forecast still shows.",
+      "state": "unavailable",
+      "attrs": {},
+      "daily": [
+        {
+          "datetime": "2026-10-25T11:00:00+00:00",
+          "condition": "partlycloudy",
+          "temperature": 11.456,
+          "templow": 6.5,
+          "precipitation": 0,
+          "wind_speed": 14
+        },
+        {
+          "datetime": "2026-10-26T11:00:00+00:00",
+          "condition": "cloudy",
+          "temperature": 12.456,
+          "templow": 5,
+          "precipitation": 0.4,
+          "wind_speed": 14
+        },
+        {
+          "datetime": "2026-10-27T11:00:00+00:00",
+          "condition": "fog",
+          "temperature": 13.456,
+          "templow": 3.5,
+          "precipitation": 8.25,
+          "wind_speed": 14
+        },
+        {
+          "condition": "sunny",
+          "temperature": 30
+        },
+        {
+          "datetime": "tomorrow",
+          "temperature": 30
+        },
+        {
+          "datetime": "2026-10-28T11:00:00+00:00",
+          "condition": "rainy",
+          "temperature": "13.5",
+          "templow": 2,
+          "precipitation": 2,
+          "wind_speed": 14
+        },
+        {
+          "datetime": "2026-10-29T11:00:00+00:00",
+          "condition": "pouring",
+          "temperature": 12.456,
+          "templow": 0.5,
+          "wind_speed": 14
+        },
+        {
+          "datetime": "2026-10-30T11:00:00+00:00",
+          "condition": "snowy",
+          "temperature": 13.456,
+          "templow": -1,
+          "precipitation": 0.04,
+          "wind_speed": 14
+        },
+        {
+          "datetime": "2026-10-31T11:00:00+00:00",
+          "condition": "snowy-rainy",
+          "temperature": 14.456,
+          "templow": -2.5,
+          "precipitation": 12,
+          "wind_speed": 14
+        },
+        {
+          "datetime": "2026-11-01T11:00:00+00:00",
+          "condition": "sunny",
+          "temperature": 12.456,
+          "templow": -4,
+          "precipitation": 1,
+          "wind_speed": 14
+        },
+        {
+          "datetime": "2026-11-02T11:00:00+00:00",
+          "condition": "clear-night",
+          "temperature": 13.456,
+          "templow": -5.5,
+          "precipitation": 0,
+          "wind_speed": 14
+        }
+      ],
+      "hourly": [
+        {
+          "datetime": "2026-10-26T13:00:00+01:00",
+          "condition": "cloudy",
+          "temperature": 11,
+          "precipitation": 3
+        },
+        {
+          "datetime": "2026-10-26T14:00:00+01:00",
+          "condition": "cloudy",
+          "temperature": 10.75,
+          "precipitation": 0
+        },
+        {
+          "datetime": "2026-10-26T15:00:00+01:00",
+          "condition": "cloudy",
+          "temperature": 10.5,
+          "precipitation": 0
+        },
+        {
+          "datetime": "2026-10-26T16:00:00+01:00",
+          "condition": "cloudy",
+          "temperature": 10.25,
+          "precipitation": 0
+        },
+        {
+          "datetime": "2026-10-26T17:00:00+01:00",
+          "condition": "cloudy",
+          "temperature": 10,
+          "precipitation": 0
+        },
+        {
+          "datetime": "2026-10-26T18:00:00+01:00",
+          "condition": "cloudy",
+          "temperature": 9.75,
+          "precipitation": 0
+        },
+        {
+          "datetime": "2026-10-26T19:00:00+01:00",
+          "condition": "rainy",
+          "temperature": 9.5,
+          "precipitation": 0.6
+        },
+        {
+          "datetime": "2026-10-26T20:00:00+01:00",
+          "condition": "rainy",
+          "temperature": 9.25,
+          "precipitation": 1.1
+        },
+        {
+          "datetime": "2026-10-26T21:00:00+01:00",
+          "condition": "cloudy",
+          "temperature": 9,
+          "precipitation": 0
+        },
+        {
+          "datetime": "2026-10-26T22:00:00+01:00",
+          "condition": "cloudy",
+          "temperature": 8.75,
+          "precipitation": 0
+        },
+        {
+          "datetime": "2026-10-26T23:00:00+01:00",
+          "condition": "cloudy",
+          "temperature": 8.5,
+          "precipitation": 0
+        },
+        {
+          "datetime": "2026-10-27T00:00:00+01:00",
+          "condition": "cloudy",
+          "temperature": 8.25,
+          "precipitation": 0
+        },
+        {
+          "datetime": "2026-10-27T01:00:00+01:00",
+          "condition": "cloudy",
+          "temperature": 8,
+          "precipitation": 0
+        },
+        {
+          "datetime": "2026-10-27T02:00:00+01:00",
+          "condition": "cloudy",
+          "temperature": 7.75,
+          "precipitation": 0
+        },
+        {
+          "datetime": "2026-10-27T03:00:00+01:00",
+          "condition": "cloudy",
+          "temperature": 7.5,
+          "precipitation": 0
+        },
+        {
+          "datetime": "2026-10-27T04:00:00+01:00",
+          "condition": "cloudy",
+          "temperature": 7.25,
+          "precipitation": 0
+        },
+        {
+          "datetime": "2026-10-27T05:00:00+01:00",
+          "condition": "cloudy",
+          "temperature": 7,
+          "precipitation": 0
+        },
+        {
+          "datetime": "2026-10-27T06:00:00+01:00",
+          "condition": "cloudy",
+          "temperature": 6.75,
+          "precipitation": 0
+        },
+        {
+          "datetime": "2026-10-27T07:00:00+01:00",
+          "condition": "cloudy",
+          "temperature": 6.5,
+          "precipitation": 0
+        },
+        {
+          "datetime": "2026-10-27T08:00:00+01:00",
+          "condition": "cloudy",
+          "temperature": 6.25,
+          "precipitation": 0
+        },
+        {
+          "datetime": "2026-10-27T09:00:00+01:00",
+          "condition": "cloudy",
+          "temperature": 6,
+          "precipitation": 0
+        },
+        {
+          "datetime": "2026-10-27T10:00:00+01:00",
+          "condition": "cloudy",
+          "temperature": 5.75,
+          "precipitation": 0
+        },
+        {
+          "datetime": "2026-10-27T11:00:00+01:00",
+          "condition": "cloudy",
+          "temperature": 5.5,
+          "precipitation": 0
+        },
+        {
+          "datetime": "2026-10-27T12:00:00+01:00",
+          "condition": "cloudy",
+          "temperature": 5.25,
+          "precipitation": 0
+        },
+        {
+          "datetime": "2026-10-27T13:00:00+01:00",
+          "condition": "cloudy",
+          "temperature": 5,
+          "precipitation": 0
+        },
+        {
+          "datetime": "2026-10-27T14:00:00+01:00",
+          "condition": "cloudy",
+          "temperature": 4.75,
+          "precipitation": 0
+        },
+        {
+          "datetime": "2026-10-27T15:00:00+01:00",
+          "condition": "cloudy",
+          "temperature": 4.5,
+          "precipitation": 0
+        },
+        {
+          "datetime": "2026-10-27T16:00:00+01:00",
+          "condition": "cloudy",
+          "temperature": 4.25,
+          "precipitation": 0
+        },
+        {
+          "datetime": "2026-10-27T17:00:00+01:00",
+          "condition": "cloudy",
+          "temperature": 4,
+          "precipitation": 0
+        },
+        {
+          "datetime": "2026-10-27T18:00:00+01:00",
+          "condition": "cloudy",
+          "temperature": 3.75,
+          "precipitation": 0
+        }
+      ],
+      "tz": 60,
+      "lang": "en",
+      "out": {
+        "gap": "unavailable",
+        "icon": "cloud",
+        "temp": "—",
+        "cond": "",
+        "feels": "",
+        "high": "12°",
+        "low": "5°",
+        "wind": "—",
+        "rain": "from 19:00",
+        "days": [
+          {
+            "name": "Tue",
+            "icon": "fog",
+            "hi": "13°",
+            "lo": "4°",
+            "mm": "8 mm",
+            "bar": 0.688
+          },
+          {
+            "name": "Wed",
+            "icon": "rain",
+            "hi": "14°",
+            "lo": "2°",
+            "mm": "2 mm",
+            "bar": 0.167
+          },
+          {
+            "name": "Thu",
+            "icon": "pour",
+            "hi": "12°",
+            "lo": "1°",
+            "mm": "",
+            "bar": 0
+          },
+          {
+            "name": "Fri",
+            "icon": "snow",
+            "hi": "13°",
+            "lo": "-1°",
+            "mm": "dry",
+            "bar": 0.003
+          },
+          {
+            "name": "Sat",
+            "icon": "sleet",
+            "hi": "14°",
+            "lo": "-2°",
+            "mm": "12 mm",
+            "bar": 1
+          }
+        ],
+        "forecast": true
+      }
+    },
+    {
+      "name": "no-state",
+      "description": "Not in the mirror yet: \"—\".",
+      "state": null,
+      "attrs": {},
+      "daily": [],
+      "hourly": [],
+      "tz": 60,
+      "lang": "en",
+      "out": {
+        "gap": null,
+        "icon": "cloud",
+        "temp": "—",
+        "cond": "",
+        "feels": "",
+        "high": "—",
+        "low": "—",
+        "wind": "—",
+        "rain": "none soon",
+        "days": [],
+        "forecast": true
+      }
+    },
+    {
+      "name": "inches-west",
+      "description": "precipitation_unit in: bars scaled to at least 0.4 in; tz -300 shifts the local dates (today = the 26th).",
+      "state": "cloudy",
+      "attrs": {
+        "temperature": 11.4,
+        "apparent_temperature": 9.5,
+        "temperature_unit": "°C",
+        "wind_speed": 4,
+        "wind_speed_unit": "mph",
+        "wind_bearing": 225,
+        "precipitation_unit": "in"
+      },
+      "daily": [
+        {
+          "datetime": "2026-10-25T11:00:00+00:00",
+          "condition": "partlycloudy",
+          "temperature": 11.456,
+          "templow": 6.5,
+          "precipitation": 0,
+          "wind_speed": 14
+        },
+        {
+          "datetime": "2026-10-26T11:00:00+00:00",
+          "condition": "cloudy",
+          "temperature": 12.456,
+          "templow": 5,
+          "precipitation": 0.02,
+          "wind_speed": 14
+        },
+        {
+          "datetime": "2026-10-27T11:00:00+00:00",
+          "condition": "fog",
+          "temperature": 13.456,
+          "templow": 3.5,
+          "precipitation": 0.4125,
+          "wind_speed": 14
+        },
+        {
+          "condition": "sunny",
+          "temperature": 30
+        },
+        {
+          "datetime": "tomorrow",
+          "temperature": 30
+        },
+        {
+          "datetime": "2026-10-28T11:00:00+00:00",
+          "condition": "rainy",
+          "temperature": "13.5",
+          "templow": 2,
+          "precipitation": 0.1,
+          "wind_speed": 14
+        },
+        {
+          "datetime": "2026-10-29T11:00:00+00:00",
+          "condition": "pouring",
+          "temperature": 12.456,
+          "templow": 0.5,
+          "wind_speed": 14
+        },
+        {
+          "datetime": "2026-10-30T11:00:00+00:00",
+          "condition": "snowy",
+          "temperature": 13.456,
+          "templow": -1,
+          "precipitation": 0.002,
+          "wind_speed": 14
+        },
+        {
+          "datetime": "2026-10-31T11:00:00+00:00",
+          "condition": "snowy-rainy",
+          "temperature": 14.456,
+          "templow": -2.5,
+          "precipitation": 0.6,
+          "wind_speed": 14
+        },
+        {
+          "datetime": "2026-11-01T11:00:00+00:00",
+          "condition": "sunny",
+          "temperature": 12.456,
+          "templow": -4,
+          "precipitation": 0.05,
+          "wind_speed": 14
+        },
+        {
+          "datetime": "2026-11-02T11:00:00+00:00",
+          "condition": "clear-night",
+          "temperature": 13.456,
+          "templow": -5.5,
+          "precipitation": 0,
+          "wind_speed": 14
+        }
+      ],
+      "hourly": [
+        {
+          "datetime": "2026-10-26T13:00:00+01:00",
+          "condition": "cloudy",
+          "temperature": 11,
+          "precipitation": 3
+        },
+        {
+          "datetime": "2026-10-26T14:00:00+01:00",
+          "condition": "cloudy",
+          "temperature": 10.75,
+          "precipitation": 0
+        },
+        {
+          "datetime": "2026-10-26T15:00:00+01:00",
+          "condition": "cloudy",
+          "temperature": 10.5,
+          "precipitation": 0
+        },
+        {
+          "datetime": "2026-10-26T16:00:00+01:00",
+          "condition": "cloudy",
+          "temperature": 10.25,
+          "precipitation": 0
+        },
+        {
+          "datetime": "2026-10-26T17:00:00+01:00",
+          "condition": "cloudy",
+          "temperature": 10,
+          "precipitation": 0
+        },
+        {
+          "datetime": "2026-10-26T18:00:00+01:00",
+          "condition": "cloudy",
+          "temperature": 9.75,
+          "precipitation": 0
+        },
+        {
+          "datetime": "2026-10-26T19:00:00+01:00",
+          "condition": "rainy",
+          "temperature": 9.5,
+          "precipitation": 0.6
+        },
+        {
+          "datetime": "2026-10-26T20:00:00+01:00",
+          "condition": "rainy",
+          "temperature": 9.25,
+          "precipitation": 1.1
+        },
+        {
+          "datetime": "2026-10-26T21:00:00+01:00",
+          "condition": "cloudy",
+          "temperature": 9,
+          "precipitation": 0
+        },
+        {
+          "datetime": "2026-10-26T22:00:00+01:00",
+          "condition": "cloudy",
+          "temperature": 8.75,
+          "precipitation": 0
+        },
+        {
+          "datetime": "2026-10-26T23:00:00+01:00",
+          "condition": "cloudy",
+          "temperature": 8.5,
+          "precipitation": 0
+        },
+        {
+          "datetime": "2026-10-27T00:00:00+01:00",
+          "condition": "cloudy",
+          "temperature": 8.25,
+          "precipitation": 0
+        },
+        {
+          "datetime": "2026-10-27T01:00:00+01:00",
+          "condition": "cloudy",
+          "temperature": 8,
+          "precipitation": 0
+        },
+        {
+          "datetime": "2026-10-27T02:00:00+01:00",
+          "condition": "cloudy",
+          "temperature": 7.75,
+          "precipitation": 0
+        },
+        {
+          "datetime": "2026-10-27T03:00:00+01:00",
+          "condition": "cloudy",
+          "temperature": 7.5,
+          "precipitation": 0
+        },
+        {
+          "datetime": "2026-10-27T04:00:00+01:00",
+          "condition": "cloudy",
+          "temperature": 7.25,
+          "precipitation": 0
+        },
+        {
+          "datetime": "2026-10-27T05:00:00+01:00",
+          "condition": "cloudy",
+          "temperature": 7,
+          "precipitation": 0
+        },
+        {
+          "datetime": "2026-10-27T06:00:00+01:00",
+          "condition": "cloudy",
+          "temperature": 6.75,
+          "precipitation": 0
+        },
+        {
+          "datetime": "2026-10-27T07:00:00+01:00",
+          "condition": "cloudy",
+          "temperature": 6.5,
+          "precipitation": 0
+        },
+        {
+          "datetime": "2026-10-27T08:00:00+01:00",
+          "condition": "cloudy",
+          "temperature": 6.25,
+          "precipitation": 0
+        },
+        {
+          "datetime": "2026-10-27T09:00:00+01:00",
+          "condition": "cloudy",
+          "temperature": 6,
+          "precipitation": 0
+        },
+        {
+          "datetime": "2026-10-27T10:00:00+01:00",
+          "condition": "cloudy",
+          "temperature": 5.75,
+          "precipitation": 0
+        },
+        {
+          "datetime": "2026-10-27T11:00:00+01:00",
+          "condition": "cloudy",
+          "temperature": 5.5,
+          "precipitation": 0
+        },
+        {
+          "datetime": "2026-10-27T12:00:00+01:00",
+          "condition": "cloudy",
+          "temperature": 5.25,
+          "precipitation": 0
+        },
+        {
+          "datetime": "2026-10-27T13:00:00+01:00",
+          "condition": "cloudy",
+          "temperature": 5,
+          "precipitation": 0
+        },
+        {
+          "datetime": "2026-10-27T14:00:00+01:00",
+          "condition": "cloudy",
+          "temperature": 4.75,
+          "precipitation": 0
+        },
+        {
+          "datetime": "2026-10-27T15:00:00+01:00",
+          "condition": "cloudy",
+          "temperature": 4.5,
+          "precipitation": 0
+        },
+        {
+          "datetime": "2026-10-27T16:00:00+01:00",
+          "condition": "cloudy",
+          "temperature": 4.25,
+          "precipitation": 0
+        },
+        {
+          "datetime": "2026-10-27T17:00:00+01:00",
+          "condition": "cloudy",
+          "temperature": 4,
+          "precipitation": 0
+        },
+        {
+          "datetime": "2026-10-27T18:00:00+01:00",
+          "condition": "cloudy",
+          "temperature": 3.75,
+          "precipitation": 0
+        }
+      ],
+      "tz": -300,
+      "lang": "en",
+      "out": {
+        "gap": null,
+        "icon": "cloud",
+        "temp": "11°",
+        "cond": "Cloudy",
+        "feels": "feels 10°",
+        "high": "12°",
+        "low": "5°",
+        "wind": "4 mph SW",
+        "rain": "from 13:00",
+        "days": [
+          {
+            "name": "Tue",
+            "icon": "fog",
+            "hi": "13°",
+            "lo": "4°",
+            "mm": "0.4 in",
+            "bar": 0.683
+          },
+          {
+            "name": "Wed",
+            "icon": "rain",
+            "hi": "14°",
+            "lo": "2°",
+            "mm": "0.1 in",
+            "bar": 0.167
+          },
+          {
+            "name": "Thu",
+            "icon": "pour",
+            "hi": "12°",
+            "lo": "1°",
+            "mm": "",
+            "bar": 0
+          },
+          {
+            "name": "Fri",
+            "icon": "snow",
+            "hi": "13°",
+            "lo": "-1°",
+            "mm": "dry",
+            "bar": 0
+          },
+          {
+            "name": "Sat",
+            "icon": "sleet",
+            "hi": "14°",
+            "lo": "-2°",
+            "mm": "0.6 in",
+            "bar": 1
+          }
+        ],
+        "forecast": true
+      }
+    }
+  ]
+}

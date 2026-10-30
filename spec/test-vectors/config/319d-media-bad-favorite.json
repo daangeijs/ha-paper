@@ -1,0 +1,10 @@
+{
+  "name": "319d-media-bad-favorite",
+  "description": "Rule: a favorite is Name=type:id or Name=script.<id> / scene.<id>.",
+  "input": "# HA Paper display config\nversion: 1\nscreens:\n  - id: a\n    widgets:\n      - {type: media, entity: media_player.living_room, cs: 2, favorites: Radio=music:http://x; light.kitchen}\n",
+  "expect": {
+    "ok": false,
+    "line": 6,
+    "message": "media: “light.kitchen” in favorites is not Name=type:id or Name=script.<id> / scene.<id>"
+  }
+}

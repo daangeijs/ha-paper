@@ -34,7 +34,7 @@ export function defaultBucket(windowMs: number, cs = 1, minMs = 0): number | nul
 }
 
 const NUM = /^-?\d+(\.\d+)?$/;
-const numOf = (v: unknown): number | null => (typeof v === 'number' ? v : typeof v === 'string' && NUM.test(v) ? Number(v) : null);
+export const numOf = (v: unknown): number | null => (typeof v === 'number' ? v : typeof v === 'string' && NUM.test(v) ? Number(v) : null);
 
 // ---------- source (#283) ----------
 /** Where the series comes from: the recorder (statistics / history), a list in an attribute of the entity, or a
@@ -44,7 +44,7 @@ export const ATTR_DOMAINS = ['sensor', 'binary_sensor', 'weather'];
 export const FORECAST_TYPES = ['hourly', 'daily'] as const;
 const FORECAST_STEP: Record<string, number> = { hourly: HOUR, daily: DAY };
 /** Keys only a series from an attribute or a forecast reads. */
-export const SOURCE_KEYS = ['attribute', 'value', 'time', 'ahead', 'forecast'] as const;
+export const SOURCE_KEYS = ['attribute', 'value', 'time', 'ahead', 'forecast', 'past'] as const;
 type W = Record<string, string | number | undefined>;
 export const historySource = (w: W): HistorySource =>
   (w.attribute !== undefined ? 'attribute' : String(w.entity ?? '').startsWith('weather.') ? 'forecast' : 'recorder');
@@ -53,6 +53,8 @@ export const historyDomains = (w: W): string[] => ({ recorder: HISTORY_DOMAINS, 
 const FIELD = /^[A-Za-z_][A-Za-z0-9_]*$/;
 /** `ahead`: 0 or a span; null = not a valid value. */
 const aheadOf = (v: unknown): number | null => (v === 0 || v === '0' ? 0 : parseSpan(v));
+/** `past` (#307): a recorder entity (HISTORY_DOMAINS) whose history fills the part of the window before now. */
+const PAST_ID = /^(sensor|input_number|number)\.[a-z0-9_]+$/;
 
 /** A history widget's own rules (entity is checked by the shared domain rule first, historyDomains). null = valid. */
 export function historyError(w: W): string | null {
@@ -76,6 +78,11 @@ export function historyError(w: W): string | null {
     if (a === null || a > win) return 'history: ahead must be 0 or like 30m or 2h, at most the window';
     if (a % b !== 0) return 'history: bucket ' + (w.bucket ?? b / MIN + 'm') + ' does not divide ahead ' + w.ahead;
   }
+  if (w.past !== undefined) {
+    if (!PAST_ID.test(String(w.past))) return 'history: past “' + w.past + '” is not a ' + HISTORY_DOMAINS.join(' / ') + ' entity';
+    const a = w.ahead === undefined ? win : (aheadOf(w.ahead) as number);
+    if (a === 0 || a >= win) return 'history: past needs ahead shorter than the window';
+  }
   if (w.agg !== undefined && !(HISTORY_AGGS as readonly string[]).includes(String(w.agg))) return 'history: agg must be ' + HISTORY_AGGS.join(', ');
   if (w.style !== undefined && !(HISTORY_STYLES as readonly string[]).includes(String(w.style))) return 'history: style must be bars, line, area, step, dots or auto';
   const lo = w.min === undefined ? undefined : numOf(w.min), hi = w.max === undefined ? undefined : numOf(w.max);
@@ -97,6 +104,9 @@ export type HistorySpec = {
   /** Part of the window after now (#283): 0 / absent = the bucket holding now is the last one (recorder); > 0 = it
    *  starts the last `aheadMs` of the window. Only attribute / forecast series; set only for them. */
   aheadMs?: number; source?: SourceSpec;
+  /** #307: a recorder entity drawn before now (the buckets before the one holding now); the source fills the rest,
+   *  drawn lighter. Set only with an attribute / forecast source and 0 < aheadMs < windowMs. */
+  past?: string;
 };
 /** Auto style: a line for means, bars for max / min / last / change (Daan, #264). Other styles as written (#304). */
 export const resolveStyle = (agg: HistoryAgg, style?: unknown): HistoryStyle =>
@@ -114,7 +124,26 @@ export function historySpec(w: W): HistorySpec {
   // an attribute or forecast series looks ahead by default (a nowcast, a forecast): the whole window from now
   out.aheadMs = w.ahead !== undefined ? (aheadOf(w.ahead) as number) : windowMs;
   out.source = { kind: src, attribute: src === 'forecast' ? 'forecast' : String(w.attribute), value: String(w.value ?? (fc ? 'temperature' : 'value')), time: String(w.time ?? 'datetime'), ...(fc ? { forecast: fc } : {}) };
+  if (w.past !== undefined) out.past = String(w.past);
   return out;
+}
+
+// ---------- past and future in one chart (#307) ----------
+
+/** Buckets before the one holding now: filled from the `past` entity's recorder history. */
+export const pastBuckets = (s: Pick<HistorySpec, 'windowMs' | 'bucketMs' | 'aheadMs'>): number => (s.windowMs - (s.aheadMs ?? 0)) / s.bucketMs;
+/** The recorder series fetched for `past`: its entity over the past part plus the bucket holding now (a plain recorder
+ *  span, so the last bucket is the open one and the rest line up with the tile's past buckets). Same agg. */
+export function pastSpec(s: HistorySpec): HistorySpec {
+  const windowMs = s.windowMs - (s.aheadMs ?? 0) + s.bucketMs;
+  return { entity: s.past as string, windowMs, bucketMs: s.bucketMs, n: windowMs / s.bucketMs, agg: s.agg, style: s.style, min: s.min, max: s.max };
+}
+/** The tile's series from both parts, bucket by bucket on the tile's span: before the bucket holding now from `past`,
+ *  from it on from `ahead` (the attribute / forecast series). Matched by bucket start time; a part not there = gaps. */
+export function joinSeries(s: HistorySpec, past: Series | null, ahead: Series | null, now: number, tz: number): Series {
+  const { start } = chartSpan(s, now, tz), split = pastBuckets(s);
+  const at = (x: Series | null, t: number) => { if (!x) return null; const k = Math.round((t - x.start) / x.bucketMs); return k >= 0 && k < x.values.length ? x.values[k] : null; };
+  return { start, bucketMs: s.bucketMs, values: Array.from({ length: s.n }, (_, i) => at(i < split ? past : ahead, start + i * s.bucketMs)) };
 }
 
 // ---------- data source ----------

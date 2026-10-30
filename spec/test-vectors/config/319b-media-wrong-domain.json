@@ -1,0 +1,10 @@
+{
+  "name": "319b-media-wrong-domain",
+  "description": "Rule: a media entity must be a media_player.* id.",
+  "input": "# HA Paper display config\nversion: 1\nscreens:\n  - id: a\n    widgets:\n      - {type: clock}\n      - {type: media, entity: switch.speaker, cs: 2}\n",
+  "expect": {
+    "ok": false,
+    "line": 7,
+    "message": "media: “switch.speaker” is not a media_player entity"
+  }
+}

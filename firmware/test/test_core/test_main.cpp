@@ -16,6 +16,8 @@
 #include "core/config.h"
 #include "core/cw2017.h"
 #include "core/diag.h"
+#include "core/empty_house.h"
+#include "core/gauge_filter.h"
 #include "core/glance.h"
 #include "core/ha_address.h"
 #include "core/ha_report.h"
@@ -35,6 +37,8 @@
 #include "core/seed.h"
 #include "core/settings_api.h"
 #include "core/strings.h"
+#include "core/tomorrow.h"
+#include "core/weather.h"
 
 using namespace x4;
 
@@ -269,7 +273,8 @@ void test_frontlight_spec_vectors() {
     TEST_ASSERT_EQUAL(c.get("expect")->b, lightWakeConsumes(int(c.get("brightness")->num), c.get("standby")->b, c.get("quiet")->b,
                                                             c.get("lightOut")->b, c.get("power")->b)); ++n;
   }
-  TEST_ASSERT_EQUAL_INT(10 + 8 + 32, n);
+  for (auto& c : j.get("boot")->arr) { TEST_ASSERT_EQUAL(c.get("expect")->b, lightOnBoot(c.get("wake")->str)); ++n; }
+  TEST_ASSERT_EQUAL_INT(10 + 8 + 32 + 5, n);
 }
 
 // ---------- refresh policy (spec/test-vectors/refresh.json, emulator src/core/refresh.ts) ----------
@@ -467,18 +472,134 @@ void test_quiet_spec_vectors() {
   for (auto& c : j.get("backAt")->arr) {
     TEST_ASSERT_EQUAL_STRING(c.get("expect")->str.c_str(), quietBackAt(c.get("window")->str, c.get("clock")->str).c_str()); ++n;
   }
-  for (auto& c : j.get("tiles")->arr) {
-    std::vector<std::string> types;
-    for (auto& x : c.get("types")->arr) types.push_back(x.str);
-    std::vector<int> want;
-    for (auto& x : c.get("expect")->arr) want.push_back(int(x.num));
-    TEST_ASSERT_TRUE_MESSAGE(quietTiles(types) == want, c.get("name")->str.c_str()); ++n;
-  }
   for (auto& c : j.get("peekOnBoot")->arr) { TEST_ASSERT_EQUAL(c.get("expect")->b, peekOnBoot(c.get("wake")->str)); ++n; }
-  TEST_ASSERT_EQUAL_INT(8 + 7 + 4 + 5, n);
+  TEST_ASSERT_EQUAL_INT(8 + 7 + 5, n);
   TEST_ASSERT_FALSE(validQuiet("7-23"));
   TEST_ASSERT_FALSE(validQuiet("24-07"));
   TEST_ASSERT_FALSE(validQuiet("23:07"));
+}
+
+// empty-house sleep (#331, spec/test-vectors/empty-house.json, emulator src/core/emptyHouse.ts)
+void test_empty_house_vectors() {
+  std::string t = readFile(std::string(X4_REPO_ROOT) + "/spec/test-vectors/empty-house.json");
+  TEST_ASSERT_FALSE_MESSAGE(t.empty(), "spec/test-vectors/empty-house.json missing");
+  Json j; TEST_ASSERT_TRUE(parseJson(t, j));
+  TEST_ASSERT_EQUAL_INT64(kEmptyWaitS, int64_t(j.get("waitS")->num));
+  TEST_ASSERT_EQUAL_STRING(kDefaultEmptySource, j.get("defaultSource")->str.c_str());
+  int n = 0;
+  for (auto& c : j.get("validSource")->arr) { TEST_ASSERT_EQUAL_MESSAGE(c.get("ok")->b, validEmptySource(c.get("v")->str), c.get("v")->str.c_str()); ++n; }
+  for (auto& c : j.get("houseEmpty")->arr) {
+    const Json* st = c.get("state");
+    std::string name = c.get("entity")->str + " = " + (st->isNull() ? "null" : st->str);
+    TEST_ASSERT_EQUAL_MESSAGE(c.get("empty")->b, houseEmpty(c.get("entity")->str, st->isNull() ? nullptr : st->str.c_str()), name.c_str()); ++n;
+  }
+  for (auto& c : j.get("wait")->arr) {
+    TEST_ASSERT_EQUAL_INT64_MESSAGE(int64_t(c.get("s")->num), emptyWaitS(int32_t(c.get("localSec")->num), c.get("quiet")->str), c.get("name")->str.c_str()); ++n;
+  }
+  for (auto& c : j.get("nextAt")->arr) {
+    TEST_ASSERT_EQUAL_STRING(c.get("t")->str.c_str(), emptyNextAt(int32_t(c.get("localSec")->num), c.get("quiet")->str, c.get("clock")->str).c_str()); ++n;
+  }
+  for (auto& c : j.get("facts")->arr) {
+    std::vector<FactEntity> ents;
+    for (auto& e : c.get("entities")->arr) ents.push_back({e.get("id")->str, e.get("name")->str, e.get("state")->str, e.get("deviceClass")->str});
+    const Json* in = c.get("inside");
+    HouseFacts f = houseFacts(!in->isNull(), in->isNull() ? 0 : in->num, ents);
+    const Json& x = *c.get("expect");
+    const char* name = c.get("name")->str.c_str();
+    TEST_ASSERT_EQUAL_MESSAGE(!x.get("inside")->isNull(), f.hasInside, name);
+    if (f.hasInside) TEST_ASSERT_TRUE_MESSAGE(std::fabs(x.get("inside")->num - f.inside) < 1e-9, name);
+    TEST_ASSERT_EQUAL_MESSAGE(!x.get("open")->isNull(), f.hasOpen, name);
+    if (f.hasOpen) {
+      TEST_ASSERT_EQUAL_INT_MESSAGE(int(x.get("open")->get("n")->num), f.open, name);
+      TEST_ASSERT_EQUAL_STRING_MESSAGE(x.get("open")->get("first")->str.c_str(), f.firstOpen.c_str(), name);
+    }
+    const Json* al = x.get("alarm");
+    Alarm want = al->isNull() ? Alarm::None : al->str == "armed" ? Alarm::Armed : al->str == "triggered" ? Alarm::Triggered : Alarm::Disarmed;
+    TEST_ASSERT_EQUAL_INT_MESSAGE(int(want), int(f.alarm), name);
+    ++n;
+  }
+  TEST_ASSERT_EQUAL_INT(11 + 15 + 6 + 7 + 12, n);
+}
+
+// quiet face Tomorrow row (#328, spec/test-vectors/quiet-tomorrow.json, emulator src/core/quiet.ts)
+void test_quiet_tomorrow_vectors() {
+  Json j;
+  TEST_ASSERT_TRUE(parseJson(readFile(std::string(X4_REPO_ROOT) + "/spec/test-vectors/quiet-tomorrow.json"), j));
+  int n = 0;
+  auto ref = [](const Json* o, const quiet::Ref& r, const std::string& what) {
+    if (o->isNull()) { TEST_ASSERT_EQUAL_INT_MESSAGE(-1, r.screen, what.c_str()); return; }
+    TEST_ASSERT_EQUAL_INT_MESSAGE(int(o->arr[0].num), r.screen, what.c_str());
+    TEST_ASSERT_EQUAL_INT_MESSAGE(int(o->arr[1].num), r.widget, what.c_str());
+  };
+  for (auto& c : j.get("sources")->arr) {
+    std::vector<Screen> screens;
+    for (auto& sc : c.get("screens")->arr) {
+      screens.emplace_back();
+      for (auto& w : sc.get("widgets")->arr) {
+        Widget x;
+        for (auto& kv : w.obj) if (kv.first == "type") x.type = kv.second.str; else if (kv.second.isStr()) x.fields[kv.first] = kv.second.str;
+        screens.back().widgets.push_back(x);
+      }
+    }
+    const quiet::Sources s = quiet::sources(screens);
+    const std::string name = "sources " + c.get("name")->str;
+    const Json& o = *c.get("out");
+    ref(o.get("weather"), s.weather, name + " weather");
+    ref(o.get("agenda"), s.agenda, name + " agenda");
+    ref(o.get("bins"), s.bins, name + " bins");
+    ++n;
+  }
+  auto entry = [](const Json& e) {
+    wx::Entry x{};
+    x.tS = uint32_t(int64_t(e.get("t")->num) / 1000);
+    x.temp = e.get("temp")->isNull() ? wx::kNoT : int16_t(std::lround(e.get("temp")->num * 100));
+    x.low = e.get("low")->isNull() ? wx::kNoT : int16_t(std::lround(e.get("low")->num * 100));
+    x.mm = e.get("mm")->isNull() ? wx::kNoMm : uint16_t(std::lround(e.get("mm")->num * 100));
+    for (int i = 0; i < int(wx::Icon::Count); ++i) if (e.get("icon")->str == wx::iconName(wx::Icon(i))) x.icon = uint8_t(i);
+    return x;
+  };
+  for (auto& c : j.get("items")->arr) {
+    const std::string name = "items " + c.get("name")->str + " " + c.get("lang")->str;
+    const Json& i = *c.get("in");
+    quiet::In in;
+    in.now = int64_t(i.get("now")->num); in.tz = int(i.get("tz")->num); in.endHour = int(i.get("endHour")->num);
+    in.tonight = int(i.get("tonight")->num); in.lang = c.get("lang")->str == "nl" ? Lang::Nl : Lang::En;
+    wx::Forecast fc;
+    if (!i.get("daily")->isNull()) { fc.hasDaily = 1; for (auto& e : i.get("daily")->arr) fc.daily[fc.nDaily++] = entry(e); }
+    if (!i.get("hourly")->isNull()) { fc.hasHourly = 1; for (auto& e : i.get("hourly")->arr) fc.hourly[fc.nHourly++] = entry(e); }
+    if (fc.hasDaily || fc.hasHourly) in.fc = &fc;
+    agenda::Fetch f;
+    if (!i.get("events")->isNull()) {
+      for (auto& e : i.get("events")->arr) {
+        agenda::Event ev;
+        ev.start = int64_t(e.get("start")->num); ev.end = int64_t(e.get("end")->num); ev.allDay = e.get("allDay")->b; ev.cal = uint8_t(e.get("cal")->num);
+        const std::string t = e.get("title")->str;
+        ev.len = uint8_t(t.size()); std::memcpy(ev.title, t.data(), t.size());
+        f.events.push_back(ev);
+      }
+      in.events = &f;
+    }
+    std::vector<quiet::BinDay> bins;
+    if (!i.get("bins")->isNull()) {
+      for (auto& b : i.get("bins")->arr) bins.push_back({b.get("label")->str, b.get("days")->isNull() ? -1 : int(b.get("days")->num)});
+      in.bins = &bins;
+    }
+    const quiet::Row r = quiet::tomorrow(in);
+    const Json& o = *c.get("out");
+    TEST_ASSERT_EQUAL_STRING_MESSAGE(o.get("head")->str.c_str(), r.head.c_str(), name.c_str());
+    const auto& want = o.get("items")->arr;
+    TEST_ASSERT_EQUAL_INT_MESSAGE(int(want.size()), int(r.items.size()), name.c_str());
+    static const char* const K[] = {"weather", "event", "bins"};
+    for (size_t k = 0; k < want.size(); ++k) {
+      const quiet::Item& it = r.items[k];
+      TEST_ASSERT_EQUAL_STRING_MESSAGE(want[k].get("kind")->str.c_str(), K[int(it.kind)], name.c_str());
+      TEST_ASSERT_EQUAL_STRING_MESSAGE(want[k].get("icon")->str.c_str(), it.icon < 0 ? "" : wx::iconName(wx::Icon(it.icon)), name.c_str());
+      TEST_ASSERT_EQUAL_STRING_MESSAGE(want[k].get("bold")->str.c_str(), it.bold.c_str(), name.c_str());
+      TEST_ASSERT_EQUAL_STRING_MESSAGE(want[k].get("text")->str.c_str(), it.text.c_str(), name.c_str());
+    }
+    ++n;
+  }
+  TEST_ASSERT_EQUAL_INT(3 + 24, n);
 }
 
 void test_night_window() {
@@ -921,6 +1042,7 @@ static void applyPowerInput(const Json& o, PowerInputs& i) {
     else if (k == "live") i.live = flag();
     else if (k == "glanceFails") i.glanceFails = int(v.num);
     else if (k == "armBootsLeft") i.armBootsLeft = int(v.num);
+    else if (k == "emptyHouse") i.emptyHouse = flag();
     else TEST_FAIL_MESSAGE(("unknown power input " + k).c_str());
   }
 }
@@ -1002,6 +1124,24 @@ void test_battery_history_vectors() {
     ++cases;
   }
   TEST_ASSERT_EQUAL(5, cases);
+}
+
+// ---------- gauge filter (spec/test-vectors/gauge-filter.json, #327) ----------
+void test_gauge_filter_vectors() {
+  Json j;
+  TEST_ASSERT_TRUE(parseJson(readFile(std::string(X4_REPO_ROOT) + "/spec/test-vectors/gauge-filter.json"), j));
+  int reads = 0;
+  for (auto& c : j.get("cases")->arr) {
+    const char* name = c.get("name")->str.c_str();
+    gauge::State s;
+    for (auto& r : c.get("reads")->arr) {
+      s = gauge::step(s, int(r.get("raw")->num), r.get("charging")->b);
+      TEST_ASSERT_EQUAL_INT_MESSAGE(int(r.get("shown")->num), s.shown, name);
+      TEST_ASSERT_EQUAL_INT_MESSAGE(int(r.get("rise")->num), s.rise, name);
+      ++reads;
+    }
+  }
+  TEST_ASSERT_EQUAL(38, reads);
 }
 
 void test_glance_vectors() {
@@ -1093,10 +1233,11 @@ void test_glance_vectors() {
     ++cases;
   }
   std::printf("spec glance vectors: %d cases\n", cases);
-  // backoff (emulator glanceWaitS): 15 min doubled per failed wake, 2 h cap
-  const int64_t waits[] = {900, 1800, 3600, 7200, 7200, 7200};
-  const int fails[] = {0, 1, 2, 3, 4, 9};
-  for (int i = 0; i < 6; ++i) TEST_ASSERT_EQUAL_INT64(waits[i], glanceWaitS(15, fails[i]));
+  // #356 (emulator glanceWaitS): the next of midnight and the start of quiet hours
+  const int32_t at[] = {43200, 43200, 82200, 3600, 72000, 0};
+  const char* const q[] = {"off", "23-07", "23-07", "23-07", "00-06", "off"};
+  const int64_t waits[] = {43200, 39600, 600, 79200, 14400, 86400};
+  for (int i = 0; i < 6; ++i) TEST_ASSERT_EQUAL_INT64(waits[i], glanceWaitS(at[i], q[i]));
 }
 
 void test_glance_snapshot_and_rtc() {
@@ -2004,6 +2145,126 @@ void test_history_vectors() {
   std::printf("history vectors: %d cases\n", cases);
 }
 
+// weather tile (spec/test-vectors/weather.json, #318)
+static EntityValue wxEntity(const Json* state, const Json& attrs) {
+  EntityValue v;
+  v.state = state && state->isStr() ? state->str : "";
+  for (auto& kv : attrs.obj) v.attrs[kv.first.c_str()] = kv.second.isNum() ? jsNumber(kv.second.num) : kv.second.str;
+  return v;
+}
+
+void test_weather_vectors() {
+  const std::string path = std::string(X4_REPO_ROOT) + "/spec/test-vectors/weather.json";
+  Json j;
+  TEST_ASSERT_TRUE(parseJson(readFile(path), j));
+  const int64_t now = int64_t(j.get("now")->num);
+  int cases = runVectorFile(path);
+  TEST_ASSERT_EQUAL_INT(6, cases);
+  const auto& names = j.get("icons")->arr;
+  TEST_ASSERT_EQUAL_INT(int(wx::Icon::Count), int(names.size()));
+  for (int i = 0; i < int(names.size()); ++i) TEST_ASSERT_EQUAL_STRING(names[size_t(i)].str.c_str(), wx::iconName(wx::Icon(i)));
+  for (auto& c : j.get("conditions")->arr) {
+    TEST_ASSERT_EQUAL_STRING_MESSAGE(c.get("icon")->str.c_str(), wx::iconName(wx::iconOf(c.get("condition")->str)), c.get("condition")->str.c_str());
+    ++cases;
+  }
+  static wx::EntryParser p;
+  auto entries = [&](const Json& raw, bool daily, int tz, wx::Entry* out, uint8_t& n) {
+    wx::parseList(p, raw.isStr() ? raw.str : dumpJson(raw), daily, now, tz, out, n);
+  };
+  auto num = [](const Json* w, double got, const std::string& what) {
+    if (w->isNull()) TEST_ASSERT_TRUE_MESSAGE(std::isnan(got), what.c_str());
+    else TEST_ASSERT_TRUE_MESSAGE(w->num == got, (what + " " + jsNumber(w->num) + " != " + jsNumber(got)).c_str());
+  };
+  for (auto& c : j.get("entries")->arr) {
+    const std::string name = "entries " + c.get("name")->str;
+    wx::Entry out[wx::kHourly];
+    uint8_t n = 0;
+    entries(*c.get("raw"), c.get("kind")->str == "daily", int(c.get("tz")->num), out, n);
+    const auto& want = c.get("out")->arr;
+    TEST_ASSERT_EQUAL_INT_MESSAGE(int(want.size()), int(n), name.c_str());
+    for (size_t k = 0; k < want.size(); ++k) {
+      TEST_ASSERT_EQUAL_INT64_MESSAGE(int64_t(want[k].get("t")->num), int64_t(out[k].tS) * 1000, name.c_str());
+      TEST_ASSERT_EQUAL_STRING_MESSAGE(want[k].get("icon")->str.c_str(), wx::iconName(wx::Icon(out[k].icon)), name.c_str());
+      num(want[k].get("temp"), wx::tempOf(out[k].temp), name + " temp");
+      num(want[k].get("low"), wx::tempOf(out[k].low), name + " low");
+      num(want[k].get("mm"), wx::mmOf(out[k].mm), name + " mm");
+    }
+    ++cases;
+  }
+  for (auto& c : j.get("views")->arr) {
+    const std::string name = "view " + c.get("name")->str;
+    const int tz = int(c.get("tz")->num);
+    const Json* st = c.get("state");
+    EntityValue raw = wxEntity(st, *c.get("attrs"));
+    wx::Forecast fc;
+    if (!c.get("daily")->isNull()) { entries(*c.get("daily"), true, tz, fc.daily, fc.nDaily); fc.hasDaily = 1; }
+    if (!c.get("hourly")->isNull()) { entries(*c.get("hourly"), false, tz, fc.hourly, fc.nHourly); fc.hasHourly = 1; }
+    wx::View v;
+    wx::view(st->isNull() ? nullptr : &raw, &fc, now, tz, c.get("lang")->str == "nl" ? Lang::Nl : Lang::En, v);
+    const Json& o = *c.get("out");
+    const char* gap = v.gap == EntityGap::Unavailable ? "unavailable" : v.gap == EntityGap::Unknown ? "unknown" : "";
+    TEST_ASSERT_EQUAL_STRING_MESSAGE(o.get("gap")->isNull() ? "" : o.get("gap")->str.c_str(), gap, name.c_str());
+    TEST_ASSERT_EQUAL_STRING_MESSAGE(o.get("icon")->str.c_str(), wx::iconName(v.icon), name.c_str());
+    for (auto f : {std::make_pair("temp", &v.temp), std::make_pair("cond", &v.cond), std::make_pair("feels", &v.feels), std::make_pair("high", &v.high),
+                   std::make_pair("low", &v.low), std::make_pair("wind", &v.wind), std::make_pair("rain", &v.rain)})
+      TEST_ASSERT_EQUAL_STRING_MESSAGE(o.get(f.first)->str.c_str(), f.second->c_str(), (name + " " + f.first).c_str());
+    TEST_ASSERT_EQUAL_MESSAGE(o.get("forecast")->b, v.forecast, name.c_str());
+    const auto& days = o.get("days")->arr;
+    TEST_ASSERT_EQUAL_INT_MESSAGE(int(days.size()), v.nDays, name.c_str());
+    for (size_t k = 0; k < days.size(); ++k) {
+      const wx::Day& d = v.days[k];
+      TEST_ASSERT_EQUAL_STRING_MESSAGE(days[k].get("name")->str.c_str(), d.name.c_str(), name.c_str());
+      TEST_ASSERT_EQUAL_STRING_MESSAGE(days[k].get("icon")->str.c_str(), wx::iconName(d.icon), name.c_str());
+      TEST_ASSERT_EQUAL_STRING_MESSAGE(days[k].get("hi")->str.c_str(), d.hi.c_str(), name.c_str());
+      TEST_ASSERT_EQUAL_STRING_MESSAGE(days[k].get("lo")->str.c_str(), d.lo.c_str(), name.c_str());
+      TEST_ASSERT_EQUAL_STRING_MESSAGE(days[k].get("mm")->str.c_str(), d.mm.c_str(), name.c_str());
+      num(days[k].get("bar"), d.bar, name + " bar");
+    }
+    ++cases;
+  }
+  // fetch plan: daily then hourly, nothing until an hour later; a good answer lands, a failed one is kept
+  wx::Fetcher f;
+  f.setEntities({"weather.home", "weather.home", "weather.other", "weather.third"});
+  TEST_ASSERT_EQUAL_INT(2, f.size());
+  std::string q;
+  TEST_ASSERT_TRUE(f.next(now, 60, 7, q));
+  TEST_ASSERT_TRUE(q.find("\"type\":\"daily\"") != std::string::npos && q.find("\"weather.home\"") != std::string::npos);
+  TEST_ASSERT_FALSE(f.next(now, 60, 8, q));   // one in flight
+  f.begin();
+  const std::string ans = "{\"id\":7,\"type\":\"result\",\"success\":true,\"result\":{\"response\":{\"weather.home\":{\"forecast\":" +
+                          dumpJson(*j.get("views")->arr[0].get("daily")) + "}}}}";
+  for (size_t k = 0; k < ans.size(); k += 13) f.feed(ans.data() + k, std::min<size_t>(13, ans.size() - k));
+  f.end(now);
+  TEST_ASSERT_EQUAL_INT(7, f.forecast(0).nDaily);
+  TEST_ASSERT_TRUE(f.next(now, 60, 9, q));
+  TEST_ASSERT_TRUE(q.find("\"type\":\"hourly\"") != std::string::npos);
+  f.begin();
+  const std::string bad = "{\"id\":9,\"type\":\"result\",\"success\":false,\"error\":{\"code\":\"x\"}}";
+  f.feed(bad.data(), bad.size());
+  f.end(now);
+  TEST_ASSERT_EQUAL_INT(0, f.forecast(0).hasHourly);
+  int published = f.publish([](const std::string& e, const wx::Forecast&) { TEST_ASSERT_EQUAL_STRING("weather.home", e.c_str()); });
+  TEST_ASSERT_EQUAL_INT(1, published);
+  TEST_ASSERT_TRUE(f.next(now, 60, 10, q));   // weather.other daily
+  TEST_ASSERT_TRUE(q.find("\"weather.other\"") != std::string::npos);
+  f.abandon();
+  // RTC: a wake restores the forecasts and asks nothing within the hour (only what failed, after the retry gap)
+  static wx::Rtc rtc;
+  wx::save(rtc, f);
+  TEST_ASSERT_TRUE(wx::valid(rtc));
+  wx::Fetcher g;
+  g.setEntities({"weather.home"});
+  wx::load(rtc, g);
+  TEST_ASSERT_EQUAL_INT(7, g.forecast(0).nDaily);
+  TEST_ASSERT_TRUE(g.next(now + 60000, 60, 11, q));   // hourly never arrived
+  TEST_ASSERT_TRUE(q.find("\"type\":\"hourly\"") != std::string::npos);
+  g.abandon();
+  TEST_ASSERT_FALSE(g.next(now + 120000, 60, 12, q));   // retry gap
+  rtc.slot[0].fc.nDaily = 3;
+  TEST_ASSERT_FALSE(wx::valid(rtc));
+  std::printf("weather vectors: %d cases\n", cases);
+}
+
 // history tile series from an attribute or a weather forecast (spec/test-vectors/history-series.json, #283, #292)
 static Widget historyWidget(const Json& w) {
   Widget x; x.type = "history";
@@ -2020,7 +2281,7 @@ void test_history_series_vectors() {
   TEST_ASSERT_TRUE(parseJson(readFile(path), j));
   const int64_t now = int64_t(j.get("now")->num);
   int cases = runVectorFile(path);
-  TEST_ASSERT_EQUAL_INT(11, cases);
+  TEST_ASSERT_EQUAL_INT(15, cases);
   for (auto& c : j.get("source")->arr) {
     Widget w = historyWidget(*c.get("widget"));
     TEST_ASSERT_EQUAL_STRING(c.get("source")->str.c_str(), hist::kindName(hist::sourceOf(w.fields.count("attribute") > 0, w.field("entity"))));
@@ -2105,6 +2366,107 @@ void test_history_series_vectors() {
       TEST_ASSERT_TRUE_MESSAGE(std::fabs(wt[k].get("x")->num - t[k].x) <= 1e-9, what.c_str());
       TEST_ASSERT_EQUAL_STRING_MESSAGE(wt[k].get("text")->str.c_str(), t[k].text, what.c_str());
     }
+    ++cases;
+  }
+  // #307: past (recorder rows of `past`) + forecast in one chart
+  static hist::Series past, ahead, joined;
+  for (auto& c : j.get("both")->arr) {
+    const std::string name = "both " + c.get("name")->str;
+    const int tz = int(c.get("tz")->num);
+    Widget w = historyWidget(*c.get("widget"));
+    hist::Fields f;
+    f.entity = w.field("entity"); f.cs = w.cs;
+    for (auto& kv : w.fields) {
+      hist::Field x{true, kv.second};
+      const std::string& k = kv.first;
+      if (k == "window") f.window = x; else if (k == "bucket") f.bucket = x; else if (k == "agg") f.agg = x; else if (k == "style") f.style = x;
+      else if (k == "attribute") f.attribute = x; else if (k == "value") f.value = x; else if (k == "ahead") f.ahead = x; else if (k == "past") f.past = x;
+    }
+    TEST_ASSERT_EQUAL_STRING_MESSAGE(c.get("error")->isNull() ? "" : c.get("error")->str.c_str(), hist::configError(f).c_str(), name.c_str());
+    hist::Spec sp = hist::specOf(w);
+    TEST_ASSERT_EQUAL_STRING_MESSAGE(c.get("past")->str.c_str(), sp.past.c_str(), name.c_str());
+    hist::Spec ps = hist::pastSpec(sp);
+    TEST_ASSERT_EQUAL_STRING_MESSAGE(c.get("pastSpec")->get("entity")->str.c_str(), ps.entity.c_str(), name.c_str());
+    TEST_ASSERT_EQUAL_INT64_MESSAGE(int64_t(c.get("pastSpec")->get("windowMs")->num), ps.windowMs, name.c_str());
+    TEST_ASSERT_EQUAL_INT_MESSAGE(int(c.get("pastSpec")->get("n")->num), ps.n, name.c_str());
+    std::vector<hist::Point> pts;
+    for (auto& r : c.get("rows")->arr) pts.push_back(hist::pointOf(r.get("s")->str.data(), r.get("s")->str.size(), r.get("lu")->num));
+    hist::sortPoints(pts.data(), pts.size());
+    hist::bucketize(pts.data(), pts.size(), ps.windowMs, ps.bucketMs, ps.agg, now, tz, past);
+    assertSeries(*c.get("pastValues"), past, name + " past");
+    const Json& raw = *c.get("raw");
+    const std::string text = raw.isStr() ? raw.str : dumpJson(raw);
+    hist::attrSamples(sc, text.data(), text.size(), sp, now, tz, samples);
+    hist::fromSamples(samples.data(), samples.size(), sp, now, tz, ahead);
+    assertSeries(*c.get("aheadValues"), ahead, name + " ahead");
+    hist::joinSeries(sp, &past, &ahead, now, tz, joined);
+    assertSeries(*c.get("joined"), joined, name + " joined");
+    hist::Chart ch;
+    hist::chart(sp, &joined, hist::State::Ok, now, tz, Lang::En, ch);
+    const Json& o = *c.get("chart");
+    assertNear(*o.get("split"), ch.splitX(), name + " split");
+    if (sp.style == hist::Style::Bars) {
+      const auto& bars = o.get("bars")->arr;
+      TEST_ASSERT_EQUAL_INT_MESSAGE(int(bars.size()), ch.n, name.c_str());
+      for (int i = 0; i < ch.n; ++i) {
+        if (bars[i].isNull()) { TEST_ASSERT_TRUE_MESSAGE(ch.gap(i), name.c_str()); continue; }
+        const Json* ah = bars[i].get("ahead");
+        TEST_ASSERT_EQUAL_MESSAGE(ah && ah->b, ch.ahead(i), (name + " bar ahead").c_str());
+      }
+    }
+    if (ch.lineish()) {   // the painter's pieces: past segments, then the forecast's, joined at the last past point
+      auto pt = [&](int i, bool right) {
+        return std::make_pair(sp.style == hist::Style::Step ? ch.edge(right ? i + 1 : i) : ch.x(i), ch.y(ch.v[i]));
+      };
+      auto segs = [&](int from, int to) {
+        std::vector<std::vector<std::pair<double, double>>> out;
+        bool open = false;
+        for (int i = from; i < to; ++i) {
+          if (ch.gap(i)) { open = false; continue; }
+          if (!open) out.emplace_back();
+          out.back().push_back(pt(i, false));
+          if (sp.style == hist::Style::Step) out.back().push_back(pt(i, true));
+          open = true;
+        }
+        return out;
+      };
+      auto pastSegs = segs(0, ch.split), aheadSegs = segs(ch.split, ch.n);
+      if (ch.joined() && !aheadSegs.empty()) {
+        auto j0 = sp.style == hist::Style::Step ? std::make_pair(ch.splitX(), ch.y(ch.v[ch.split - 1])) : pt(ch.split - 1, false);
+        aheadSegs[0].insert(aheadSegs[0].begin(), j0);
+      }
+      const std::pair<const char*, decltype(pastSegs)*> both[] = {{"lines", &pastSegs}, {"aheadLines", &aheadSegs}};
+      for (auto& b : both) {
+        const auto& want = o.get(b.first)->arr;
+        TEST_ASSERT_EQUAL_INT_MESSAGE(int(want.size()), int(b.second->size()), (name + " " + b.first).c_str());
+        for (size_t k = 0; k < want.size(); ++k) {
+          TEST_ASSERT_EQUAL_INT_MESSAGE(int(want[k].arr.size()), int((*b.second)[k].size()), (name + " " + b.first).c_str());
+          for (size_t p = 0; p < want[k].arr.size(); ++p) {
+            assertNear(*want[k].arr[p].get("x"), (*b.second)[k][p].first, name + " " + b.first + " x");
+            assertNear(*want[k].arr[p].get("y"), (*b.second)[k][p].second, name + " " + b.first + " y");
+          }
+        }
+      }
+    }
+    if (sp.style == hist::Style::Dots) {
+      const auto& d = o.get("dots")->arr;
+      int k = 0;
+      for (int i = 0; i < ch.n; ++i) {
+        if (ch.gap(i)) continue;
+        const Json* ah = d[size_t(k++)].get("ahead");
+        TEST_ASSERT_EQUAL_MESSAGE(ah && ah->b, ch.ahead(i), (name + " dot ahead").c_str());
+      }
+      TEST_ASSERT_EQUAL_INT_MESSAGE(int(d.size()), k, name.c_str());
+    }
+    TEST_ASSERT_EQUAL_STRING_MESSAGE(o.get("key")->str.c_str(), hist::chartKey(ch).c_str(), (name + " key").c_str());
+    ++cases;
+  }
+  for (auto& c : j.get("joinState")->arr) {
+    auto st = [](const std::string& n) {
+      return n == "ok" ? hist::State::Ok : n == "loading" ? hist::State::Loading : n == "tooMany" ? hist::State::TooMany
+             : n == "needsStats" ? hist::State::NeedsStats : hist::State::None;
+    };
+    TEST_ASSERT_EQUAL_STRING(c.get("out")->str.c_str(), hist::stateName(hist::joinState(st(c.get("past")->str), st(c.get("ahead")->str))));
     ++cases;
   }
   std::printf("history series vectors: %d cases\n", cases);
@@ -2264,6 +2626,7 @@ int main(int, char**) {
   RUN_TEST(test_refresh_policy);
   RUN_TEST(test_night_window);
   RUN_TEST(test_quiet_spec_vectors);
+  RUN_TEST(test_empty_house_vectors);
   RUN_TEST(test_idle_swipe_debounce);
   RUN_TEST(test_formatting);
   RUN_TEST(test_home_data_missing_is_dash);
@@ -2277,6 +2640,7 @@ int main(int, char**) {
   RUN_TEST(test_cpu_mhz_for);
   RUN_TEST(test_glance_vectors);
   RUN_TEST(test_battery_history_vectors);
+  RUN_TEST(test_gauge_filter_vectors);
   RUN_TEST(test_glance_snapshot_and_rtc);
   RUN_TEST(test_sleep_now_vectors);
   RUN_TEST(test_migration_spec_vectors);
@@ -2299,5 +2663,7 @@ int main(int, char**) {
   RUN_TEST(test_history_store_psram);
   RUN_TEST(test_history_chart_vectors);
   RUN_TEST(test_history_series_vectors);
+  RUN_TEST(test_weather_vectors);
+  RUN_TEST(test_quiet_tomorrow_vectors);
   return UNITY_END();
 }

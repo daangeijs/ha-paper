@@ -8,6 +8,7 @@
 #include "app/gen/icons.h"
 #include "app/gfx/font.h"
 #include "app/gfx/style.h"
+#include "core/qr.h"
 #include "hw/platform.h"
 
 namespace x4 {
@@ -48,7 +49,7 @@ struct TextOpts {
 };
 inline TextOpts C(Ink c) { TextOpts o; o.color = c; return o; }
 
-struct Hit { Rect r; std::function<void()> fn; std::string region; };
+struct Hit { Rect r; std::function<void()> fn; std::string region; bool slide = false; };   // slide: a drag starting here runs fn too
 
 class Canvas {
  public:
@@ -73,6 +74,9 @@ class Canvas {
   // the tone under the segment (xa, ya)–(xb, yb) down to yBase, one 1 px column per x (history area fill, #304)
   void toneUnder(int xa, int ya, int xb, int yb, int yBase, Tone t);
   void line(int x0, int y0, int x1, int y1, int th, Ink c);   // th×th pen along a Bresenham path, no anti-aliasing (1-bit safe)
+  // line() in dashes of `dash` path steps, `gapLen` off; `phase` = steps already walked (dashes run on across joints). One
+  // record (history forecast, #307). Returns the phase at the end.
+  int dashedLine(int x0, int y0, int x1, int y1, int th, int dash, int gapLen, Ink c, int phase = 0);
   void circle(int cx, int cy, int r, Ink fillC, int bw = 0, Ink border = Ink::Black);
   // palette entries without a native level (gfx/style.h Tone): rounded rect / circle / pill filled with the pattern
   void tone(Rect r, int radius, Tone t);
@@ -82,6 +86,8 @@ class Canvas {
   void invert(Rect r);
   void icon(Icon i, int x, int y, Ink c = Ink::Black);
   void qr(int x, int y, int px, const std::string& text);   // px = target size; modules are integer-scaled
+  // modules of `m` at (x, y), `scale` px each; records a hash of the modules, never the text (guest Wi-Fi, #329)
+  void qrModules(int x, int y, int scale, const QrMatrix& m);
 
   // text (baseline positioning); returns advance width
   int text(int x, int baseline, const std::string& s, Font f, const TextOpts& o = TextOpts());
@@ -95,6 +101,7 @@ class Canvas {
   int paragraph(int x, int top, int w, int lineH, const std::string& s, Font f, const TextOpts& o = TextOpts(), int maxLines = 0);
 
   void hit(Rect r, std::function<void()> fn);
+  void slider(Rect r, std::function<void()> fn);   // a hit that also takes drags (#351)
 
   // Pixels drawn in G1/G2 (outside the Sleek card surface) since start: the B/W-only lint (issue #38, test_app).
   static uint32_t grayPuts;

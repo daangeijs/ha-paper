@@ -3,7 +3,9 @@
 // After `lightTimeout` seconds without a key or touch the front light goes off; the brightness setting stays. The
 // first key or tap after that (not Power) only turns the light back on and does nothing else, like ambient's
 // "chrome back". Home Assistant updates and redraws never turn it on. Standby keeps the light off; quiet hours leave it
-// to the timeout (#295), and a press on the quiet face shows the dashboard instead of being consumed.
+// to the timeout (#295), and a press on the quiet face shows the dashboard instead of being consumed. A timer wake
+// (glance, quiet-hours end, OTA) boots with the light off (#357): nobody pressed anything.
+import type { WakeKind } from './quiet.ts';
 
 /** Settings › Display › Light off: seconds, 0 = never. */
 export const LIGHT_TIMEOUTS = [30, 60, 120, 300, 0];
@@ -20,3 +22,6 @@ export const frontlightPct = ({ brightness, standby, lightOut }: LightIn): numbe
  *  in standby). */
 export const lightWakeConsumes = (l: LightIn & { quiet: boolean; power: boolean }): boolean =>
   l.lightOut && l.brightness > 0 && !l.standby && !l.quiet && !l.power;
+
+/** The light comes on at boot, except after a timer wake (#357); then the first key or tap turns it on, not consumed. */
+export const lightOnBoot = (wake: WakeKind): boolean => wake !== 'timer';

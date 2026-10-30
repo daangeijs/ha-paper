@@ -1,5 +1,5 @@
 {
-  "description": "Front light timeout (issue #220). lightTimedOut(idleMs, timeoutSec): the light goes off after timeoutSec s without a key or touch; 0 = never. frontlightPct(brightness, standby, lightOut): the level the board gets; the brightness setting is unchanged; quiet hours leave it to the timeout (#295). lightWakeConsumes(brightness, standby, quiet, lightOut, power): the first key/tap (not Power) after the timeout only turns the light back on; not on the quiet face, where it shows the dashboard. Home Assistant updates never wake it. Emulator src/core/frontlight.ts, firmware src/core/logic.h.",
+  "description": "Front light timeout (issue #220). lightTimedOut(idleMs, timeoutSec): the light goes off after timeoutSec s without a key or touch; 0 = never. frontlightPct(brightness, standby, lightOut): the level the board gets; the brightness setting is unchanged; quiet hours leave it to the timeout (#295). lightWakeConsumes(brightness, standby, quiet, lightOut, power): the first key/tap (not Power) after the timeout only turns the light back on; not on the quiet face, where it shows the dashboard. Home Assistant updates never wake it. lightOnBoot(wake): the light comes on at boot except after a timer wake (glance, quiet-hours end, OTA; #357): nobody is there, the first key or tap turns it on (not consumed). Emulator src/core/frontlight.ts, firmware src/core/logic.h.",
   "timeouts": [30, 60, 120, 300, 0],
   "default": 60,
   "timedOut": [
@@ -57,5 +57,12 @@
     {"brightness": 40, "standby": true, "quiet": true, "lightOut": false, "power": true, "expect": false},
     {"brightness": 40, "standby": true, "quiet": true, "lightOut": true, "power": false, "expect": false},
     {"brightness": 40, "standby": true, "quiet": true, "lightOut": true, "power": true, "expect": false}
+  ],
+  "boot": [
+    {"wake": "cold", "expect": true},
+    {"wake": "timer", "expect": false},
+    {"wake": "button", "expect": true},
+    {"wake": "charger", "expect": true},
+    {"wake": "other", "expect": true}
   ]
 }

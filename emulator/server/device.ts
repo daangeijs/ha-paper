@@ -21,8 +21,8 @@ import { CPU_MHZ, powerDecision, powerSource, sleepNowCheck, type PowerDecision,
 import { sleptSeconds, tallySleep, tallyWake, TALLY_ZERO, type WakeTally } from '../src/core/glance.ts';
 import { LOG_TAIL_CAP, logPush, logRing, logSplit, logsQuery, logTail, type LogRing, type LogsQuery } from '../src/core/logs.ts';
 import { changedRegions, serializeRegion, type RegionMap } from '../src/core/regions.ts';
-import { attrSamples, bucketize, chartSpan, fromHistoryRows, fromSamples, fromStatistics, historyError, historyFallbackOk, historySpec, statsPeriod, statsType, type HistorySpec, type Point, type Series, type StatRow } from '../src/core/history.ts';
-import { chartKey, historyChart, type HistState } from '../src/core/historyChart.ts';
+import { attrSamples, bucketize, chartSpan, fromHistoryRows, fromSamples, fromStatistics, historyError, historyFallbackOk, historySpec, joinSeries, pastSpec, statsPeriod, statsType, type HistorySpec, type Point, type Series, type StatRow } from '../src/core/history.ts';
+import { chartKey, historyChart, joinState, type HistState } from '../src/core/historyChart.ts';
 import { parseHaAddress, resolveHaAddress, HA_PROBE_PATH, HA_PROBE_COOLDOWN_MS, HA_PROBE_BUSY, type HaResolved, type ProbeAnswer } from '../src/core/haAddress.ts';
 import { authorizeUrl, exchangeCode, HaHttpError, HaSocket, randomToken, refreshAccess, revokeToken } from './ha-client.ts';
 import { latestFor, sha256, type Manifest, type SimRelease } from './ota.ts';
@@ -92,7 +92,7 @@ export type Settings = {
   entities?: EntityOverrides;
 };
 export const DEFAULT_SETTINGS = (): Settings => ({
-  display: { brightness: 0, warmth: 40, lightTimeout: 60, quiet: '23-07', returnHome: '5', standby: 'never', clock: '24', intervalSec: 30, fullEvery: 8, cleanEvery: 30, style: 'classic', typeface: 'archivo', surface: 'dither', haReport: true, powerSave: 'glance', wakeEvery: 15, liveMin: 3, debugInput: false },
+  display: { brightness: 0, warmth: 40, lightTimeout: 60, quiet: '23-07', returnHome: '5', standby: 'never', clock: '24', intervalSec: 30, fullEvery: 8, cleanEvery: 30, style: 'classic', typeface: 'archivo', surface: 'dither', haReport: true, powerSave: 'glance', wakeEvery: 15, liveMin: 3, emptyHouse: '', debugInput: false, morning: true },
   ota_channel: 'stable', tz: '', name: 'HA Paper',
 });
 /** Merge a partial settings object; returns an error message (422) or null. */
@@ -205,6 +205,9 @@ export class DeviceSim {
   checkFail: 'ok' | OtaErr = 'ok';
   /** POST /ota/upload is receiving an image (firmware otaUploadBegin … End/Abort); version '' = not known (#237). */
   upload: { version: string } | null = null;
+  /** The web console on the www partition (#350, firmware net/www_ota.h): its version.txt (null = older than #350 /
+   *  missing), the partition sha once known, and why the last write failed. Not persisted: a sim boot has a current one. */
+  www: { version: string | null; sha256: string | null; failed: string } = { version: null, sha256: null, failed: '' };
   ha: { socket: HaSocket | null; access: string | null; accessExp: number; connected: boolean; entities: Map<string, { s: string; a: Record<string, any> }>; lastEvent: string | null; version: string; retry?: ReturnType<typeof setTimeout>; retryMs: number; areas: number;
     /** logical id → HA entity from the Energy dashboard (a small subset of firmware core/entity_map; no device discovery, no statistics) */
     alias: Record<string, string> } =
@@ -256,6 +259,7 @@ export class DeviceSim {
     this.p = fromFile || presetState(o.preset || 'installed', o.haUrl, (o.preset || 'installed') === 'installed' ? this.presetLink() : null);
     // The HA URL comes from the command line (firmware: mDNS discovery `_home-assistant._tcp`).
     this.p.ha.url = o.haUrl; this.p.ha.server = new URL(o.haUrl).host; this.discovered = new URL(o.haUrl).origin; this.haLocal = new URL(o.haUrl).hostname;
+    this.www = { version: this.p.ota.fw, sha256: null, failed: '' };   // flashed together (make flash / web flasher)
     this.log('DEVICE ' + (fromFile ? 'state loaded from ' + this.stateFile : 'preset ' + (o.preset || 'installed')) + ' · fw ' + this.p.ota.fw + ' · HA ' + this.p.ha.url);
     if (!this.p.diag) this.p.diag = { ring: [], coredump: null };
     this.p.diag.ring = diagPush(this.p.diag.ring, 'POWERON', this.p.ota.fw, null);
@@ -490,7 +494,10 @@ export class DeviceSim {
     const cur = this.shown[this.display.idx]; if (!cur) return [];
     const out = new Map<string, HistorySpec>();
     for (const sc of this.p.screens) if (sc.app === cur.app) for (const w of sc.widgets)
-      if (w.type === 'history' && typeof w.entity === 'string' && !historyError(w)) { const sp = historySpec(w); out.set(this.histKey(sp), sp); }
+      if (w.type === 'history' && typeof w.entity === 'string' && !historyError(w)) {
+        const sp = historySpec(w); out.set(this.histKey(sp), sp);
+        if (sp.past) { const p = pastSpec(sp); out.set(this.histKey(p), p); }   // #307: the recorder before now
+      }
     return [...out.values()];
   }
   /** A screen change into another app fetches that app's history tiles. */
@@ -556,8 +563,12 @@ export class DeviceSim {
     if (historyError(w) || typeof w.entity !== 'string') return 'invalid';
     const sp = historySpec(w); const h = this.hist.get(this.histKey(sp)); const now = h?.at ?? Date.now(), tz = this.tzMinutes(now);
     const lg = langOf(this.p.language ?? 'en');
-    const c = historyChart(sp, h?.series ?? null, h?.state ?? 'loading', now, tz, lg, (v) => fmtNum(v, ''));
-    return chartKey(c, h?.series?.values ?? []);
+    // #307: a tile with `past` joins the recorder series of its past entity before now
+    const p = sp.past ? this.hist.get(this.histKey(pastSpec(sp))) : undefined;
+    const series = sp.past ? joinSeries(sp, p?.series ?? null, h?.series ?? null, now, tz) : h?.series ?? null;
+    const state = sp.past ? joinState(p?.state ?? 'loading', h?.state ?? 'loading') : h?.state ?? 'loading';
+    const c = historyChart(sp, series, state, now, tz, lg, (v) => fmtNum(v, ''));
+    return chartKey(c, series?.values ?? []);
   }
   /** History tiles of the app shown, for __sim/state (like the firmware's /console/state history block, #269). */
   histState() {
@@ -881,7 +892,7 @@ export class DeviceSim {
   wantedEntities(): string[] | null {
     const ids = new Set<string>(); let lists = false; const map = this.mapOf();
     for (const sc of this.p.screens) for (const w of sc.widgets) {
-      if ((w.type === 'stat' || w.type === 'switch' || w.type === 'scene' || w.type === 'history') && typeof w.entity === 'string') ids.add(w.entity);
+      if ((w.type === 'stat' || w.type === 'switch' || w.type === 'scene' || w.type === 'history' || w.type === 'media') && typeof w.entity === 'string') ids.add(w.entity);
       if (w.type === 'gauge') ids.add(typeof w.entity === 'string' ? w.entity : 'sensor.home_battery_soc');
       if (w.type === 'price') ids.add(map['sensor.energy_prices']?.ha || 'sensor.electricity_price');
       if (w.type === 'thermo' && w.zone) ids.add('climate.' + w.zone);   // no zone yet (#148): nothing to watch
@@ -950,6 +961,7 @@ export class DeviceSim {
       last_check: this.otaRun.lastCheck ? this.otaRun.lastCheck.toISOString() : null, message: this.otaRun.message || (this.otaRepo ? '' : OTA_CHECKS_OFF_MSG),
       error: this.otaRun.status === 'error' ? this.otaRun.error ?? null : null,
       progress: this.display.progress ? this.display.progress.pct : this.otaRun.status === 'updated' ? 100 : 0, repo: this.otaRepo,
+      www: this.wwwState(),
     };
   }
   otaCheck(): string | null {
@@ -1018,6 +1030,19 @@ export class DeviceSim {
     this.upload = null; this.otaRun = { ...this.otaRun, status: 'error', message: msg };
     this.display.mode = 'main'; this.display.progress = null; this.fullRefresh('update failed');
   }
+  /** GET /ota `www` (#350) */
+  wwwState() {
+    const w = this.www;
+    const current = !w.failed && w.version === this.p.ota.fw;
+    return { version: w.version, sha256: w.sha256, current, state: w.failed ? 'failed' : current ? 'current' : 'stale', message: w.failed };
+  }
+  /** A www.bin landed (upload or release). The sim cannot read version.txt out of a LittleFS image: an uploaded one counts
+   *  as the running firmware's console. */
+  wwwWritten(sha: string | null, version = this.p.ota.fw) {
+    this.www = { version, sha256: sha, failed: '' };
+    this.log('WWW console v' + version + ' written' + (sha ? ' · sha256 ' + sha.slice(0, 12) + '…' : ''));
+  }
+  wwwFailed(msg: string) { this.www = { version: null, sha256: null, failed: msg }; this.log('WWW rewrite failed · ' + msg); }
   get otaBusy(): boolean { return ['downloading', 'installing', 'verifying'].includes(this.otaRun.status); }
   /** After a verified image (download or upload): set boot partition, restart, health check (or roll back). */
   rebootInto(m: Manifest) {
@@ -1035,6 +1060,8 @@ export class DeviceSim {
         this.boot('Update failed — back on v' + prev);
       } else {
         this.log('health check passed · esp_ota_mark_app_valid_cancel_rollback()');
+        // firmware net/ota.cpp wwwSync: with checks on, the confirmed image fetches the www.bin of its own release
+        if (this.otaRepo && this.releases.some((r) => r.manifest.version === m.version)) this.wwwWritten(null, m.version);
         this.otaRun = { status: 'updated', avail: null, lastCheck: new Date(), message: '' };
         this.boot('Updated to v' + m.version);
       }
@@ -1073,7 +1100,7 @@ export class DeviceSim {
       boots: bootsJson(ring), last_crash: lastCrash(ring), last_wdt: null, heap: { ...SIM_HEAP, low_point: SIM_LOW_POINT },
       panel: { controller: 'UC8179', source: 'probe', verdict: 'ultrachip', promoted: true, ver: '00 00 01 FF FF', flg: 0, nvs_screen_type: 1, failed: false, failure: null },
       coredump: d.coredump, touch_recoveries: 0, deep_sleep: { armed: true, boots_left: 0, armed_by: 'boots' }, battery: battHistory(this.battTick()),
-      power_trail: { before_boot: null, lines: ['awake'] },   // #225: a fresh device marks itself awake on /power.txt
+      power_trail: { before_boot: null, lines: ['awake'], empty_house_sleeps: 0, phases: { boot: null, wakes: [] } },   // #225: a fresh device marks itself awake on /power.txt
       // #227 inbound path; served counts finished responses (http.ts), this request is still open
       web: { open: 1, served: this.web.served, refused_503: 0, last_request_age_s: this.web.lastAt ? Math.floor((Date.now() - this.web.lastAt) / 1000) : null },
       mdns: { up: !!this.p.wifi.connected, restarts: 0, last_restart_reason: null },

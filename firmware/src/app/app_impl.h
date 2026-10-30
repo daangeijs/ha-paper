@@ -10,8 +10,11 @@
 #include "core/home.h"
 #include "core/locale.h"
 #include "core/logic.h"
+#include "core/media.h"
+#include "core/morning.h"
 #include "core/recovery.h"
 #include "core/strings.h"
+#include "core/tomorrow.h"
 
 #ifdef X4_FW_VERSION
 #define X4_FW_VERSION_STR X4_FW_VERSION
@@ -28,15 +31,17 @@ enum class WifiView : uint8_t { List, Pw, Connecting, Phone };
 enum class Kb : uint8_t { Lower, Upper, Nums };
 enum class HaView : uint8_t { Status, Link };
 
-// Quiet face values (#295): label + value of the Home page's first value tiles, frozen when the face goes up. asOf:
-// "HH:MM" of the last data, only when it was stale (#27).
-struct QuietSnap { bool taken = false; std::vector<std::pair<std::string, std::string>> rows; std::string asOf; };
+// Quiet face (#295): the "Tomorrow" row (#328, core/tomorrow.h), built when the face goes up. asOf: "HH:MM" of the last
+// data, only when it was stale (#27).
+struct QuietSnap { bool taken = false; quiet::Row row; std::string asOf; };
 
 struct LocalTime {
   bool known = false;
   int h = 0, m = 0, minuteOfDay = 0;
   std::string clock = "--:--";   // per 12/24-hour setting
   std::string date;              // "Tuesday 13 October"
+  std::string day = "—";         // "13": asleep, the big day number in place of a clock (#333)
+  std::string dayLine;           // "Tuesday · October" under it
   std::string hm = "—";          // always 24 h, for "updated HH:MM"
   int64_t epochMs = 0;           // now, for the history chart span (#270)
   int tz = 0;                    // local UTC offset, minutes
@@ -71,6 +76,9 @@ struct App::Impl {
   bool prevQuiet = false, quietKnown = false;
   QuietSnap snap;
   std::string bootWake = "cold";   // net powerWakeName(): a boot that a timer did not cause opens with a peek (#295)
+  // Good morning page (#330, core/morning.h): kept in RTC memory by main.cpp through onMorning
+  morning::State morningSt;
+  std::function<void(const morning::State&)> onMorning;
   WifiView wview = WifiView::List;
   std::string wTarget, wPw, wMsg;
   bool wShow = false, wScanning = false;
@@ -106,6 +114,7 @@ struct App::Impl {
 
   uint32_t lastInput = 0;
   bool lightOut = false;   // front light timed out (#220); the next key/tap only turns it back on
+  bool bootDark = false;   // #357: a timer wake booted with the light off; the next key/tap turns it on (not consumed)
   bool idleHomed = false;
   bool ambient = false;   // #27: chrome hidden after kAmbientMs without input; the next input only restores it
   Chrome chr;             // top-bar parts in the frame being built (chromeFor)
@@ -122,7 +131,7 @@ struct App::Impl {
   std::string netSig;
 
   bool held = false;          // glance wake: nothing goes to the panel (App::setPanelHeld)
-  std::string asleepAt;       // #299: non-empty = going to deep sleep; clocks show this time as "updated"
+  std::string asleepAt;       // #299: non-empty = going to deep sleep; #333: clocks show the date, no time of day
   uint32_t panelMs = 0;       // last panel refresh call, ms (log line, #197/#200)
   uint32_t renderMs = 0;      // framebuffer draw before it, ms (log line, #212)
   uint32_t buildMs = 0, recordMs = 0;   // renderMs split (#213): region build, signature record; the rest is paint
@@ -141,10 +150,19 @@ struct App::Impl {
   uint32_t freshAt = 0, freshUntil = 0;
   void expectData(uint32_t delayMs, uint32_t windowMs) { fresh = true; freshAt = ms() + delayMs; freshUntil = freshAt + windowMs; }
 
-  // history tile series (#270), in PSRAM: one slot per hist::seriesKey, at most kMaxTiles
+  // history tile series (#270), in PSRAM: one slot per hist::seriesKey; a tile with `past` (#307) has two
+  static constexpr int kHistSlots = 2 * hist::kMaxTiles;
   struct HistSlot { PStr key; hist::State state = hist::State::Loading; hist::Series s; };
   std::vector<HistSlot, PsramAlloc<HistSlot>> hist;
   const HistSlot* histOf(const std::string& key) const;
+  // weather forecasts (#318), in PSRAM: one slot per weather entity of the config (≤ wx::kMaxTiles)
+  struct WxSlot { PStr entity; wx::Forecast fc; };
+  std::vector<WxSlot, PsramAlloc<WxSlot>> wx;
+  const wx::Forecast* wxOf(const std::string& entity) const;
+  // agenda / next tile events (#316), in PSRAM: one slot per calendar set (agenda::keyOf), at most agenda::kMaxTiles
+  struct AgendaSlot { PStr key; agenda::State state = agenda::State::Loading; agenda::Fetch f; };
+  std::vector<AgendaSlot, PsramAlloc<AgendaSlot>> agendas;
+  const AgendaSlot* agendaOf(const std::string& key) const;
 
   // ---- derived per frame ----
   HomeData data;
@@ -166,6 +184,11 @@ struct App::Impl {
   bool offline() const;
   bool quietHour() const;     // quiet hours (#295, core/logic.h): clock known and inside the window
   bool quietActive() const;   // the quiet face is up: quietHour, not peeking, not in setup (standby too)
+  bool houseEmptyNow() const; // #331: settings emptyHouse set and its entity says nobody is home (core/empty_house.h)
+  bool emptyActive() const;   // #331: the Nobody home face is up: asleep in glance, house empty, not quiet, not in setup
+  bool morningActive() const; // the Good morning page is up (#330): until not reached, main, no setup, no quiet face
+  bool glanceFaceActive() const;   // #356: the sleep face is up: asleep in glance, not quiet / Nobody home / morning
+  int sleepKind() const;      // the sleeping panel's whole face: 0 dashboard, 1 Nobody home, 2 glance sleep face
   bool clockOnPage() const;   // the current page shows a clock tile (ambient drops the bar clock)
   int curSub() const;
   const Screen* curScreen() const;
@@ -204,6 +227,9 @@ struct App::Impl {
   void tick();
   void idleCheck();
   void checkQuiet();
+  void checkMorning();                   // #330: once per loop, before checkQuiet
+  void morningDone(const char* src);     // a press: the page ends, the start page shows
+  void saveMorning(const morning::State& s);
   void netChanged();
   void applyFrontlight();
   void captureSnap();
@@ -220,6 +246,18 @@ struct App::Impl {
   void roomLights(const std::string& area, const std::vector<std::string>& ids);
   void allOff();
   void runScene(const SceneAction& s);   // scene tile (#146)
+  // now playing tile (#319): mediaPick = "idx:sub:tile" whose favorites picker is open (a page change closes it)
+  std::string mediaPick;
+  std::string mediaKey(int tile) const { return std::to_string(idx) + ":" + std::to_string(sub) + ":" + std::to_string(tile); }
+  void mediaRun(const media::Action& act, bool pick);
+  void mediaPicker(const std::string& key);
+  // volume slider (#351): the level drawn until HA reports it (± 1 %) or 10 s pass; touchX = x of the tap / drag end
+  // running the current hit (a slider reads it)
+  struct VolOv { int pct; uint32_t until; };
+  std::map<std::string, VolOv> mediaVolOv;
+  int touchX = 0;
+  void mediaVolume(const Widget& w, int pct);
+  bool slide(int x, int y, int ex);   // a drag / swipe that starts on a slider sets it; false = not on one
   void setCfg(const std::string& key, int dir);
   void wifiPick(const WifiNetwork& n);
   void wifiKey(const std::string& k);
@@ -263,8 +301,13 @@ Rect clockTimeRect(I& a, const Widget& w, Rect r);    // "k<i>" inside clock til
 void clockTime(Canvas& c, I& a, const Widget& w, Rect r);
 void menu(Canvas& c, I& a, Rect r);
 void bootFace(Canvas& c, I& a);
+// One sleep face (#356, ui_chrome.cpp sleepFace): quiet hours, Nobody home (#331) and glance sleep, each with its lines
 void quietFace(Canvas& c, I& a);
-std::vector<std::pair<std::string, std::string>> quietRows(I& a);   // label, value of the quiet face's tiles
+void emptyFace(Canvas& c, I& a);
+void glanceFace(Canvas& c, I& a);
+void morningFace(Canvas& c, I& a);   // #330 (ui_morning.cpp)
+quiet::Row quietRow(I& a, int endHour);   // the Tomorrow / Today row from the weather, agenda and bins tiles' data
+std::string staleAt(I& a);   // "HH:MM" of the last data when it is stale (nightStale), else 
 void standbyFace(Canvas& c, I& a);
 void updatingFace(Canvas& c, I& a);
 void recoveryFace(Canvas& c, I& a);
@@ -283,9 +326,16 @@ std::string gapText(I& a, EntityGap g);
 // Scene tile (#146, emulator Emulator.tsx scene): the label / HA name / "All lights off", and the line under it.
 std::string sceneLabel(I& a, const Widget& w, const SceneAction& s);
 std::string sceneSub(I& a, const SceneAction& s);
+// Now playing tile (#319, ui_media.cpp; emulator Device.tsx MediaTile): both styles (Sleek: pill buttons).
+void mediaTile(Canvas& c, I& a, const Widget& w, int i, Rect r);
+Rect mediaVolumeRect(I& a, const Widget& w, int i, Rect r);   // #351: the slider's own region; w = 0: none
+void mediaVolume(Canvas& c, I& a, const Widget& w, Rect tile, Rect bar);
 
 void tile(Canvas& c, I& a, const Widget& w, int i, Rect r);   // simple (single-region) tiles
+void weatherTile(Canvas& c, I& a, const Widget& w, Rect r);   // #318, both looks (ui_weather.cpp)
 std::string tileValue(I& a, const Widget& w);                 // GET /screens/{id}/values (#122)
+void binsTile(Canvas& c, I& a, const Widget& w, Rect r);     // bin day (#317, ui_bins.cpp)
+void guestTile(Canvas& c, I& a, const Widget& w, Rect r);    // guest Wi-Fi (#329, ui_guest.cpp)
 std::string settingValue(const I& a, const std::string& key);
 void rule(Canvas& c, int x, int y, int len, bool vertical);   // divider: Classic 2 px ink, Sleek 1 px dotted ink
 void btnBox(Canvas& c, Rect r, bool dark, int radius = 8);    // custom button background: Classic outlined, Sleek pill

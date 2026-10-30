@@ -129,17 +129,85 @@
       "en": "Back at {}",
       "nl": "Terug om {}"
     },
-    "asleepBar": {
-      "en": "Asleep · updated {}",
-      "nl": "Slaapt · bijgewerkt {}"
+    "emptyTitle": {
+      "en": "Nobody home",
+      "nl": "Niemand thuis"
     },
-    "clockAsleep": {
-      "en": "Updated · asleep",
-      "nl": "Bijgewerkt · slaapt"
+    "emptyNext": {
+      "en": "Next update ~{}",
+      "nl": "Volgende update ~{}"
+    },
+    "factDoors": {
+      "en": "Doors and windows",
+      "nl": "Deuren en ramen"
+    },
+    "factClosed": {
+      "en": "closed",
+      "nl": "dicht"
+    },
+    "factOpen": {
+      "en": "open",
+      "nl": "open"
+    },
+    "factNOpen": {
+      "en": "{} open",
+      "nl": "{} open"
+    },
+    "factAlarm": {
+      "en": "Alarm",
+      "nl": "Alarm"
+    },
+    "alarmArmed": {
+      "en": "armed",
+      "nl": "aan"
+    },
+    "alarmOff": {
+      "en": "off",
+      "nl": "uit"
+    },
+    "alarmTriggered": {
+      "en": "triggered",
+      "nl": "afgegaan"
+    },
+    "qtTomorrow": {
+      "en": "Tomorrow",
+      "nl": "Morgen"
+    },
+    "qtToday": {
+      "en": "Today",
+      "nl": "Vandaag"
+    },
+    "qtRain": {
+      "en": "rain from {}",
+      "nl": "regen vanaf {}"
+    },
+    "qtBinTonight": {
+      "en": "put out tonight",
+      "nl": "vanavond buiten zetten"
+    },
+    "qtBinTomorrow": {
+      "en": "collected tomorrow",
+      "nl": "morgen opgehaald"
+    },
+    "qtBinToday": {
+      "en": "collected today",
+      "nl": "vandaag opgehaald"
+    },
+    "asleepBar": {
+      "en": "Asleep",
+      "nl": "Slaapt"
+    },
+    "asleepDate": {
+      "en": "{} · {}",
+      "nl": "{} · {}"
     },
     "asleepFoot": {
-      "en": "Asleep · updated {} · press power to wake",
-      "nl": "Slaapt · bijgewerkt {} · druk op aan/uit"
+      "en": "Asleep · press power to wake",
+      "nl": "Slaapt · druk op aan/uit"
+    },
+    "sleepHead": {
+      "en": "Asleep · press to wake",
+      "nl": "Slaapt · druk om te wekken"
     },
     "sigWeak": {
       "en": "Weak",
@@ -281,6 +349,146 @@
       "en": "Needs long-term statistics",
       "nl": "Heeft langetermijnstatistieken nodig"
     },
+    "wxSunny": {
+      "en": "Sunny",
+      "nl": "Zonnig"
+    },
+    "wxClearNight": {
+      "en": "Clear",
+      "nl": "Helder"
+    },
+    "wxPartlyCloudy": {
+      "en": "Partly cloudy",
+      "nl": "Half bewolkt"
+    },
+    "wxCloudy": {
+      "en": "Cloudy",
+      "nl": "Bewolkt"
+    },
+    "wxFog": {
+      "en": "Fog",
+      "nl": "Mist"
+    },
+    "wxRainy": {
+      "en": "Rain",
+      "nl": "Regen"
+    },
+    "wxPouring": {
+      "en": "Heavy rain",
+      "nl": "Zware regen"
+    },
+    "wxSnowy": {
+      "en": "Snow",
+      "nl": "Sneeuw"
+    },
+    "wxSnowyRainy": {
+      "en": "Sleet",
+      "nl": "Natte sneeuw"
+    },
+    "wxHail": {
+      "en": "Hail",
+      "nl": "Hagel"
+    },
+    "wxLightning": {
+      "en": "Thunder",
+      "nl": "Onweer"
+    },
+    "wxLightningRainy": {
+      "en": "Thunder and rain",
+      "nl": "Onweer en regen"
+    },
+    "wxWindy": {
+      "en": "Windy",
+      "nl": "Winderig"
+    },
+    "wxWindyVariant": {
+      "en": "Windy, cloudy",
+      "nl": "Winderig, bewolkt"
+    },
+    "wxExceptional": {
+      "en": "Exceptional weather",
+      "nl": "Uitzonderlijk weer"
+    },
+    "wxFeels": {
+      "en": "feels {}",
+      "nl": "voelt als {}"
+    },
+    "wxHigh": {
+      "en": "High",
+      "nl": "Max"
+    },
+    "wxLow": {
+      "en": "Low",
+      "nl": "Min"
+    },
+    "wxWind": {
+      "en": "Wind",
+      "nl": "Wind"
+    },
+    "wxRain": {
+      "en": "Rain",
+      "nl": "Regen"
+    },
+    "wxRainFrom": {
+      "en": "from {}",
+      "nl": "vanaf {}"
+    },
+    "wxRainNow": {
+      "en": "now",
+      "nl": "nu"
+    },
+    "wxRainNone": {
+      "en": "none soon",
+      "nl": "voorlopig niet"
+    },
+    "wxDry": {
+      "en": "dry",
+      "nl": "droog"
+    },
+    "wxBft": {
+      "en": "{} Bft",
+      "nl": "{} Bft"
+    },
+    "wxCompass": {
+      "en": "N NE E SE S SW W NW",
+      "nl": "N NO O ZO Z ZW W NW"
+    },
+    "wxNoForecast": {
+      "en": "No forecast",
+      "nl": "Geen verwachting"
+    },
+    "wxWeather": {
+      "en": "Weather",
+      "nl": "Weer"
+    },
+    "wd0": {
+      "en": "Sun",
+      "nl": "zo"
+    },
+    "wd1": {
+      "en": "Mon",
+      "nl": "ma"
+    },
+    "wd2": {
+      "en": "Tue",
+      "nl": "di"
+    },
+    "wd3": {
+      "en": "Wed",
+      "nl": "wo"
+    },
+    "wd4": {
+      "en": "Thu",
+      "nl": "do"
+    },
+    "wd5": {
+      "en": "Fri",
+      "nl": "vr"
+    },
+    "wd6": {
+      "en": "Sat",
+      "nl": "za"
+    },
     "usually": {
       "en": "Usually {}",
       "nl": "Meestal {}"
@@ -345,6 +553,74 @@
       "en": "Pick a sensor for this route in the browser",
       "nl": "Kies in de browser een sensor voor deze route"
     },
+    "dayShort0": {
+      "en": "Sun",
+      "nl": "zo"
+    },
+    "dayShort1": {
+      "en": "Mon",
+      "nl": "ma"
+    },
+    "dayShort2": {
+      "en": "Tue",
+      "nl": "di"
+    },
+    "dayShort3": {
+      "en": "Wed",
+      "nl": "wo"
+    },
+    "dayShort4": {
+      "en": "Thu",
+      "nl": "do"
+    },
+    "dayShort5": {
+      "en": "Fri",
+      "nl": "vr"
+    },
+    "dayShort6": {
+      "en": "Sat",
+      "nl": "za"
+    },
+    "binsTitle": {
+      "en": "Bins",
+      "nl": "Afval"
+    },
+    "binToday": {
+      "en": "Today",
+      "nl": "Vandaag"
+    },
+    "binTomorrow": {
+      "en": "Tomorrow",
+      "nl": "Morgen"
+    },
+    "binInDays": {
+      "en": "in {} days",
+      "nl": "over {} dagen"
+    },
+    "binTonight": {
+      "en": "Tonight",
+      "nl": "Vanavond"
+    },
+    "binPutOut": {
+      "en": "Put out tonight",
+      "nl": "Vanavond buiten"
+    },
+    "binLine": {
+      "en": "{} · {}",
+      "nl": "{} · {}"
+    },
+    "binLineTonight": {
+      "en": "{} · put out tonight",
+      "nl": "{} · vanavond buiten zetten"
+    },
+    "binsNone": {
+      "en": "No collection date",
+      "nl": "Geen ophaaldatum"
+    },
+    "binsPick": {
+      "en": "Pick bin sensors in the browser",
+      "nl": "Kies in de browser je afvalsensoren"
+    },
     "heatingTo": {
       "en": "Heating to {}",
       "nl": "Verwarmt naar {}"
@@ -396,6 +672,58 @@
     "sceneBuiltIn": {
       "en": "Built in",
       "nl": "Ingebouwd"
+    },
+    "nowPlaying": {
+      "en": "Now playing",
+      "nl": "Nu speelt"
+    },
+    "mediaPlaying": {
+      "en": "Playing",
+      "nl": "Speelt"
+    },
+    "mediaPaused": {
+      "en": "Paused",
+      "nl": "Gepauzeerd"
+    },
+    "mediaLoading": {
+      "en": "Loading",
+      "nl": "Laden"
+    },
+    "mediaNothing": {
+      "en": "Nothing playing",
+      "nl": "Er speelt niets"
+    },
+    "favorites": {
+      "en": "Favorites",
+      "nl": "Favorieten"
+    },
+    "media": {
+      "en": "Media",
+      "nl": "Media"
+    },
+    "favAdd": {
+      "en": "Add",
+      "nl": "Toevoegen"
+    },
+    "favName": {
+      "en": "Favorite name",
+      "nl": "Naam van de favoriet"
+    },
+    "favTarget": {
+      "en": "type:id, script or scene",
+      "nl": "type:id, script of scène"
+    },
+    "favHint": {
+      "en": "A station, playlist or URL as type:id (music:http://…, playlist:…), or a script or scene. At most 6.",
+      "nl": "Een zender, afspeellijst of URL als type:id (music:http://…, playlist:…), of een script of scène. Hoogstens 6."
+    },
+    "favBad": {
+      "en": "Write type:id (like music:http://…) or pick a script or scene",
+      "nl": "Schrijf type:id (zoals music:http://…) of kies een script of scène"
+    },
+    "favRemove": {
+      "en": "Remove {}",
+      "nl": "{} verwijderen"
     },
     "setHome": {
       "en": "Set to Home",
@@ -861,6 +1189,86 @@
       "en": "Rooms to show",
       "nl": "Te tonen kamers"
     },
+    "pickBins": {
+      "en": "Bin sensors",
+      "nl": "Afvalsensoren"
+    },
+    "pickBinsHint": {
+      "en": "Tick each bin’s sensor and name it, e.g. Paper",
+      "nl": "Vink de sensor van elke container aan en geef hem een naam, bijv. Papier"
+    },
+    "binName": {
+      "en": "Name of {}",
+      "nl": "Naam van {}"
+    },
+    "guestTitle": {
+      "en": "Guest Wi-Fi",
+      "nl": "Gastenwifi"
+    },
+    "guestNetwork": {
+      "en": "Network",
+      "nl": "Netwerk"
+    },
+    "guestPassword": {
+      "en": "Password",
+      "nl": "Wachtwoord"
+    },
+    "guestOpen": {
+      "en": "No password",
+      "nl": "Geen wachtwoord"
+    },
+    "guestLong": {
+      "en": "Too long for a QR code",
+      "nl": "Te lang voor een QR-code"
+    },
+    "guestPick": {
+      "en": "Enter the network in the browser",
+      "nl": "Vul het netwerk in via de browser"
+    },
+    "guestWait": {
+      "en": "No password from Home Assistant",
+      "nl": "Geen wachtwoord van Home Assistant"
+    },
+    "guestSsid": {
+      "en": "Network name",
+      "nl": "Netwerknaam"
+    },
+    "guestPw": {
+      "en": "Password",
+      "nl": "Wachtwoord"
+    },
+    "guestShowPw": {
+      "en": "Show",
+      "nl": "Tonen"
+    },
+    "guestHidePw": {
+      "en": "Hide",
+      "nl": "Verbergen"
+    },
+    "guestSecurity": {
+      "en": "Security",
+      "nl": "Beveiliging"
+    },
+    "guestSecOpen": {
+      "en": "None",
+      "nl": "Geen"
+    },
+    "guestHidden": {
+      "en": "Hidden network",
+      "nl": "Verborgen netwerk"
+    },
+    "guestPwEntity": {
+      "en": "Password from Home Assistant (optional)",
+      "nl": "Wachtwoord uit Home Assistant (optioneel)"
+    },
+    "guestPwEntityHint": {
+      "en": "An input_text, text or sensor whose state is the password; it overrides the password above.",
+      "nl": "Een input_text, text of sensor met het wachtwoord als status; gaat voor het wachtwoord hierboven."
+    },
+    "guestNote": {
+      "en": "The guest password is stored in the screen config: anyone with access to this console or the display’s API can read it.",
+      "nl": "Het gastwachtwoord staat in de schermconfiguratie: iedereen met toegang tot deze console of de API van het scherm kan het lezen."
+    },
     "pickAllLights": {
       "en": "Nothing picked: every light, grouped by area.",
       "nl": "Niets gekozen: alle lampen, per ruimte."
@@ -1137,21 +1545,29 @@
       "en": "Quiet hours",
       "nl": "Stille uren"
     },
+    "setEmptyHouse": {
+      "en": "Sleep longer when nobody is home",
+      "nl": "Standby als niemand thuis is"
+    },
     "infoCleanEvery": {
       "en": "E-paper leaves faint traces of old images. Every so often the display flashes black and white once to clear them.",
       "nl": "E-paper houdt vage resten van oude beelden vast. Af en toe knippert het scherm één keer zwart en wit om ze weg te halen."
     },
     "infoPowerSave": {
-      "en": "How the display saves battery when not on USB. Always live stays connected and updates within seconds (days of battery). Standby sleeps while the standby screen is on. Glance sleeps, wakes on its own to update, and stays live for a few minutes after you press a button (weeks of battery).",
-      "nl": "Hoe het scherm batterij spaart als het niet aan USB hangt. Altijd live blijft verbonden en werkt binnen seconden bij (dagen batterij). Stand-by slaapt zolang het stand-by-beeld aan staat. Oogopslag slaapt, wordt vanzelf wakker om bij te werken en blijft een paar minuten live nadat je op een knop drukt (weken batterij)."
+      "en": "How the display saves battery when not on USB. Always live stays connected and updates within seconds (days of battery). Standby sleeps while the standby screen is on. Glance shows a calm sleep screen and sleeps until you press a button: it wakes on its own only at midnight and around quiet hours. A press shows the dashboard for a few minutes (weeks of battery).",
+      "nl": "Hoe het scherm batterij spaart als het niet aan USB hangt. Altijd live blijft verbonden en werkt binnen seconden bij (dagen batterij). Stand-by slaapt zolang het stand-by-beeld aan staat. Oogopslag toont een rustig slaapscherm en slaapt tot je op een knop drukt: het wordt alleen om middernacht en rond de stille uren vanzelf wakker. Een knopdruk toont een paar minuten het dashboard (weken batterij)."
     },
     "infoQuiet": {
       "en": "Between these hours the display rests. On battery it sleeps and does not wake on its own. On USB it stays connected, but the screen does not change. A press shows the dashboard.",
       "nl": "Tussen deze uren rust het scherm. Op batterij slaapt het en wordt het niet vanzelf wakker. Aan USB blijft het verbonden, maar verandert het beeld niet. Een knopdruk toont het dashboard."
     },
     "infoWakeEvery": {
-      "en": "In Glance and Standby: how often the display wakes on its own to update the screen.",
-      "nl": "In Oogopslag en Stand-by: hoe vaak het scherm vanzelf wakker wordt om het beeld bij te werken."
+      "en": "In Standby: how often the display wakes on its own to update the screen. Glance wakes only at midnight and around quiet hours.",
+      "nl": "In Stand-by: hoe vaak het scherm vanzelf wakker wordt om het beeld bij te werken. Oogopslag wordt alleen om middernacht en rond de stille uren wakker."
+    },
+    "infoEmptyHouse": {
+      "en": "In Glance: while nobody is home, the display updates every 2 hours instead and shows \"Nobody home\". Pick what tells it: the Home zone (number of people in it) or an on/off helper (off = nobody home). A press shows the dashboard as usual; quiet hours come first.",
+      "nl": "In Oogopslag: als niemand thuis is, ververst het scherm elke 2 uur en toont het \"Niemand thuis\". Kies wat dat vertelt: de zone Thuis (aantal mensen erin) of een aan/uit-helper (uit = niemand thuis). Een druk toont het dashboard zoals altijd; stille uren gaan voor."
     },
     "infoLiveMin": {
       "en": "In Glance: how long the display stays live after you press a button.",
@@ -2125,6 +2541,10 @@
       "en": "Scene or script",
       "nl": "Scène of script"
     },
+    "palBins": {
+      "en": "Bin day",
+      "nl": "Afvalkalender"
+    },
     "routeMode": {
       "en": "Kind",
       "nl": "Soort"
@@ -2284,6 +2704,10 @@
     "histTimeField": {
       "en": "Time field",
       "nl": "Tijdveld"
+    },
+    "histPast": {
+      "en": "Past from",
+      "nl": "Verleden uit"
     },
     "histShows": {
       "en": "Shows",
@@ -3204,6 +3628,134 @@
     "capEntities": {
       "en": "Showing {} of {} Home Assistant entities, the most useful first",
       "nl": "Toont {} van {} Home Assistant-entiteiten, de nuttigste eerst"
+    },
+    "agTitle": {
+      "en": "Agenda",
+      "nl": "Agenda"
+    },
+    "agNext": {
+      "en": "Next",
+      "nl": "Hierna"
+    },
+    "agToday": {
+      "en": "Today",
+      "nl": "Vandaag"
+    },
+    "agTomorrow": {
+      "en": "Tomorrow",
+      "nl": "Morgen"
+    },
+    "agAllDay": {
+      "en": "all day",
+      "nl": "hele dag"
+    },
+    "agBusy": {
+      "en": "Busy",
+      "nl": "Bezet"
+    },
+    "agInMin": {
+      "en": "in {} min",
+      "nl": "over {} min"
+    },
+    "agInH": {
+      "en": "in {} h",
+      "nl": "over {} uur"
+    },
+    "agMore": {
+      "en": "+{} more this week",
+      "nl": "+{} meer deze week"
+    },
+    "agNothing": {
+      "en": "Nothing planned this week",
+      "nl": "Niets gepland deze week"
+    },
+    "agNothingNext": {
+      "en": "Nothing planned",
+      "nl": "Niets gepland"
+    },
+    "agUnavailable": {
+      "en": "Calendar not available",
+      "nl": "Agenda niet beschikbaar"
+    },
+    "agDay0": {
+      "en": "Sun",
+      "nl": "zo"
+    },
+    "agDay1": {
+      "en": "Mon",
+      "nl": "ma"
+    },
+    "agDay2": {
+      "en": "Tue",
+      "nl": "di"
+    },
+    "agDay3": {
+      "en": "Wed",
+      "nl": "wo"
+    },
+    "agDay4": {
+      "en": "Thu",
+      "nl": "do"
+    },
+    "agDay5": {
+      "en": "Fri",
+      "nl": "vr"
+    },
+    "agDay6": {
+      "en": "Sat",
+      "nl": "za"
+    },
+    "palAgenda": {
+      "en": "Agenda (tall)",
+      "nl": "Agenda (hoog)"
+    },
+    "palNext": {
+      "en": "Next event (2 wide)",
+      "nl": "Volgende afspraak (2 breed)"
+    },
+    "grpCalendar": {
+      "en": "Calendar",
+      "nl": "Agenda"
+    },
+    "pickCalendars": {
+      "en": "Calendars",
+      "nl": "Agenda’s"
+    },
+    "pickCalendarHint": {
+      "en": "Pick one to four calendars",
+      "nl": "Kies een tot vier agenda’s"
+    },
+    "gmHead": {
+      "en": "Good morning",
+      "nl": "Goedemorgen"
+    },
+    "gmRainFrom": {
+      "en": "Rain from {}",
+      "nl": "Regen vanaf {}"
+    },
+    "gmRainNow": {
+      "en": "Rain now",
+      "nl": "Nu regen"
+    },
+    "gmMore": {
+      "en": "+{} more today",
+      "nl": "+{} meer vandaag"
+    },
+    "gmBinToday": {
+      "en": "collected today",
+      "nl": "vandaag opgehaald"
+    },
+    "gmBinTonight": {
+      "en": "put out tonight",
+      "nl": "vanavond buiten zetten"
+    },
+    "setMorning": {
+      "en": "Good morning",
+      "nl": "Goedemorgen"
+    },
+    "infoMorning": {
+      "en": "When quiet hours end, the display shows today's weather, events and bins for 20 minutes. A press shows the start page.",
+      "nl": "Als de stille uren voorbij zijn, toont het scherm 20 minuten het weer, de afspraken en het afval van vandaag. Een knopdruk toont de startpagina."
     }
   },
   "langOf": [

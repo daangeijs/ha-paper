@@ -1,0 +1,10 @@
+{
+  "name": "329b-guest-wifi-security",
+  "description": "Rule: security is WPA, WEP or nopass.",
+  "input": "# HA Paper display config\nversion: 1\nscreens:\n  - id: a\n    widgets:\n      - {type: guestWifi, ssid: Harbor Guest, password: x, security: WPA3, cs: 2, rs: 2}\n",
+  "expect": {
+    "ok": false,
+    "line": 6,
+    "message": "guestWifi: security must be WPA, WEP or nopass"
+  }
+}

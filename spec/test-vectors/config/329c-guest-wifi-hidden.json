@@ -1,0 +1,10 @@
+{
+  "name": "329c-guest-wifi-hidden",
+  "description": "Rule: hidden is true or false.",
+  "input": "# HA Paper display config\nversion: 1\nscreens:\n  - id: a\n    widgets:\n      - {type: guestWifi, ssid: Harbor Guest, password: x, hidden: yes, cs: 2, rs: 2}\n",
+  "expect": {
+    "ok": false,
+    "line": 6,
+    "message": "guestWifi: hidden must be true or false"
+  }
+}

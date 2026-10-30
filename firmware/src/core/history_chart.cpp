@@ -36,6 +36,12 @@ const char* stateText(State s, Lang l) {
          : s == State::NeedsStats ? tr(l, S::histNeedsStats) : "";
 }
 
+State joinState(State past, State ahead) {
+  if (past == State::Ok || ahead == State::Ok) return State::Ok;
+  if (past == State::Loading || ahead == State::Loading) return State::Loading;
+  return ahead != State::None ? ahead : past;
+}
+
 double Chart::y(double val) const { return r4(std::max(0.0, std::min(1.0, (val - r.lo) / (r.hi - r.lo)))); }
 double Chart::x(int i) const { return r4((i + 0.5) / n); }
 double Chart::edge(int i) const { return r4(double(i) / n); }
@@ -56,6 +62,7 @@ void chart(const Spec& spec, const Series* s, State st, int64_t now, int tz, Lan
     }
   }
   out.state = st;
+  out.split = pastBuckets(spec);
   static const double kEmpty[1] = {kNone};
   out.r = out.v ? yScale(out.v, out.n, spec.style, spec.min, spec.max, spec.threshold) : yScale(kEmpty, 0, spec.style, spec.min, spec.max);
   if (out.r.lo <= 0 && out.r.hi >= 0) out.zero = out.y(0);

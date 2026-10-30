@@ -3,7 +3,7 @@
 #include <cstdint>
 namespace x4 {
 enum class Icon : uint8_t {
-  StatusUnlinked, StatusOffline, StatusSync, StatusUpdate, StatusAlert, StatusAway, StatusNight, StatusLight, Train, Bus, Car, AppHome, AppHouse, AppTravel, AppSettings, Flame18, Flame16, Lock16, Phone18, Unlinked28, Wifi44, Download48, BootHome64, Moon20, Tick14, ChevLeft22, ChevRight22, ChevLeft20, ChevDown12, ChevUp12, SkSun17, SkHouse17, SkPlug17, SkBattery17, SkThermo17, SkEuro17, SkClock17, SkBolt17, SkBulb18, SkPower20, SkFlame16, ChevRight20, Count
+  StatusUnlinked, StatusOffline, StatusSync, StatusUpdate, StatusAlert, StatusAway, StatusNight, StatusLight, Train, Bus, Car, AppHome, AppHouse, AppTravel, AppSettings, Flame18, Flame16, Lock16, Phone18, Unlinked28, Wifi44, Download48, BootHome64, Moon20, Tick14, ChevLeft22, ChevRight22, ChevLeft20, ChevDown12, ChevUp12, SkSun17, SkHouse17, SkPlug17, SkBattery17, SkThermo17, SkEuro17, SkClock17, SkBolt17, SkBulb18, SkPower20, SkFlame16, ChevRight20, WxSun44, WxMoon44, WxPartly44, WxCloud44, WxFog44, WxRain44, WxPour44, WxSnow44, WxSleet44, WxThunder44, WxWind44, WxAlert44, WxSun120, WxMoon120, WxPartly120, WxCloud120, WxFog120, WxRain120, WxPour120, WxSnow120, WxSleet120, WxThunder120, WxWind120, WxAlert120, Count
 };
 struct IconData { uint8_t size; const uint8_t* bits; };  // 2 bpp alpha, 4 px/byte MSB first, size x size
 const IconData& iconData(Icon i);

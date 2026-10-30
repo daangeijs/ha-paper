@@ -10,6 +10,8 @@
 #include <string>
 #include <vector>
 
+#include "core/phases.h"
+
 namespace x4::glance {
 
 constexpr uint32_t kAwakeCapMs = 20000;        // a glance wake gives up after 20 s (HA unreachable = failed wake)
@@ -95,6 +97,8 @@ struct Rtc {
   bool simArmed;                 // QEMU: skip the first-boot safety count
   int64_t sleptAtEpoch, wakeAtEpoch;
   Tally tally;
+  uint32_t emptySleeps;           // #331: deep sleeps with reason "empty house" since power-on
+  phases::Ring wakes;             // #327: awake phases of the newest boots that ended in deep sleep
 };
 void reset(Rtc& r);              // zeroes it (padding included) and seals
 void seal(Rtc& r);

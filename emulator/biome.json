@@ -1,7 +1,7 @@
 {
   "$schema": "./node_modules/@biomejs/biome/configuration_schema.json",
   "files": {
-    "includes": ["**", "!dist", "!dist-device-ui", "!node_modules"]
+    "includes": ["**", "!dist", "!dist-device-ui", "!node_modules", "!src/core/qrcodegen.ts"]
   },
   "formatter": {
     "enabled": false

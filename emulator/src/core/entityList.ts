@@ -10,7 +10,7 @@ export const LIST_MAX = 800;
 /** Domain → budget of pickable entities, in list order. Sum = LIST_MAX. */
 export const LIST_BUDGET: [string, number][] = [
   ['climate', 50], ['weather', 10], ['light', 100], ['switch', 100], ['input_boolean', 30], ['input_number', 30], ['fan', 20],
-  ['binary_sensor', 60], ['number', 30], ['scene', 30], ['script', 30], ['sensor', 310],   // scene / script: #146
+  ['binary_sensor', 60], ['number', 30], ['scene', 30], ['script', 30], ['media_player', 10], ['calendar', 10], ['sensor', 290],   // scene / script: #146; media_player: #319; calendar: #316
 ];
 /** One row as the template sends it: [entity_id, name, unit, state, area_id ('' = none)]. */
 export type ListRow = [string, string, string, string, string];

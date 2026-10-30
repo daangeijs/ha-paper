@@ -4,9 +4,9 @@ import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { historySeriesVectors } from '../../scripts/gen-vectors.ts';
 import { validateYaml } from './config.ts';
-import { attrSamples, axisTicks, chartSpan, fromSamples, historyError, historySource, historySpec, parseTime } from './history.ts';
-import { demoForecast, historyChart } from './historyChart.ts';
-import { setHistorySource, bucketsFor, entitiesFor, entityIssue } from '../webconsole/configEdit.ts';
+import { attrSamples, axisTicks, chartSpan, fromSamples, historyError, historySource, historySpec, joinSeries, parseTime, pastSpec } from './history.ts';
+import { demoForecast, historyChart, joinState } from './historyChart.ts';
+import { setHistorySource, setHistoryKey, bucketsFor, entitiesFor, entityIssue } from '../webconsole/configEdit.ts';
 import { HA_ENTITIES } from './data.ts';
 
 const MIN = 60_000, HOUR = 60 * MIN;
@@ -84,5 +84,34 @@ describe('history series console', () => {
     expect(ids({})).not.toContain('binary_sensor.rain_expected');
     expect(bucketsFor('24h', { type: 'history', entity: 'weather.home' })).toEqual(['1h', '2h', '3h', '6h', '12h']);
     expect(entityIssue({ type: 'history', entity: 'weather.home' }, HA_ENTITIES)).toBeNull();
+  });
+});
+
+describe('past and future in one chart (#307)', () => {
+  const now = Date.UTC(2026, 9, 26, 14, 37), tz = 60;
+  const w = { type: 'history', entity: 'binary_sensor.rain_expected', attribute: 'forecast', value: 'precipitation', past: 'sensor.rain_rate', window: '3h', ahead: '2h', bucket: '10m', style: 'bars' };
+  it('fetches the past part plus the open bucket and joins by bucket start', () => {
+    expect(historyError(w)).toBeNull();
+    const sp = historySpec(w), ps = pastSpec(sp);
+    expect([ps.entity, ps.windowMs, ps.n]).toEqual(['sensor.rain_rate', 70 * MIN, 7]);
+    const past = { start: chartSpan(ps, now, tz).start, bucketMs: 10 * MIN, values: [1, 2, 3, 4, 5, 6, 99] };
+    const ahead = { start: chartSpan(sp, now, tz).start, bucketMs: 10 * MIN, values: Array.from({ length: 18 }, (_, i) => 100 + i) };
+    const j = joinSeries(sp, past, ahead, now, tz);
+    expect(j.values.slice(0, 7)).toEqual([1, 2, 3, 4, 5, 6, 106]);
+    const c = historyChart(sp, j, 'ok', now, tz, 'en', String);
+    expect(c.split).toBe(0.3333);
+    expect(c.bars.map((b) => !!b?.ahead).indexOf(true)).toBe(6);
+  });
+  it('a missing past fetch leaves gaps; the state joins', () => {
+    const sp = historySpec(w), j = joinSeries(sp, null, null, now, tz);
+    expect(j.values.every((v) => v === null)).toBe(true);
+    expect(joinState('loading', 'none')).toBe('loading');
+    expect(joinState('needsStats', 'none')).toBe('needsStats');
+    expect(joinState('tooMany', 'ok')).toBe('ok');
+  });
+  it('the console gives a past entity a past part', () => {
+    const ws = setHistoryKey([{ type: 'history', entity: 'binary_sensor.rain_expected', attribute: 'forecast', window: '2h' }], 0, 'past', 'sensor.rain_rate');
+    expect(ws[0].ahead).toBe('1h');
+    expect(historyError(ws[0])).toBeNull();
   });
 });

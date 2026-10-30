@@ -39,6 +39,7 @@
 #include "net/improv_serial.h"
 #include "net/web_server.h"
 #include "net/log.h"
+#include "net/morning_rtc.h"
 #include "net/ota.h"
 #include "net/power.h"
 #include "net/time_sync.h"
@@ -186,6 +187,8 @@ void setup() {
   g_app = new x4::App(g_display, g_board, services);
   g_app->setPanelHeld(glanceWake);
   g_app->setBootWake(x4::net::powerWakeName());   // quiet hours (#295): a press, power-on or charger boot opens with a peek
+  g_app->setMorningState(x4::net::morningRtcLoad());   // Good morning page (#330): armed overnight, across deep sleep
+  g_app->onMorningState([](const x4::morning::State& m) { x4::net::morningRtcSave(m); });
 #if !X4_QEMU
   x4::net::powerOnSleep([](int64_t seconds) {
     g_display.sleep();             // panel deep-sleep command first: the rails go down next

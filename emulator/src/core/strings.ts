@@ -29,10 +29,26 @@ export const STRINGS = {
   standbyFoot: ['Standby · updated {} · press power to wake', 'Stand-by · bijgewerkt {} · druk op aan/uit'],
   asOf: ['as of {}', 'stand van {}'],
   quietBack: ['Back at {}', 'Terug om {}'],   // quiet face (#295): the time quiet hours end
-  // deep sleep outside quiet hours (#299): no live-looking clock on a sleeping panel
-  asleepBar: ['Asleep · updated {}', 'Slaapt · bijgewerkt {}'],   // top bar, replaces the clock
-  clockAsleep: ['Updated · asleep', 'Bijgewerkt · slaapt'],       // clock tile: the digits are the update time
-  asleepFoot: ['Asleep · updated {} · press power to wake', 'Slaapt · bijgewerkt {} · druk op aan/uit'],   // standby face
+  // Nobody home face (#331): the sleeping panel while the presence source says the house is empty
+  emptyTitle: ['Nobody home', 'Niemand thuis'],
+  emptyNext: ['Next update ~{}', 'Volgende update ~{}'],
+  factDoors: ['Doors and windows', 'Deuren en ramen'],
+  factClosed: ['closed', 'dicht'],
+  factOpen: ['open', 'open'],
+  factNOpen: ['{} open', '{} open'],
+  factAlarm: ['Alarm', 'Alarm'],
+  alarmArmed: ['armed', 'aan'],
+  alarmOff: ['off', 'uit'],
+  alarmTriggered: ['triggered', 'afgegaan'],
+  // quiet face "Tomorrow" row (#328): its head, rain on that day, bins collected that day
+  qtTomorrow: ['Tomorrow', 'Morgen'], qtToday: ['Today', 'Vandaag'], qtRain: ['rain from {}', 'regen vanaf {}'],
+  qtBinTonight: ['put out tonight', 'vanavond buiten zetten'], qtBinTomorrow: ['collected tomorrow', 'morgen opgehaald'],
+  qtBinToday: ['collected today', 'vandaag opgehaald'],
+  // deep sleep outside quiet hours (#299, #333): no time of day on a sleeping panel, only the date
+  asleepBar: ['Asleep', 'Slaapt'],   // top bar mark, replaces the clock; Modern: a dark pill, also in the clock tile
+  asleepDate: ['{} · {}', '{} · {}'],   // under the big day number (clock tile, standby face): weekday · month
+  asleepFoot: ['Asleep · press power to wake', 'Slaapt · druk op aan/uit'],   // standby face
+  sleepHead: ['Asleep · press to wake', 'Slaapt · druk om te wekken'],   // glance sleep face (#356), the quiet face's layout
   sigWeak: ['Weak', 'Zwak'], sigFair: ['Fair', 'Redelijk'], sigGood: ['Good', 'Goed'], sigExcellent: ['Excellent', 'Uitstekend'],
 
   // display chrome and our own card headings
@@ -64,6 +80,16 @@ export const STRINGS = {
   histLow: ['Low {} · {}', 'Laag {} · {}'], histHigh: ['High {} · {}', 'Hoog {} · {}'],
   histNone: ['No history', 'Geen geschiedenis'], histTooMany: ['Too many changes', 'Te veel wijzigingen'],
   histNeedsStats: ['Needs long-term statistics', 'Heeft langetermijnstatistieken nodig'],
+  // weather tile (#318): HA's condition names, the detail labels, values and short weekday names of the 5-day strip
+  wxSunny: ['Sunny', 'Zonnig'], wxClearNight: ['Clear', 'Helder'], wxPartlyCloudy: ['Partly cloudy', 'Half bewolkt'],
+  wxCloudy: ['Cloudy', 'Bewolkt'], wxFog: ['Fog', 'Mist'], wxRainy: ['Rain', 'Regen'], wxPouring: ['Heavy rain', 'Zware regen'],
+  wxSnowy: ['Snow', 'Sneeuw'], wxSnowyRainy: ['Sleet', 'Natte sneeuw'], wxHail: ['Hail', 'Hagel'],
+  wxLightning: ['Thunder', 'Onweer'], wxLightningRainy: ['Thunder and rain', 'Onweer en regen'], wxWindy: ['Windy', 'Winderig'],
+  wxWindyVariant: ['Windy, cloudy', 'Winderig, bewolkt'], wxExceptional: ['Exceptional weather', 'Uitzonderlijk weer'],
+  wxFeels: ['feels {}', 'voelt als {}'], wxHigh: ['High', 'Max'], wxLow: ['Low', 'Min'], wxWind: ['Wind', 'Wind'], wxRain: ['Rain', 'Regen'],
+  wxRainFrom: ['from {}', 'vanaf {}'], wxRainNow: ['now', 'nu'], wxRainNone: ['none soon', 'voorlopig niet'], wxDry: ['dry', 'droog'],
+  wxBft: ['{} Bft', '{} Bft'], wxCompass: ['N NE E SE S SW W NW', 'N NO O ZO Z ZW W NW'], wxNoForecast: ['No forecast', 'Geen verwachting'], wxWeather: ['Weather', 'Weer'],
+  wd0: ['Sun', 'zo'], wd1: ['Mon', 'ma'], wd2: ['Tue', 'di'], wd3: ['Wed', 'wo'], wd4: ['Thu', 'do'], wd5: ['Fri', 'vr'], wd6: ['Sat', 'za'],
   usually: ['Usually {}', 'Meestal {}'],
   arriveIfLeave: ['arrive {} if you leave now', 'aankomst {} als je nu vertrekt'],
   arriveCaption: ['arrive if you leave now', 'aankomst als je nu vertrekt'],
@@ -77,6 +103,13 @@ export const STRINGS = {
   carNote3: ['Slow traffic on the way', 'Langzaam verkeer onderweg'], carNote4: ['Heavy congestion', 'Zware file'],
   perHour: ['{} per hour', '{} per uur'],
   routePick: ['Pick a sensor for this route in the browser', 'Kies in de browser een sensor voor deze route'],
+  // bin day tile (#317, core/bins.ts): short weekdays (struct tm order), when words, the pill and the empty states
+  dayShort0: ['Sun', 'zo'], dayShort1: ['Mon', 'ma'], dayShort2: ['Tue', 'di'], dayShort3: ['Wed', 'wo'], dayShort4: ['Thu', 'do'],
+  dayShort5: ['Fri', 'vr'], dayShort6: ['Sat', 'za'],
+  binsTitle: ['Bins', 'Afval'], binToday: ['Today', 'Vandaag'], binTomorrow: ['Tomorrow', 'Morgen'], binInDays: ['in {} days', 'over {} dagen'],
+  binTonight: ['Tonight', 'Vanavond'], binPutOut: ['Put out tonight', 'Vanavond buiten'],
+  binLine: ['{} · {}', '{} · {}'], binLineTonight: ['{} · put out tonight', '{} · vanavond buiten zetten'],
+  binsNone: ['No collection date', 'Geen ophaaldatum'], binsPick: ['Pick bin sensors in the browser', 'Kies in de browser je afvalsensoren'],
   heatingTo: ['Heating to {}', 'Verwarmt naar {}'],
   atSetTemp: ['At set temperature', 'Op temperatuur'],
   room: ['Room', 'Kamer'],
@@ -90,6 +123,20 @@ export const STRINGS = {
   script: ['Script', 'Script'],
   tapToRun: ['Tap to run', 'Tik om te starten'],
   sceneBuiltIn: ['Built in', 'Ingebouwd'],
+  // now playing tile (#319)
+  nowPlaying: ['Now playing', 'Nu speelt'],
+  mediaPlaying: ['Playing', 'Speelt'],
+  mediaPaused: ['Paused', 'Gepauzeerd'],
+  mediaLoading: ['Loading', 'Laden'],
+  mediaNothing: ['Nothing playing', 'Er speelt niets'],
+  favorites: ['Favorites', 'Favorieten'],
+  media: ['Media', 'Media'],
+  favAdd: ['Add', 'Toevoegen'],
+  favName: ['Favorite name', 'Naam van de favoriet'],
+  favTarget: ['type:id, script or scene', 'type:id, script of scène'],
+  favHint: ['A station, playlist or URL as type:id (music:http://…, playlist:…), or a script or scene. At most 6.', 'Een zender, afspeellijst of URL als type:id (music:http://…, playlist:…), of een script of scène. Hoogstens 6.'],
+  favBad: ['Write type:id (like music:http://…) or pick a script or scene', 'Schrijf type:id (zoals music:http://…) of kies een script of scène'],
+  favRemove: ['Remove {}', '{} verwijderen'],
   setHome: ['Set to Home', 'Zet op Thuis'],
   setAway: ['Set to Away', 'Zet op Afwezig'],
   pricesSummary: ['Now {} · cheapest {}', 'Nu {} · goedkoopst {}'],
@@ -217,6 +264,18 @@ export const STRINGS = {
   // console list picker (#127)
   pickLights: ['Lights to show', 'Te tonen lampen'],
   pickRooms: ['Rooms to show', 'Te tonen kamers'],
+  pickBins: ['Bin sensors', 'Afvalsensoren'], pickBinsHint: ['Tick each bin’s sensor and name it, e.g. Paper', 'Vink de sensor van elke container aan en geef hem een naam, bijv. Papier'],   // #317
+  binName: ['Name of {}', 'Naam van {}'],
+  // guest Wi-Fi tile (#329): the display, then the console editor
+  guestTitle: ['Guest Wi-Fi', 'Gastenwifi'], guestNetwork: ['Network', 'Netwerk'], guestPassword: ['Password', 'Wachtwoord'],
+  guestOpen: ['No password', 'Geen wachtwoord'], guestLong: ['Too long for a QR code', 'Te lang voor een QR-code'],
+  guestPick: ['Enter the network in the browser', 'Vul het netwerk in via de browser'],
+  guestWait: ['No password from Home Assistant', 'Geen wachtwoord van Home Assistant'],
+  guestSsid: ['Network name', 'Netwerknaam'], guestPw: ['Password', 'Wachtwoord'], guestShowPw: ['Show', 'Tonen'], guestHidePw: ['Hide', 'Verbergen'],
+  guestSecurity: ['Security', 'Beveiliging'], guestSecOpen: ['None', 'Geen'], guestHidden: ['Hidden network', 'Verborgen netwerk'],
+  guestPwEntity: ['Password from Home Assistant (optional)', 'Wachtwoord uit Home Assistant (optioneel)'],
+  guestPwEntityHint: ['An input_text, text or sensor whose state is the password; it overrides the password above.', 'Een input_text, text of sensor met het wachtwoord als status; gaat voor het wachtwoord hierboven.'],
+  guestNote: ['The guest password is stored in the screen config: anyone with access to this console or the display’s API can read it.', 'Het gastwachtwoord staat in de schermconfiguratie: iedereen met toegang tot deze console of de API van het scherm kan het lezen.'],
   pickAllLights: ['Nothing picked: every light, grouped by area.', 'Niets gekozen: alle lampen, per ruimte.'],
   pickAllRooms: ['Nothing picked: every climate entity.', 'Niets gekozen: alle klimaatentiteiten.'],
   pickCount: ['{} picked, shown in this order', '{} gekozen, in deze volgorde'],
@@ -287,15 +346,18 @@ export const STRINGS = {
   setWakeEvery: ['Check every', 'Kijk elke'],
   setLiveMin: ['Live after a press', 'Live na een druk'],
   setQuiet: ['Quiet hours', 'Stille uren'],
+  setEmptyHouse: ['Sleep longer when nobody is home', 'Standby als niemand thuis is'],   // #331, console only
   // what a setting does (#190): the (i) in the browser (no hint line on the device, #310)
   infoCleanEvery: ['E-paper leaves faint traces of old images. Every so often the display flashes black and white once to clear them.',
     'E-paper houdt vage resten van oude beelden vast. Af en toe knippert het scherm één keer zwart en wit om ze weg te halen.'],
-  infoPowerSave: ['How the display saves battery when not on USB. Always live stays connected and updates within seconds (days of battery). Standby sleeps while the standby screen is on. Glance sleeps, wakes on its own to update, and stays live for a few minutes after you press a button (weeks of battery).',
-    'Hoe het scherm batterij spaart als het niet aan USB hangt. Altijd live blijft verbonden en werkt binnen seconden bij (dagen batterij). Stand-by slaapt zolang het stand-by-beeld aan staat. Oogopslag slaapt, wordt vanzelf wakker om bij te werken en blijft een paar minuten live nadat je op een knop drukt (weken batterij).'],
+  infoPowerSave: ['How the display saves battery when not on USB. Always live stays connected and updates within seconds (days of battery). Standby sleeps while the standby screen is on. Glance shows a calm sleep screen and sleeps until you press a button: it wakes on its own only at midnight and around quiet hours. A press shows the dashboard for a few minutes (weeks of battery).',
+    'Hoe het scherm batterij spaart als het niet aan USB hangt. Altijd live blijft verbonden en werkt binnen seconden bij (dagen batterij). Stand-by slaapt zolang het stand-by-beeld aan staat. Oogopslag toont een rustig slaapscherm en slaapt tot je op een knop drukt: het wordt alleen om middernacht en rond de stille uren vanzelf wakker. Een knopdruk toont een paar minuten het dashboard (weken batterij).'],
   infoQuiet: ['Between these hours the display rests. On battery it sleeps and does not wake on its own. On USB it stays connected, but the screen does not change. A press shows the dashboard.',
     'Tussen deze uren rust het scherm. Op batterij slaapt het en wordt het niet vanzelf wakker. Aan USB blijft het verbonden, maar verandert het beeld niet. Een knopdruk toont het dashboard.'],
-  infoWakeEvery: ['In Glance and Standby: how often the display wakes on its own to update the screen.',
-    'In Oogopslag en Stand-by: hoe vaak het scherm vanzelf wakker wordt om het beeld bij te werken.'],
+  infoWakeEvery: ['In Standby: how often the display wakes on its own to update the screen. Glance wakes only at midnight and around quiet hours.',
+    'In Stand-by: hoe vaak het scherm vanzelf wakker wordt om het beeld bij te werken. Oogopslag wordt alleen om middernacht en rond de stille uren wakker.'],
+  infoEmptyHouse: ['In Glance: while nobody is home, the display updates every 2 hours instead and shows "Nobody home". Pick what tells it: the Home zone (number of people in it) or an on/off helper (off = nobody home). A press shows the dashboard as usual; quiet hours come first.',
+    'In Oogopslag: als niemand thuis is, ververst het scherm elke 2 uur en toont het "Niemand thuis". Kies wat dat vertelt: de zone Thuis (aantal mensen erin) of een aan/uit-helper (uit = niemand thuis). Een druk toont het dashboard zoals altijd; stille uren gaan voor.'],
   infoLiveMin: ['In Glance: how long the display stays live after you press a button.', 'In Oogopslag: hoe lang het scherm live blijft nadat je op een knop drukt.'],
   infoInterval: ['How often the screen updates while the display is live.', 'Hoe vaak het beeld wordt bijgewerkt terwijl het scherm live is.'],
   infoLightTimeout: ['After this long without a press or tap, the front light turns off. The next press or tap only turns it back on.',
@@ -511,6 +573,7 @@ export const STRINGS = {
   // widget palette (generic items only: entity tiles start empty, #145)
   palSensor: ['Sensor value', 'Sensorwaarde'], palGauge: ['Gauge (percentage)', 'Meter (percentage)'], palSwitch: ['Switch', 'Schakelaar'],
   palLight: ['Light', 'Lamp'], palRoute: ['Route', 'Route'], palScene: ['Scene or script', 'Scène of script'],
+  palBins: ['Bin day', 'Afvalkalender'],   // #317
   // route tile kind (console) and title fallback (display)
   routeMode: ['Kind', 'Soort'], modeTrain: ['Train', 'Trein'], modeBus: ['Bus', 'Bus'], modeCar: ['Car', 'Auto'],
   // bar chart series (console, #148)
@@ -527,7 +590,7 @@ export const STRINGS = {
   // history tile data source (console, #283)
   histSource: ['Data', 'Gegevens'], srcRecorder: ['History', 'Geschiedenis'], srcAttribute: ['Attribute list', 'Attribuutlijst'], srcForecast: ['Weather forecast', 'Weersverwachting'],
   histAttrName: ['Attribute', 'Attribuut'], histValueField: ['Value field', 'Waardeveld'], histTimeField: ['Time field', 'Tijdveld'],
-  histShows: ['Shows', 'Toont'], aheadNext: ['Ahead', 'Vooruit'], aheadAround: ['Around now', 'Rond nu'], aheadPast: ['Past', 'Verleden'],
+  histPast: ['Past from', 'Verleden uit'], histShows: ['Shows', 'Toont'], aheadNext: ['Ahead', 'Vooruit'], aheadAround: ['Around now', 'Rond nu'], aheadPast: ['Past', 'Verleden'],
   histForecast: ['Forecast', 'Verwachting'], fcHourly: ['Hourly', 'Per uur'], fcDaily: ['Daily', 'Per dag'],
   errHistNumbers: ['min and max must be numbers', 'min en max moeten getallen zijn'], errHistOrder: ['min must be below max', 'min moet lager zijn dan max'],
   errHistThreshold: ['threshold must be a number', 'threshold moet een getal zijn'], errHistLabels: ['labels must be true or false', 'labels moet true of false zijn'],
@@ -704,6 +767,20 @@ export const STRINGS = {
   capLights: ['Showing {} of {} lights — pick rooms to choose which', 'Toont {} van {} lampen — kies ruimtes om te bepalen welke'],
   capRooms: ['Showing {} of {} rooms — pick rooms to choose which', 'Toont {} van {} kamers — kies kamers om te bepalen welke'],
   capEntities: ['Showing {} of {} Home Assistant entities, the most useful first', 'Toont {} van {} Home Assistant-entiteiten, de nuttigste eerst'],   // #150
+  // agenda + next tiles (#316); agDay0 = Sunday
+  agTitle: ['Agenda', 'Agenda'], agNext: ['Next', 'Hierna'], agToday: ['Today', 'Vandaag'], agTomorrow: ['Tomorrow', 'Morgen'],
+  agAllDay: ['all day', 'hele dag'], agBusy: ['Busy', 'Bezet'], agInMin: ['in {} min', 'over {} min'], agInH: ['in {} h', 'over {} uur'],
+  agMore: ['+{} more this week', '+{} meer deze week'], agNothing: ['Nothing planned this week', 'Niets gepland deze week'],
+  agNothingNext: ['Nothing planned', 'Niets gepland'], agUnavailable: ['Calendar not available', 'Agenda niet beschikbaar'],
+  agDay0: ['Sun', 'zo'], agDay1: ['Mon', 'ma'], agDay2: ['Tue', 'di'], agDay3: ['Wed', 'wo'], agDay4: ['Thu', 'do'], agDay5: ['Fri', 'vr'], agDay6: ['Sat', 'za'],
+  palAgenda: ['Agenda (tall)', 'Agenda (hoog)'], palNext: ['Next event (2 wide)', 'Volgende afspraak (2 breed)'], grpCalendar: ['Calendar', 'Agenda'],
+  pickCalendars: ['Calendars', 'Agenda’s'], pickCalendarHint: ['Pick one to four calendars', 'Kies een tot vier agenda’s'],
+  // Good morning page (#330, core/morning.ts) and its setting (Settings › Power)
+  gmHead: ['Good morning', 'Goedemorgen'], gmRainFrom: ['Rain from {}', 'Regen vanaf {}'], gmRainNow: ['Rain now', 'Nu regen'],
+  gmMore: ['+{} more today', '+{} meer vandaag'], gmBinToday: ['collected today', 'vandaag opgehaald'], gmBinTonight: ['put out tonight', 'vanavond buiten zetten'],
+  setMorning: ['Good morning', 'Goedemorgen'],   // 1-cell tile: the page's own greeting
+  infoMorning: ['When quiet hours end, the display shows today\'s weather, events and bins for 20 minutes. A press shows the start page.',
+    'Als de stille uren voorbij zijn, toont het scherm 20 minuten het weer, de afspraken en het afval van vandaag. Een knopdruk toont de startpagina.'],
 } as const satisfies Record<string, readonly [string, string]>;
 
 export type StrKey = keyof typeof STRINGS;

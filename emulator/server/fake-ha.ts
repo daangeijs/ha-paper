@@ -4,7 +4,7 @@
 //   POST /auth/revoke          revoke a refresh token (always 200, like HA)
 //   POST /api/states/<id>      create/replace a state (admin only, like HA; 201 new, 200 existing): device health (#32)
 //   GET  /api/websocket        auth, auth/current_user, get_states, subscribe_entities, subscribe_events (state_changed),
-//                              call_service (weather.get_forecasts with return_response, #283), energy/get_prefs, config/area_registry/list, config/entity_registry/list,
+//                              call_service (weather.get_forecasts, calendar.get_events with return_response, #283, #316), energy/get_prefs, config/area_registry/list, config/entity_registry/list,
 //                              render_template (only the firmware's discovery / seed templates),
 //                              recorder/statistics_during_period + history/history_during_period (./fake-ha-history.ts, #266)
 //   /__fake/*                  test control (standalone `npm run fake-ha`, e.g. for the QEMU firmware contract run):
@@ -38,15 +38,18 @@ import { createServer, type IncomingMessage, type Server, type ServerResponse } 
 import { createServer as createHttpsServer, type Server as HttpsServer } from 'node:https';
 import type { Duplex } from 'node:stream';
 import { createServer as createNetServer, type AddressInfo, type Server as NetServer, type Socket } from 'node:net';
-import { ENT, LIGHT_LIST, PRICES, ROOMS, ROOM_NAME, SOLAR, USAGE, ZONE_LIST, CHEAP, EXTRA_ENTITIES } from '../src/core/data.ts';
+import { ENT, LIGHT_LIST, PRICES, ROOMS, ROOM_NAME, SOLAR, USAGE, ZONE_LIST, CHEAP, EXTRA_ENTITIES, DEMO_BINS, demoBinState } from '../src/core/data.ts';
 import { pad } from '../src/core/format.ts';
 import { demoForecast } from '../src/core/historyChart.ts';
+import { DEMO_WEATHER_ATTRS } from '../src/core/weather.ts';
+import { demoEvents } from '../src/core/agenda.ts';
 import { LIGHT_GROUP_ATTRS, SEED_CAPS, sensorKind, type ClimateRow, type HaSnapshot, type LightRow, type SensorRow } from '../src/core/seed.ts';
 import { acceptWebSocket, type WsConn } from './ws.ts';
 import { BIG_HOUSE_EXTRA, bigHouseEntities } from './fake-ha-big.ts';
 import { STRANGER_AREAS, STRANGER_CONFIG, STRANGER_ENTITIES, STRANGER_PREFS } from './fake-ha-stranger.ts';
 import { DUTCH_AREAS, DUTCH_ENTITIES, DUTCH_PREFS } from './fake-ha-dutch.ts';
 import { entityListAnswer } from '../src/core/entityList.ts';
+import { DEMO_MEDIA } from '../src/core/data.ts';
 import { REAL_AREAS, REAL_CONFIG, REAL_DEVICES, REAL_ENTITIES, REAL_PREFS, type RealDevice } from './fake-ha-real.ts';
 import { pkceChallenge, randomToken } from './ha-client.ts';
 import { FakeHistory, histEntity, type HistModel, type HistKind } from './fake-ha-history.ts';
@@ -89,11 +92,16 @@ function initialStates(): Map<string, EntityState> {
   for (const z of ZONE_LIST) put('climate.' + z.id, 'heat', { friendly_name: z.name, current_temperature: z.cur, temperature: z.set, hvac_modes: ['off', 'heat', 'auto'], preset_mode: 'home', ...(z.presets.length ? { preset_modes: z.presets } : {}) });
   for (const l of LIGHT_LIST) put('light.' + l.id, l.on ? 'on' : 'off', { friendly_name: ROOM_NAME[l.room] + ' ' + l.name, ...(l.dim ? { brightness: l.on ? Math.round(l.b * 2.55) : null, supported_color_modes: ['brightness'] } : { supported_color_modes: ['onoff'] }) });
   put('scene.all_off', 'unknown', { friendly_name: 'All lights off' });
-  for (const e of EXTRA_ENTITIES) put(e.id, e.state, { friendly_name: e.name, ...(e.unit ? { unit_of_measurement: e.unit } : {}) });
+  for (const e of EXTRA_ENTITIES) put(e.id, e.state, { friendly_name: e.name, ...(e.unit ? { unit_of_measurement: e.unit } : {}), ...(e.dc ? { device_class: e.dc } : {}),
+    ...(e.id.startsWith('zone.') ? { persons: [], radius: 100, passive: false } : {}) });   // #331: zone state = persons in it; POST /__fake/state sets it
   for (const id of ['sensor.living_temperature', 'sensor.outdoor_temperature']) m.get(id)!.attributes.device_class = 'temperature';
   m.get('sensor.outdoor_humidity')!.attributes.device_class = 'humidity';
   Object.assign(m.get('binary_sensor.rain_expected')!.attributes, { device_class: 'moisture', forecast: rainForecast(Date.now()) });
-  Object.assign(m.get('weather.home')!.attributes, { temperature: 11.4, temperature_unit: '°C', humidity: 78, precipitation_unit: 'mm', supported_features: 3 });
+  // #317: bin sensors in both shapes, dated from today (afvalwijzer date state; waste_collection_schedule days-to + daysTo)
+  for (const b of DEMO_BINS) { const v = demoBinState(b, new Date()); put(b.id, v.state, { friendly_name: b.name, ...v.attrs }); }
+  Object.assign(m.get('weather.home')!.attributes, DEMO_WEATHER_ATTRS);   // #318: + feels, wind (Beaufort) for the weather tile
+  Object.assign(m.get(DEMO_MEDIA.id)!.attributes, { media_title: DEMO_MEDIA.queue[0].title, media_artist: DEMO_MEDIA.queue[0].artist, volume_level: DEMO_MEDIA.volume,   // #319
+    is_volume_muted: false, media_content_type: 'music', media_position: 0, supported_features: DEMO_MEDIA.features });
   return m;
 }
 
@@ -108,7 +116,9 @@ export function weatherForecast(type: string, now: number): Record<string, strin
   const temp = demoForecast('temperature', 'datetime', step, from + 2 * 3_600_000, 0, n * step), rain = demoForecast('precipitation', 'datetime', step, from + 2 * 3_600_000, 0, n * step);
   return temp.filter((e) => Date.parse(String(e.datetime)) >= from).slice(0, n).map((e, i) => {
     const p = Number(rain.find((r) => r.datetime === e.datetime)?.precipitation ?? 0);
-    return { datetime: e.datetime, condition: p > 0.5 ? 'rainy' : i % 5 === 0 ? 'partlycloudy' : 'cloudy', temperature: e.temperature, precipitation: p, ...(type === 'daily' ? { templow: Number(e.temperature) - 6 } : {}) };
+    // #318: more conditions (the weather tile's drawings) and wind
+    return { datetime: e.datetime, condition: p > 2 ? 'pouring' : p > 0.5 ? 'rainy' : i % 5 === 0 ? 'partlycloudy' : i % 3 === 1 ? 'sunny' : 'cloudy', temperature: e.temperature, precipitation: p,
+      wind_speed: 3 + (i % 4), wind_bearing: (180 + i * 20) % 360, ...(type === 'daily' ? { templow: Number(e.temperature) - 6 } : {}) };
   });
 }
 
@@ -742,10 +752,31 @@ export class FakeHa {
     } else if (domain === 'script' && service === 'turn_on') {   // #146: script.good_night turns the demo lights off
       if (ids.includes('script.good_night')) for (const l of LIGHT_LIST) if (this.states.get('light.' + l.id)?.state === 'on') this.setState('light.' + l.id, 'off', {});
       for (const id of ids) this.setState(id, 'off', { last_triggered: nowIso() });
+    } else if (domain === 'media_player') {   // #319: the demo speaker steps through DEMO_MEDIA.queue; volume like HA (step 0.1)
+      const q = DEMO_MEDIA.queue;
+      for (const id of ids) {
+        const cur = this.states.get(id)!, a = cur.attributes, at = Math.max(0, q.findIndex((x) => x.title === a.media_title));
+        const track = (i: number) => ({ media_title: q[(i + q.length) % q.length].title, media_artist: q[(i + q.length) % q.length].artist, media_position: 0 });
+        const vol = (v: number) => ({ volume_level: Math.round(Math.max(0, Math.min(1, v)) * 100) / 100 });
+        if (service === 'media_play_pause') this.setState(id, cur.state === 'playing' ? 'paused' : 'playing', {});
+        else if (service === 'media_next_track') this.setState(id, cur.state, track(at + 1));
+        else if (service === 'media_previous_track') this.setState(id, cur.state, track(at - 1));
+        else if (service === 'volume_up' || service === 'volume_down') this.setState(id, cur.state, vol(Number(a.volume_level ?? 0) + (service === 'volume_up' ? 0.1 : -0.1)));
+        else if (service === 'volume_set') this.setState(id, cur.state, vol(Number(data.volume_level)));
+        else if (service === 'play_media') this.setState(id, 'playing', { media_title: String(data.media_content_id), media_artist: '', media_content_type: data.media_content_type, media_position: 0 });
+        else return err('not_found', 'Service ' + domain + '.' + service + ' not found.');
+      }
     } else if (domain === 'weather' && service === 'get_forecasts') {   // #283: a service with a response, like HA
       if (!m.return_response) return err('service_validation_error', 'Service call requires responses but caller did not ask for responses');
       const out: Record<string, { forecast: unknown[] }> = {};
       for (const id of ids) { const f = weatherForecast(String(data.type), Date.now()); if (!f) return err('service_validation_error', 'Weather entity does not support \'' + data.type + '\' forecast'); out[id] = { forecast: f }; }
+      return ok({ context: { id: randomToken(12), parent_id: null, user_id: null }, response: out });
+    } else if (domain === 'calendar' && service === 'get_events') {   // #316: the demo calendars, events overlapping the window
+      if (!m.return_response) return err('service_validation_error', 'Service call requires responses but caller did not ask for responses');
+      const from = Date.parse(String(data.start_date_time ?? '')), to = Date.parse(String(data.end_date_time ?? ''));
+      if (!Number.isFinite(from) || !Number.isFinite(to)) return err('invalid_format', 'start_date_time and end_date_time are required here');
+      const tz = -new Date().getTimezoneOffset(), out: Record<string, { events: unknown[] }> = {};
+      for (const id of ids) out[id] = { events: demoEvents(id, Date.now(), tz, from, to) };
       return ok({ context: { id: randomToken(12), parent_id: null, user_id: null }, response: out });
     } else if (domain !== 'homeassistant') return err('not_found', 'Service ' + domain + '.' + service + ' not found.');
     ok({ context: { id: randomToken(12), parent_id: null, user_id: null } });

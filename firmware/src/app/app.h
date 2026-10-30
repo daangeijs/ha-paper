@@ -2,7 +2,10 @@
 #pragma once
 #include "core/config.h"
 #include "core/entities.h"
+#include "core/agenda.h"
 #include "core/history_chart.h"
+#include "core/morning.h"
+#include "core/weather.h"
 #include "hw/platform.h"
 #include "app/services.h"
 #include <functional>
@@ -30,7 +33,9 @@ struct DisplaySettings {   // Settings › Display (SPEC §8); persisted by net/
   std::string powerSave = "glance";   // off | standby | glance
   int wakeEvery = 15;                  // minutes between glance / standby timer wakes: 15 | 30 | 60
   int liveMin = 3;                     // glance: live minutes after a key press: 1 | 3 | 5 | 10
+  std::string emptyHouse;              // #331: presence entity for empty-house sleep, "" = off (web console only)
   bool debugInput = false;             // POST /api/v1/debug/input allowed (#214, measuring on hardware)
+  bool morning = true;                 // Good morning page on the first wake after quiet hours (#330)
 };
 
 class App {
@@ -47,10 +52,15 @@ class App {
   // History tile data (#270; fed by the HA fetch, #269): the series of hist::seriesKey(spec) and its state, then the
   // visible tiles redraw if a pixel changed. App task only. false = store full (kMaxTiles keys of the current config).
   bool setHistory(const std::string& key, const hist::Series* series, hist::State state);
+  // Weather tile forecasts (#318; fed by the HA fetch): daily + hourly of a weather entity. App task only.
+  void setWeather(const std::string& entity, const wx::Forecast& fc);
+  // Agenda / next tile events (#316; fed by the HA fetch) of agenda::keyOf(entities). App task only.
+  void setAgenda(const std::string& key, agenda::State state, const agenda::Fetch& f);
   const Config& config() const;               // what the display runs: withSettings(screens.yaml)
   const DisplaySettings& settings() const;
   // full = cleans (one flash), fast = navigations without a flash (#197), feedback = tap inversion (added)
-  struct Stats { uint32_t fullRefreshes, partialRefreshes; uint32_t feedbackRefreshes; uint32_t fastRefreshes; };
+  // renderMs / panelMs (#327): this boot's time drawing the framebuffer / in panel refresh calls
+  struct Stats { uint32_t fullRefreshes, partialRefreshes; uint32_t feedbackRefreshes; uint32_t fastRefreshes; uint32_t renderMs = 0, panelMs = 0; };
   Stats stats() const;
 
   // ---- added ----
@@ -76,12 +86,15 @@ class App {
   // ---- glance (#10, net/power.cpp) ----
   void setPanelHeld(bool held);           // glance wake: render as usual, but leave the panel showing what it shows
   void setBootWake(const std::string& wake);   // net powerWakeName(); before begin(): not "timer" = boot opens with a peek (#295)
+  // Good morning page (#330): its state from RTC memory before begin(); cb on each change (to RTC memory)
+  void setMorningState(const morning::State& s);
+  void onMorningState(std::function<void(const morning::State&)> cb);
   void settle();                          // while held: render everything the store holds now (ambient chrome)
   void redraw(const std::string& reason); // release the panel + one full refresh (a visible value changed)
   void prepareSleep();                    // before deep sleep from live mode: home page, ambient chrome, no standby face
   void markAsleep(bool on);               // #299: clocks drawn as "asleep · updated HH:MM" (on = before deep sleep)
   std::vector<std::string> clockRegions() const;   // regions that only show the time ("time", clock tiles "k<i>")
-  struct PowerView { bool main, setup, standby, peeking; int64_t msSinceUserInput; bool ambient; };   // -1 = no key/touch since boot
+  struct PowerView { bool main, setup, standby, peeking; int64_t msSinceUserInput; bool ambient; bool emptyHouse; };   // emptyHouse: #331   // -1 = no key/touch since boot
   PowerView powerView() const;
  public:
   struct Impl;   // internal; shared by src/app renderers

@@ -9,6 +9,7 @@ import { settingsScreens } from './config.ts';
 import { TZ_ZONES, validTzSetting } from './locale.ts';
 import { DEFAULT_LIGHT_TIMEOUT, LIGHT_TIMEOUTS } from './frontlight.ts';
 import { DEFAULT_QUIET, QUIET_STEPS } from './quiet.ts';
+import { DEFAULT_EMPTY_SOURCE, validEmptySource } from './emptyHouse.ts';
 export { validPosixTz } from './locale.ts';
 
 export type DisplayStyle = 'classic' | 'sleek';
@@ -28,8 +29,12 @@ export type DisplaySettings = { brightness: number; warmth: number; quiet: strin
   /** Power saving (#10): `glance` by default (#18) — on battery it deep-sleeps between wakes; on USB it is always live.
    *  New keys with defaults (migrate.ts rules): a firmware without them ignores them. */
   powerSave: PowerSave; wakeEvery: number; liveMin: number;
+  /** Empty-house sleep (#331, core/emptyHouse.ts): '' = off, else the presence entity. Missing = off. */
+  emptyHouse?: string;
   /** Front light off after this many seconds without input, 0 = never (#220). Missing = DEFAULT_LIGHT_TIMEOUT. */
   lightTimeout?: number;
+  /** Good morning page on the first wake after quiet hours (#330, core/morning.ts). Missing = on. */
+  morning?: boolean;
   /** Settings › Updates › Automatic (firmware key; the device keeps it with the OTA state). */
   otaAuto?: OtaAutoMode;
   /** POST /api/v1/debug/input allowed (#214, measuring on hardware). API only, no tile; missing = false. */
@@ -44,23 +49,24 @@ export type OtaChannel = 'stable' | 'beta';
 
 /** Emulator-internal cfg (Settings tiles): minutes as numbers, 0 = never. */
 export type DisplayCfg = { brightness: number; warmth: number; lightTimeout: number; quiet: string; fullEvery: number; cleanEvery: number; interval: number; returnHome: number; standby: number; clock: string;
-  style: DisplayStyle; typeface: Typeface; surface: Surface; haReport: boolean } & PowerCfg;
+  style: DisplayStyle; typeface: Typeface; surface: Surface; haReport: boolean; morning: boolean } & PowerCfg;
 /** Power saving (Settings › Power, #10). On the wire in `display`. */
-export type PowerCfg = { powerSave: PowerSave; wakeEvery: number; liveMin: number };
-export const DEFAULT_POWER: PowerCfg = { powerSave: 'glance', wakeEvery: 15, liveMin: DEFAULT_LIVE_MIN };
+export type PowerCfg = { powerSave: PowerSave; wakeEvery: number; liveMin: number; emptyHouse: string };
+export const DEFAULT_POWER: PowerCfg = { powerSave: 'glance', wakeEvery: 15, liveMin: DEFAULT_LIVE_MIN, emptyHouse: '' };
 export type Cfg = DisplayCfg;
 
 export const cfgToDisplay = (c: DisplayCfg): DisplaySettings => ({
   brightness: c.brightness, warmth: c.warmth, lightTimeout: c.lightTimeout, quiet: c.quiet, returnHome: c.returnHome ? String(c.returnHome) : 'never',
   standby: c.standby ? String(c.standby) : 'never', clock: c.clock, intervalSec: c.interval, fullEvery: c.fullEvery, cleanEvery: c.cleanEvery,
   style: c.style, typeface: c.typeface, surface: c.surface, haReport: c.haReport,
-  powerSave: c.powerSave, wakeEvery: c.wakeEvery, liveMin: c.liveMin,
+  powerSave: c.powerSave, wakeEvery: c.wakeEvery, liveMin: c.liveMin, emptyHouse: c.emptyHouse, morning: c.morning,
 });
 export const displayToCfg = (d: DisplaySettings): DisplayCfg => ({
   brightness: d.brightness, warmth: d.warmth, lightTimeout: d.lightTimeout ?? DEFAULT_LIGHT_TIMEOUT, quiet: d.quiet ?? DEFAULT_QUIET, returnHome: d.returnHome === 'never' ? 0 : Number(d.returnHome),
   standby: d.standby === 'never' ? 0 : Number(d.standby), clock: d.clock, interval: d.intervalSec, fullEvery: d.fullEvery, cleanEvery: d.cleanEvery ?? DEFAULT_CLEAN_EVERY,
   style: d.style, typeface: d.typeface, surface: d.surface, haReport: d.haReport ?? true,
-  powerSave: d.powerSave ?? DEFAULT_POWER.powerSave, wakeEvery: d.wakeEvery ?? DEFAULT_POWER.wakeEvery, liveMin: d.liveMin ?? DEFAULT_POWER.liveMin,
+  powerSave: d.powerSave ?? DEFAULT_POWER.powerSave, wakeEvery: d.wakeEvery ?? DEFAULT_POWER.wakeEvery, liveMin: d.liveMin ?? DEFAULT_POWER.liveMin, morning: d.morning ?? true,
+  emptyHouse: d.emptyHouse ?? DEFAULT_POWER.emptyHouse,
 });
 
 const range = (min: number, max: number, step: number): number[] => Array.from({ length: Math.floor((max - min) / step) + 1 }, (_, i) => min + i * step);
@@ -81,6 +87,7 @@ export const DISPLAY_FIELDS: { key: keyof DisplaySettings; label: StrKey; info?:
   { key: 'haReport', label: 'setHaReport', info: 'infoHaReport', values: [true, false], fmt: (v, lg) => tr(lg, v ? 'on' : 'off') },
   { key: 'powerSave', label: SETTINGS.powerSave.lk, info: SETTINGS.powerSave.info, values: POWER_SAVES, fmt: (v, lg) => SETTINGS.powerSave.fmt(v, lg) },
   { key: 'quiet', label: SETTINGS.quiet.lk, info: SETTINGS.quiet.info, values: QUIET_STEPS, fmt: (v, lg) => SETTINGS.quiet.fmt(v, lg) },
+  { key: 'morning', label: SETTINGS.morning.lk, info: SETTINGS.morning.info, values: [true, false], fmt: (v, lg) => SETTINGS.morning.fmt(v, lg) },
   { key: 'wakeEvery', label: SETTINGS.wakeEvery.lk, info: SETTINGS.wakeEvery.info, values: WAKE_EVERY, fmt: (v, lg) => SETTINGS.wakeEvery.fmt(v, lg) },
   { key: 'liveMin', label: SETTINGS.liveMin.lk, info: SETTINGS.liveMin.info, values: LIVE_MIN, fmt: (v, lg) => SETTINGS.liveMin.fmt(v, lg) },
 ];
@@ -95,6 +102,11 @@ export const OTA_FIELDS: SettingField[] = [
 /** Clock time zone (#147): "" follows Home Assistant's, else a zone from the table (a POSIX string set over the API
  *  shows as itself in the console). */
 export const TZ_FIELD: SettingField = { key: 'tz', top: true, label: 'timeZone', values: ['', ...TZ_ZONES], fmt: (v, lg) => (v === '' ? tr(lg, 'tzFromHa') : String(v)) };
+/** Settings › Power in the browser only (#331): the presence source. Values: off and the default source; the console
+ *  adds HA's zone / on-off entities and the current value. */
+export const EMPTY_FIELD: SettingField = { key: 'emptyHouse', label: 'setEmptyHouse', info: 'infoEmptyHouse', values: ['', DEFAULT_EMPTY_SOURCE], fmt: (v, lg) => (v === '' ? tr(lg, 'off') : String(v)) };
+/** Console-only fields appended to a page (no tile: the device's Power page is full). */
+const EXTRA_FIELDS: Record<string, SettingField[]> = { power: [EMPTY_FIELD] };
 const PAGE_TITLE: Record<string, StrKey> = { display: 'display', style: 'menuStyle', power: 'menuPower', updates: 'menuUpdates', ha: 'menuHa' };
 const WIRE_KEY: Record<string, string> = { interval: 'intervalSec' };
 /** Fields behind a fixed system tile; haReport and tz have no tile on the device, they sit with Home Assistant. */
@@ -108,7 +120,8 @@ export function settingsPages(): { id: string; title: StrKey; fields: SettingFie
   const byKey = (k: string) => all.find((f) => f.key === k);
   return settingsScreens().filter((sc) => PAGE_TITLE[sc.id]).map((sc) => ({
     id: sc.id, title: PAGE_TITLE[sc.id],
-    fields: sc.widgets.flatMap((w) => (w.type === 'setting' ? [WIRE_KEY[w.key as string] || String(w.key)] : TILE_FIELDS[w.type] || [])).map(byKey).filter((f): f is SettingField => !!f),
+    fields: [...sc.widgets.flatMap((w) => (w.type === 'setting' ? [WIRE_KEY[w.key as string] || String(w.key)] : TILE_FIELDS[w.type] || [])).map(byKey).filter((f): f is SettingField => !!f),
+      ...(EXTRA_FIELDS[sc.id] || [])],
   })).filter((p) => p.fields.length);
 }
 
@@ -133,9 +146,11 @@ export function displayError(d: DisplaySettings): string | null {
   if (!(POWER_SAVES as unknown[]).includes(d.powerSave)) return 'display.powerSave must be off, standby or glance';
   if (!WAKE_EVERY.includes(d.wakeEvery)) return 'display.wakeEvery must be 15, 30 or 60';
   if (!LIVE_MIN.includes(d.liveMin)) return 'display.liveMin must be 1, 3, 5 or 10';
+  if (d.emptyHouse !== undefined && !validEmptySource(d.emptyHouse)) return EMPTY_HOUSE_ERROR;
   // Firmware-only key (Settings › Updates); the simulators accept it so a firmware GET round-trips.
   const otaAuto = (d as { otaAuto?: unknown }).otaAuto;
   if (otaAuto !== undefined && !['off', 'notify', 'night'].includes(otaAuto as string)) return 'display.otaAuto must be off, notify or night';
+  if (d.morning !== undefined && typeof d.morning !== 'boolean') return 'display.morning must be true or false';
   if (d.debugInput !== undefined && typeof d.debugInput !== 'boolean') return 'display.debugInput must be true or false';
   return null;
 }
@@ -144,7 +159,9 @@ export const nameError = (name: unknown): string | null => (typeof name !== 'str
 /** PUT /settings key tables (#43). A new setting = one row here and one in firmware core/settings_api.cpp. */
 export const SETTINGS_KEYS = ['display', 'ota_channel', 'tz', 'name', 'entities'] as const;
 export const DISPLAY_KEYS = ['brightness', 'warmth', 'lightTimeout', 'quiet', 'returnHome', 'standby', 'clock', 'intervalSec', 'fullEvery', 'cleanEvery', 'otaAuto',
-  'style', 'typeface', 'surface', 'haReport', 'powerSave', 'wakeEvery', 'liveMin', 'debugInput'] as const;
+  'style', 'typeface', 'surface', 'haReport', 'powerSave', 'wakeEvery', 'liveMin', 'emptyHouse', 'debugInput', 'morning'] as const;
+/** Shared with firmware net/storage.cpp (without the "display." prefix there). */
+export const EMPTY_HOUSE_ERROR = 'display.emptyHouse must be "" or a zone, binary_sensor, input_boolean or group entity id';
 export const TZ_ERROR = 'tz must be "", a known zone like Europe/Amsterdam or a POSIX TZ string like CET-1CEST,M3.5.0,M10.5.0/3';
 
 

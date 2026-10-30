@@ -47,7 +47,7 @@ struct Field { bool present = false; std::string v; };
 struct Fields {
   std::string entity;
   int cs = 1;
-  Field window, bucket, agg, style, min, max, attribute, value, time, ahead, forecast, threshold, labels;
+  Field window, bucket, agg, style, min, max, attribute, value, time, ahead, forecast, threshold, labels, past;
 };
 // The tile's own rules (entity is checked by the shared domain rule first). "" = valid; else the emulator's message.
 std::string configError(const Fields& f);
@@ -66,6 +66,9 @@ struct Spec {
   int64_t aheadMs = 0;
   std::string attribute, value, time;
   bool daily = false;   // forecast type daily (else hourly)
+  // #307: a recorder entity drawn before now (the buckets before the one holding now); "" = none. Only with an attribute /
+  // forecast source and 0 < aheadMs < windowMs.
+  std::string past;
 };
 Spec specOf(const Widget& w);   // a validated history widget with every default filled in
 // Unit and decimals of an attribute / forecast value (emulator Emulator.tsx srcUnit): mm/h for rain, °C for a
@@ -78,6 +81,12 @@ const char* statsType(Agg a);              // "mean" | "min" | "max" | "change" 
 inline bool fallbackOk(const Spec& s) { return s.windowMs <= kFallbackMax; }
 
 int64_t bucketStart(int64_t t, int64_t bucketMs, int tz);
+
+// ---- past and future in one chart (#307, emulator history.ts pastSpec / joinSeries) ----
+// Buckets before the one holding now (filled from `past`); -1 when the spec has no past.
+inline int pastBuckets(const Spec& s) { return s.past.empty() || s.bucketMs <= 0 ? -1 : int((s.windowMs - s.aheadMs) / s.bucketMs); }
+// The recorder series fetched for `past`: that entity over the past part plus the bucket holding now, same agg.
+Spec pastSpec(const Spec& s);
 struct Span { int64_t start, end; };
 // n buckets: without aheadMs the last one holds `now`; with it the bucket holding now starts the last aheadMs (#292)
 Span chartSpan(int64_t windowMs, int64_t bucketMs, int64_t now, int tz, int64_t aheadMs = 0);
@@ -87,6 +96,9 @@ struct Series {
   int n = 0;
   double v[kMaxBars];
 };
+// #307: the tile's series bucket by bucket on its span: before the bucket holding now from `past` (pastSpec's series),
+// from it on from `ahead` (the attribute / forecast series); matched by bucket start, a missing part = gaps.
+void joinSeries(const Spec& s, const Series* past, const Series* ahead, int64_t now, int tz, Series& out);
 // Bucket store of every history tile, in PSRAM (≤ kMaxTiles × sizeof(Series)).
 using SeriesList = std::vector<Series, PsramAlloc<Series>>;
 

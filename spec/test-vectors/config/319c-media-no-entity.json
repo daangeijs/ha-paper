@@ -1,0 +1,10 @@
+{
+  "name": "319c-media-no-entity",
+  "description": "Rule: a media tile needs its entity.",
+  "input": "# HA Paper display config\nversion: 1\nscreens:\n  - id: a\n    widgets:\n      - {type: media, cs: 2}\n",
+  "expect": {
+    "ok": false,
+    "line": 6,
+    "message": "media: “undefined” is not a media_player entity"
+  }
+}

@@ -3,6 +3,7 @@
 #include <Arduino.h>
 #include <DNSServer.h>
 #include <ESPmDNS.h>
+#include <mdns.h>
 #include <WiFi.h>
 #include <esp_attr.h>
 #include <esp_netif.h>
@@ -354,18 +355,44 @@ void WifiMgr::startMdns(const char* reason) {
   (void)reason;
   return;   // the mDNS responder only binds the Wi-Fi/ETH default netifs, not "ETH_QEMU" (slirp has no multicast anyway)
 #endif
-  if (mdns_) MDNS.end();
-  mdns_ = MDNS.begin(hostname());
-  if (mdns_) {
-    MDNS.addService("http", "tcp", 80);
-    MDNS.addServiceTxt("http", "tcp", "path", "/");
-    MDNS.addServiceTxt("http", "tcp", "fw", firmwareVersion());
-    LOG_INF("WIFI", "mDNS %s.local + _http._tcp (%s)", hostname(), reason);
-  } else {
-    LOG_WRN("WIFI", "mDNS start failed (%s)", reason);
+  const uint32_t now = millis();
+  switch (mdnsPlan_.next(mdns_, now)) {
+    case MdnsStep::Skip:
+      LOG_INF("WIFI", "mDNS re-bind skipped (%s, %u ms after the last)", reason, unsigned(now - mdnsPlan_.lastMs));
+      return;
+    case MdnsStep::Init:
+      mdns_ = MDNS.begin(hostname());
+      if (mdns_) {
+        MDNS.addService("http", "tcp", 80);
+        MDNS.addServiceTxt("http", "tcp", "path", "/");
+        MDNS.addServiceTxt("http", "tcp", "fw", firmwareVersion());
+        LOG_INF("WIFI", "mDNS %s.local + _http._tcp (%s)", hostname(), reason);
+      } else {
+        LOG_WRN("WIFI", "mDNS start failed (%s)", reason);
+      }
+      break;
+    case MdnsStep::Rebind: {
+      esp_netif_t* sta = WiFi.STA.netif();
+      const esp_err_t e = sta ? mdns_netif_action(sta, MDNS_EVENT_DISABLE_IP4) : ESP_ERR_INVALID_STATE;
+      const esp_err_t e2 = sta ? mdns_netif_action(sta, mdns_event_actions_t(MDNS_EVENT_ENABLE_IP4 | MDNS_EVENT_ANNOUNCE_IP4))
+                               : ESP_ERR_INVALID_STATE;
+      if (e == ESP_OK && e2 == ESP_OK) LOG_INF("WIFI", "mDNS re-bind %s.local (%s)", hostname(), reason);
+      else LOG_WRN("WIFI", "mDNS re-bind failed (%s): %s", reason, esp_err_to_name(e != ESP_OK ? e : e2));
+      break;
+    }
   }
+  mdnsPlan_.lastMs = now;
   mdnsStarted(mdns_, mdnsOnce_ ? reason : nullptr);
   mdnsOnce_ = true;
+}
+
+void WifiMgr::stopMdns(const char* why) {
+  if (!mdns_) return;
+  const uint32_t t0 = millis();
+  MDNS.end();   // stops the task, closes the pcbs on the tcpip thread, frees queued rx packets: all before Wi-Fi off
+  mdns_ = false;
+  mdnsStarted(false, nullptr);
+  LOG_INF("WIFI", "mDNS stopped before Wi-Fi off (%s, %u ms)", why, unsigned(millis() - t0));
 }
 
 void WifiMgr::onConnected() {
@@ -433,6 +460,7 @@ void WifiMgr::forget() {
 #if X4_QEMU
   g_qemuLinkWanted = false;
 #else
+  stopMdns("forget");
   WiFi.disconnect(true, true);
 #endif
   {
@@ -728,6 +756,7 @@ void WifiMgr::escalate() {
     case WifiEscalation::Action::Reset:
       // autoReconnect + reconnect() can stay stuck after an AP reboot / DHCP failure; a full radio restart clears it
       LOG_WRN("WIFI", "offline %u min · radio reset (Wi-Fi off → STA → begin)", unsigned(esc_.offlineMs() / 60000));
+      stopMdns("radio reset");
       WiFi.mode(WIFI_OFF);
       delay(200);
       WiFi.mode(WIFI_STA);

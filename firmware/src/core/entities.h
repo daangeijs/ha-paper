@@ -23,6 +23,9 @@ namespace x4 {
 //                    train/bus: attr departures = list or JSON [{"time":"HH:MM","delay":min,"cancelled":bool,"info":text}],
 //                    else attr upcoming = [{planned, actual (ISO), delay, track, direction, status}] (NS departures, #275),
 //                    per_hour (bus), note (optional);  car: state = travel time min, attr typical = usual min (optional)
+//   bins tile sensors (the widget's `entities`, #317; spec/SCHEMA.md "bins"): state = a date or days to; attr daysTo,
+//                    upcoming (JSON list of dates)
+//   guestWifi password_entity (#329): input_text / text / sensor, state = the guest password (never logged)
 // Any entity: attr display_precision (HA's, or the entity registry's via EntityAdapter::setPrecision) → core/logic fmtValue.
 // Missing/unknown values render as "—" (never fake numbers).
 // HA attributes not named here (plus price/unit keys in entity_map.cpp) are dropped at ingest: core/ha_stream.cpp keepAttr.
