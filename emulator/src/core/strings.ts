@@ -580,6 +580,9 @@ export const STRINGS = {
   palBins: ['Bin day', 'Afvalkalender'],   // eink-ha-os#317
   // route tile kind (console) and title fallback (display)
   routeMode: ['Kind', 'Soort'], modeTrain: ['Train', 'Trein'], modeBus: ['Bus', 'Bus'], modeCar: ['Car', 'Auto'],
+  // second departure entity of a train / bus route (console, ha-paper#22)
+  routeEntity2: ['Then (optional)', 'Daarna (optioneel)'],
+  routeEntity2Hint: ['A sensor for the departure after, such as the next bus of an OV stop.', 'Een sensor voor het vertrek daarna, zoals de volgende bus van een ov-halte.'],
   // bar chart series (console, eink-ha-os#148)
   barsSeries: ['Shows', 'Toont'], seriesPrices: ['Prices', 'Prijzen'], seriesUsage: ['Usage', 'Verbruik'], seriesSolar: ['Solar', 'Zon'],
   // history tile editor (console, eink-ha-os#267)

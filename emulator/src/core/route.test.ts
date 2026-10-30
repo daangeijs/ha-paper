@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { isoMs, routeDepartures } from './route.ts';
+import { departureOf, isoMs, routeDepartures } from './route.ts';
 import { routeVectors } from '../../scripts/gen-vectors.ts';
 
 const file = join(import.meta.dirname, '..', '..', '..', 'spec', 'test-vectors', 'route-departures.json');
@@ -24,6 +24,12 @@ describe('route departures (eink-ha-os#275)', () => {
     expect(isoMs('2026-09-29 07:55', 120)).toBe(Date.UTC(2026, 8, 29, 5, 55));
     expect(isoMs('soon', 0)).toBeNaN();
     expect(isoMs('2026-09-29T07:55:00 later', 0)).toBeNaN();
+  });
+  it('one OVapi departure with real numbers (ha-paper#22)', () => {
+    expect(departureOf('2026-10-30T07:58:00+00:00', { line_number: 12, destination: 'Central', delay_minutes: 3 }, 60))
+      .toEqual({ time: '08:58', delay: 3, cancelled: false, info: '12 · Central' });
+    expect(departureOf('unavailable', {}, 60)).toBeNull();
+    expect(routeDepartures({ upcoming: 'none' }, 60, 'en', '2026-10-30T07:58:00Z')).toEqual([{ time: '08:58', delay: 0, cancelled: false, info: '' }]);
   });
   it('spec/test-vectors/route-departures.json is current', () => {
     expect(JSON.parse(readFileSync(file, 'utf8'))).toEqual(JSON.parse(JSON.stringify(routeVectors())));

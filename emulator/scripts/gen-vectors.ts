@@ -5,7 +5,7 @@ import { readFileSync, writeFileSync, mkdirSync, readdirSync, rmSync } from 'nod
 import { join } from 'node:path';
 import { validateYaml, cellsUsed, toYaml, sceneAction } from '../src/core/config.ts';
 import { sevOf, routeLevel, carEta, carLevel, SEV, CAR_FACTOR } from '../src/core/severity.ts';
-import { routeDepartures } from '../src/core/route.ts';
+import { routeDeparturesOf } from '../src/core/route.ts';
 import { binDays, binsView } from '../src/core/bins.ts';
 import { capList, listAgo, listRows, listSpec, listView, LIST_MAX_BYTES, LIST_MAX_ITEMS } from '../src/core/attrList.ts';
 import { fieldDecode, fieldEncode, guestLayout, guestPayload, guestQr, guestView } from '../src/core/guestWifi.ts';
@@ -96,6 +96,8 @@ export const CONFIG_CASES: [string, string, string][] = [
   ['49-zonelist-bad-entity', 'Rule: zoneList entities are climate.* ids (any integration).', H + scr('a', ['type: zoneList, entities: sensor.living_temperature'])],
   ['50-user-routes', 'Routes are user tiles (eink-ha-os#145): free label, mode train | bus | car (absent = train), entity = a sensor.* id; the route id is optional free text.', H + scr('t', ['type: route, label: To work, mode: train, entity: sensor.commute_departures, cs: 2', 'type: route, label: Bus 52, mode: bus, entity: sensor.bus_52, cs: 2', 'type: route, label: Drive, mode: car, entity: sensor.drive_time, cs: 2', 'type: route, route: my_line, entity: sensor.x4_route_my_line, cs: 2'], '    app: travel\n')],
   ['51-legacy-route', 'Old catalog routes (`route: home_centre`, `route: car`, …, before eink-ha-os#145) still parse: an empty user route without entity (the tile asks for a sensor; the console blocks saving until one is picked).', H + scr('t', ['type: route, route: home_centre, cs: 2', 'type: route, route: car, cs: 2'], '    app: travel\n')],
+  ['52a-route-entity2', 'A train/bus route may name a second departure entity (ha-paper#22): `entity2`, a sensor.* id; its departures follow the first entity\'s.', H + scr('t', ['type: route, label: Bus 12, mode: bus, entity: sensor.bus_stop_12345678_current_departure_time, entity2: sensor.bus_stop_12345678_next_departure_time, cs: 2'], '    app: travel\n')],
+  ['52b-route-entity2-domain', 'Rule: a route entity2 must be a sensor.* id (ha-paper#22).', H + scr('t', ['type: route, label: Bus 12, mode: bus, entity: sensor.bus_12, entity2: switch.bus'], '    app: travel\n')],
   ['52-route-wrong-domain', 'Rule: a route entity must be a sensor.* id.', H + scr('t', ['type: route, label: Drive, entity: switch.car'], '    app: travel\n')],
   // eink-ha-os#319: the now playing tile on a media_player, with favorites (Name=type:id or Name=script.<id> / scene.<id>, split by ;)
   ['319a-media-favorites', 'A media tile takes a media_player entity, an optional label and up to 6 favorites (eink-ha-os#319); ids may hold colons and slashes.', H + scr('a', ['type: media, entity: media_player.living_room, cs: 2, favorites: Radio 1=music:http://icecast.omroep.nl/radio1-bb-mp3; Bedtime=script.good_night; Movie=scene.movie_night', 'type: media, entity: media_player.kitchen, label: Kitchen'])],
@@ -521,7 +523,8 @@ export function routeVectors() {
   const up = (xs: Record<string, unknown>[]) => JSON.stringify(xs);
   const ns = (planned: string, actual: string, delay: number | undefined, track: string, direction: string, status: string, message: string | null = null) =>
     ({ planned, actual, ...(delay === undefined ? {} : { delay }), track, planned_track: track, track_changed: false, direction, train: 'IC 1234', status, message });
-  const cases: { name: string; tz: number; posixTz: string; attrs: Record<string, string> }[] = [
+  type Ent = { state?: string; attrs: Record<string, string> };
+  const cases: ({ name: string; tz: number; posixTz: string; entity2?: Ent } & Ent)[] = [
     { name: 'departures-shape', tz: 120, posixTz: CET, attrs: { departures: JSON.stringify([{ time: '08:04', delay: 0, cancelled: false, info: 'Intercity' }, { time: '08:19', delay: 6, cancelled: false, info: 'Sprinter · track 4' }, { time: '8:34', delay: 0, cancelled: true }]) } },
     { name: 'departures-wins-over-upcoming', tz: 120, posixTz: CET, attrs: { departures: JSON.stringify([{ time: '09:00', delay: 1, cancelled: false, info: 'Bus 1' }]), upcoming: up([ns('2026-09-29T07:55:00+02:00', '2026-09-29T07:55:00+02:00', 0, '5', 'Harbour', 'on_time')]) } },
     { name: 'upcoming-ns', tz: 120, posixTz: CET, attrs: { upcoming: up([
@@ -544,10 +547,28 @@ export function routeVectors() {
       ns('2026-09-29T10:00:00+02:00', '2026-09-29T10:00:00+02:00', 0, '', '', 'on_time'),
     ]) } },
     { name: 'upcoming-not-a-list', tz: 120, posixTz: CET, attrs: { upcoming: 'none' } },
+    // ha-paper#22: single-departure entities (the OVapi integration, made-up stop 12345678), entity then entity2
+    { name: 'ovapi-departure-time-pair', tz: 60, posixTz: CET, state: '2026-10-30T07:58:00+00:00',
+      attrs: { friendly_name: 'Bus stop 12345678 Current departure time', line_number: '12', destination: 'Central Station', delay_minutes: '3', scheduled_time: '2026-10-30T08:55:00+01:00' },
+      entity2: { state: '2026-10-30T08:13:00+00:00', attrs: { line_number: '12', destination: 'Central Station', delay_minutes: '0', scheduled_time: '2026-10-30T09:13:00+01:00' } } },
+    { name: 'ovapi-vehicle-pair', tz: 120, posixTz: CET, state: '5 → Harbour',
+      attrs: { line_number: '5', destination: 'Harbour', expected_arrival: '2026-09-29T07:57:00', target_arrival: '2026-09-29T07:55:00', delay_minutes: '2', minutes_until_departure: '4' },
+      entity2: { state: '5 → Harbour', attrs: { line_number: '5', destination: 'Harbour', expected_arrival: '2026-09-29T08:10:30', target_arrival: '2026-09-29T08:10:00', minutes_until_departure: '17' } } },
+    { name: 'ovapi-early-and-no-delay', tz: 120, posixTz: CET, state: '2026-09-29T23:59:00+02:00',
+      attrs: { line_number: '300', delay_minutes: '-1', scheduled_time: '2026-09-30T00:00:00+02:00' },
+      entity2: { state: '2026-09-30T00:20:00+02:00', attrs: { destination: 'Airport', delay_minutes: '', scheduled_time: '2026-09-30T00:14:00+02:00' } } },
+    { name: 'ovapi-scheduled-only-and-empty', tz: 120, posixTz: CET, state: '7 → Harbour',
+      attrs: { line_number: '7', target_arrival: '2026-09-29T09:05:00' },
+      entity2: { state: 'none', attrs: { line_number: '7' } } },
+    { name: 'entity2-unavailable', tz: 120, posixTz: CET, state: '2026-09-29T09:20:00+02:00', attrs: { line_number: '1' },
+      entity2: { state: 'unavailable', attrs: { line_number: '1', target_arrival: '2026-09-29T09:40:00' } } },
+    { name: 'list-then-single', tz: 120, posixTz: CET, attrs: { departures: JSON.stringify([{ time: '09:00', delay: 0, cancelled: false, info: 'Bus 1' }]) },
+      entity2: { state: '2026-09-29T09:20:00+02:00', attrs: { line_number: '1', delay_minutes: '1' } } },
   ];
   return {
-    description: 'Route tile departures (spec/SCHEMA.md route, eink-ha-os#275). `departures` [{time HH:MM, delay, cancelled, info}] wins; else `upcoming` [{planned, actual, delay, track, direction, status}] with ISO timestamps (the NS departures integration): time = local HH:MM of actual, else planned; delay = `delay`, else max(0, round(actual − planned in minutes)); cancelled = status "cancelled" (the integration\'s statuses: on_time, delayed, cancelled); info = "Track ‹track› · ‹direction›" (strings routeTrack). Timestamps without an offset are local.',
-    cases: cases.flatMap((c) => (['en', 'nl'] as const).map((lang) => ({ ...c, lang, out: routeDepartures(c.attrs, c.tz, lang) }))),
+    description: 'Route tile departures (spec/SCHEMA.md route, eink-ha-os#275). `departures` [{time HH:MM, delay, cancelled, info}] wins; else `upcoming` [{planned, actual, delay, track, direction, status}] with ISO timestamps (the NS departures integration): time = local HH:MM of actual, else planned; delay = `delay`, else max(0, round(actual − planned in minutes)); cancelled = status "cancelled" (the integration\'s statuses: on_time, delayed, cancelled); info = "Track ‹track› · ‹direction›" (strings routeTrack). Timestamps without an offset are local. Neither list (ha-paper#22): the entity is one departure (the OVapi integration): time = local HH:MM of a timestamp `state`, else `expected_arrival`, else `scheduled_time`, else `target_arrival`; delay = `delay_minutes` (a number, as text; below 0 = 0), else max(0, round(time − (`scheduled_time`, else `target_arrival`))); cancelled false; info = "‹line_number› · ‹destination›" (either may be absent). No time: no departure. `entity2` (optional): a second entity of the tile; its departures follow the first entity\'s (left out when unavailable / unknown). `state` absent = not a timestamp.',
+    cases: cases.flatMap((c) => (['en', 'nl'] as const).map((lang) => ({ ...c, lang,
+      out: routeDeparturesOf([{ state: c.state ?? '', attrs: c.attrs }, ...(c.entity2 ? [{ state: c.entity2.state ?? '', attrs: c.entity2.attrs }] : [])], c.tz, lang) }))),
   };
 }
 

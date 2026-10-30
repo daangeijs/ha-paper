@@ -553,7 +553,8 @@ static void routeTile(Canvas& c, I& a, const Widget& w, Rect r) {
   int x0 = r.x + 14, x1 = r.x + r.w - 14, top = r.y + 10, bottom = r.y + r.h - 9;
   const EntityValue* raw = id.empty() ? nullptr : a.store.get(id);
   EntityGap gap = entityGap(raw);
-  RouteState st = entityAvailable(raw) ? routeState(raw, isCar, a.lang) : RouteState();
+  const std::string id2 = w.field("entity2");   // ha-paper#22: the bus after, from a second entity
+  RouteState st = entityAvailable(raw) ? routeState(raw, isCar, a.lang, id2.empty() ? nullptr : a.store.get(id2)) : RouteState();
   const RouteState* rs = st.has ? &st : nullptr;
   int lvl = 1;
   std::vector<DepartureState> deps;

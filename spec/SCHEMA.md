@@ -62,7 +62,7 @@ A tile with no room is not drawn.
 | price | label (optional) | price now + cheap/normal/high + cheapest 3 h window; `label` replaces the title (eink-ha-os#148) |
 | gauge | entity, label (optional) | percentage; domain `sensor` \| `input_number` \| `number`; default `sensor.home_battery_soc` |
 | bars | series: prices \| usage \| solar, label (optional) | 24 h chart, now = black; another series draws usage |
-| route | label, mode, entity (all optional), route | a user route with severity; `mode` train \| bus \| car (default train), `entity` a `sensor.*`; see *route sensors* |
+| route | label, mode, entity, entity2 (all optional), route | a user route with severity; `mode` train \| bus \| car (default train), `entity` a `sensor.*`, `entity2` (train, bus) a second `sensor.*` whose departures follow `entity`'s; see *route sensors* |
 | lightList | areas, entities (both optional) | lights by HA area, paginated (use cs 4, rs 2); see *list picks* |
 | switch | entity | toggle; domain `switch` \| `light` \| `input_boolean` \| `fan` |
 | light | light: ‹id› | legacy (pre-0.5): rewritten to `{type: switch, entity: light.‹id›}` (`‹id›` with a `.` kept as-is) |
@@ -109,7 +109,7 @@ What the display reads from the entity (any integration, or a template sensor th
 
 | mode | state | attributes |
 |---|---|---|
-| train, bus | ignored | `departures` (required): a list, or a JSON string of one, of `{"time": "HH:MM", "delay": minutes, "cancelled": bool, "info": text}`; local clock times, upcoming first. Or, without `departures`, `upcoming` as the NS departures integration (ha-ns-departures) writes it: `{"planned": ISO, "actual": ISO, "delay": minutes, "track": text, "direction": text, "status": "on_time" \| "delayed" \| "cancelled", …}`; the row shows the local time of `actual` (else `planned`), `delay` (else actual − planned), cancelled when `status` is `cancelled`, and "Track ‹track› · ‹direction›" (eink-ha-os#275, `spec/test-vectors/route-departures.json`). `note` (optional): replaces the footer. `per_hour` (bus, optional): adds "‹n› per hour" |
+| train, bus | ignored | `departures` (required): a list, or a JSON string of one, of `{"time": "HH:MM", "delay": minutes, "cancelled": bool, "info": text}`; local clock times, upcoming first. Or, without `departures`, `upcoming` as the NS departures integration (ha-ns-departures) writes it: `{"planned": ISO, "actual": ISO, "delay": minutes, "track": text, "direction": text, "status": "on_time" \| "delayed" \| "cancelled", …}`; the row shows the local time of `actual` (else `planned`), `delay` (else actual − planned), cancelled when `status` is `cancelled`, and "Track ‹track› · ‹direction›" (eink-ha-os#275, `spec/test-vectors/route-departures.json`). Or, without either list, the entity is one departure (ha-paper#22, the OVapi integration's "departure time" / "vehicle" sensors): the local time of a timestamp state, else of `expected_arrival`, else of `scheduled_time` / `target_arrival` (ISO); delay `delay_minutes` (else that time − `scheduled_time` / `target_arrival`); "‹line_number› · ‹destination›". Pair it with `entity2` (e.g. the stop's next-departure sensor) for two rows without a template sensor. `note` (optional): replaces the footer. `per_hour` (bus, optional): adds "‹n› per hour" |
 | car | travel time in minutes | `typical` (optional): usual minutes; without it there is no badge and no "usually" line. `note` (optional) |
 
 Severity: worst of the next two departures (delay < 2 on time, < 5 minor, ≤ 15 delayed, > 15 or cancelled disrupted);
@@ -359,6 +359,7 @@ Reject first error with 1-based line number and message (exact text; `‹›` = 
 | media `favorites` item not `Name=type:id` / `Name=script.<id>` / `Name=scene.<id>` | widget | `media: “‹item›” in favorites is not Name=type:id or Name=script.<id> / scene.<id>` |
 | media more than 6 favorites | widget | `media: at most 6 favorites` |
 | route `mode` not train / bus / car | widget | `route: mode must be train, bus or car` |
+| route `entity2` not a `sensor.*` id | widget | `route: entity2 “‹id›” is not a sensor entity` |
 | bins `entities` item not a sensor entity_id | widget | `bins: “‹id›” is not a sensor entity` |
 | bins `labels` item not `sensor.<id>=Name` | widget | `bins: “‹item›” in labels is not sensor.<id>=Name` |
 | bins more than 6 `entities` | widget | `bins: at most 6 sensors` |
@@ -398,7 +399,7 @@ Reject first error with 1-based line number and message (exact text; `‹›` = 
 
 Plus the apps rules above. Widget checks run in table order; `cs: 0`/`rs: 0` count as unset.
 Reference implementation: `parseYaml()` in `emulator/src/core/config.ts`; test vectors:
-`spec/test-vectors/config/*.json` (apps: `33`–`39`; routes: `22`, `50`–`52`; built-in Settings: `53`–`57`; bins: `90`–`94`; guestWifi: `329a`–`329d`; attrList: `332a`–`332d`).
+`spec/test-vectors/config/*.json` (apps: `33`–`39`; routes: `22`, `50`–`52`, `52a`–`52b`; built-in Settings: `53`–`57`; bins: `90`–`94`; guestWifi: `329a`–`329d`; attrList: `332a`–`332d`).
 
 # settings.json (device settings)
 

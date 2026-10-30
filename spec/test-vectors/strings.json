@@ -2597,6 +2597,14 @@
       "en": "Car",
       "nl": "Auto"
     },
+    "routeEntity2": {
+      "en": "Then (optional)",
+      "nl": "Daarna (optioneel)"
+    },
+    "routeEntity2Hint": {
+      "en": "A sensor for the departure after, such as the next bus of an OV stop.",
+      "nl": "Een sensor voor het vertrek daarna, zoals de volgende bus van een ov-halte."
+    },
     "barsSeries": {
       "en": "Shows",
       "nl": "Toont"

@@ -59,7 +59,11 @@ HomeData deriveHome(const EntityStore& store);
 bool presetHasAway(const std::string& modes);
 // A route tile's entity (spec/SCHEMA.md, eink-ha-os#145): train/bus = attr departures, else attr upcoming (NS departures, ISO
 // times → local via localtime(), eink-ha-os#275), car = state minutes + attr typical. = emulator core/route.ts.
-RouteState routeState(const EntityValue* e, bool car, Lang lang = Lang::En);
+// e2 (train/bus, ha-paper#22): a second entity whose departures follow e's when it is available.
+RouteState routeState(const EntityValue* e, bool car, Lang lang = Lang::En, const EntityValue* e2 = nullptr);
+// Neither list: the entity as one departure (OVapi, ha-paper#22): timestamp state (else expected_arrival, else
+// scheduled_time / target_arrival), delay_minutes, "line_number · destination". = emulator departureOf. false = no time.
+bool departureOf(const EntityValue* e, DepartureState& dep);
 
 // What a lightList / zoneList tile shows (eink-ha-os#127, spec/test-vectors/list-pick.json, emulator core/paging.ts): the picked
 // areas then entities (order follows the pick, unknown ids skipped); nothing picked = everything.

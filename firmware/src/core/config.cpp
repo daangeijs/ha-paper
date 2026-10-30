@@ -486,6 +486,8 @@ ParseResult parseYamlText(const std::string& text) {
         if (type.v == "route") {
           WVal m = get("mode");
           if (m.present && (m.num || (m.v != "train" && m.v != "bus" && m.v != "car"))) throw Fail{n, "route: mode must be train, bus or car"};
+          WVal e2 = get("entity2");   // ha-paper#22: a second departure entity
+          if (e2.present && (e2.num || !entityFits(e2.v, {"sensor"}))) throw Fail{n, "route: entity2 " + quoteName(e2.v) + " is not a sensor entity"};
         }
         if (type.v == "bins") {   // eink-ha-os#317, emulator config.ts + bins.ts binsError
           WVal ents = get("entities"), lb = get("labels"), tn = get("tonight");

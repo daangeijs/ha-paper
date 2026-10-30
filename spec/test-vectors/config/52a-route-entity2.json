@@ -1,0 +1,41 @@
+{
+  "name": "52a-route-entity2",
+  "description": "A train/bus route may name a second departure entity (ha-paper#22): `entity2`, a sensor.* id; its departures follow the first entity's.",
+  "input": "# HA Paper display config\nversion: 1\nscreens:\n  - id: t\n    app: travel\n    widgets:\n      - {type: route, label: Bus 12, mode: bus, entity: sensor.bus_stop_12345678_current_departure_time, entity2: sensor.bus_stop_12345678_next_departure_time, cs: 2}\n",
+  "expect": {
+    "ok": true,
+    "apps": [
+      {
+        "id": "home",
+        "title": "Home"
+      },
+      {
+        "id": "house",
+        "title": "House"
+      },
+      {
+        "id": "travel",
+        "title": "Travel"
+      }
+    ],
+    "screens": [
+      {
+        "id": "t",
+        "app": "travel",
+        "title": "t",
+        "cells": 2,
+        "widgets": [
+          {
+            "type": "route",
+            "label": "Bus 12",
+            "mode": "bus",
+            "entity": "sensor.bus_stop_12345678_current_departure_time",
+            "entity2": "sensor.bus_stop_12345678_next_departure_time",
+            "cs": 2
+          }
+        ]
+      }
+    ],
+    "yaml": "# HA Paper display config\nversion: 1\nscreens:\n  - id: t\n    app: travel\n    title: t\n    widgets:\n      - {type: route, label: Bus 12, mode: bus, entity: sensor.bus_stop_12345678_current_departure_time, entity2: sensor.bus_stop_12345678_next_departure_time, cs: 2}\n"
+  }
+}
