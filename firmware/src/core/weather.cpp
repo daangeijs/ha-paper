@@ -171,7 +171,7 @@ void view(const EntityValue* raw, const Forecast* fc, int64_t now, int tz, Lang 
   if (!daily) return;
   const PStr* pu = raw ? attr(*raw, "precipitation_unit") : nullptr;
   const std::string unit = pu && !pu->empty() ? std::string(*pu) : std::string("mm");
-  const Entry* next[kDays];
+  const Entry* next[kDays] = {};
   for (int i = 0; i < fc->nDaily && o.nDays < kDays; ++i)
     if (localDay(int64_t(fc->daily[i].tS) * 1000, tz) > day0) next[o.nDays++] = &fc->daily[i];
   double scale = unit == "in" ? 0.4 : 10;

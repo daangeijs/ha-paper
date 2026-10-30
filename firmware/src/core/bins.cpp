@@ -72,7 +72,7 @@ int days(const std::string& state, const char* daysTo, const char* upcoming, int
   const int64_t today = localDay(nowMs, tz);
   int64_t d;
   if (dayOfText(state, tz, d) && d >= today) return int(d - today);
-  if (intOf(state, d) && today + d >= today) return int(d);
+  if (intOf(state, d) && d >= 0) return int(d);
   if (daysTo && intOf(daysTo, d)) return int(d);
   Json j;
   if (upcoming && parseJson(upcoming, j) && j.isArr())

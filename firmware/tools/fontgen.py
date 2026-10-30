@@ -82,6 +82,13 @@ GROUPS = {   # output file → faces in it
 }
 
 
+def ttf(src, size):
+    """Always Pillow's BASIC layout: with libfribidi on the host Pillow picks RAQM, which draws U+00AD (soft hyphen)
+    as an empty zero-advance glyph and shifts every later offset (GitHub ubuntu-24.04 has it, macOS and minimal
+    runner images don't), so the output would depend on the host."""
+    return ImageFont.truetype(src, size, layout_engine=ImageFont.Layout.BASIC)
+
+
 def has_glyph(font_path, ch, cache={}):
     from fontTools.ttLib import TTFont  # optional; only used for coverage checks
     if font_path not in cache:
@@ -239,8 +246,8 @@ def classic():
         for size in sizes:
             if src:
                 src.seek(0)
-            font = ImageFont.truetype(src or path, size)
-            fb = ImageFont.truetype(os.path.join(FONTS, FALLBACK), size)
+            font = ttf(src or path, size)
+            fb = ttf(os.path.join(FONTS, FALLBACK), size)
             asc, desc = font.getmetrics()
             glyphs, blob, digit_adv = build(path, font, fb, size, charset)
             total += emit(lines, table, f"{weight}{size}", "Classic", weight, size, asc, desc, glyphs, blob, digit_adv)
@@ -306,7 +313,7 @@ def tnum_em(face, weight, cache={}):
 def face_font(face, weight, size):
     fname, axes, opsz = FACES[face]
     path = os.path.join(FONTS, fname)
-    font = ImageFont.truetype(path, size)
+    font = ttf(path, size)
     ax = dict(axes)
     ax["wght"] = WGHT[weight]
     if opsz:
@@ -337,7 +344,7 @@ def sleek():
             for weight in ("Bold", "Semi", "Regular"):
                 for size, cs in sorted(want.get((face, weight), {}).items()):
                     path, font = face_font(face, weight, size)
-                    fb = ImageFont.truetype(os.path.join(FONTS, FALLBACK), size)
+                    fb = ttf(os.path.join(FONTS, FALLBACK), size)
                     asc, desc = font.getmetrics()
                     glyphs, blob, digit_adv = build(path, font, fb, size, cs, synth=False)
                     if not has_feature(path, "tnum"):

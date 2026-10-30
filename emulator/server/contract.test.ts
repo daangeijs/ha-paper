@@ -1679,7 +1679,15 @@ describe.skipIf(NO_RW)('built-in Settings (eink-ha-os#159)', () => {
   afterAll(async () => {
     // leave Settings first: a config push keeps the display on the page it shows, and the Settings pages always exist
     if (sim) await http(base, 'POST', '/__sim/control', { body: JSON.stringify({ screen: 'only' }), type: 'application/json' });
-    else if (await panel()) { await notBusy(); await input('key=home'); await notBusy(); }
+    else if (await panel()) {
+      // after 60 s idle the first key only wakes the chrome / light (eink-ha-os#27, #220): press until Settings is left
+      const state = () => http(base, 'GET', '/__qemu/state');
+      for (let k = 0; k < 3 && (await state()).json?.screen !== 'only'; k++) {
+        await notBusy(); await input('key=home'); await notBusy();
+        await until(state, (r) => r.json?.screen === 'only', 15_000).catch(() => null);
+      }
+      expect((await state()).json?.screen, 'Home leaves the Settings page').toBe('only');
+    }
     if (original) expect((await put(original)).status).toBe(200);
     await putSettings({ display: { warmth } });
   });
