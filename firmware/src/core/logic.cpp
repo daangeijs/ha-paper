@@ -46,7 +46,8 @@ std::string fmtNum(double v, const std::string& unit, int dp) {
   static const std::pair<const char*, int> kUnitDp[] = {{"W", 0}, {"kW", 2}, {"kWh", 1}, {"%", 0},
                                                         {"°C", 1}, {"°F", 1}, {"V", 1}, {"A", 1}};
   int d = -1;
-  if (dp >= 0) d = std::min(dp, 10);
+  if (unit == "min") d = 0;   // ha-paper#22: whole minutes, whatever precision HA suggests for a duration
+  else if (dp >= 0) d = std::min(dp, 10);
   else for (auto& u : kUnitDp) if (unit == u.first) { d = u.second; break; }
   std::string s = toFixed(v, d < 0 ? 2 : d);
   if (d < 0 && s.find('.') != std::string::npos) {   // other units: trim trailing zeros

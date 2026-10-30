@@ -40,12 +40,13 @@ export function localNum(s: string, nf: NumFormat): string {
   return dot < 0 ? int : int + dec + frac;
 }
 
-/** The one number formatter: HA display_precision, else the unit's decimals, else up to 2 with zeros trimmed;
- *  then the number format (eink-ha-os#110). */
+/** The one number formatter: minutes whole (ha-paper#22: HA suggests 2 decimals for a duration sensor), else HA
+ *  display_precision, else the unit's decimals, else up to 2 with zeros trimmed; then the number format (eink-ha-os#110). */
 export function fmtNum(n: number, unit: string, dp?: number | null): string {
   let s: string;
   const ud = UNIT_DP.get(unit);
-  if (dp != null && Number.isInteger(dp) && dp >= 0) s = n.toFixed(Math.min(dp, 10));
+  if (unit === 'min') s = n.toFixed(0);
+  else if (dp != null && Number.isInteger(dp) && dp >= 0) s = n.toFixed(Math.min(dp, 10));
   else if (ud !== undefined) s = n.toFixed(ud);
   else { s = n.toFixed(2); if (s.includes('.')) s = s.replace(/\.?0+$/, ''); }
   return localNum(/^-0(\.0*)?$/.test(s) ? s.slice(1) : s, NF);

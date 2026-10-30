@@ -16,6 +16,8 @@ const char* const kAttrs[] = {
     "area_id", "area_name", "brightness", "dimmable", "supported_color_modes",              // lights
     "x4_order",                                                                             // climate, lights
     "departures", "upcoming", "per_hour", "note", "typical",                                // routes (upcoming: eink-ha-os#275)
+    "line_number", "destination", "delay_minutes", "scheduled_time",                        // one departure (OVapi, ha-paper#22)
+    "expected_arrival", "target_arrival",
     "apparent_temperature", "wind_speed", "wind_speed_unit", "wind_bearing", "precipitation_unit",   // weather tile (eink-ha-os#318)
     "media_title", "media_artist", "volume_level",                                          // now playing (eink-ha-os#319)
     "daysTo",                                                                               // bins (eink-ha-os#317; upcoming above)
