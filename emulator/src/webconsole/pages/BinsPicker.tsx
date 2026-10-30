@@ -1,4 +1,4 @@
-// Bin day tile editor (#317): tick each bin's sensor (likely bins first), give it the name the tile shows.
+// Bin day tile editor (eink-ha-os#317): tick each bin's sensor (likely bins first), give it the name the tile shows.
 import type { CSSProperties } from 'react';
 import type { ConsoleView } from '../useConsole.ts';
 

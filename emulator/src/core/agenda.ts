@@ -1,4 +1,4 @@
-// Agenda and Next tiles (#316): events from HA calendars (calendar.get_events with return_response, HA 2023.12+) for
+// Agenda and Next tiles (eink-ha-os#316): events from HA calendars (calendar.get_events with return_response, HA 2023.12+) for
 // today, tomorrow and the rest of the week, and a countdown to the next timed event. Pure; firmware core/agenda.cpp
 // must match spec/test-vectors/agenda.json. Times are epoch ms, `tz` is the local UTC offset in minutes at `now` (a DST
 // change inside the week is ignored, like the history tile).

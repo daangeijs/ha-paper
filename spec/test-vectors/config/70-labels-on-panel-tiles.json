@@ -1,6 +1,6 @@
 {
   "name": "70-labels-on-panel-tiles",
-  "description": "price, bars, the home battery gauge and thermo keep a label (#148): the panel draws it instead of the built-in title.",
+  "description": "price, bars, the home battery gauge and thermo keep a label (eink-ha-os#148): the panel draws it instead of the built-in title.",
   "input": "# HA Paper display config\nversion: 1\nscreens:\n  - id: a\n    widgets:\n      - {type: price, label: Power}\n      - {type: bars, series: solar, label: Solar today, cs: 2}\n      - {type: gauge, label: Battery}\n      - {type: thermo, zone: living_room, label: Living room, rs: 2}\n",
   "expect": {
     "ok": true,

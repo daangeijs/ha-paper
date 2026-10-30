@@ -61,7 +61,7 @@ describe("full flow against esptool-js with a fake chip", () => {
     }
   });
 
-  it("installs without a backup (optional since #239) and reads no flash beyond the partition table", async () => {
+  it("installs without a backup (optional since eink-ha-os#239) and reads no flash beyond the partition table", async () => {
     const chip = fakeChip();
     const s = new Session(chip.loader);
     await s.chipCheck();

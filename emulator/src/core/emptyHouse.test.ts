@@ -13,7 +13,7 @@ type V = {
 };
 const v = JSON.parse(readFileSync(join(import.meta.dirname, '..', '..', '..', 'spec', 'test-vectors', 'empty-house.json'), 'utf8')) as V;
 
-describe('empty house (spec/test-vectors/empty-house.json, #331)', () => {
+describe('empty house (spec/test-vectors/empty-house.json, eink-ha-os#331)', () => {
   it('constants', () => { expect(EMPTY_WAIT_S).toBe(v.waitS); expect(DEFAULT_EMPTY_SOURCE).toBe(v.defaultSource); });
   for (const c of v.validSource) it('validEmptySource ' + JSON.stringify(c.v), () => expect(validEmptySource(c.v)).toBe(c.ok));
   for (const c of v.houseEmpty) it('houseEmpty ' + c.entity + ' = ' + c.state, () => expect(houseEmpty(c.entity, c.state)).toBe(c.empty));

@@ -21,7 +21,7 @@ const t = JSON.parse(readFileSync(join(import.meta.dirname, '..', '..', '..', 's
   sources: { name: string; screens: { widgets: Record<string, unknown>[] }[]; out: unknown }[];
   items: { name: string; lang: 'en' | 'nl'; in: Omit<QuietIn, 'lang'>; out: unknown }[];
 };
-describe('quiet face Tomorrow row (spec/test-vectors/quiet-tomorrow.json, #328)', () => {
+describe('quiet face Tomorrow row (spec/test-vectors/quiet-tomorrow.json, eink-ha-os#328)', () => {
   for (const c of t.sources) it('sources: ' + c.name, () => expect(quietSources(c.screens)).toEqual(c.out));
   for (const c of t.items) it('items: ' + c.name + ' ' + c.lang, () => expect(quietTomorrow({ ...c.in, lang: c.lang })).toEqual(c.out));
   it('has cases', () => { expect(t.sources.length).toBe(3); expect(t.items.length).toBe(24); });

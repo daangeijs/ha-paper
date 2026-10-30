@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Pass/fail verdict of an endurance run (sim/qemu/endurance.sh, #48).
+"""Pass/fail verdict of an endurance run (sim/qemu/endurance.sh, eink-ha-os#48).
 
     python3 endurance_check.py DIR [--tolerance 8192] [--warmup 600]
 

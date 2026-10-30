@@ -4,7 +4,7 @@ import { join } from 'node:path';
 import { otaErrOf, otaLine, HTTP_LOW_MEMORY } from './otaStatus.ts';
 import { otaStatusVectors } from '../../scripts/gen-vectors.ts';
 
-describe('OTA status line (#250, spec/test-vectors/ota-status.json)', () => {
+describe('OTA status line (eink-ha-os#250, spec/test-vectors/ota-status.json)', () => {
   it('vectors are current (npm run vectors)', () => {
     const file = join(import.meta.dirname, '..', '..', '..', 'spec', 'test-vectors', 'ota-status.json');
     expect(JSON.parse(readFileSync(file, 'utf8'))).toEqual(JSON.parse(JSON.stringify(otaStatusVectors())));

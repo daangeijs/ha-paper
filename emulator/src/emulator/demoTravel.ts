@@ -1,4 +1,4 @@
-// Emulator demo only (#145): the showcase's travel screen and its mock timetables. Never imported by src/core, the
+// Emulator demo only (eink-ha-os#145): the showcase's travel screen and its mock timetables. Never imported by src/core, the
 // web console or the device simulator: a real display shows the user's own routes (label + mode + entity).
 import type { Screen } from '../core/config.ts';
 

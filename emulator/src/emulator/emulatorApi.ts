@@ -35,7 +35,7 @@ function makeApi(emu: Emulator): DeviceApi {
   // The emulated display never crashes: one power-on boot, the device-sim's figures for heap and panel.
   const bootAt = Date.now();
   let ring: DiagRing = diagPush([], 'POWERON', FW_INSTALLED, null);
-  let batt = BATT_ZERO;   // #231: sampled when the console asks (the device samples every 5 min in its power loop)
+  let batt = BATT_ZERO;   // eink-ha-os#231: sampled when the console asks (the device samples every 5 min in its power loop)
   return {
     async getState() { return emu.snapshot(); },
     subscribe(fn) { emu.listeners.add(fn); return () => { emu.listeners.delete(fn); }; },
@@ -89,8 +89,8 @@ function makeApi(emu: Emulator): DeviceApi {
         panel: { controller: 'UC8179', source: 'probe', verdict: 'ultrachip', promoted: true, ver: '00 00 01 FF FF', flg: 0, nvs_screen_type: 1, failed: false, failure: null },
         coredump: null, touch_recoveries: 0, deep_sleep: { armed: emu.armLeft === 0, boots_left: emu.armLeft, armed_by: emu.armLeft === 0 ? 'boots' : null }, battery: battHistory(batt),
         power_trail: { before_boot: null, lines: [], empty_house_sleeps: emu.emptySleeps, phases: { boot: null, wakes: [] } },
-        web: { open: 1, served: 0, refused_503: 0, last_request_age_s: null },   // #227: the emulator has no HTTP server
-        mdns: { up: !!st.wifi.connected, restarts: 0, last_restart_reason: null },
+        web: { open: 1, served: 0, refused_503: 0, last_request_age_s: null },   // eink-ha-os#227: the emulator has no HTTP server
+        mdns: { up: !!st.wifi.connected, restarts: 0, last_restart_reason: null, hostname: null, v4: false, last_announce_age_s: null },
         wifi: { rssi: st.wifi.connected ? -58 : null, bssid: st.wifi.connected ? '3fa2' : null, idle_checks: 0, idle_reconnects: 0 } };
     },
     // the emulator's event log is the device log; it never reboots, so the previous boot is empty

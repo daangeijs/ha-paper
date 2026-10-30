@@ -1,4 +1,4 @@
-// core/ha_stream: subscribe_entities events → entity mirror, attribute whitelist (#76). Also measures what the mirror
+// core/ha_stream: subscribe_entities events → entity mirror, attribute whitelist (eink-ha-os#76). Also measures what the mirror
 // costs on the heap for a big house, before (every attribute) and after (whitelist).
 #include <ArduinoJson.h>
 #include <unity.h>
@@ -67,7 +67,7 @@ static void bigEntity(JsonObject a, int i, std::string& id, bool extra = false) 
   at["integration"] = "zigbee2mqtt";
 }
 
-// pre-#76 ingest: every attribute
+// pre-eink-ha-os#76 ingest: every attribute
 static void mirrorAll(JsonObjectConst ev, PMap<EntityValue>& m) {
   for (JsonPairConst kv : ev["a"].as<JsonObjectConst>()) {
     EntityValue v;
@@ -91,7 +91,7 @@ static size_t espBytes(const PMap<EntityValue>& m, size_t& blocks) {
 }
 
 void test_big_house_mirror_bytes() {
-  const int n = 97;   // the seed's subscription on the big house (#76)
+  const int n = 97;   // the seed's subscription on the big house (eink-ha-os#76)
   JsonDocument d;
   JsonObject a = d["a"].to<JsonObject>();
   std::string id;
@@ -159,7 +159,7 @@ void test_whitelist_covers_readers() {
     TEST_ASSERT_FALSE_MESSAGE(keepAttr(k), k);
 }
 
-void test_door_class_kept() {   // #331: device_class of door / window binary_sensors only
+void test_door_class_kept() {   // eink-ha-os#331: device_class of door / window binary_sensors only
   PMap<EntityValue> m;
   EntityUpdates out;
   JsonDocument d;
@@ -221,7 +221,7 @@ void test_diff_on_adapter_raw() {
   TEST_ASSERT_EQUAL(2, int(ad.raw().at("light.desk").attrs.size()));
 }
 
-// #292: a history tile's attribute is kept for its entity only
+// eink-ha-os#292: a history tile's attribute is kept for its entity only
 void test_extra_attr_per_entity() {
   TEST_ASSERT_TRUE(setExtraAttrs({{"sensor.rain", "nowcast"}}));
   TEST_ASSERT_FALSE(setExtraAttrs({{"sensor.rain", "nowcast"}}));
@@ -238,7 +238,7 @@ void test_extra_attr_per_entity() {
   TEST_ASSERT_FALSE(keepAttrFor("sensor.rain", "nowcast"));
 }
 
-// #85: display_precision from config/entity_registry/get_entries survives full "a" events and reaches logical ids.
+// eink-ha-os#85: display_precision from config/entity_registry/get_entries survives full "a" events and reaches logical ids.
 void test_registry_precision() {
   JsonDocument d;
   deserializeJson(d, R"({"a":{"options":{"sensor":{"display_precision":1,"suggested_display_precision":2}}},
@@ -286,7 +286,7 @@ void test_registry_precision() {
   TEST_ASSERT_EQUAL_STRING("0", find("sensor.not_seen")->attrs.at("display_precision").c_str());
 }
 
-// #81: a re-subscribe only when the watched set changed; collection order does not matter
+// eink-ha-os#81: a re-subscribe only when the watched set changed; collection order does not matter
 void test_resubscribe_only_on_change() {
   std::set<std::string> subscribed;
   for (const char* id : {"sensor.solar_power", "sensor.grid_power", "light.kitchen", "climate.living"})

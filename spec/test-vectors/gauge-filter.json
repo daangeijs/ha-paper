@@ -1,5 +1,5 @@
 {
-  "description": "Gauge filter (#327, emulator src/core/battery.ts gaugeStep, firmware core/gauge_filter.cpp). From power-on (shown -1), each read {raw % (< 0 = not read), charging = STAT or USB host} gives shown (the % reported everywhere) and rise (reads in a row ≥ 5 points above shown). Without a charger the shown % never rises, unless 3 reads in a row are ≥ 5 points above it; falls pass at once; charging follows the gauge.",
+  "description": "Gauge filter (eink-ha-os#327, emulator src/core/battery.ts gaugeStep, firmware core/gauge_filter.cpp). From power-on (shown -1), each read {raw % (< 0 = not read), charging = STAT or USB host} gives shown (the % reported everywhere) and rise (reads in a row ≥ 5 points above shown). Without a charger the shown % never rises, unless 3 reads in a row are ≥ 5 points above it; falls pass at once; charging follows the gauge.",
   "cases": [
     {
       "name": "first read is shown as is",

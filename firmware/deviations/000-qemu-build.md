@@ -11,5 +11,5 @@ handler does not reset. QEMU's MWDT never counts, so the TWDT never fires there 
 the TWDT bookkeeping after the hang and calls that hook itself (docs/ESP32_EMULATION.md).
 The vendored `open_eth` MAC driver (`sim/qemu/lib/qemu_openeth`) restarts its RX/TX rings at descriptor 0 on every
 link-up, as QEMU does when RXEN/TXEN are set; upstream keeps its old position, which after a `set_link off/on` left the
-NIC with a link and no traffic (#108). `GET /__qemu/state` adds `eth` (link, ip, link_ups/link_downs, leases,
+NIC with a link and no traffic (eink-ha-os#108). `GET /__qemu/state` adds `eth` (link, ip, link_ups/link_downs, leases,
 lease_age_s, rx_skew); `make qemu-linkdrop` checks N link drops.

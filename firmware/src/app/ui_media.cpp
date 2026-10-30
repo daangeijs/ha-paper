@@ -1,7 +1,7 @@
-// Now playing tile (#319, emulator Device.tsx MediaTile): header (name, volume, state pill or ★ on a 1-wide tile), title
+// Now playing tile (eink-ha-os#319, emulator Device.tsx MediaTile): header (name, volume, state pill or ★ on a 1-wide tile), title
 // + artist, inline favorites on a 2-high tile, transport + volume buttons; ★ swaps the body for the favorites picker.
 // Only title, artist, state and volume are drawn, so the region signature (and the panel) changes only with those.
-// A player with VOLUME_SET (#351) gets a volume slider instead of − / +: its own region, so a new level is a partial of
+// A player with VOLUME_SET (eink-ha-os#351) gets a volume slider instead of − / +: its own region, so a new level is a partial of
 // the bar alone.
 #include <cmath>
 #include "app/app_impl.h"
@@ -117,7 +117,7 @@ void mediaTile(Canvas& c, I& a, const Widget& w, int i, Rect r) {
     c.textCenter(p.x + pw / 2, midBl(p.y, p.h, B(14)), word, B(14), o);
     right = p.x - 8;
   }
-  const bool slider = L.volume && v.slider;   // #351: the bar is region v<i> (mediaVolume), the % on it
+  const bool slider = L.volume && v.slider;   // eink-ha-os#351: the bar is region v<i> (mediaVolume), the % on it
   if (L.volume && !slider) {
     TextOpts o; o.tabular = true;
     right -= c.textRight(right, baseline(top, R(18), 1.33), v.vol < 0 ? std::string("—") : std::to_string(v.vol) + "%", R(18), o) + 8;

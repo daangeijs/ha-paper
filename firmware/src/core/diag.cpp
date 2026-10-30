@@ -45,7 +45,7 @@ const Boot* at(const Ring& r, int i) {
 }
 
 void push(Ring& r, const char* reason, const char* version, const char* panic, const char* hw) {
-  // glance (#10): a DEEPSLEEP wake right after a DEEPSLEEP wake takes its slot, so wakes never push crashes out
+  // glance (eink-ha-os#10): a DEEPSLEEP wake right after a DEEPSLEEP wake takes its slot, so wakes never push crashes out
   const bool wake = reason && !strcmp(reason, "DEEPSLEEP");
   if (wake && r.count && !strcmp(r.boots[r.head].reason, "DEEPSLEEP")) {
     r.head = static_cast<uint8_t>((r.head + kBoots - 1) % kBoots);   // drop it: the push below reuses its slot
@@ -215,7 +215,10 @@ std::string reportJson(const Ring& r, const Report& rep) {
   o += ",\"web\":{\"open\":" + std::to_string(n.webOpen) + ",\"served\":" + num(n.served) + ",\"refused_503\":" +
        num(n.refused503) + ",\"last_request_age_s\":" + (n.lastRequestAgeS >= 0 ? std::to_string(n.lastRequestAgeS) : "null") + "}";
   o += ",\"mdns\":{\"up\":" + std::string(n.mdnsUp ? "true" : "false") + ",\"restarts\":" + num(n.mdnsRestarts) +
-       ",\"last_restart_reason\":" + (n.mdnsReason ? jsonQuote(n.mdnsReason) : std::string("null")) + "}";
+       ",\"last_restart_reason\":" + (n.mdnsReason ? jsonQuote(n.mdnsReason) : std::string("null")) +
+       ",\"hostname\":" + (n.mdnsHost.empty() ? std::string("null") : jsonQuote(n.mdnsHost)) +
+       ",\"v4\":" + (n.mdnsV4 ? "true" : "false") + ",\"last_announce_age_s\":" +
+       (n.mdnsAnnounceAgeS >= 0 ? std::to_string(n.mdnsAnnounceAgeS) : std::string("null")) + "}";
   o += ",\"wifi\":{\"rssi\":" + (n.rssiKnown ? std::to_string(n.rssi) : std::string("null")) +
        ",\"bssid\":" + (n.bssid.empty() ? std::string("null") : jsonQuote(n.bssid)) + ",\"idle_checks\":" +
        num(n.idleChecks) + ",\"idle_reconnects\":" + num(n.idleReconnects) + "}";

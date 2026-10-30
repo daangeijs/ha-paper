@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Soak collector: poll an HA Paper display, one CSV row per poll, a markdown summary per day (#46).
+"""Soak collector: poll an HA Paper display, one CSV row per poll, a markdown summary per day (eink-ha-os#46).
 
     X4_TOKEN=x4_… python3 soak.py --url http://ha-paper-a1b2.local [--ip 192.168.1.40] [--interval 300] [--hours 168] [--out DIR]
     python3 soak.py --summarize DIR/soak.csv [--day 2026-10-16]     summary from an existing CSV to stdout
@@ -12,7 +12,7 @@ Reboots: uptime went backwards (or the boot time moved forward); the reasons com
 /diagnostics. Unreachable polls are `asleep` when the display said it would sleep (power.nextWakeEpoch, mode) or
 woke with reset reason DEEPSLEEP afterwards, otherwise `down`.
 
-Inbound path (#227: one night the .local name stopped resolving on the Mac while the display kept pushing to HA).
+Inbound path (eink-ha-os#227: one night the .local name stopped resolving on the Mac while the display kept pushing to HA).
 With a name in --url every poll checks the name and the IP separately, one column each:
   name_dns   ok <ms> | fail <error>               getaddrinfo of the name (mDNS on macOS); an ok updates the IP
   ip         the address used: this resolve, else the last good one, else --ip

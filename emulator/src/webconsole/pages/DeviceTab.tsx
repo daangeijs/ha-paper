@@ -1,4 +1,4 @@
-// Device settings (#190): the settings with an (i) each in the wide column; Wi-Fi folded to one line on top of the
+// Device settings (eink-ha-os#190): the settings with an (i) each in the wide column; Wi-Fi folded to one line on top of the
 // right column (Change opens the form), then Home Assistant, This display, Diagnostics.
 import { Fragment } from 'react';
 import type { ConsoleView } from '../useConsole.ts';

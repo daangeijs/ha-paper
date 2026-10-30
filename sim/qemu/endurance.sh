@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Endurance run with fault injection (#48): the REAL firmware (env:x4qemu) in QEMU against the fake HA for HOURS,
+# Endurance run with fault injection (eink-ha-os#48): the REAL firmware (env:x4qemu) in QEMU against the fake HA for HOURS,
 # a fault every FAULT_EVERY seconds in rotation, recorded by firmware/tools/soak.py, judged by endurance_check.py.
 #   ha-restart   fake HA closes every socket and refuses its port for 20-60 s (POST /__fake/restart), tokens kept
 #   ws-drop      fake HA destroys the WebSocket's TCP connection without a close frame (POST /__fake/drop-ws)
@@ -8,7 +8,7 @@
 #   config-push  GET /config → PUT /config (same YAML) and PUT /settings display.clock 12 ↔ 24
 # After each fault the display must report home_assistant "linked" within RECOVER_S (ha-restart and ws-drop: over a
 # new WebSocket session). Big house (HOUSE=big, default): demo + 1200 entities; the console's entity list
-# (GET /api/v1/ha/entities, the firmware's cap of 800 entries, kMaxListed in net/ha_client.cpp, #57) is fetched every ENTITIES_EVERY s.
+# (GET /api/v1/ha/entities, the firmware's cap of 800 entries, kMaxListed in net/ha_client.cpp, eink-ha-os#57) is fetched every ENTITIES_EVERY s.
 # Usage: sim/qemu/endurance.sh [--no-build]     env: HOURS (72) INTERVAL (soak poll, 60) FAULT_EVERY (HOURS·3600/12,
 #   clamped 60..600) ENTITIES_EVERY (600, short runs HOURS·3600/3) RECOVER_S (300) HOUSE (big) SIM_HTTP_PORT FAKE_HA_PORT
 # exit 0 = PASS. Output: sim/qemu/.state/endurance/ (endurance.md, events.csv, soak/soak.csv, diag-final.json, logs)
@@ -31,7 +31,7 @@ FAULT_EVERY="${FAULT_EVERY:-$(( DUR / 12 < 60 ? 60 : (DUR / 12 > 600 ? 600 : DUR
 ENTITIES_EVERY="${ENTITIES_EVERY:-$(( DUR / 3 < 600 ? DUR / 3 : 600 ))}"
 RECOVER_S="${RECOVER_S:-300}"
 HOUSE="${HOUSE:-big}"
-MIN_ENTITIES=$([[ $HOUSE == big ]] && echo 800 || echo 1)   # big: the firmware lists at most 800 (#57)
+MIN_ENTITIES=$([[ $HOUSE == big ]] && echo 800 || echo 1)   # big: the firmware lists at most 800 (eink-ha-os#57)
 export X4_FW_VERSION="${X4_FW_VERSION:-0.0.0-qemu}"
 mkdir -p "$STATE"
 
@@ -120,7 +120,7 @@ inject() {
   return 1
 }
 # monitor <command>: QEMU monitor command, retried once after 2 s. Success = the monitor greeted with "(qemu)" and did
-# not answer with an error; nc's exit code alone also says 0 when the monitor never read the line (#108).
+# not answer with an error; nc's exit code alone also says 0 when the monitor never read the line (eink-ha-os#108).
 monitor_once() { local out; out=$(mon "$1"); [[ "$out" == *"(qemu)"* && "$out" != *"not found"* && "$out" != *"rror"* ]]; }
 monitor() { monitor_once "$1" && return 0; sleep 2; monitor_once "$1"; }
 

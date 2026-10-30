@@ -13,5 +13,5 @@
 - `wifi_signal` is left out under QEMU (Ethernet, `wifiRssi()` false); timestamps are left out until SNTP has set the
   clock. "Uptime" is reported as `last_boot` (a timestamp, like HA System Monitor), so the history doesn't change
   every push.
-- Toggle `display.haReport` (default true) is a new settings key, no schema bump (#12). Only in GET/PUT /settings
+- Toggle `display.haReport` (default true) is a new settings key, no schema bump (eink-ha-os#12). Only in GET/PUT /settings
   and the web console's Settings card; no tile on the device's Settings screens.

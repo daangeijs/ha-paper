@@ -7,4 +7,4 @@
 - Small text on the Sleek card surface: `Canvas::text` clears surface texture pixels (dither or dots) within 2 px of
   the glyphs of any text under 20 px drawn over a `Tone::Surf` fill on the same canvas (`surfKnockout`). The emulator
   draws SURF as a flat colour, so this has no emulator counterpart. Ring track and spark bars were already 1-bit
-  patterns (#38).
+  patterns (eink-ha-os#38).

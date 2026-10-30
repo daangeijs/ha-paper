@@ -3,7 +3,7 @@ import { describe, expect, it } from 'vitest';
 import { LOGICAL, ROUTE_PREFIX, formatSource, isLogicalId, mergeEntities, parseSource, sourceKind, validEntityRef } from './entityMap.ts';
 
 describe('logical ids (firmware core/entity_map.cpp)', () => {
-  it('fixed ids = fixedLogical(); no route catalog (#145)', () => {
+  it('fixed ids = fixedLogical(); no route catalog (eink-ha-os#145)', () => {
     const cpp = readFileSync(new URL('../../../firmware/src/core/entity_map.cpp', import.meta.url), 'utf8');
     const consts = Object.fromEntries([...cpp.matchAll(/const char\* const (k\w+) = "([^"]+)";/g)].map((m) => [m[1], m[2]]));
     const body = /fixedLogical\(\) \{[^{]*\{([^}]*)\}/.exec(cpp)![1];

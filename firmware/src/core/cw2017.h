@@ -1,4 +1,4 @@
-// CW2017 fuel gauge (X4 Pro, I2C 0x63) as a non-blocking state machine (issue #11). The vendored BatteryMonitor
+// CW2017 fuel gauge (X4 Pro, I2C 0x63) as a non-blocking state machine (issue eink-ha-os#11). The vendored BatteryMonitor
 // recovers a sleeping/reset gauge with delay() loops (soft reset + up to 1 s VERSION + 3 s SoC wait) on the
 // caller's task; on the X4 that is "x4input", so touch and keys froze for ~4 s. Same register sequence and
 // profile as vendor BatteryMonitor.cpp (OEM Cw2017PowerHal), but each call does one short bus step and the caller

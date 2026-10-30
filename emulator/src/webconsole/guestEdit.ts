@@ -1,4 +1,4 @@
-// Web console: the guest Wi-Fi tile's fields (#329). Pure. ssid / password are stored fieldEncode'd (core/guestWifi.ts)
+// Web console: the guest Wi-Fi tile's fields (eink-ha-os#329). Pure. ssid / password are stored fieldEncode'd (core/guestWifi.ts)
 // so commas, braces and digits-only passwords survive screens.yaml; defaults (WPA, not hidden) are left out.
 import { fieldEncode, GUEST_SECURITY } from '../core/guestWifi.ts';
 import type { Widget } from '../core/config.ts';

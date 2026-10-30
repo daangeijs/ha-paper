@@ -24,7 +24,7 @@ class QemuDisplay : public Display {
   uint32_t fulls() const { return fulls_; }
   uint32_t partials() const { return partials_; }
   uint32_t fasts() const { return fasts_; }
-  void setStuck(bool stuck);   // POST /__qemu/panel (#181): simulate a BUSY line that never releases
+  void setStuck(bool stuck);   // POST /__qemu/panel (eink-ha-os#181): simulate a BUSY line that never releases
 
  private:
   bool panelIo();   // the real display's BUSY gate (core/panel_guard) against the simulated line; false = skip
@@ -42,7 +42,7 @@ class QemuBoard : public Board {
   uint32_t millis() override;
   int64_t epochSeconds() override;
   void restart() override;
-  void powerOff() override;   // #258: no latch in QEMU; logs, returns (the App keeps the face, Power restarts)
+  void powerOff() override;   // eink-ha-os#258: no latch in QEMU; logs, returns (the App keeps the face, Power restarts)
   void writeRtcFromSystemClock() {}
   void notifyOnInput(void* task);   // TaskHandle_t woken by qemuPushInput (same contract as X4Board)
   bool pushInput(const InputEvent& e) override;

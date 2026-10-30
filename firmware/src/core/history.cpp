@@ -1,4 +1,4 @@
-// Port of emulator src/core/history.ts (#268); spec/test-vectors/history.json. Arithmetic order follows the TS so the
+// Port of emulator src/core/history.ts (eink-ha-os#268); spec/test-vectors/history.json. Arithmetic order follows the TS so the
 // doubles match the vectors.
 #include "core/history.h"
 #include "core/config.h"
@@ -77,10 +77,10 @@ bool aggOf(const std::string& v, Agg& out) {
 const char* aggName(Agg a) { return kAggs[int(a)]; }
 
 namespace {
-const char* const kStyles[] = {"bars", "line", "area", "step", "dots"};
+const char* const kStyles[] = {"bars", "line", "area", "step", "dots", "band"};
 }
 Style resolveStyle(Agg a, const std::string& style) {
-  for (int i = 0; i < 5; ++i) if (style == kStyles[i]) return Style(i);
+  for (int i = 0; i < 6; ++i) if (style == kStyles[i]) return Style(i);
   return a == Agg::Mean ? Style::Line : Style::Bars;
 }
 const char* styleName(Style s) { return kStyles[int(s)]; }
@@ -148,7 +148,7 @@ std::string configError(const Fields& f) {
     if (a % b != 0)
       return "history: bucket " + (f.bucket.present ? f.bucket.v : std::to_string(b / kMin) + "m") + " does not divide ahead " + f.ahead.v;
   }
-  if (f.past.present) {   // #307
+  if (f.past.present) {   // eink-ha-os#307
     const size_t dot = f.past.v.find('.');
     bool ok = dot != std::string::npos && dot + 1 < f.past.v.size();
     if (ok) {
@@ -168,7 +168,12 @@ std::string configError(const Fields& f) {
   bool styleOk = f.style.v == "auto";
   for (const char* k : kStyles) styleOk = styleOk || f.style.v == k;
   if (f.style.present && !styleOk)
-    return "history: style must be bars, line, area, step, dots or auto";
+    return "history: style must be bars, line, area, step, dots, band or auto";
+  const bool band = f.style.present && f.style.v == "band";   // eink-ha-os#304 wave 2
+  if ((band || f.compare.present) && src != Kind::Recorder) return "history: band and compare need a recorder series (no attribute or forecast)";
+  if (band && f.agg.present && f.agg.v != "mean") return "history: style band needs agg mean";
+  if (f.compare.present && ((f.compare.v != "1d" && f.compare.v != "7d") || parseSpan(f.compare.v) < win))
+    return "history: compare must be 1d or 7d, at least the window";
   double lo = f.min.present ? numOf(f.min.v) : 0, hi = f.max.present ? numOf(f.max.v) : 0;
   if ((f.min.present && !has(lo)) || (f.max.present && !has(hi))) return "history: min and max must be numbers";
   if (f.min.present && f.max.present && lo >= hi) return "history: min must be below max";
@@ -194,6 +199,7 @@ Spec specOf(const Widget& w) {
   s.max = hi.present ? numOf(hi.v) : kNone;
   s.threshold = th.present ? numOf(th.v) : kNone;
   s.labels = f("labels").v == "true";
+  if (f("compare").present) s.compareMs = std::max<int64_t>(parseSpan(f("compare").v), 0);
   if (s.kind == Kind::Recorder) return s;
   // an attribute or forecast series looks ahead by default (a nowcast, a forecast): the whole window from now
   s.aheadMs = ah.present ? std::max<int64_t>(aheadOf(ah.v), 0) : s.windowMs;
@@ -231,6 +237,22 @@ Spec pastSpec(const Spec& s) {
   p.style = s.style;
   p.min = s.min;
   p.max = s.max;
+  return p;
+}
+
+Spec plainSpec(const Spec& s, Agg agg) {
+  Spec p;
+  p.entity = s.entity;
+  p.windowMs = s.windowMs;
+  p.bucketMs = s.bucketMs;
+  p.n = s.n;
+  p.agg = agg;
+  return p;
+}
+
+Spec compareSpec(const Spec& s) {
+  Spec p = plainSpec(s, s.agg);
+  p.shiftMs = s.compareMs;
   return p;
 }
 
@@ -495,7 +517,7 @@ int axisTicks(int64_t w, int64_t bucketMs, int64_t now, int tz, Lang lang, Tick*
       if (t == now) std::snprintf(out[n].text, sizeof out[n].text, "%s", tr(lang, S::now));
       else std::snprintf(out[n].text, sizeof out[n].text, "-%s", std::to_string((now - t) / kMin).c_str());
     }
-    for (int64_t k = 1; k <= after(step) && n < kMaxTicks; ++k, ++n) {   // #292: after now
+    for (int64_t k = 1; k <= after(step) && n < kMaxTicks; ++k, ++n) {   // eink-ha-os#292: after now
       out[n].x = x(now + k * step);
       std::snprintf(out[n].text, sizeof out[n].text, "+%s", std::to_string(k * step / kMin).c_str());
     }

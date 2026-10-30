@@ -23,7 +23,7 @@ enum class Surface : uint8_t { Dither, Dots };
 //           price cells): 25 % black dots on paper (luma ≈ 181 vs G2 168). Pure black/white, so a B/W partial refresh
 //           keeps them (solid G2 would turn white; owner decision 6: Sleek stays readable in B/W).
 //   Hatch = G1 elements that carry information (past spark/chart bars, cheapest-3 h price bars, high price cells, the
-//           light chip's brightness track): 2 px black / 2 px paper diagonal stripes. Issue #38: everything a partial
+//           light chip's brightness track): 2 px black / 2 px paper diagonal stripes. Issue eink-ha-os#38: everything a partial
 //           refresh can redraw is black/white; emulator core/panel.ts HATCH draws the same pixels.
 enum class Tone : uint8_t { Surf, Track, Hatch };
 

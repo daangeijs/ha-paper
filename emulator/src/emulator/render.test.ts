@@ -42,8 +42,8 @@ describe('device renders', () => {
     expect(html(emu({ sleeping: true }))).toContain('Standby');
     expect(html(emu({ mode: 'updating', upd: { version: '0.4.0', pct: 40, step: 'Downloading firmware.bin' } }))).toContain('Updating to');
     const long = html(emu({ mode: 'updating', upd: { version: '0.1.0-alpha.6-devtest-212-199-gbf929d4-and-a-much-longer-tail-that-goes-on-and-on-and-on-xy', pct: 40, step: 'x' } }));
-    expect(long).toMatch(/>v0\.1\.0-alpha\.6-[^<]*…[^<]*-on-xy<\/div>/);   // #215
-    const local = html(emu({ mode: 'updating', upd: { version: '', pct: 0, step: 'Checking SHA-256' } }));   // upload, no manifest (#237)
+    expect(long).toMatch(/>v0\.1\.0-alpha\.6-[^<]*…[^<]*-on-xy<\/div>/);   // eink-ha-os#215
+    const local = html(emu({ mode: 'updating', upd: { version: '', pct: 0, step: 'Checking SHA-256' } }));   // upload, no manifest (eink-ha-os#237)
     expect(local).toContain('Updating to'); expect(local).not.toMatch(/>v<\/div>/);
     expect(html(emu({ mode: 'boot' }))).toContain('Connecting to Home Assistant');
     const ha = emu().state.ha;
@@ -51,7 +51,7 @@ describe('device renders', () => {
   });
 });
 
-// Issue #38: every screen a partial refresh can redraw is black/white only (core/panel.ts GRAYS). Boot is exempt (full
+// Issue eink-ha-os#38: every screen a partial refresh can redraw is black/white only (core/panel.ts GRAYS). Boot is exempt (full
 // refresh only); the Sleek card surface SURF is not in GRAYS (open dither/dots decision).
 describe('B/W-only rule (lint)', () => {
   const screen = (e: Emulator) => { const h = html(e); return h.slice(h.indexOf('data-x4-screen')); };
@@ -74,7 +74,7 @@ describe('B/W-only rule (lint)', () => {
   it('sees gray where it is allowed (boot face)', () => expect(graysIn(screen(emu({ mode: 'boot' })))).toEqual(['#555']));
 });
 
-// Agenda and Next tiles (#316): the demo week at Wed 28 Oct 07:42, Classic and Modern, black / white only.
+// Agenda and Next tiles (eink-ha-os#316): the demo week at Wed 28 Oct 07:42, Classic and Modern, black / white only.
 describe('agenda tiles render', () => {
   beforeAll(() => { vi.stubEnv('TZ', 'Europe/Amsterdam'); });
   afterAll(() => { vi.unstubAllEnvs(); });
@@ -90,7 +90,7 @@ describe('agenda tiles render', () => {
   });
 });
 
-// History tile (#267): Classic and Modern, bars and line, the states without a chart; black / white only.
+// History tile (eink-ha-os#267): Classic and Modern, bars and line, the states without a chart; black / white only.
 describe('history tile renders', () => {
   beforeAll(() => { vi.stubEnv('TZ', 'Europe/Amsterdam'); });
   afterAll(() => { vi.unstubAllEnvs(); });
@@ -116,7 +116,7 @@ describe('history tile renders', () => {
     expect(h).toMatch(/Low [\d.]+ · (Mo|Tu|We|Th|Fr|Sa|Su) \d\d:\d\d/);
     expect(h).toContain('>-30</span>'); expect(h).toContain('>Now</span>'); expect(h).toContain('Last hour');
   });
-  for (const look of ['classic', 'geist'] as const) it(look + ': a rain nowcast ahead and an hourly weather forecast (#283)', () => {
+  for (const look of ['classic', 'geist'] as const) it(look + ': a rain nowcast ahead and an hourly weather forecast (eink-ha-os#283)', () => {
     const h = at(look, [{ type: 'history', entity: 'binary_sensor.rain_expected', attribute: 'forecast', value: 'precipitation', window: '2h', style: 'bars', cs: 4, label: 'Rain' },
       { type: 'history', entity: 'weather.home', window: '24h', cs: 4 }]);
     expect(h).toContain('>Now</span>'); expect(h).toContain('>+30</span>'); expect(h).toContain('>+90</span>');
@@ -126,7 +126,7 @@ describe('history tile renders', () => {
   });
 });
 
-// Car route (#303): cs ≥ 3 shows the arrival time as a second big value with a caption; cs 2 keeps the one line.
+// Car route (eink-ha-os#303): cs ≥ 3 shows the arrival time as a second big value with a caption; cs 2 keeps the one line.
 describe('car route renders', () => {
   const at = (cs: number, look: 'classic' | 'geist', lang: 'en' | 'nl' = 'en') => {
     const base = emu();
@@ -143,7 +143,7 @@ describe('car route renders', () => {
   });
 });
 
-// Price chart (#260): today's low / high with times under the bars, and a caret over the hour now in Classic.
+// Price chart (eink-ha-os#260): today's low / high with times under the bars, and a caret over the hour now in Classic.
 describe('price chart renders', () => {
   const at = (look: 'classic' | 'geist', lang: 'en' | 'nl' = 'en') => {
     const base = emu();
@@ -174,12 +174,12 @@ describe('web console renders', () => {
     expect(page(snap({ ha: { linked: false, revoked: false, server: 'h', user: 'u', discovered: [] } }))).toContain('Link Home Assistant');
     expect(page(snap({ session: { signedIn: false, user: 'u', admin: false } }))).toContain('Sign in with Home Assistant');
     expect(page(snap({ session: { signedIn: true, user: 'u', admin: true } }))).toContain('Push to display');
-    // #191: three tabs, no Data sources
+    // eink-ha-os#191: three tabs, no Data sources
     const tabs = page(snap({ session: { signedIn: true, user: 'u', admin: true } }));
     for (const tab of ['>Screens</button>', '>Device settings</button>', '>Advanced</button>']) expect(tabs).toContain(tab);
     expect(tabs).not.toContain('Data sources'); expect(tabs).not.toContain('API access');
   });
-  it('signed out: device mark, name as heading, tagline, one button, one short line; no version, no admin paragraph (#142)', () => {
+  it('signed out: device mark, name as heading, tagline, one button, one short line; no version, no admin paragraph (eink-ha-os#142)', () => {
     const out = page(snap({ firmware: '9.8.7', session: { signedIn: false, user: 'u', admin: false } }));
     expect(out).toMatch(/<h1[^>]*>Living room display<\/h1>/);
     expect(out).toMatch(/<svg[^>]*aria-hidden="true"/);
@@ -189,11 +189,11 @@ describe('web console renders', () => {
     expect(out).not.toContain('administrator');
     expect(out.match(/<button/g)?.length).toBe(1);
   });
-  it('screens: Names/Values toggle in the top bar; Values (remembered per browser) keeps the tile grid, values in place of names (#83, #122)', () => {
+  it('screens: Names/Values toggle in the top bar; Values (remembered per browser) keeps the tile grid, values in place of names (eink-ha-os#83, eink-ha-os#122)', () => {
     const admin = snap({ session: { signedIn: true, user: 'u', admin: true } });
     const names = page(admin);
     expect(names).toContain('aria-label="Screen view"'); expect(names).toContain('Search widgets');
-    // #84: add a tile without dragging, tiles reachable by keyboard, YAML only under Advanced
+    // eink-ha-os#84: add a tile without dragging, tiles reachable by keyboard, YAML only under Advanced
     expect(names).toContain('aria-label="Add a tile"'); expect(names).toMatch(/<optgroup label="Charts">/);
     expect(names).toMatch(/<button type="button" aria-pressed="false" aria-label="[^"]+, column 1, row 1"/);
     expect(names).toContain('>Advanced</button>'); expect(names).not.toContain('>YAML</button>');
@@ -204,7 +204,7 @@ describe('web console renders', () => {
       expect(values).toMatch(/<button type="button" aria-pressed="false" aria-label="[^"]+, column 1, row 1"/);
     } finally { vi.unstubAllGlobals(); }
   });
-  it('failure states (#86): HA unreachable is one calm line under the header; a tile without a value says why', () => {
+  it('failure states (eink-ha-os#86): HA unreachable is one calm line under the header; a tile without a value says why', () => {
     const admin = { session: { signedIn: true, user: 'u', admin: true } };
     expect(page(snap(admin))).not.toContain('can’t reach Home Assistant');
     expect(page(snap({ ...admin, offline: true }))).toContain('The display can’t reach Home Assistant. It shows the last values it had and keeps trying.');
@@ -216,16 +216,16 @@ describe('web console renders', () => {
   });
   const unlinked = (server: string, discovered: string[]) => ({ ha: { linked: false, revoked: false, server, user: '', discovered } });
   const words = (h: string) => h.replace(/<(details|script|style)[\s\S]*?<\/\1>/g, '').replace(/<[^>]+>/g, ' ').split(/\s+/).filter(Boolean).length;
-  it('link page: one sentence and the button; the key and the dedicated-user route behind disclosures (#22, #55)', () => {
+  it('link page: one sentence and the button; the key and the dedicated-user route behind disclosures (eink-ha-os#22, eink-ha-os#55)', () => {
     const out = page(snap(unlinked('http://homeassistant.local:8123', ['http://homeassistant.local:8123'])));
     expect(out).toMatch(/<details[^>]*><summary[^>]*>What does the display store\?<\/summary>/);
     expect(out).toContain('can do what that account can do');
     expect(out).toMatch(/<details[^>]*><summary[^>]*>Advanced: a separate Home Assistant user<\/summary>/);
     expect(out).not.toContain('Tip: sign in');
     const card = out.slice(out.indexOf('Link Home Assistant'));
-    expect(words(card)).toBeLessThan(40);   // was ~150 words before #55
+    expect(words(card)).toBeLessThan(40);   // was ~150 words before eink-ha-os#55
   });
-  it('link page says "Found on your network" only for an address mDNS found (#54)', () => {
+  it('link page says "Found on your network" only for an address mDNS found (eink-ha-os#54)', () => {
     const found = page(snap(unlinked('http://homeassistant.local:8123', ['http://homeassistant.local:8123'])));
     expect(found).toContain('Found <b>homeassistant.local:8123</b> on your network');
     expect(found).toContain('Change'); expect(found).not.toContain('Home Assistant address');
@@ -233,18 +233,18 @@ describe('web console renders', () => {
     expect(typed).toContain('Home Assistant at <b>https://ha.example.com</b>');
     expect(typed).not.toContain('on your network');
     const none = page(snap(unlinked('', [])));
-    expect(none).toContain('Home Assistant address'); expect(none).not.toContain('placeholder=');   // #183: a hint, not a fake value
+    expect(none).toContain('Home Assistant address'); expect(none).not.toContain('placeholder=');   // eink-ha-os#183: a hint, not a fake value
     expect(none).toContain('The address you open Home Assistant with, like homeassistant.local:8123');
     expect(none).not.toContain('on your network');
   });
-  it('a non-admin session is view-only, says so, and offers an admin sign-in (#22)', () => {
+  it('a non-admin session is view-only, says so, and offers an admin sign-in (eink-ha-os#22)', () => {
     const out = page(snap({ session: { signedIn: true, user: 'kid', admin: false } }));
     expect(out).toContain('View only');
     expect(out).toContain('not a Home Assistant administrator');
     expect(out).toContain('Sign in as an admin');
     expect(out).not.toContain('Push to display');
   });
-  it('device settings (#190): Wi-Fi on one line, Change opens the form; an (i) per explained setting', () => {
+  it('device settings (eink-ha-os#190): Wi-Fi on one line, Change opens the form; an (i) per explained setting', () => {
     const s = snap({ session: { signedIn: true, user: 'u', admin: true } });
     const groups = (open: boolean) => settingsPages().map((p) => ({ id: p.id, title: p.title, fields: p.fields.map((f) => ({ key: f.key, label: f.key, info: f.info ? 'INFO ' + f.key : '',
       infoOpen: open, toggleInfo: () => {}, value: '', options: [], change: () => {} })) }));
@@ -259,7 +259,7 @@ describe('web console renders', () => {
     const open = render({ settingsGroups: groups(true), wifiOpen: true });
     expect(open).toContain('type="password"'); expect(open).toContain('INFO powerSave');
   });
-  it('advanced (#191): sidebar with Screens as YAML and API, one page at a time', () => {
+  it('advanced (eink-ha-os#191): sidebar with Screens as YAML and API, one page at a time', () => {
     const s = snap({ session: { signedIn: true, user: 'u', admin: true } });
     const render = (patch: object) => renderToString(createElement(() => {
       const web = useConsole(api, s);

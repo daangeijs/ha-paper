@@ -1,7 +1,7 @@
 10. **Power saving and deep sleep** (docs/ROBUSTNESS_PLAN.md Phase 3.1; not in Main.dc.html). `src/core/power.ts`
     `powerDecision()` is the spec, checked by `spec/test-vectors/power/*.json` (the firmware runs the same files).
-    - Settings (GET/PUT `/settings` `display`, #10): `powerSave` ("On battery": Glance / Sleep at night / Standby +
-      night / Always live = `glance | night | standby | off`, default `glance` per #18), `wakeEvery` ("Check every":
+    - Settings (GET/PUT `/settings` `display`, eink-ha-os#10): `powerSave` ("On battery": Glance / Sleep at night / Standby +
+      night / Always live = `glance | night | standby | off`, default `glance` per eink-ha-os#18), `wakeEvery` ("Check every":
       15 / 30 / 60 min) and `liveMin` ("Live after a press": 1 / 3 / 5 / 10 min, default 3). New keys with defaults, no
       schema bump (migrate.ts rules). The default config has a `power` screen ("Power", Settings app, after Display
       style) with the three tiles; so does the firmware's.

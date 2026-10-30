@@ -1,4 +1,4 @@
-// Glance mode (#10, "glance by default" on battery per #18), a port of emulator/src/core/glance.ts: the snapshot of
+// Glance mode (eink-ha-os#10, "glance by default" on battery per eink-ha-os#18), a port of emulator/src/core/glance.ts: the snapshot of
 // what the panel shows (region key → FNV-1a hash), the wake decision (redraw only when a visible value changed), the
 // Wi-Fi fast-connect cache, live mode and the first-boot safety counter. Plus the RTC_NOINIT record that carries all
 // of it across deep sleep (layout here so the checksum logic is host-tested). Pure; vectors spec/test-vectors/glance.json.
@@ -22,7 +22,7 @@ constexpr int kStaleMin = 60;                   // unchanged values: redraw anyw
 constexpr int64_t kWifiIpMaxAgeS = 3600;        // reuse the cached IP (no DHCP) while younger
 constexpr int kWifiCacheMaxFails = 2;           // fast connects failed in a row → drop the cache
 constexpr int kArmBoots = 3;                    // first-boot safety: confirmed boots with network before any sleep
-constexpr double kArmUptimeMin = 30;            // ... or this long online in one boot with a confirmed image (#231)
+constexpr double kArmUptimeMin = 30;            // ... or this long online in one boot with a confirmed image (eink-ha-os#231)
 constexpr int kBootHoldLiveMin = 10;            // a key held through the boot screen keeps it live this long
 
 uint32_t fnv1a(const void* data, size_t n, uint32_t h = 0x811c9dc5u);
@@ -58,12 +58,12 @@ bool liveNow(int64_t msSinceInput, int liveMin);   // msSinceInput < 0 = no inpu
 struct ArmRecord { std::string version; int boots = 0; bool uptime = false; };   // uptime: armed by kArmUptimeMin
 ArmRecord armFor(const ArmRecord* stored, const std::string& version);   // other version / none → 0 boots
 ArmRecord armCount(const ArmRecord& r);                                   // this boot confirmed with network
-ArmRecord armUptime(const ArmRecord& r, double netUpMin, bool pendingVerify);   // #231
+ArmRecord armUptime(const ArmRecord& r, double netUpMin, bool pendingVerify);   // eink-ha-os#231
 int armBootsLeft(const ArmRecord& r);   // 0 = armed
 const char* armedBy(const ArmRecord& r);   // "uptime" | "boots" | nullptr (not armed)
 std::string armReason(const ArmRecord& r);   // "30 min online" | "3 boots online" | ""
 
-// Wake counters since power-on (#178, emulator WakeTally; vectors glance.json tally): GET /status power + refreshes.
+// Wake counters since power-on (eink-ha-os#178, emulator WakeTally; vectors glance.json tally): GET /status power + refreshes.
 constexpr uint32_t kNoMs = 0xFFFFFFFFu;   // lastWifiMs / lastHaMs: not reached in that wake
 struct Tally {
   uint32_t wakes;                // deep-sleep wakes (timer, button, charger)
@@ -81,6 +81,17 @@ void tallyWake(Tally& t, int64_t sleptS);
 void tallyGlance(Tally& t, bool ok, bool redraw, uint32_t wifiMs, uint32_t haMs, uint32_t totalMs);   // kNoMs = never
 void tallySleep(Tally& t, uint32_t awakeMs, uint32_t full, uint32_t partial);
 
+// Deep-sleep timer drift (eink-ha-os#364): the RC slow clock ran ~1 % fast on a real X4 Pro (06:55 for 07:00); the BM8563 read
+// at boot exposed it and quiet hours slept again: two wakes per transition. Rate learned per long timer sleep.
+constexpr int64_t kTimerLearnMinS = 3600;   // shorter: boot/shutdown seconds swamp the drift
+constexpr int32_t kTimerPpmMax = 50000;     // beyond ±5 %: a clock jump, the old rate stays
+constexpr int64_t kEarlyWaitS = 15;         // a timer wake this early waits awake; earlier sleeps again
+// + = timer slow; realS = crystal seconds the sleep took (0 = unknown).
+int32_t timerPpm(int32_t prevPpm, int64_t programmedS, int64_t realS);
+int64_t timerSeconds(int64_t realS, int32_t ppm);   // ≥ 1
+enum class Early : uint8_t { Go, Wait, Sleep };
+Early earlyWake(int64_t wakeAtEpoch, int64_t nowEpoch);   // 0 = unknown
+
 // Survives deep sleep and esp_restart() in RTC_NOINIT memory (net/power.cpp); garbage after power-on → reset.
 enum class SimWake : uint8_t { None, Timer, Button, Charger };   // QEMU: the wake cause a simulated sleep left behind
 struct Rtc {
@@ -97,8 +108,10 @@ struct Rtc {
   bool simArmed;                 // QEMU: skip the first-boot safety count
   int64_t sleptAtEpoch, wakeAtEpoch;
   Tally tally;
-  uint32_t emptySleeps;           // #331: deep sleeps with reason "empty house" since power-on
-  phases::Ring wakes;             // #327: awake phases of the newest boots that ended in deep sleep
+  uint32_t emptySleeps;           // eink-ha-os#331: deep sleeps with reason "empty house" since power-on
+  phases::Ring wakes;             // eink-ha-os#327: awake phases of the newest boots that ended in deep sleep
+  int64_t timerS;                 // eink-ha-os#364: seconds given to the last sleep timer (0 = none)
+  int32_t timerPpm;               // eink-ha-os#364: learned sleep-timer rate
 };
 void reset(Rtc& r);              // zeroes it (padding included) and seals
 void seal(Rtc& r);

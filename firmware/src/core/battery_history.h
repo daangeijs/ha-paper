@@ -1,4 +1,4 @@
-// Battery history (#231), a port of emulator/src/core/battery.ts: the gauge every 5 min, newest 288 rows (24 h), for
+// Battery history (eink-ha-os#231), a port of emulator/src/core/battery.ts: the gauge every 5 min, newest 288 rows (24 h), for
 // GET /api/v1/diagnostics `battery`, plus the [BATT] log line. Rows live in PSRAM (core/psram_alloc.h, ~4.6 KB), lost
 // on a reset or deep-sleep wake. Pure; vectors spec/test-vectors/battery-history.json. Device glue: net/power.cpp.
 #pragma once

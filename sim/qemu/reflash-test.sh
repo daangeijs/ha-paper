@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Re-flash keeps screens and settings (issue #16), with the REAL firmware (env:x4qemu) in QEMU:
+# Re-flash keeps screens and settings (issue eink-ha-os#16), with the REAL firmware (env:x4qemu) in QEMU:
 #   1. v1 boots on a fresh flash image (userdata blank → formatted), links to the fake HA, write token
 #   2. PUT /api/v1/config (one entity changed to sensor.reflash_marker) + PUT /api/v1/settings (warmth 37)
 #   3. QEMU off; the five release parts of v2 are written into the flash image at the offsets in x4flash.py PARTS,

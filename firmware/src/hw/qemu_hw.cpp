@@ -35,7 +35,7 @@ extern "C" void IRAM_ATTR esp_task_wdt_isr_user_handler(void) {
   esp_rom_software_reset_system();
 }
 
-// #245: esp_restart_noos resets CPU 1, then CPU 0. Espressif QEMU does not emulate the CPU stall and can merge the two
+// eink-ha-os#245: esp_restart_noos resets CPU 1, then CPU 0. Espressif QEMU does not emulate the CPU stall and can merge the two
 // reset requests into a PRO-only reset, so the old image keeps running on core 1 (and the interrupt matrix keeps its
 // routing) during the next boot, which then hangs silently. `-Wl,--wrap=esp_rom_software_reset_cpu` (x4qemu envs
 // only) makes it one system reset: both cores and the interrupt matrix. rst:0x3 still reads as ESP_RST_SW / the hint.

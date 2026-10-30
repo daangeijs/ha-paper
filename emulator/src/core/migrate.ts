@@ -1,4 +1,4 @@
-// Schema versions + migrations of persisted state (issue #12). Behaviour spec for firmware/src/core/migrate.{h,cpp};
+// Schema versions + migrations of persisted state (issue eink-ha-os#12). Behaviour spec for firmware/src/core/migrate.{h,cpp};
 // vectors spec/test-vectors/migrations/*.json. Map of what is versioned: firmware/src/net/storage.h.
 //
 // Rules for every step (crosspoint PersistableStore idea, stricter):
@@ -20,7 +20,7 @@ type Obj = Record<string, unknown>;
 
 const SETTINGS_STEPS: ((d: Obj) => void)[] = [
   () => {},   // 0 → 1: files from before versioning, same shape; only stamped
-  // 1 → 2 (#295): quiet hours. New key `quiet` from `night` (kept for a rollback); "Sleep at night" becomes glance.
+  // 1 → 2 (eink-ha-os#295): quiet hours. New key `quiet` from `night` (kept for a rollback); "Sleep at night" becomes glance.
   (d) => {
     if (!('quiet' in d)) d.quiet = quietFromNight(d.night);
     if (d.powerSave === 'night') d.powerSave = 'glance';

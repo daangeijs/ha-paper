@@ -53,12 +53,12 @@ bool Storage::begin() {
   return fsOk_;
 }
 
-// The one migration entry point (issue #12). Upgrades step by step, never down: after an OTA rollback the newer data
+// The one migration entry point (issue eink-ha-os#12). Upgrades step by step, never down: after an OTA rollback the newer data
 // is read as far as this firmware understands it and nothing is written back.
 void Storage::migrate() {
   using namespace x4::migrate;
   std::lock_guard<std::recursive_mutex> l(mu_);
-  // NVS: one schema number for all HA Paper namespaces. Missing = 0 (install from before #12, or blank NVS).
+  // NVS: one schema number for all HA Paper namespaces. Missing = 0 (install from before eink-ha-os#12, or blank NVS).
   int64_t dev = getI64(kNsDev, "schema", 0);
   Status ds = schemaStatus(dev > 1000000 ? -1 : static_cast<int>(dev), kDeviceSchema);
   if (ds == Status::Upgrade) {
@@ -265,7 +265,7 @@ std::string Storage::settingsToJson(const DisplaySettings& s) {
   d["liveMin"] = s.liveMin;
   d["emptyHouse"] = s.emptyHouse;
   d["debugInput"] = s.debugInput;
-  d["morning"] = s.morning;   // #330
+  d["morning"] = s.morning;   // eink-ha-os#330
   std::string out;
   serializeJson(d, out);
   return out;
@@ -335,7 +335,7 @@ bool Storage::settingsFromJson(const std::string& json, DisplaySettings& s, std:
   if (d["brightness"].is<int>()) s.brightness = static_cast<uint8_t>(clampInt(d["brightness"].as<int>(), 0, 100));
   if (d["warmth"].is<int>()) s.warmth = static_cast<uint8_t>(clampInt(d["warmth"].as<int>(), 0, 100));
   if (d["lightTimeout"].is<int>() && validLightTimeout(d["lightTimeout"].as<int>())) s.lightTimeout = d["lightTimeout"].as<int>();
-  if (d["quiet"].is<const char*>() && validQuiet(d["quiet"].as<const char*>())) s.quiet = d["quiet"].as<const char*>();   // #295; `night` is a rollback's
+  if (d["quiet"].is<const char*>() && validQuiet(d["quiet"].as<const char*>())) s.quiet = d["quiet"].as<const char*>();   // eink-ha-os#295; `night` is a rollback's
   if (d["returnHome"].is<const char*>()) s.returnHome = d["returnHome"].as<const char*>();
   if (d["standby"].is<const char*>()) s.standby = d["standby"].as<const char*>();
   if (d["clock"].is<const char*>()) s.clock = d["clock"].as<const char*>();

@@ -1,4 +1,4 @@
-// First-run screens from the user's own Home Assistant (#23). Pure: HA snapshot in, screens config out.
+// First-run screens from the user's own Home Assistant (eink-ha-os#23). Pure: HA snapshot in, screens config out.
 // Runs once, on the first link, when the display has no saved screens.yaml yet. The firmware port is
 // firmware/src/core/seed.cpp; both must produce the same YAML for spec/test-vectors/seed.json.
 //
@@ -8,32 +8,32 @@
 //   energy    used / imported / exported today, home use; usage chart when the Energy dashboard has an import or solar
 //             meter. Not made for home use alone (the overview has it)
 //   solar     solar power, solar today, battery gauge, battery power; solar chart when the Energy dashboard has a solar meter
-//   lights    any light.*: lightList; per area its group, else its bulbs; lights without an area left out (#152)
-//   climate   any climate.* not on a vehicle: zoneList (title "Heating"); with a vehicle climate (#136: a climate on
-//             a device that has a device_tracker, e.g. a Tesla) or a duplicate zone (#152: same area or friendly name,
+//   lights    any light.*: lightList; per area its group, else its bulbs; lights without an area left out (eink-ha-os#152)
+//   climate   any climate.* not on a vehicle: zoneList (title "Heating"); with a vehicle climate (eink-ha-os#136: a climate on
+//             a device that has a device_tracker, e.g. a Tesla) or a duplicate zone (eink-ha-os#152: same area or friendly name,
 //             e.g. a Better Thermostat wrapper; the one not off is kept) the zoneList names the others in `entities`
-//   outside   an outdoor thermometer, never a forecast (max / min / today … tokens, #152); else a weather entity
+//   outside   an outdoor thermometer, never a forecast (max / min / today … tokens, eink-ha-os#152); else a weather entity
 //   rooms     ≥ 2 temperature sensors in different areas: one stat per area (label = area name), area order, max 8
 //   travel    any sensor.x4_route_* exists (or is mapped): route tiles on it (cs 2, max 4, sorted by id)
 // then `tail` (the Settings screens). Apps = the default apps that ended up with at least one screen.
 //
-// Every stat / gauge entity is a sensor from the template answer, i.e. in HA's state list (#82: demo ids on a real
+// Every stat / gauge entity is a sensor from the template answer, i.e. in HA's state list (eink-ha-os#82: demo ids on a real
 // house showed "—" in 7 of 10 tiles). No sensor for a role = no tile. Per role, first hit wins:
 //   1. HA has the logical id itself (sensor.solar_power …): that one, no label (the catalog's tile);
 //   2. Energy dashboard (power roles): the source's power sensor (stat_rate | power[0].stat_rate | power_config.stat_rate),
 //      else the sensor sharing the longest entity-id prefix (≥ 2 words) with the source's meters (same device, by name)
-//      whose score is ≥ 0; imported / exported today: the same prefix test on the grid's flow_from / flow_to or flat stat_energy_from / _to meters (#274);
+//      whose score is ≥ 0; imported / exported today: the same prefix test on the grid's flow_from / flow_to or flat stat_energy_from / _to meters (eink-ha-os#274);
 //   3. by kind + name: score = +2 per good word, −3 per bad word in "entity_id friendly name" (lower case); > 0 wins.
 //      Imported / exported today must also name the grid (GRID_DAY), used today the house (HOUSE_DAY): an appliance
-//      plug's "today consumption" is neither (#152). Lifetime meters only (no day counter) = no such tile.
+//      plug's "today consumption" is neither (eink-ha-os#152). Lifetime meters only (no day counter) = no such tile.
 // Ties: the higher score, then the first sensor. A sensor fills one role. Grid only (no solar or battery anywhere):
 // the grid sensor becomes the home use tile.
 // Kinds (sensorKind, same test as the template): temperature (available) | power (W / kW or device_class power) |
 // energy today (kWh / Wh or device_class energy, and a day word as a whole token: `_last_seven_days` is not one) |
 // charge (% with device_class battery or none). Power sensors of one phase (PHASE words) are left out. A device's own chip temperature (`…_device_temperature`, Zigbee2MQTT's
-// diagnostic entity; HA's entity_category is not in a template's state) is no temperature (#136).
+// diagnostic entity; HA's entity_category is not in a template's state) is no temperature (eink-ha-os#136).
 //
-// Seed report (#89): what the seed decided per tile (SEED_TILES), so the console can say "N of M tiles filled" and
+// Seed report (eink-ha-os#89): what the seed decided per tile (SEED_TILES), so the console can say "N of M tiles filled" and
 // why the others are missing. Filled: `entity` (when the tile has one) + `rule` (id | energy | device | name | area |
 // grid | found). Dropped: `why` (no_energy | no_meter | no_sensor | none | few_rooms | overview_full).
 import { gridFlows, rateOf } from './energyPrefs.ts';
@@ -57,9 +57,9 @@ export type HaSnapshot = {
   energy?: EnergyPrefs; live?: string[];
   areas?: [string, string][]; climate?: (string | ClimateRow)[]; vehicles?: string[]; lights?: LightRow[]; sensors?: SensorRow[]; weather?: string[];
 };
-/** One template `climate` row: [climate id, friendly name, area_id | '', state] (#152; a bare id = no name / area / state). */
+/** One template `climate` row: [climate id, friendly name, area_id | '', state] (eink-ha-os#152; a bare id = no name / area / state). */
 export type ClimateRow = [string, string, string, string];
-/** One template `lights` row: [light id, area_id | '', 'g' when it is a group of lights (#152) | '']. */
+/** One template `lights` row: [light id, area_id | '', 'g' when it is a group of lights (eink-ha-os#152) | '']. */
 export type LightRow = [string, string, string?];
 
 /** Template answer caps per kind (SEED_TEMPLATE; the fake HA's seedAnswer). */
@@ -69,20 +69,20 @@ const DAY = ['today', 'vandaag', 'daily', 'dag', 'day'];
 const tokenRe = (words: string[]) => new RegExp('(^|[^a-z0-9])(' + words.join('|') + ')([^a-z0-9]|$)');
 const DAY_RE = tokenRe(DAY);
 const DEVICE_T = ['device_temperature', 'device temperature'];
-/** One phase of a meter: bad for every power role, so not sent (#136: the answer's size). */
+/** One phase of a meter: bad for every power role, so not sent (eink-ha-os#136: the answer's size). */
 const PHASE = ['phase', 'fase', '_l1', '_l2', '_l3'];
-/** Whole tokens of a temperature that is no reading of now (#152: "max temperature today" became Outside). */
+/** Whole tokens of a temperature that is no reading of now (eink-ha-os#152: "max temperature today" became Outside). */
 const FORECAST = ['forecast', 'verwachting', 'max', 'min', 'maximum', 'minimum', 'high', 'low', 'today', 'tomorrow', 'vandaag', 'morgen',
   'daily', 'day', 'dag', 'apparent', 'feels', 'gevoel', 'gevoelstemperatuur', 'dew', 'dewpoint', 'dauwpunt'];
 const FORECAST_RE = tokenRe(FORECAST);
-/** A light group's attributes: HA group (entity_id), Hue / deCONZ room groups (#152). */
+/** A light group's attributes: HA group (entity_id), Hue / deCONZ room groups (eink-ha-os#152). */
 export const LIGHT_GROUP_ATTRS = ['entity_id', 'is_hue_group', 'is_deconz_group', 'lights'];
 
 /**
  * One render_template the display sends on its first link (firmware: seedTemplate() in core/seed.cpp, same text;
  * spec/test-vectors/seed.json `template`). Capped per kind (SEED_CAPS) to keep the answer under ~20 KB on a big
  * install. The fake HA recognises it by the x4_seed marker.
- * Real HA (#58): `s.attributes.x` on an entity without x is an Undefined that HA reports (report_errors: a WARNING
+ * Real HA (eink-ha-os#58): `s.attributes.x` on an entity without x is an Undefined that HA reports (report_errors: a WARNING
  * event, strict: an error), so attributes are read with `.get()`; area_name / area_id can be None; temperature
  * sensors that are unknown / unavailable right now are left out (power sensors are kept: an inverter is
  * unavailable at night).
@@ -111,7 +111,7 @@ export const SEED_TEMPLATE =
   "{% for s in states.weather %}{% if s.attributes.get('temperature') is number %}{% set ns.w = ns.w + [s.entity_id] %}{% endif %}{% endfor %}" +
   "{{ {'areas': ns.a, 'climate': ns.c, 'vehicles': ns.v, 'lights': ns.l, 'sensors': ns.s, 'weather': ns.w} | tojson }}";
 
-/** The template answer is a JSON object; anything else = the seed failed: save nothing, retry on the next link (#58). */
+/** The template answer is a JSON object; anything else = the seed failed: save nothing, retry on the next link (eink-ha-os#58). */
 export function seedAnswerOk(text: string): boolean {
   try { const j = JSON.parse(text); return !!j && typeof j === 'object' && !Array.isArray(j); } catch { return false; }
 }
@@ -149,7 +149,7 @@ const R_SOC: Role = { good: ['soc', 'state_of_charge', 'charge', 'laadniveau', '
   bad: ['phone', 'pixel', 'iphone', 'ipad', 'tablet', 'watch', 'remote', 'laptop', 'button', 'motion', 'door', 'deur', 'window', 'raam'] };
 const R_SOLAR_DAY: Role = R_SOLAR;
 const R_IMPORT_DAY: Role = { good: IMPORT, bad: [...SOLAR, ...BATT, ...EXPORT] };
-/** By name, a grid day counter must say grid or a grid direction (#152: an appliance plug's "today consumption" was
+/** By name, a grid day counter must say grid or a grid direction (eink-ha-os#152: an appliance plug's "today consumption" was
  *  Imported); whole-house use must say house / total (the same plug would be Used today). */
 const GRID_DAY = [...GRID, 'import', 'export', 'afname', 'teruglever', 'injection'];
 const HOUSE_DAY = [...HOME, 'total', 'totaal', 'energieverbruik', 'stroomverbruik', 'elektriciteitsverbruik'];
@@ -178,7 +178,7 @@ export function sharedWords(a: string, b: string): number {
 const score = (t: string, r: Role): number =>
   r.good.reduce((s, k) => s + (t.includes(k) ? 2 : 0), 0) - r.bad.reduce((s, k) => s + (t.includes(k) ? 3 : 0), 0);
 
-/** The tiles the seed reports on, in order, with the screen the console's "pick one" opens (#89). Travel is opt-in
+/** The tiles the seed reports on, in order, with the screen the console's "pick one" opens (eink-ha-os#89). Travel is opt-in
  * (HA automations for sensor.x4_route_*) and not reported. */
 export const SEED_TILES: [string, string][] = [
   ['price', 'overview'], ['inside', 'overview'], ['outside', 'overview'], ['solar_power', 'overview'], ['home_power', 'overview'],
@@ -191,12 +191,12 @@ export type SeedWhy = 'no_energy' | 'no_meter' | 'no_sensor' | 'none' | 'few_roo
 export type SeedTile = { tile: string; screen: string; entity?: string; rule?: SeedRule; why?: SeedWhy };
 export type SeedReport = { filled: number; total: number; tiles: SeedTile[] };
 
-/** `tail`: screens appended after the HA screens (none: Settings is built into the display, #159). */
+/** `tail`: screens appended after the HA screens (none: Settings is built into the display, eink-ha-os#159). */
 export function seedConfig(snap: HaSnapshot, tail: Screen[] = []): Config {
   return seedPlan(snap, tail).config;
 }
 
-/** seedConfig + the seed report (#89). Firmware: seedConfig(snap, tail, &report) + seedReportJson. */
+/** seedConfig + the seed report (eink-ha-os#89). Firmware: seedConfig(snap, tail, &report) + seedReportJson. */
 export function seedPlan(snap: HaSnapshot, tail: Screen[] = []): { config: Config; report: SeedReport } {
   const live = new Set(snap.live || []);
   // ---- Energy dashboard
@@ -275,7 +275,7 @@ export function seedPlan(snap: HaSnapshot, tail: Screen[] = []): { config: Confi
   const areaName = (id: string): string => { const a = areas.find((x) => x[0] === id); return a ? str(a[1]) : ''; };
   const temps = rows.filter((s) => s.kind === 't' && !hasAny(s.id, NOT_A_ROOM) && !hasAny(s.name, NOT_A_ROOM) && !FORECAST_RE.test(s.text));
   const outside = temps.find((s) => hasAny(s.id, OUTSIDE) || hasAny(s.name, OUTSIDE));
-  // no outdoor thermometer: a weather entity's current temperature (#152)
+  // no outdoor thermometer: a weather entity's current temperature (eink-ha-os#152)
   const weather = outside ? undefined : (snap.weather || []).find((w) => entityFits(w, ['weather']));
   // stable sort by area order (Array.prototype.sort is stable; the firmware uses std::stable_sort)
   const inRooms = temps.filter((s) => s !== outside && !hasAny(s.id, OUTSIDE) && !hasAny(s.name, OUTSIDE) && s.area && areaIdx(s.area) < areas.length)
@@ -325,7 +325,7 @@ export function seedPlan(snap: HaSnapshot, tail: Screen[] = []): { config: Confi
   add('solar', 'home', anySolar && anyBattery ? 'Solar & battery' : anyBattery ? 'Battery' : 'Solar', solar);
 
   // ---- House app
-  // lights (#152): per area its first group (a second integration's group of the same room is a duplicate) or else its
+  // lights (eink-ha-os#152): per area its first group (a second integration's group of the same room is a duplicate) or else its
   // bulbs; lights without an area are left out. Nothing left out (or no light has an area) = every light (the default);
   // only area-less ones left out = `areas`; else the picks in `entities`, in area order.
   const lights = (snap.lights || []).filter((l) => Array.isArray(l) && entityFits(l[0], ['light'])).map((l) => ({ id: l[0], area: str(l[1]), group: l[2] === 'g' }));
@@ -343,7 +343,7 @@ export function seedPlan(snap: HaSnapshot, tail: Screen[] = []): { config: Confi
       : !grouped ? { type: 'lightList', areas: lightAreas.join(' '), cs: 4, rs: 2 } : { type: 'lightList', entities: lightPicks.join(' '), cs: 4, rs: 2 };
     add('lights', 'house', 'Lights', [w]);
   }
-  // zones (#152): one per area / friendly name; of duplicates (a Better Thermostat wrapper next to its thermostat) the
+  // zones (eink-ha-os#152): one per area / friendly name; of duplicates (a Better Thermostat wrapper next to its thermostat) the
   // first that is not off / unavailable. Any left out (or a vehicle's) = the zoneList names the rest.
   const idle = (z: { state: string }) => ['off', 'unavailable', 'unknown'].includes(z.state);
   const zones: { id: string; name: string; area: string; state: string }[] = [];
@@ -374,7 +374,7 @@ export function seedPlan(snap: HaSnapshot, tail: Screen[] = []): { config: Confi
   const all = [...screens, ...tail.map((s) => ({ ...s, widgets: s.widgets.map((w) => ({ ...w })) }))];
   const config = { apps: DEFAULT_APPS.filter((a) => all.some((s) => s.app === a.id)).map((a) => ({ ...a })), screens: all };
 
-  // ---- report (#89). Only overview tiles can be crowded out; the others also sit on their own screen.
+  // ---- report (eink-ha-os#89). Only overview tiles can be crowded out; the others also sit on their own screen.
   const onlyOverview = new Set(['inside', 'outside', 'grid_power']);
   const sensorTile = (r: Row | null | undefined, rule?: SeedRule): Partial<SeedTile> => (r ? { entity: r.id, rule: rule || how.get(r.id) } : { why: 'no_sensor' });
   const meter = (ok: boolean): Partial<SeedTile> => (ok ? { rule: 'energy' } : { why: energyOn ? 'no_meter' : 'no_energy' });

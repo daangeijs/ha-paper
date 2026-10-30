@@ -1,4 +1,4 @@
-// Advanced › Device log (#200): GET /api/v1/logs polled every 2 s with since = the last seq, filtered in the browser.
+// Advanced › Device log (eink-ha-os#200): GET /api/v1/logs polled every 2 s with since = the last seq, filtered in the browser.
 import { useEffect, useRef, useState, type ChangeEvent } from 'react';
 import { logText, type LogLine } from '../core/logs.ts';
 import type { StrKey } from '../core/strings.ts';

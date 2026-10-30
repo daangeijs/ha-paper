@@ -1,4 +1,4 @@
-// Good morning page (#330, emulator Device.tsx GOOD MORNING, text from core/morning.cpp): greeting + date on the left,
+// Good morning page (eink-ha-os#330, emulator Device.tsx GOOD MORNING, text from core/morning.cpp): greeting + date on the left,
 // today's weather on the right; a rule, today's events, bins due today / tonight. The block is centred vertically, so a
 // page with only the greeting row sits in the middle. Classic look in both styles, like the quiet face.
 #include <algorithm>
@@ -13,7 +13,7 @@ namespace {
 constexpr int kX0 = 56, kX1 = kScreenW - 56, kGap = 20, kRow = 33, kRowGap = 6, kTimeW = 128;
 
 morning::View viewOf(I& a) {
-  const quiet::Sources src = quiet::sources(a.cfg.screens);   // #328: the Tomorrow row's sources
+  const quiet::Sources src = quiet::sources(a.cfg.screens);   // eink-ha-os#328: the Tomorrow row's sources
   auto tile = [&](const quiet::Ref& r) -> const Widget* { return r.screen >= 0 ? &a.cfg.screens[size_t(r.screen)].widgets[size_t(r.widget)] : nullptr; };
   const Widget* wx = tile(src.weather);
   const Widget* ag = tile(src.agenda);

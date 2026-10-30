@@ -1,4 +1,4 @@
-// core/panel_guard (#181): a stub bus whose BUSY never releases times out once, marks the panel failed and every later
+// core/panel_guard (eink-ha-os#181): a stub bus whose BUSY never releases times out once, marks the panel failed and every later
 // wait returns without touching the bus. The clock is injected and advanced by idle(), across the 2^32 wrap.
 #include <unity.h>
 

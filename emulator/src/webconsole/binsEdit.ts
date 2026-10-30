@@ -1,4 +1,4 @@
-// Web console: the bin day tile's sensors and names (#317). Pure; writes `entities` (space-separated, in pick order)
+// Web console: the bin day tile's sensors and names (eink-ha-os#317). Pure; writes `entities` (space-separated, in pick order)
 // and `labels` ("sensor.a=Paper; sensor.b=Plastic") on the tile.
 import { BIN_DOMAINS, MAX_BINS } from '../core/bins.ts';
 import { labelPairs, listOf, type Widget } from '../core/config.ts';

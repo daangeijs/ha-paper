@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Link drops (#108) with the REAL firmware (env:x4qemu) in QEMU: CYCLES times `set_link <nic> off` for OFF_MIN..OFF_MAX
+# Link drops (eink-ha-os#108) with the REAL firmware (env:x4qemu) in QEMU: CYCLES times `set_link <nic> off` for OFF_MIN..OFF_MAX
 # s, then on. Every cycle must end, within RECOVER_S, with the guest having seen the link go down and come back
 # (GET /__qemu/state eth.link_downs/link_ups +1), a fresh DHCP lease and home_assistant "linked". Each monitor command
 # is checked against the monitor's own reply, so a lost `set_link on` shows up as a harness failure, not a device one.
@@ -16,7 +16,7 @@ MON_PORT="${SIM_MON_PORT:-$((PORT + 1000))}"
 CYCLES="${CYCLES:-20}" OFF_MIN="${OFF_MIN:-20}" OFF_MAX="${OFF_MAX:-90}" RECOVER_S="${RECOVER_S:-180}"
 STATE="$HERE/.state/linkdrop"
 LOG="$STATE/qemu.log"
-BUILD="${X4_QEMU_BUILD:-$STATE/build/x4qemu}"   # own build dir (#118); another image: X4_QEMU_BUILD=<dir> --no-build
+BUILD="${X4_QEMU_BUILD:-$STATE/build/x4qemu}"   # own build dir (eink-ha-os#118); another image: X4_QEMU_BUILD=<dir> --no-build
 DEV="http://127.0.0.1:$PORT"
 HA="http://127.0.0.1:$HA_PORT"
 export X4_FW_VERSION="${X4_FW_VERSION:-0.0.0-qemu}"

@@ -1,9 +1,9 @@
 # No time of day while asleep (issue #333)
 
-- Replaces the #299 "updated HH:MM" mark (Daan, 2026-10-28: "better no time than spending a lot of energy updating
+- Replaces the eink-ha-os#299 "updated HH:MM" mark (Daan, 2026-10-28: "better no time than spending a lot of energy updating
   minutes"). A deep-sleeping panel shows no time of day anywhere: the top-bar clock region reads "Asleep" (B18 Classic;
   Modern a dark 32 px pill, T6 16 paper text, so it is not missed), the standby face footer "Asleep · press power to
-  wake", and the Nobody home face (#331) drops its "Updated HH:MM" line (it keeps "Next update ~HH:MM").
+  wake", and the Nobody home face (eink-ha-os#331) drops its "Updated HH:MM" line (it keeps "Next update ~HH:MM").
 - A Clock tile and the standby face show the date instead of digits: the day number in the clock font (digits-only
   font, so no new glyphs) and "weekday · month" (`asleepDate`) under it. Classic tile: "Asleep" right on the date line;
   Modern tile: header weekday / month, a paper "Asleep" pill where the day progress was (a time of day, so it goes).

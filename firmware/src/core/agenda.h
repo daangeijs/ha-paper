@@ -1,4 +1,4 @@
-// Agenda and Next tiles (#316) = emulator src/core/agenda.ts, vectors spec/test-vectors/agenda.json (test_agenda).
+// Agenda and Next tiles (eink-ha-os#316) = emulator src/core/agenda.ts, vectors spec/test-vectors/agenda.json (test_agenda).
 // calendar.get_events (return_response, HA 2023.12+) for local midnight today + 7 days, one call per calendar set; the
 // answer streams through Scanner (no DOM, no copy of the frame) into at most kMaxEvents events of ≤ 48-byte titles.
 // Fetcher plans the calls (every 30 min, at the local day change) and keeps the events in PSRAM; save()/load() carry

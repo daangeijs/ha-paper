@@ -40,13 +40,13 @@ std::mutex g_rtcMu;
 WakeKind g_wake = WakeKind::Cold;
 bool g_simWake = false;
 bool g_glance = false;                // this boot is a glance wake: the panel is held until the decision
-bool g_wakeHold = false;              // #299: key wake from glance sleep: no boot screen, panel held until the data is in
+bool g_wakeHold = false;              // eink-ha-os#299: key wake from glance sleep: no boot screen, panel held until the data is in
 std::atomic<const char*> g_mode{"awake"};
 std::atomic<int> g_armLeft{glance::kArmBoots};
 glance::ArmRecord g_arm;
 bool g_armCounted = false;
 std::atomic<const char*> g_armedBy{nullptr};   // glance::armedBy(g_arm), for the web task
-uint32_t g_netUpMs = 0, g_netSeenMs = 0;       // this boot's time with the network up (#231 uptime arming)
+uint32_t g_netUpMs = 0, g_netSeenMs = 0;       // this boot's time with the network up (eink-ha-os#231 uptime arming)
 std::mutex g_battMu;                           // g_batt: main task writes, web task reads (/diagnostics)
 batt::History g_batt;
 std::function<void(int64_t)> g_sleepFn;
@@ -55,9 +55,11 @@ uint32_t g_bootMs = 0, g_lastCheckMs = 0, g_holdUntilMs = 0;
 bool g_holdChecked = false, g_hold = false;
 const char* g_lastReason = "";
 uint32_t g_applied = 0, g_appliedAtMs = 0;
-ChargeMemory g_charged;                // STAT last on; a USB host unplug forgets it (#249)
-uint32_t g_wifiAtMs = glance::kNoMs, g_haAtMs = glance::kNoMs;   // glance wake: since the reset (#178 timings)
-std::atomic<int64_t> g_sleepReqS{0};   // POST /device/sleep: seconds, picked up by powerLoop (#178)
+bool g_timerChecked = false;           // eink-ha-os#364: this timer wake measured against the crystal clock
+int64_t g_waitUntilEpoch = 0;          // eink-ha-os#364: glance wake a few seconds early: no decision before this
+ChargeMemory g_charged;                // STAT last on; a USB host unplug forgets it (eink-ha-os#249)
+uint32_t g_wifiAtMs = glance::kNoMs, g_haAtMs = glance::kNoMs;   // glance wake: since the reset (eink-ha-os#178 timings)
+std::atomic<int64_t> g_sleepReqS{0};   // POST /device/sleep: seconds, picked up by powerLoop (eink-ha-os#178)
 std::atomic<uint32_t> g_sleepReqMs{0};
 std::mutex g_inMu;                     // last inputs(), for the web task's sleep check
 PowerInputs g_lastIn;
@@ -74,11 +76,11 @@ bool g_powerDown = false;
 uint32_t g_resetMs = 0;                // QEMU: millis() keeps counting through esp_restart; hardware: 0
 uint32_t sinceReset() { return millis() - g_resetMs; }
 
-ProfileGate g_profile;                 // CPU / Wi-Fi profile in force (#177), switched after 2 s steady (#249)
+ProfileGate g_profile;                 // CPU / Wi-Fi profile in force (eink-ha-os#177), switched after 2 s steady (eink-ha-os#249)
 std::atomic<int> g_cpuMhz{240};
 std::atomic<bool> g_psMin{true};
 
-// #327 awake phases: marks since the reset (main task writes, web task reads), this boot's draw time and gauge
+// eink-ha-os#327 awake phases: marks since the reset (main task writes, web task reads), this boot's draw time and gauge
 std::atomic<uint32_t> g_markBoot{phases::kNoMs}, g_markWifi{phases::kNoMs}, g_markHa{phases::kNoMs}, g_drawAtHa{0};
 std::atomic<uint32_t> g_renderMs{0}, g_panelMs{0};
 std::atomic<int> g_pct{-1}, g_raw{-1}, g_mv{-1};
@@ -86,13 +88,13 @@ std::atomic<int> g_pct{-1}, g_raw{-1}, g_mv{-1};
 constexpr uint32_t kCheckMs = 1000;         // live mode: power rules once a second
 constexpr uint32_t kAwakeMinMs = 5000;      // awake at least this long after a boot (same pacing as the emulator)
 constexpr uint32_t kArmUpMs = 60000;        // a boot counts once it ran 60 s with the network up (OTA confirm rule)
-constexpr uint32_t kArmUptimeMs = uint32_t(glance::kArmUptimeMin * 60000);   // #231: or 30 min online in one boot
+constexpr uint32_t kArmUptimeMs = uint32_t(glance::kArmUptimeMin * 60000);   // eink-ha-os#231: or 30 min online in one boot
 constexpr uint32_t kSettleQuietMs = 1500;   // glance: HA data is in once no entity update came for this long
-constexpr uint32_t kWakeHoldMaxMs = 8000;   // #299 key wake: the panel waits at most this long for the data
-constexpr int64_t kWakeKeyMs = 1500;        // #299 key wake: a press after this releases the panel (not the wake press)
+constexpr uint32_t kWakeHoldMaxMs = 8000;   // eink-ha-os#299 key wake: the panel waits at most this long for the data
+constexpr int64_t kWakeKeyMs = 1500;        // eink-ha-os#299 key wake: a press after this releases the panel (not the wake press)
 constexpr uint32_t kHoldWindowMs = 3000;    // a Right key held this early in the boot keeps it live
 constexpr int64_t kSaneEpoch = 1700000000;
-constexpr uint32_t kLongPressLogMs = 1000;  // Power held this long or more: logged on release (#225)
+constexpr uint32_t kLongPressLogMs = 1000;  // Power held this long or more: logged on release (eink-ha-os#225)
 constexpr size_t kTrailShown = 8;           // /diagnostics power_trail.lines and the POWERON log line
 constexpr const char* kTrailFile = "/power.txt";   // core/power_trail.h: last power transition, survives a power loss
 constexpr uint32_t kSleepReqDelayMs = 500;  // POST /device/sleep: let the 202 leave before Wi-Fi goes off
@@ -112,7 +114,7 @@ char wakeChar(WakeKind w) {
   }
 }
 
-// #327: this boot so far (any task)
+// eink-ha-os#327: this boot so far (any task)
 phases::Rec phasesNow(int64_t epoch) {
   phases::Marks m;
   m.bootMs = g_markBoot;
@@ -128,7 +130,7 @@ phases::Rec phasesNow(int64_t epoch) {
   return r;
 }
 
-// #327: phase marks, every powerLoop pass until all are set
+// eink-ha-os#327: phase marks, every powerLoop pass until all are set
 void markPhases(App& app) {
   const App::Stats st = app.stats();
   g_renderMs = st.renderMs;
@@ -198,7 +200,7 @@ void countArm() {
           g_armLeft ? "deep sleep not armed yet" : "deep sleep armed");
 }
 
-// #231: a fresh flash or OTA that never restarts arms after 30 min online with the image confirmed.
+// eink-ha-os#231: a fresh flash or OTA that never restarts arms after 30 min online with the image confirmed.
 void uptimeArm(uint32_t now) {
   if (netConnected()) g_netUpMs += now - g_netSeenMs;
   g_netSeenMs = now;
@@ -207,7 +209,7 @@ void uptimeArm(uint32_t now) {
   if (next.uptime != g_arm.uptime) saveArm(next);
 }
 
-// #231: battery history + [BATT] line, once per power-rules pass (inputs() already read the gauge).
+// eink-ha-os#231: battery history + [BATT] line, once per power-rules pass (inputs() already read the gauge).
 void battSample(const PowerInputs& in, uint32_t now) {
   batt::In b;
   b.ms = now;
@@ -258,8 +260,8 @@ PowerInputs inputs(App& app, Board& board) {
   i.charging = p.charging;
   i.usb = p.usb;   // USB host seen (HWCDC): external power, never sleeps
   i.battery = p.known ? int(p.batteryPct) : -1;
-  // STAT drops when the cell is full: charged within 30 min and VCELL ≥ 4.15 V still counts as a charger (#73).
-  // Since boot only; a deep-sleep wake starts at "not charged". Unplugging a USB host forgets it (#249).
+  // STAT drops when the cell is full: charged within 30 min and VCELL ≥ 4.15 V still counts as a charger (eink-ha-os#73).
+  // Since boot only; a deep-sleep wake starts at "not charged". Unplugging a USB host forgets it (eink-ha-os#249).
   g_charged.step(p.charging, p.usb, now);
   i.chargedAgoMin = g_charged.agoMin(now);
   i.voltage = p.mv ? p.mv / 1000.0 : -1;
@@ -280,7 +282,7 @@ PowerInputs inputs(App& app, Board& board) {
   i.live = glance::liveNow(sinceInput, s.liveMin) || (g_hold && int32_t(now - g_holdUntilMs) < 0);
   i.glanceFails = g_rtc.fails;
   i.armBootsLeft = armLeftNow();
-  i.emptyHouse = v.emptyHouse;   // #331: the presence source says nobody is home
+  i.emptyHouse = v.emptyHouse;   // eink-ha-os#331: the presence source says nobody is home
   return i;
 }
 
@@ -290,10 +292,10 @@ std::vector<uint32_t> clockKeys(App& app) {
   return v;
 }
 
-// #177: CPU clock and Wi-Fi modem sleep from the power rules, live mode only (a glance wake keeps 240 MHz / min: it
+// eink-ha-os#177: CPU clock and Wi-Fi modem sleep from the power rules, live mode only (a glance wake keeps 240 MHz / min: it
 // is seconds long and most of it is TLS). 240 ↔ 80 MHz leaves APB at 80 MHz, so a peripheral mid-transfer on another
 // task (SPI to the panel, I2C, UART, LEDC) keeps its clock. Wi-Fi PS goes through wifiPsSet: an OTA / TLS hold wins.
-// #249: re-evaluated every check, so a plug / unplug switches it; a change waits kProfileSettleMs (USB flapping).
+// eink-ha-os#249: re-evaluated every check, so a plug / unplug switches it; a change waits kProfileSettleMs (USB flapping).
 void applyProfile(const PowerDecision& d, uint32_t now) {
   const bool changed = g_profile.step(profileOf(d), now);
   const PowerProfile& p = g_profile.applied();
@@ -342,30 +344,32 @@ void leaveGlance(App& app, const char* why) {
 }
 
 [[noreturn]] void enterSleep(const PowerDecision& d, App& app, Board& board) {
-  app.markAsleep(true);   // #299: no live-looking clock on the sleeping panel (quiet face: no clock, nothing drawn)
+  app.markAsleep(true);   // eink-ha-os#299: no live-looking clock on the sleeping panel (quiet face: no clock, nothing drawn)
   const int64_t epoch = board.epochSeconds();
-  const int64_t secs = d.buttonWakeOnly ? 0 : std::max<int64_t>(1, d.wakeAtEpoch - epoch);
   phases::Rec rec;
+  int64_t secs;
   {
     std::lock_guard<std::mutex> l(g_rtcMu);
+    secs = d.buttonWakeOnly ? 0 : glance::timerSeconds(std::max<int64_t>(1, d.wakeAtEpoch - epoch), g_rtc.timerPpm);   // eink-ha-os#364
+    g_rtc.timerS = secs;
     g_rtc.sleptAtEpoch = epoch;
     g_rtc.wakeAtEpoch = d.buttonWakeOnly ? 0 : d.wakeAtEpoch;
     glance::tallySleep(g_rtc.tally, sinceReset(), app.stats().fullRefreshes, app.stats().partialRefreshes);
-    if (strcmp(d.reason, "empty house") == 0) ++g_rtc.emptySleeps;   // #331
+    if (strcmp(d.reason, "empty house") == 0) ++g_rtc.emptySleeps;   // eink-ha-os#331
     rec = phasesNow(epoch);
     phases::push(g_rtc.wakes, rec);
     seal();
   }
   LOG_INF("POWER", "awake phases · %s · %d%% (gauge %d%%) %d mV", phases::line(rec).c_str(), rec.pct, rec.raw, rec.mv);
   writeTrail(powertrail::sleepWrite(g_trail, d.reason));
-  if (secs) LOG_INF("POWER", "deep sleep (%s) · timer wake in %lld s", d.reason, static_cast<long long>(secs));
+  if (secs) LOG_INF("POWER", "deep sleep (%s) · timer wake in %lld s (timer %lld s)", d.reason, static_cast<long long>(std::max<int64_t>(1, d.wakeAtEpoch - epoch)), static_cast<long long>(secs));
   else LOG_INF("POWER", "deep sleep (%s) · Power / Right key or charger only", d.reason);
   // WebSocket closed and Wi-Fi off on the net task (it owns them); give it a second
   std::atomic<bool> done{false};
   hub().post([&done] {
     haClient().stop();
 #if !X4_QEMU
-    wifiMgr().stopMdns("sleep");   // #326: before the STA netif is destroyed
+    wifiMgr().stopMdns("sleep");   // eink-ha-os#326: before the STA netif is destroyed
     WiFi.disconnect(true);
     WiFi.mode(WIFI_OFF);
 #endif
@@ -400,6 +404,42 @@ void leaveGlance(App& app, const char* why) {
 #endif
 }
 
+// eink-ha-os#364: once per timer wake, after the BM8563 set the clock (g_board.begin): learn the sleep timer's rate from what it
+// took on the crystal clock, then (glance) catch an early wake. QEMU's simulated sleep is cut short: no measurement.
+void checkTimerWake(App& app, Board& board) {
+  if (g_timerChecked) return;
+  g_timerChecked = true;
+#if X4_QEMU
+  (void)app, (void)board;
+  return;
+#else
+  if (g_wake != WakeKind::Timer) return;
+  const int64_t epoch = board.epochSeconds();
+  if (!epoch) return;
+  int64_t wakeAt;
+  {
+    std::lock_guard<std::mutex> l(g_rtcMu);
+    const int64_t realS = g_rtc.sleptAtEpoch > 0 ? epoch - sinceReset() / 1000 - g_rtc.sleptAtEpoch : 0;
+    const int32_t ppm = glance::timerPpm(g_rtc.timerPpm, g_rtc.timerS, realS);
+    LOG_INF("POWER", "sleep timer · %lld s programmed · %lld s on the clock · rate %d → %d ppm",
+            static_cast<long long>(g_rtc.timerS), static_cast<long long>(realS), int(g_rtc.timerPpm), int(ppm));
+    g_rtc.timerPpm = ppm;
+    seal();
+    wakeAt = g_rtc.wakeAtEpoch;
+  }
+  if (!g_glance) return;
+  const glance::Early e = glance::earlyWake(wakeAt, epoch);
+  if (e == glance::Early::Go) return;
+  LOG_INF("POWER", "timer wake %lld s early · %s", static_cast<long long>(wakeAt - epoch), e == glance::Early::Wait ? "waiting awake" : "sleeping again");
+  if (e == glance::Early::Wait) { g_waitUntilEpoch = wakeAt; return; }
+  PowerDecision d;
+  d.deepSleepNow = true;
+  d.wakeAtEpoch = wakeAt;
+  d.reason = "early wake";
+  enterSleep(d, app, board);
+#endif
+}
+
 void glanceLoop(App& app, Board& board) {
   const uint32_t now = millis();
   const App::PowerView v = app.powerView();
@@ -416,6 +456,7 @@ void glanceLoop(App& app, Board& board) {
   if (g_haAtMs == glance::kNoMs && g_wifiAtMs != glance::kNoMs && ha == HaState::Connected) g_haAtMs = sinceReset();
   const bool settled = v.main && ha == HaState::Connected && applied > 0 && now - g_appliedAtMs >= kSettleQuietMs;
   const bool capped = now - g_bootMs >= glance::kAwakeCapMs;
+  if (g_waitUntilEpoch && board.epochSeconds() < g_waitUntilEpoch) return;   // eink-ha-os#364: decide at the planned second
   if (!settled && !capped) return;
   app.settle();
   const glance::Snapshot snap = glance::snapshotOf(app.regionSignatures());
@@ -424,7 +465,7 @@ void glanceLoop(App& app, Board& board) {
   size_t changed = 0;
   {
     std::lock_guard<std::mutex> l(g_rtcMu);
-    // unsettled too (#356): a transition wake moves the face itself (its date at midnight, the quiet face)
+    // unsettled too (eink-ha-os#356): a transition wake moves the face itself (its date at midnight, the quiet face)
     changed = glance::snapshotDiff(g_rtc.hasSnap ? &g_rtc.snap : nullptr, snap, clockKeys(app)).size();
     const double minSince = epoch > kSaneEpoch && g_rtc.drawnAtEpoch > 0 ? double(epoch - g_rtc.drawnAtEpoch) / 60.0 : 0;
     out = glance::step({settled, int(changed), g_rtc.hasSnap, g_rtc.fails, g_rtc.drawnOffline, minSince});
@@ -452,7 +493,7 @@ void glanceLoop(App& app, Board& board) {
   enterSleep(d, app, board);
 }
 
-// #299 key wake from glance sleep: the dashboard is still on the glass and the controller RAM is gone (no partial
+// eink-ha-os#299 key wake from glance sleep: the dashboard is still on the glass and the controller RAM is gone (no partial
 // possible), so no boot screen: the panel stays held until the data is in (or a later key, or the cap), then one clean
 // refresh. Before: boot screen (clean) + dashboard (clean) + partials as the data came in, which looked like a restart.
 void wakeHoldLoop(App& app, uint32_t now) {
@@ -593,7 +634,7 @@ void powerLoop(App& app, Board& board) {
       g_holdChecked = true;
     }
   }
-  // Power key: every press and how long it was held (no long-press power-off: #225, docs/HARDWARE_ASSUMPTIONS.md A41)
+  // Power key: every press and how long it was held (no long-press power-off: eink-ha-os#225, docs/HARDWARE_ASSUMPTIONS.md A41)
   // Down from the KeyDown stage (powerKeyStage) or the GPIO; the release is seen at the first pass after it, so a
   // press released during the standby refresh reads as held up to the refresh time.
   const bool powerDown = board.heldKeys() & kKeyPower;
@@ -627,6 +668,7 @@ void powerLoop(App& app, Board& board) {
     g_sleepReqS = 0;
     sleepRequested(app, board, secs);   // no return unless refused meanwhile
   }
+  checkTimerWake(app, board);
   if (g_wakeHold) wakeHoldLoop(app, now);
   if (g_glance) return glanceLoop(app, board);
   if (now - g_lastCheckMs < kCheckMs) return;
@@ -685,7 +727,7 @@ void powerTallyJson(JsonObject power, JsonObject refreshes) {
   JsonObject b = refreshes["boot"].to<JsonObject>();
   b["full"] = full;
   b["partial"] = partial;
-  b["fast"] = g_bootFast.load();   // #197: navigations without a flash
+  b["fast"] = g_bootFast.load();   // eink-ha-os#197: navigations without a flash
   b["clean"] = full;        // every App flash is a clean; the manual F7 (POST /display/refresh) is not counted
 }
 
@@ -730,7 +772,7 @@ void powerKeyStage(const char* stage) {
     }
     line = powertrail::keyLine(t0, mv, usb);
   } else if (!strcmp(stage, "off")) {
-    line = powertrail::offLine(t0);   // #258: before the latch is released
+    line = powertrail::offLine(t0);   // eink-ha-os#258: before the latch is released
   } else {
     line = powertrail::standbyLine(t0);
   }

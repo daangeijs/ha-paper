@@ -1,0 +1,10 @@
+{
+  "name": "332d-attr-list-subtitle",
+  "description": "Rule: at most 3 subtitle fields.",
+  "input": "# HA Paper display config\nversion: 1\nscreens:\n  - id: a\n    widgets:\n      - {type: attrList, entity: sensor.rare_birds_nearby, subtitle: a b c d, cs: 2}\n",
+  "expect": {
+    "ok": false,
+    "line": 6,
+    "message": "attrList: at most 3 subtitle fields"
+  }
+}

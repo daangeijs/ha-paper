@@ -1,4 +1,4 @@
-// History tile (#264, #268): config rules, time-weighted bucketing from HA statistics or history rows, y scale,
+// History tile (eink-ha-os#264, eink-ha-os#268): config rules, time-weighted bucketing from HA statistics or history rows, y scale,
 // low / high and axis ticks. Port of emulator src/core/history.ts, checked against spec/test-vectors/history.json.
 // Pure and heap-free: inputs are plain arrays, a Series is a fixed POD (~0.8 KB) the caller places in PSRAM (SeriesList).
 // Times are epoch ms; tz = local UTC offset in minutes at `now`. No data = NaN.
@@ -24,18 +24,18 @@ inline const double kNone = NAN;
 inline bool has(double v) { return !std::isnan(v); }
 
 enum class Agg : uint8_t { Mean, Max, Min, Last, Change };
-enum class Style : uint8_t { Bars, Line, Area, Step, Dots };   // area / step / dots: #304
+enum class Style : uint8_t { Bars, Line, Area, Step, Dots, Band };   // area / step / dots / band: eink-ha-os#304
 enum class Period : uint8_t { None, FiveMinute, Hour, Day };   // statistics_during_period `period`; None = history rows only
 
 int64_t parseSpan(const std::string& v);              // "30m" / "6h" / "7d" → ms; anything else → -1
-// -1 = the window needs an explicit bucket. minMs: the data's own step (a forecast's hour or day, #283).
+// -1 = the window needs an explicit bucket. minMs: the data's own step (a forecast's hour or day, eink-ha-os#283).
 int64_t defaultBucket(int64_t windowMs, int cs = 1, int64_t minMs = 0);
 bool aggOf(const std::string& v, Agg& out);
 const char* aggName(Agg a);
 Style resolveStyle(Agg a, const std::string& style);  // a style as written, else (auto) line for mean, bars otherwise
-const char* styleName(Style s);                        // "bars" | "line" | "area" | "step" | "dots"
+const char* styleName(Style s);                        // "bars" | "line" | "area" | "step" | "dots" | "band"
 
-// Where the series comes from (#283, #292): the recorder, a list in an attribute of the entity, or a weather entity's
+// Where the series comes from (eink-ha-os#283, eink-ha-os#292): the recorder, a list in an attribute of the entity, or a weather entity's
 // weather.get_forecasts answer. Implied by the keys: `attribute` wins, then a weather.* entity.
 enum class Kind : uint8_t { Recorder, Attribute, Forecast };
 Kind sourceOf(bool hasAttribute, const std::string& entity);
@@ -47,7 +47,7 @@ struct Field { bool present = false; std::string v; };
 struct Fields {
   std::string entity;
   int cs = 1;
-  Field window, bucket, agg, style, min, max, attribute, value, time, ahead, forecast, threshold, labels, past;
+  Field window, bucket, agg, style, min, max, attribute, value, time, ahead, forecast, threshold, labels, past, compare;
 };
 // The tile's own rules (entity is checked by the shared domain rule first). "" = valid; else the emulator's message.
 std::string configError(const Fields& f);
@@ -59,16 +59,19 @@ struct Spec {
   Agg agg = Agg::Mean;
   Style style = Style::Line;
   double min = kNone, max = kNone;
-  double threshold = kNone;   // #304: dashed reference line (NaN = none)
-  bool labels = false;        // #304: min / max / last values on the chart
-  // attribute / forecast series (#292): the part of the window after now (0 = the recorder span), entry fields
+  double threshold = kNone;   // eink-ha-os#304: dashed reference line (NaN = none)
+  bool labels = false;        // eink-ha-os#304: min / max / last values on the chart
+  // attribute / forecast series (eink-ha-os#292): the part of the window after now (0 = the recorder span), entry fields
   Kind kind = Kind::Recorder;
   int64_t aheadMs = 0;
   std::string attribute, value, time;
   bool daily = false;   // forecast type daily (else hourly)
-  // #307: a recorder entity drawn before now (the buckets before the one holding now); "" = none. Only with an attribute /
+  // eink-ha-os#307: a recorder entity drawn before now (the buckets before the one holding now); "" = none. Only with an attribute /
   // forecast source and 0 < aheadMs < windowMs.
   std::string past;
+  // eink-ha-os#304 wave 2: compare = the same series this long before (1d / 7d; 0 = none). A compare series (compareSpec) is
+  // bucketed at now - shiftMs, so its bucket i is the tile's bucket i that long ago.
+  int64_t compareMs = 0, shiftMs = 0;
 };
 Spec specOf(const Widget& w);   // a validated history widget with every default filled in
 // Unit and decimals of an attribute / forecast value (emulator Emulator.tsx srcUnit): mm/h for rain, °C for a
@@ -82,13 +85,24 @@ inline bool fallbackOk(const Spec& s) { return s.windowMs <= kFallbackMax; }
 
 int64_t bucketStart(int64_t t, int64_t bucketMs, int tz);
 
-// ---- past and future in one chart (#307, emulator history.ts pastSpec / joinSeries) ----
+// ---- past and future in one chart (eink-ha-os#307, emulator history.ts pastSpec / joinSeries) ----
 // Buckets before the one holding now (filled from `past`); -1 when the spec has no past.
 inline int pastBuckets(const Spec& s) { return s.past.empty() || s.bucketMs <= 0 ? -1 : int((s.windowMs - s.aheadMs) / s.bucketMs); }
 // The recorder series fetched for `past`: that entity over the past part plus the bucket holding now, same agg.
 Spec pastSpec(const Spec& s);
+// ---- band and compare (eink-ha-os#304 wave 2, emulator history.ts bandSpecs / compareSpec / tileSpecs) ----
+Spec plainSpec(const Spec& s, Agg agg);   // the tile's entity and buckets, no style extras (style line)
+Spec compareSpec(const Spec& s);          // the tile's series compareMs earlier (shiftMs set); only when compareMs > 0
+inline int64_t seriesNow(const Spec& s, int64_t now) { return now - s.shiftMs; }
+// Every series a tile reads: its own, then past (eink-ha-os#307), band min / max, compare. Calls f(spec) for each.
+template <class F> void tileSpecs(const Spec& s, F f) {
+  f(s);
+  if (!s.past.empty()) f(pastSpec(s));
+  if (s.style == Style::Band) { f(plainSpec(s, Agg::Min)); f(plainSpec(s, Agg::Max)); }
+  if (s.compareMs > 0) f(compareSpec(s));
+}
 struct Span { int64_t start, end; };
-// n buckets: without aheadMs the last one holds `now`; with it the bucket holding now starts the last aheadMs (#292)
+// n buckets: without aheadMs the last one holds `now`; with it the bucket holding now starts the last aheadMs (eink-ha-os#292)
 Span chartSpan(int64_t windowMs, int64_t bucketMs, int64_t now, int tz, int64_t aheadMs = 0);
 
 struct Series {
@@ -96,7 +110,7 @@ struct Series {
   int n = 0;
   double v[kMaxBars];
 };
-// #307: the tile's series bucket by bucket on its span: before the bucket holding now from `past` (pastSpec's series),
+// eink-ha-os#307: the tile's series bucket by bucket on its span: before the bucket holding now from `past` (pastSpec's series),
 // from it on from `ahead` (the attribute / forecast series); matched by bucket start, a missing part = gaps.
 void joinSeries(const Spec& s, const Series* past, const Series* ahead, int64_t now, int tz, Series& out);
 // Bucket store of every history tile, in PSRAM (≤ kMaxTiles × sizeof(Series)).
@@ -108,7 +122,7 @@ struct StatRow { int64_t start, end; double mean, min, max, change; };
 void fromStatistics(const StatRow* rows, size_t nRows, int64_t windowMs, int64_t bucketMs, Agg agg, int64_t now, int tz,
                     Series& out, int64_t aheadMs = 0);
 
-// ---- attribute / forecast series (#292) ----
+// ---- attribute / forecast series (eink-ha-os#292) ----
 constexpr int64_t kNoTime = INT64_MIN;
 // An entry's time → epoch ms: ISO 8601 ("…T14:05:00+01:00", "…Z", "2026-10-26 14:05", "2026-10-26"; no offset = local)
 int64_t parseTime(const char* s, size_t n, int tz);
@@ -126,19 +140,19 @@ void sortPoints(Point* p, size_t n);                           // stable, by t
 void bucketize(const Point* p, size_t n, int64_t windowMs, int64_t bucketMs, Agg agg, int64_t now, int tz, Series& out);
 
 struct Range { double lo, hi; };
-// threshold (#304) counts as data when there is data.
+// threshold (eink-ha-os#304) counts as data when there is data.
 Range yScale(const double* v, int n, Style style, double min = kNone, double max = kNone, double threshold = kNone);
 
 struct Extreme { int i = -1; double v = 0; int64_t t = 0; char time[16] = {}; };
 // Lowest and highest bucket (earliest on a tie), with the bucket's start time; false when there is no data.
 bool lowHigh(const Series& s, int64_t windowMs, int tz, Lang lang, Extreme& low, Extreme& high);
-// The same over one day in n equal buckets from local midnight (the price chart, #260): times "03:00" / "03:15".
+// The same over one day in n equal buckets from local midnight (the price chart, eink-ha-os#260): times "03:00" / "03:15".
 bool dayLowHigh(const double* v, int n, Lang lang, Extreme& low, Extreme& high);
 void pointTime(int64_t t, int64_t windowMs, int tz, Lang lang, char* out, size_t cap);   // "14:00" / "Tu 14:00"
 
 struct Tick { double x; char text[8]; };
 constexpr int kMaxTicks = 8;
-// X axis labels, x = 0…1 across the chart span; returns the count (≤ kMaxTicks). aheadMs: "Now +30 +60" (#292).
+// X axis labels, x = 0…1 across the chart span; returns the count (≤ kMaxTicks). aheadMs: "Now +30 +60" (eink-ha-os#292).
 int axisTicks(int64_t windowMs, int64_t bucketMs, int64_t now, int tz, Lang lang, Tick* out, int64_t aheadMs = 0);
 
 }  // namespace hist

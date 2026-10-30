@@ -1,6 +1,6 @@
-// Quiet face "Tomorrow" row (#328) = emulator src/core/quiet.ts (quietSources, quietTomorrow); vectors
+// Quiet face "Tomorrow" row (eink-ha-os#328) = emulator src/core/quiet.ts (quietSources, quietTomorrow); vectors
 // spec/test-vectors/quiet-tomorrow.json (test_core). Values that stay true overnight, from what the device already keeps
-// (the #318 forecast in RTC, the #316 agenda cache, the #317 bin sensors in the mirror): no fetch for the face. Pure.
+// (the eink-ha-os#318 forecast in RTC, the eink-ha-os#316 agenda cache, the eink-ha-os#317 bin sensors in the mirror): no fetch for the face. Pure.
 #pragma once
 #include <cstdint>
 #include <string>
@@ -20,7 +20,7 @@ struct Sources { Ref weather, agenda, bins; };
 Sources sources(const std::vector<Screen>& screens);
 
 // The local day the face points at: the window end's day (today before endHour, else tomorrow). kTodayEnd: always
-// today, the glance sleep face's "Today" row (#356).
+// today, the glance sleep face's "Today" row (eink-ha-os#356).
 constexpr int kTodayEnd = 24;
 int64_t day(int64_t nowMs, int tz, int endHour);
 

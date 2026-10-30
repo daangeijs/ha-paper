@@ -67,7 +67,7 @@ inline void setZone(EntityStore& st, const Zone& z, int order) {
   e.attrs["current_temperature"] = jsNumber(z.cur);
   e.attrs["temperature"] = jsNumber(z.set);
   e.attrs["x4_order"] = std::to_string(order);
-  if (std::string(z.id) != "garage") e.attrs["preset_modes"] = "[\"home\",\"away\"]";   // tado (emulator ZONE_LIST presets, #148)
+  if (std::string(z.id) != "garage") e.attrs["preset_modes"] = "[\"home\",\"away\"]";   // tado (emulator ZONE_LIST presets, eink-ha-os#148)
   st.set(std::string("climate.") + z.id, e);
 }
 
@@ -107,11 +107,11 @@ inline void load(EntityStore& st, int hh, int mm, int zoneCount = 10) {
   EntityValue u = val("ok"); u.attrs["today"] = arr(usage()); st.set("sensor.energy_usage_hourly", u);
   EntityValue so = val("ok"); so.attrs["today"] = arr(S);
   double fc = 0; for (double v : S) fc += v;
-  so.attrs["forecast"] = jsNumber(fc); st.set("sensor.solar_hourly", so);   // the emulator's mock forecast (#151)
+  so.attrs["forecast"] = jsNumber(fc); st.set("sensor.solar_hourly", so);   // the emulator's mock forecast (eink-ha-os#151)
   for (int i = 0; i < zoneCount && i < int(zones().size()); ++i) setZone(st, zones()[i], i);
   st.set("sensor.living_temperature", val(jsNumber(zones()[0].cur)));
   for (int i = 0; i < int(lights().size()); ++i) setLight(st, lights()[i], i, lights()[i].on, lights()[i].b);
-  // travel "mixed" (#145: user routes on their own sensors, see travelConfig()): train 1, bus 2, train 3, car 4
+  // travel "mixed" (eink-ha-os#145: user routes on their own sensors, see travelConfig()): train 1, bus 2, train 3, car 4
   struct Rt { const char* id; std::vector<int> offsets; std::vector<const char*> info; int lvl; };
   std::vector<Rt> rts = {{"sensor.demo_train", {4, 11, 19, 26, 34, 41, 49, 56}, {"Intercity · platform 5", "Sprinter · platform 4"}, 1},
                          {"sensor.demo_bus", {7, 22, 37, 52}, {"Bus 52 · to the station"}, 2},
@@ -136,7 +136,7 @@ inline void load(EntityStore& st, int hh, int mm, int zoneCount = 10) {
   st.set("sensor.demo_drive", car);
 }
 
-// A Travel screen of user routes on the sensors above (the default config has none, #145).
+// A Travel screen of user routes on the sensors above (the default config has none, eink-ha-os#145).
 inline const char* travelYaml() {
   return "version: 1\nscreens:\n  - id: travel\n    app: travel\n    title: Travel\n    widgets:\n"
          "      - {type: route, label: To work, entity: sensor.demo_train, cs: 2}\n"

@@ -34,7 +34,8 @@ std::mutex g_fsMu;   // the mount and every console file read
 std::mutex g_mu;     // the strings below
 std::atomic<bool> g_writing{false}, g_failed{false};   // read lock-free by the web server
 std::atomic<uint32_t> g_gen{0};                        // bumped by every write: a hash taken across one is dropped
-std::atomic<uint32_t> g_lastChunkMs{0};
+std::atomic<uint32_t> g_lastChunkMs{0};   // set by the writer (async_tcp), read by the stall check (net task)
+uint32_t g_beginMs = 0;                    // g_wmu
 bool g_loaded = false, g_hashTried = false;
 std::string g_version, g_marker, g_digest, g_message;
 
@@ -79,7 +80,7 @@ std::string flashError() {
   return b;
 }
 
-// SHA through internal RAM (the SHA peripheral's DMA must not read PSRAM, see net/ota.cpp #57)
+// SHA through internal RAM (the SHA peripheral's DMA must not read PSRAM, see net/ota.cpp eink-ha-os#57)
 void shaInternal(mbedtls_sha256_context* c, const uint8_t* d, size_t n) {
   static uint8_t bounce[1024];
   while (n) {
@@ -103,7 +104,7 @@ void scan(std::string& version, std::string& marker) {
   marker.clear();
   std::lock_guard<std::mutex> f(g_fsMu);
   if (!storage().wwwOk()) return;
-  if (storage().www().exists("/www/version.txt")) {   // none in consoles before #350
+  if (storage().www().exists("/www/version.txt")) {   // none in consoles before eink-ha-os#350
     File v = storage().www().open("/www/version.txt", "r");
     if (v) {
       char b[96];
@@ -154,6 +155,21 @@ void ensure() {
     need = !g_loaded && !g_writing;
   }
   if (need) load();
+}
+
+// KB/s since wwwWriteBegin; g_wmu held
+unsigned kbps(size_t bytes) {
+  const uint32_t ms = millis() - g_beginMs;
+  return unsigned(ms ? uint64_t(bytes) * 1000 / 1024 / ms : 0);
+}
+
+// eink-ha-os#365: no data for kStallMs. The chunk time is loaded before the clock is read: async_tcp (core 0, prio 10)
+// preempts the net task (core 0, prio 3) for a whole 4 KB erase, and a chunk stamped between millis() and the load
+// made now - last wrap to ~4e9 → a live upload aborted as "stalled". silentMs = how long, if stalled.
+bool stalled(uint32_t& silentMs) {
+  const uint32_t last = g_lastChunkMs.load();
+  silentMs = millis() - last;
+  return int32_t(silentMs) > int32_t(kStallMs);
 }
 
 // g_wmu held
@@ -275,7 +291,8 @@ int wwwWriteBegin(size_t size, std::string& err) {
   g_eraseMaxMs = g_eraseTotalMs = 0;
   mbedtls_sha256_init(&g_sha);
   mbedtls_sha256_starts(&g_sha, 0);
-  g_lastChunkMs = millis();
+  g_beginMs = millis();
+  g_lastChunkMs = g_beginMs;
   LOG_INF("WWW", "rewriting the www partition (0x%06x, %u bytes)", unsigned(g_sink.p->address), unsigned(size));
   return 0;
 }
@@ -283,13 +300,20 @@ int wwwWriteBegin(size_t size, std::string& err) {
 bool wwwWriteChunk(const uint8_t* d, size_t n, std::string* err) {
   std::lock_guard<std::mutex> w(g_wmu);
   if (!g_writing || !g_writer.active()) {
-    if (err) *err = g_writing ? flashError() : "the console update was stopped (stalled or aborted)";
+    if (err && g_writing) *err = flashError();
+    else if (err) {
+      std::lock_guard<std::mutex> l(g_mu);
+      const std::string why = g_message.substr(0, g_message.find(" — "));   // the reason, not the consequence
+      *err = "the console update was stopped: " + (why.empty() ? std::string("aborted") : why);
+    }
     return false;
   }
   wdt::feedIfSubscribed();
   shaInternal(&g_sha, d, n);
   g_lastChunkMs = millis();
-  if (g_writer.write(d, n)) return true;
+  const bool ok = g_writer.write(d, n);
+  g_lastChunkMs = millis();   // after the erase: a slow sector is not silence
+  if (ok) return true;
   if (err) *err = flashError();
   LOG_ERR("WWW", "%s (%u of %u bytes)", flashError().c_str(), unsigned(g_writer.written()), unsigned(g_writer.size()));
   return false;
@@ -326,23 +350,40 @@ bool wwwWriteEnd(const std::string& sha, std::string& err, std::string* digestHe
     m = g_marker;
   }
   storage().writeFile(kShaFile, v + " " + m + " " + got);
-  LOG_INF("WWW", "console v%s written (%u bytes; erase %u ms, max %u ms per 4 KB) · %s", v.c_str(), unsigned(written),
-          unsigned(g_eraseTotalMs), unsigned(g_eraseMaxMs),
+  LOG_INF("WWW", "console v%s written (%u bytes in %u s, %u KB/s; erase %u ms, max %u ms per 4 KB) · %s", v.c_str(),
+          unsigned(written), unsigned((millis() - g_beginMs) / 1000), kbps(written), unsigned(g_eraseTotalMs),
+          unsigned(g_eraseMaxMs),
           www::consoleCurrent(v, firmwareVersion()) ? "matches the firmware" : "still not the firmware's version");
   return true;
 }
 
-void wwwWriteAbort(const char* why) {
-  std::lock_guard<std::mutex> w(g_wmu);
-  if (!g_writing) return;
-  LOG_ERR("WWW", "rewrite aborted after %u bytes: %s", unsigned(g_writer.written()), why);
+namespace {
+// g_wmu held
+void abortLocked(const char* why) {
+  LOG_ERR("WWW", "rewrite aborted after %u of %u bytes, %u s, %u KB/s (erase %u ms, max %u ms per 4 KB): %s",
+          unsigned(g_writer.written()), unsigned(g_writer.size()), unsigned((millis() - g_beginMs) / 1000),
+          kbps(g_writer.written()), unsigned(g_eraseTotalMs), unsigned(g_eraseMaxMs), why);
   g_writer.abort();
   mbedtls_sha256_free(&g_sha);
   finishWrite(false, std::string(why) + " — the console is offline until a good www.bin is written");
 }
+}  // namespace
+
+void wwwWriteAbort(const char* why) {
+  std::lock_guard<std::mutex> w(g_wmu);
+  if (g_writing) abortLocked(why);
+}
 
 void wwwLoop() {
-  if (g_writing && millis() - g_lastChunkMs.load() > kStallMs) wwwWriteAbort("upload stalled");
+  uint32_t silent;
+  if (g_writing && stalled(silent)) {
+    std::lock_guard<std::mutex> w(g_wmu);   // a chunk mid-write holds it; re-check after it
+    if (g_writing && stalled(silent)) {
+      char why[48];
+      snprintf(why, sizeof why, "upload stalled (no data for %u s)", unsigned(silent / 1000));
+      abortLocked(why);
+    }
+  }
   ensure();
   std::string v, m;
   {

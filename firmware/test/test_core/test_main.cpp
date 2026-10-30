@@ -145,7 +145,7 @@ void test_default_config_matches_spec() {
   TEST_ASSERT_FALSE(base.empty());
   TEST_ASSERT_EQUAL_STRING(base.c_str(), kDefaultYaml);
   Config c = defaultConfig();
-  TEST_ASSERT_EQUAL_INT(6, int(c.screens.size()));   // Settings is built in (#159): withSettings adds its pages
+  TEST_ASSERT_EQUAL_INT(6, int(c.screens.size()));   // Settings is built in (eink-ha-os#159): withSettings adds its pages
   Config d = withSettings(c);
   TEST_ASSERT_EQUAL_INT(13, int(d.screens.size()));
   TEST_ASSERT_EQUAL_STRING("settings", d.apps.back().id.c_str());
@@ -294,7 +294,7 @@ void test_refresh_spec_vectors() {
     else { TEST_ASSERT_TRUE(k == RefreshPolicy::Kind::Partial); TEST_ASSERT_EQUAL_INT(int(e.get("sinceFull")->num), p.sinceFull()); }
     ++n;
   }
-  for (auto& c : j.get("navigation")->arr) {   // #197: state = navSinceClean fast navigations + the rest as partials
+  for (auto& c : j.get("navigation")->arr) {   // eink-ha-os#197: state = navSinceClean fast navigations + the rest as partials
     const Json& in = *c.get("input");
     const bool clock = in.get("clockKnown")->b;
     RefreshPolicy p;
@@ -319,7 +319,7 @@ void test_refresh_spec_vectors() {
     TEST_ASSERT_EQUAL_MESSAGE(c.get("expect")->b, due, c.get("name")->str.c_str());
     ++n;
   }
-  for (auto& c : j.get("input")->arr) {   // #212: last intent wins
+  for (auto& c : j.get("input")->arr) {   // eink-ha-os#212: last intent wins
     TEST_ASSERT_EQUAL_INT_MESSAGE(int(c.get("expect")->num), coalesceInput(int(c.get("events")->arr.size())), c.get("name")->str.c_str());
     ++n;
   }
@@ -411,7 +411,7 @@ void test_zone_pages_and_flat() {
   PagingInfo p = pagingOf(10, 3);
   TEST_ASSERT_EQUAL_INT(4, int(flatPages(c, 0, p).size()));    // home
   TEST_ASSERT_EQUAL_INT(4, int(flatPages(c, 4, p).size()));    // house: 3 light pages + heating
-  TEST_ASSERT_EQUAL_INT(7, int(flatPages(c, 6, p).size()));    // settings (incl. Display style, Power); no travel (#145)
+  TEST_ASSERT_EQUAL_INT(7, int(flatPages(c, 6, p).size()));    // settings (incl. Display style, Power); no travel (eink-ha-os#145)
   PagingInfo p14 = pagingOf(14, 3);
   TEST_ASSERT_EQUAL_INT(5, int(flatPages(c, 5, p14).size()));
   // Prev/Next wrap inside the app
@@ -448,7 +448,7 @@ void test_refresh_policy() {
   TEST_ASSERT_TRUE(p.requestPartial(false) == RefreshPolicy::Kind::Clean);   // clock unset: 30th becomes a clean
   TEST_ASSERT_TRUE(p.requestPartial(false) == RefreshPolicy::Kind::Partial);
   for (int i = 0; i < 100; ++i) TEST_ASSERT_TRUE(p.requestPartial(true) == RefreshPolicy::Kind::Partial);   // clock known
-  // #197: navigations are fast, the kNavClean-th a clean; a clean (onFull) starts the count over
+  // eink-ha-os#197: navigations are fast, the kNavClean-th a clean; a clean (onFull) starts the count over
   RefreshPolicy q;
   for (int i = 0; i < kNavClean - 1; ++i) TEST_ASSERT_TRUE(q.requestNav(true) == RefreshPolicy::Kind::Fast);
   TEST_ASSERT_TRUE(q.requestNav(true) == RefreshPolicy::Kind::Clean);
@@ -459,7 +459,7 @@ void test_refresh_policy() {
 }
 
 // ---------- behaviour ----------
-// quiet hours (#295, spec/test-vectors/quiet.json, emulator src/core/quiet.ts)
+// quiet hours (eink-ha-os#295, spec/test-vectors/quiet.json, emulator src/core/quiet.ts)
 void test_quiet_spec_vectors() {
   std::string t = readFile(std::string(X4_REPO_ROOT) + "/spec/test-vectors/quiet.json");
   if (t.empty()) { TEST_IGNORE_MESSAGE("spec/test-vectors/quiet.json not present"); return; }
@@ -479,7 +479,7 @@ void test_quiet_spec_vectors() {
   TEST_ASSERT_FALSE(validQuiet("23:07"));
 }
 
-// empty-house sleep (#331, spec/test-vectors/empty-house.json, emulator src/core/emptyHouse.ts)
+// empty-house sleep (eink-ha-os#331, spec/test-vectors/empty-house.json, emulator src/core/emptyHouse.ts)
 void test_empty_house_vectors() {
   std::string t = readFile(std::string(X4_REPO_ROOT) + "/spec/test-vectors/empty-house.json");
   TEST_ASSERT_FALSE_MESSAGE(t.empty(), "spec/test-vectors/empty-house.json missing");
@@ -521,7 +521,7 @@ void test_empty_house_vectors() {
   TEST_ASSERT_EQUAL_INT(11 + 15 + 6 + 7 + 12, n);
 }
 
-// quiet face Tomorrow row (#328, spec/test-vectors/quiet-tomorrow.json, emulator src/core/quiet.ts)
+// quiet face Tomorrow row (eink-ha-os#328, spec/test-vectors/quiet-tomorrow.json, emulator src/core/quiet.ts)
 void test_quiet_tomorrow_vectors() {
   Json j;
   TEST_ASSERT_TRUE(parseJson(readFile(std::string(X4_REPO_ROOT) + "/spec/test-vectors/quiet-tomorrow.json"), j));
@@ -631,7 +631,7 @@ void test_idle_swipe_debounce() {
   TEST_ASSERT_EQUAL_INT(0, swipeNav(50, 0, 300));
   TEST_ASSERT_EQUAL_INT(0, swipeNav(80, 60, 300));
   TEST_ASSERT_EQUAL_INT(0, swipeNav(80, 0, 900));
-  TEST_ASSERT_EQUAL_INT(-1, swipeNav(100, 60, 300));   // ratio 1.67: a swipe in the emulator (> 1.5), issue #13
+  TEST_ASSERT_EQUAL_INT(-1, swipeNav(100, 60, 300));   // ratio 1.67: a swipe in the emulator (> 1.5), issue eink-ha-os#13
   TEST_ASSERT_EQUAL_INT(1, swipeNav(-100, 60, 300));
   Debouncer db;
   db.touch("living", 1000);
@@ -672,7 +672,7 @@ void test_home_data_missing_is_dash() {
   TEST_ASSERT_EQUAL_STRING("1.23", statText("sensor.home_power", d, 12).value.c_str());
 }
 
-void test_stat_text_dutch() {   // #111: our own stat labels and sub lines follow the display language
+void test_stat_text_dutch() {   // eink-ha-os#111: our own stat labels and sub lines follow the display language
   EntityStore st;
   EntityValue v; v.state = "0"; st.set("sensor.solar_power", v);
   HomeData d = deriveHome(st);
@@ -683,7 +683,7 @@ void test_stat_text_dutch() {   // #111: our own stat labels and sub lines follo
   TEST_ASSERT_EQUAL_STRING("Verbruik", statText("sensor.home_power", d, 12, nullptr, Lang::Nl).label.c_str());
 }
 
-void test_deadband_vectors() {   // #85, spec/test-vectors/deadband.json
+void test_deadband_vectors() {   // eink-ha-os#85, spec/test-vectors/deadband.json
   std::string t = readFile(std::string(X4_REPO_ROOT) + "/spec/test-vectors/deadband.json");
   TEST_ASSERT_FALSE_MESSAGE(t.empty(), "spec/test-vectors/deadband.json missing");
   Json j; TEST_ASSERT_TRUE(parseJson(t, j));
@@ -703,7 +703,7 @@ void test_deadband_vectors() {   // #85, spec/test-vectors/deadband.json
   TEST_ASSERT_GREATER_OR_EQUAL(17, n);
 }
 
-void test_format_vectors() {   // #85, spec/test-vectors/format.json
+void test_format_vectors() {   // eink-ha-os#85, spec/test-vectors/format.json
   std::string t = readFile(std::string(X4_REPO_ROOT) + "/spec/test-vectors/format.json");
   TEST_ASSERT_FALSE_MESSAGE(t.empty(), "spec/test-vectors/format.json missing");
   Json j; TEST_ASSERT_TRUE(parseJson(t, j));
@@ -721,7 +721,7 @@ void test_format_vectors() {   // #85, spec/test-vectors/format.json
     ++n;
   }
   TEST_ASSERT_GREATER_OR_EQUAL(40, n);
-  // number format (#110)
+  // number format (eink-ha-os#110)
   auto nfOf = [](const std::string& s) {
     return s == "comma" ? NumFmt::Comma : s == "comma_decimal" ? NumFmt::CommaDecimal : s == "decimal_comma" ? NumFmt::DecimalComma
          : s == "space_comma" ? NumFmt::SpaceComma : NumFmt::Point;
@@ -748,7 +748,7 @@ void test_format_vectors() {   // #85, spec/test-vectors/format.json
     ++m;
   }
   TEST_ASSERT_GREATER_OR_EQUAL(30, m);
-  int fd = 0;   // #151
+  int fd = 0;   // eink-ha-os#151
   for (auto& c : j.get("fewerDecimals")->arr) {
     setNumFormat(nfOf(c.get("nf")->str));
     std::string out = fewerDecimals(c.get("in")->str);
@@ -757,7 +757,7 @@ void test_format_vectors() {   // #85, spec/test-vectors/format.json
     ++fd;
   }
   TEST_ASSERT_GREATER_OR_EQUAL(10, fd);
-  int fv = 0;   // #162
+  int fv = 0;   // eink-ha-os#162
   for (auto& c : j.get("fitValue")->arr) {
     setNumFormat(nfOf(c.get("nf")->str));
     std::vector<int> sizes;
@@ -773,7 +773,7 @@ void test_format_vectors() {   // #85, spec/test-vectors/format.json
     ++fv;
   }
   TEST_ASSERT_GREATER_OR_EQUAL(10, fv);
-  int fm = 0;   // #215
+  int fm = 0;   // eink-ha-os#215
   for (auto& c : j.get("fitMiddle")->arr) {
     std::vector<int> sizes;
     for (auto& z : c.get("sizes")->arr) sizes.push_back(int(z.num));
@@ -846,7 +846,7 @@ void test_diag_vectors() {
   }
 }
 
-// ---------- device log ring (spec/test-vectors/logs.json, GET /api/v1/logs, #200) ----------
+// ---------- device log ring (spec/test-vectors/logs.json, GET /api/v1/logs, eink-ha-os#200) ----------
 void test_log_vectors() {
   std::string t = readFile(std::string(X4_REPO_ROOT) + "/spec/test-vectors/logs.json");
   Json j;
@@ -962,27 +962,33 @@ void test_diag_merge_and_report() {
   TEST_ASSERT_EQUAL_STRING("0x4201a3c4", j.get("coredump")->get("pc")->str.c_str());
   TEST_ASSERT_EQUAL(2, int(j.get("coredump")->get("backtrace")->arr.size()));
   TEST_ASSERT_TRUE(j.get("touch_recoveries")->isNull());
-  TEST_ASSERT_TRUE(j.get("deep_sleep")->get("armed")->b);   // #10 first-boot safety: default 0 boots left
+  TEST_ASSERT_TRUE(j.get("deep_sleep")->get("armed")->b);   // eink-ha-os#10 first-boot safety: default 0 boots left
   TEST_ASSERT_TRUE(j.get("deep_sleep")->get("armed_by")->isNull());
   TEST_ASSERT_TRUE(j.get("battery")->isNull());
   TEST_ASSERT_EQUAL_STRING("PANIC", j.get("last_crash")->get("reason")->str.c_str());
   TEST_ASSERT_FALSE(j.get("panel")->get("failed")->b);
   TEST_ASSERT_TRUE(j.get("panel")->get("failure")->isNull());
-  TEST_ASSERT_TRUE(j.get("heap")->get("low_point")->isNull());   // #198: no checkpoint yet
-  TEST_ASSERT_TRUE(j.get("last_wdt")->isNull());                  // #241: no task-watchdog timeout recorded
-  TEST_ASSERT_TRUE(j.get("web")->get("last_request_age_s")->isNull());   // #227: no request yet
+  TEST_ASSERT_TRUE(j.get("heap")->get("low_point")->isNull());   // eink-ha-os#198: no checkpoint yet
+  TEST_ASSERT_TRUE(j.get("last_wdt")->isNull());                  // eink-ha-os#241: no task-watchdog timeout recorded
+  TEST_ASSERT_TRUE(j.get("web")->get("last_request_age_s")->isNull());   // eink-ha-os#227: no request yet
   TEST_ASSERT_TRUE(j.get("mdns")->get("last_restart_reason")->isNull());
+  TEST_ASSERT_TRUE(j.get("mdns")->get("hostname")->isNull());              // eink-ha-os#376
+  TEST_ASSERT_FALSE(j.get("mdns")->get("v4")->b);
+  TEST_ASSERT_TRUE(j.get("mdns")->get("last_announce_age_s")->isNull());
   TEST_ASSERT_TRUE(j.get("wifi")->get("rssi")->isNull());
   TEST_ASSERT_TRUE(j.get("wifi")->get("bssid")->isNull());
   rep.net.webOpen = 1; rep.net.served = 42; rep.net.refused503 = 3; rep.net.lastRequestAgeS = 7; rep.net.mdnsUp = true;
   rep.net.mdnsRestarts = 2; rep.net.mdnsReason = "got_ip"; rep.net.rssiKnown = true; rep.net.rssi = -71; rep.net.bssid = "3fa2";
-  rep.net.idleChecks = 1;
+  rep.net.idleChecks = 1; rep.net.mdnsHost = "ha-paper-9575"; rep.net.mdnsV4 = true; rep.net.mdnsAnnounceAgeS = 12;
   TEST_ASSERT_TRUE(parseJson(diag::reportJson(rtc, rep), j));
   TEST_ASSERT_EQUAL(42, int(j.get("web")->get("served")->num));
   TEST_ASSERT_EQUAL(3, int(j.get("web")->get("refused_503")->num));
   TEST_ASSERT_EQUAL(7, int(j.get("web")->get("last_request_age_s")->num));
   TEST_ASSERT_TRUE(j.get("mdns")->get("up")->b);
   TEST_ASSERT_EQUAL_STRING("got_ip", j.get("mdns")->get("last_restart_reason")->str.c_str());
+  TEST_ASSERT_EQUAL_STRING("ha-paper-9575", j.get("mdns")->get("hostname")->str.c_str());
+  TEST_ASSERT_TRUE(j.get("mdns")->get("v4")->b);
+  TEST_ASSERT_EQUAL(12, int(j.get("mdns")->get("last_announce_age_s")->num));
   TEST_ASSERT_EQUAL(-71, int(j.get("wifi")->get("rssi")->num));
   TEST_ASSERT_EQUAL_STRING("3fa2", j.get("wifi")->get("bssid")->str.c_str());
   TEST_ASSERT_EQUAL(1, int(j.get("wifi")->get("idle_checks")->num));
@@ -1002,13 +1008,13 @@ void test_diag_merge_and_report() {
   TEST_ASSERT_TRUE(lp->get("rssi")->isNull());
   rep.core = {};
   rep.panel = {};
-  rep.panel.failure = "BUSY stuck 20 s (init)";   // #181: the panel was given up
+  rep.panel.failure = "BUSY stuck 20 s (init)";   // eink-ha-os#181: the panel was given up
   TEST_ASSERT_TRUE(parseJson(diag::reportJson(rtc, rep), j));
   TEST_ASSERT_TRUE(j.get("coredump")->isNull());
   TEST_ASSERT_TRUE(j.get("panel")->get("verdict")->isNull());
   TEST_ASSERT_TRUE(j.get("panel")->get("failed")->b);
   TEST_ASSERT_EQUAL_STRING("BUSY stuck 20 s (init)", j.get("panel")->get("failure")->str.c_str());
-  rep.sleepArmedBy = "uptime";   // #231
+  rep.sleepArmedBy = "uptime";   // eink-ha-os#231
   rep.batteryJson = batt::History().json();
   TEST_ASSERT_TRUE(parseJson(diag::reportJson(rtc, rep), j));
   TEST_ASSERT_EQUAL_STRING("uptime", j.get("deep_sleep")->get("armed_by")->str.c_str());
@@ -1047,7 +1053,7 @@ static void applyPowerInput(const Json& o, PowerInputs& i) {
   }
 }
 
-void test_cpu_mhz_for() {   // emulator CPU_MHZ (#177)
+void test_cpu_mhz_for() {   // emulator CPU_MHZ (eink-ha-os#177)
   TEST_ASSERT_EQUAL(240, cpuMhzFor(CpuProfile::Full));
   TEST_ASSERT_EQUAL(80, cpuMhzFor(CpuProfile::Auto));
 }
@@ -1088,14 +1094,14 @@ void test_power_spec_vectors() {
   std::printf("spec power vectors: %d files, %d cases\n", files, cases);
 }
 
-// ---------- glance (spec/test-vectors/glance.json, emulator src/core/glance.ts, #10) ----------
+// ---------- glance (spec/test-vectors/glance.json, emulator src/core/glance.ts, eink-ha-os#10) ----------
 static glance::Snapshot snapOf(const Json& o) {   // vectors give region key → hash; the device hashes region text
   std::map<std::string, std::string> m;
   for (auto& kv : o.obj) m[kv.first] = std::to_string(int64_t(kv.second.num));
   return glance::snapshotOf(m);
 }
 
-// ---------- battery history (spec/test-vectors/battery-history.json, #231) ----------
+// ---------- battery history (spec/test-vectors/battery-history.json, eink-ha-os#231) ----------
 void test_battery_history_vectors() {
   Json j;
   TEST_ASSERT_TRUE(parseJson(readFile(std::string(X4_REPO_ROOT) + "/spec/test-vectors/battery-history.json"), j));
@@ -1126,7 +1132,7 @@ void test_battery_history_vectors() {
   TEST_ASSERT_EQUAL(5, cases);
 }
 
-// ---------- gauge filter (spec/test-vectors/gauge-filter.json, #327) ----------
+// ---------- gauge filter (spec/test-vectors/gauge-filter.json, eink-ha-os#327) ----------
 void test_gauge_filter_vectors() {
   Json j;
   TEST_ASSERT_TRUE(parseJson(readFile(std::string(X4_REPO_ROOT) + "/spec/test-vectors/gauge-filter.json"), j));
@@ -1196,7 +1202,7 @@ void test_glance_vectors() {
     }
     glance::ArmRecord r = glance::armFor(s->isNull() ? nullptr : &stored, c.get("version")->str);
     for (int n = 0; n < int(c.get("ops")->num); ++n) r = glance::armCount(r);
-    if (const Json* up = c.get("up")) r = glance::armUptime(r, up->arr[0].num, up->arr[1].b);   // #231
+    if (const Json* up = c.get("up")) r = glance::armUptime(r, up->arr[0].num, up->arr[1].b);   // eink-ha-os#231
     const char* name = c.get("name")->str.c_str();
     TEST_ASSERT_EQUAL_MESSAGE(int(c.get("boots")->num), r.boots, name);
     TEST_ASSERT_EQUAL_MESSAGE(c.get("uptime")->b, r.uptime, name);
@@ -1205,7 +1211,7 @@ void test_glance_vectors() {
     TEST_ASSERT_EQUAL_STRING_MESSAGE(c.get("by")->isNull() ? "null" : c.get("by")->str.c_str(), by ? by : "null", name);
     ++cases;
   }
-  for (auto& c : j.get("tally")->arr) {   // #178
+  for (auto& c : j.get("tally")->arr) {   // eink-ha-os#178
     glance::Tally t{};
     auto ms = [](const Json& v) { return v.isNull() ? glance::kNoMs : uint32_t(v.num); };
     for (auto& o : c.get("ops")->arr) {
@@ -1232,8 +1238,24 @@ void test_glance_vectors() {
     }
     ++cases;
   }
+  {   // eink-ha-os#364 sleep-timer drift
+    const Json& t = *j.get("timer");
+    for (auto& c : t.get("ppm")->arr) {
+      TEST_ASSERT_EQUAL_INT32_MESSAGE(int32_t(c.get("ppm")->num), glance::timerPpm(int32_t(c.get("prev")->num), int64_t(c.get("programmedS")->num), int64_t(c.get("realS")->num)), c.get("name")->str.c_str());
+      ++cases;
+    }
+    for (auto& c : t.get("seconds")->arr) {
+      TEST_ASSERT_EQUAL_INT64_MESSAGE(int64_t(c.get("seconds")->num), glance::timerSeconds(int64_t(c.get("realS")->num), int32_t(c.get("ppm")->num)), c.get("name")->str.c_str());
+      ++cases;
+    }
+    for (auto& c : t.get("early")->arr) {
+      const glance::Early e = glance::earlyWake(int64_t(c.get("wakeAt")->num), int64_t(c.get("now")->num));
+      TEST_ASSERT_EQUAL_STRING_MESSAGE(c.get("early")->str.c_str(), e == glance::Early::Wait ? "wait" : e == glance::Early::Sleep ? "sleep" : "go", c.get("name")->str.c_str());
+      ++cases;
+    }
+  }
   std::printf("spec glance vectors: %d cases\n", cases);
-  // #356 (emulator glanceWaitS): the next of midnight and the start of quiet hours
+  // eink-ha-os#356 (emulator glanceWaitS): the next of midnight and the start of quiet hours
   const int32_t at[] = {43200, 43200, 82200, 3600, 72000, 0};
   const char* const q[] = {"off", "23-07", "23-07", "23-07", "00-06", "off"};
   const int64_t waits[] = {43200, 39600, 600, 79200, 14400, 86400};
@@ -1263,7 +1285,7 @@ void test_glance_snapshot_and_rtc() {
   TEST_ASSERT_TRUE(glance::valid(r));
   r.snap.n = glance::kMaxEntries + 1; glance::seal(r);
   TEST_ASSERT_FALSE(glance::valid(r));   // count out of range even with a good checksum
-  // another layout version (#178 added the tally): same checksum, other magic → rejected, reset zeroes the counters
+  // another layout version (eink-ha-os#178 added the tally): same checksum, other magic → rejected, reset zeroes the counters
   glance::reset(r);
   r.tally.wakes = 7; glance::seal(r);
   r.magic ^= 1u;
@@ -1273,7 +1295,7 @@ void test_glance_snapshot_and_rtc() {
   TEST_ASSERT_FALSE(r.tally.hasLast);
 }
 
-// ---------- POST /device/sleep (spec/test-vectors/sleep-now.json, emulator sleepNowCheck, #178) ----------
+// ---------- POST /device/sleep (spec/test-vectors/sleep-now.json, emulator sleepNowCheck, eink-ha-os#178) ----------
 void test_sleep_now_vectors() {
   Json j;
   TEST_ASSERT_TRUE(parseJson(readFile(std::string(X4_REPO_ROOT) + "/spec/test-vectors/sleep-now.json"), j));
@@ -1290,7 +1312,7 @@ void test_sleep_now_vectors() {
   TEST_ASSERT_GREATER_OR_EQUAL(10, cases);
 }
 
-// ---------- schema migrations (spec/test-vectors/migrations, issue #12) ----------
+// ---------- schema migrations (spec/test-vectors/migrations, issue eink-ha-os#12) ----------
 void test_migration_spec_vectors() {
   std::string dir = std::string(X4_REPO_ROOT) + "/spec/test-vectors/migrations";
   DIR* dp = opendir(dir.c_str());
@@ -1329,7 +1351,7 @@ void test_migration_spec_vectors() {
   std::printf("spec migration vectors: %d files, %d cases\n", files, cases);
 }
 
-// ---------- scene tile tap (#146, spec/test-vectors/scene-action.json, emulator src/core/config.ts sceneAction) ----------
+// ---------- scene tile tap (eink-ha-os#146, spec/test-vectors/scene-action.json, emulator src/core/config.ts sceneAction) ----------
 void test_scene_action_vectors() {
   std::string t = readFile(std::string(X4_REPO_ROOT) + "/spec/test-vectors/scene-action.json");
   TEST_ASSERT_FALSE_MESSAGE(t.empty(), "spec/test-vectors/scene-action.json missing");
@@ -1351,7 +1373,7 @@ void test_scene_action_vectors() {
   TEST_ASSERT_EQUAL_INT(5, n);
 }
 
-// ---------- lightList / zoneList picks (#127, spec/test-vectors/list-pick.json, emulator src/core/paging.ts) ----------
+// ---------- lightList / zoneList picks (eink-ha-os#127, spec/test-vectors/list-pick.json, emulator src/core/paging.ts) ----------
 void test_list_pick_vectors() {
   std::string t = readFile(std::string(X4_REPO_ROOT) + "/spec/test-vectors/list-pick.json");
   TEST_ASSERT_FALSE_MESSAGE(t.empty(), "spec/test-vectors/list-pick.json missing");
@@ -1414,7 +1436,7 @@ void test_light_subs() {
   TEST_ASSERT_TRUE(lightSubs(r.config).all);                 // one unpicked lightList wants every light
 }
 
-// emulator core.test.ts 'list counts (#134)'
+// emulator core.test.ts 'list counts (eink-ha-os#134)'
 void test_list_counts() {
   ListCounts c = listCounts(14, 149, 80);
   TEST_ASSERT_EQUAL_INT(14, int(c.climate.shown));
@@ -1427,7 +1449,7 @@ void test_list_counts() {
   TEST_ASSERT_EQUAL_INT(12, int(c.lights.shown));
 }
 
-// ---------- first-run screens from HA (#23, spec/test-vectors/seed.json, emulator src/core/seed.ts) ----------
+// ---------- first-run screens from HA (eink-ha-os#23, spec/test-vectors/seed.json, emulator src/core/seed.ts) ----------
 void test_seed_spec_vectors() {
   std::string t = readFile(std::string(X4_REPO_ROOT) + "/spec/test-vectors/seed.json");
   TEST_ASSERT_FALSE_MESSAGE(t.empty(), "spec/test-vectors/seed.json missing");
@@ -1439,14 +1461,14 @@ void test_seed_spec_vectors() {
     Config cfg = seedConfig(*c.get("snapshot"), {}, &rep);
     std::string y = toYaml(cfg);
     TEST_ASSERT_EQUAL_STRING_MESSAGE(c.get("yaml")->str.c_str(), y.c_str(), name.c_str());
-    TEST_ASSERT_EQUAL_STRING_MESSAGE(dumpJson(*c.get("report")).c_str(), seedReportJson(rep).c_str(), name.c_str());   // #89
+    TEST_ASSERT_EQUAL_STRING_MESSAGE(dumpJson(*c.get("report")).c_str(), seedReportJson(rep).c_str(), name.c_str());   // eink-ha-os#89
     ParseResult r = parseConfig(y);   // what gets saved must read back the same
     TEST_ASSERT_TRUE_MESSAGE(r.ok, (name + ": " + r.message).c_str());
     TEST_ASSERT_EQUAL_STRING_MESSAGE(y.c_str(), toYaml(r.config).c_str(), name.c_str());
     ++n;
   }
   TEST_ASSERT_GREATER_OR_EQUAL(5, n);
-  // #58: the template the firmware sends, which answers count as a seed, which template events end the wait
+  // eink-ha-os#58: the template the firmware sends, which answers count as a seed, which template events end the wait
   TEST_ASSERT_EQUAL_STRING(j.get("template")->str.c_str(), seedTemplate());
   TEST_ASSERT_EQUAL(std::string::npos, std::string(seedTemplate()).find("attributes.device_class"));
   int a = 0, e = 0;
@@ -1476,7 +1498,7 @@ void test_seed_glue() {
   TEST_ASSERT_TRUE_MESSAGE(parseConfig(y).ok, y.c_str());
   TEST_ASSERT_NOT_EQUAL(std::string::npos, y.find("{type: stat, entity: sensor.k_t, label: Kitchen back}"));
   TEST_ASSERT_NOT_EQUAL(std::string::npos, y.find("{type: stat, entity: sensor.p1, label: Home use}"));
-  TEST_ASSERT_EQUAL(std::string::npos, y.find("app: settings"));   // Settings is built in (#159)
+  TEST_ASSERT_EQUAL(std::string::npos, y.find("app: settings"));   // Settings is built in (eink-ha-os#159)
   TEST_ASSERT_EQUAL(std::string::npos, y.find("travel"));
   // template failed / prefs missing: still a valid clock-only config
   Config e = seedConfig(seedSnapshot("", {}, "not json"), {});
@@ -1484,7 +1506,7 @@ void test_seed_glue() {
   TEST_ASSERT_EQUAL_INT(1, int(e.screens.front().widgets.size()));
   TEST_ASSERT_EQUAL_INT(1, int(e.apps.size()));
   TEST_ASSERT_EQUAL_STRING("Kids 1 east", seedLabel(" Kids {1}: \"east\" ").c_str());
-  // #82: role helpers
+  // eink-ha-os#82: role helpers
   TEST_ASSERT_EQUAL_INT(2, sharedWords("sensor.p1_meter_power", "sensor.p1_meter_energy_import"));
   TEST_ASSERT_EQUAL_INT(0, sharedWords("sensor.a", "sensor.b"));
   TEST_ASSERT_EQUAL_STRING("e", sensorKind("energy", "kWh", "sensor.solaredge_zon_vandaag zon vandaag").c_str());
@@ -1493,7 +1515,7 @@ void test_seed_glue() {
   TEST_ASSERT_EQUAL_STRING("b", sensorKind("", "%", "sensor.p1_meter_wifi_strength").c_str());
 }
 
-// ---------- Settings › Updates status line (#250, spec/test-vectors/ota-status.json, emulator src/core/otaStatus.ts) ----------
+// ---------- Settings › Updates status line (eink-ha-os#250, spec/test-vectors/ota-status.json, emulator src/core/otaStatus.ts) ----------
 void test_ota_status_vectors() {
   std::string t = readFile(std::string(X4_REPO_ROOT) + "/spec/test-vectors/ota-status.json");
   TEST_ASSERT_FALSE_MESSAGE(t.empty(), "spec/test-vectors/ota-status.json missing");
@@ -1521,7 +1543,7 @@ void test_ota_status_vectors() {
   TEST_ASSERT_GREATER_THAN(20, n);
 }
 
-// ---------- hardware-key factory reset (#21, spec/test-vectors/recovery.json, emulator src/core/recovery.ts) ----------
+// ---------- hardware-key factory reset (eink-ha-os#21, spec/test-vectors/recovery.json, emulator src/core/recovery.ts) ----------
 void test_recovery_spec_vectors() {
   std::string t = readFile(std::string(X4_REPO_ROOT) + "/spec/test-vectors/recovery.json");
   TEST_ASSERT_FALSE_MESSAGE(t.empty(), "spec/test-vectors/recovery.json missing");
@@ -1558,7 +1580,7 @@ void test_recovery_spec_vectors() {
   std::printf("spec recovery vectors: %d cases, %d steps\n", cases, steps);
 }
 
-void test_battery_label_vectors() {   // #11, spec/test-vectors/battery-label.json
+void test_battery_label_vectors() {   // eink-ha-os#11, spec/test-vectors/battery-label.json
   std::string t = readFile(std::string(X4_REPO_ROOT) + "/spec/test-vectors/battery-label.json");
   TEST_ASSERT_FALSE_MESSAGE(t.empty(), "spec/test-vectors/battery-label.json missing");
   Json j; TEST_ASSERT_TRUE(parseJson(t, j));
@@ -1572,7 +1594,7 @@ void test_battery_label_vectors() {   // #11, spec/test-vectors/battery-label.js
   TEST_ASSERT_GREATER_OR_EQUAL(5, n);
 }
 
-// #86: unavailable / unknown in HA → no value, a gap (ring + reason); absent stays "—"; entity_gaps lists only tile
+// eink-ha-os#86: unavailable / unknown in HA → no value, a gap (ring + reason); absent stays "—"; entity_gaps lists only tile
 // entities that are HA entities (not our logical ids, not the gauge's home battery)
 void test_entity_gaps() {
   HomeData d;
@@ -1604,7 +1626,7 @@ void test_entity_gaps() {
   TEST_ASSERT_EQUAL_STRING("unknown", g["switch.pump"].c_str());
 }
 
-void test_stat_raw_vectors() {   // #161, spec/test-vectors/stat-raw.json
+void test_stat_raw_vectors() {   // eink-ha-os#161, spec/test-vectors/stat-raw.json
   std::string t = readFile(std::string(X4_REPO_ROOT) + "/spec/test-vectors/stat-raw.json");
   TEST_ASSERT_FALSE_MESSAGE(t.empty(), "spec/test-vectors/stat-raw.json missing");
   Json j; TEST_ASSERT_TRUE(parseJson(t, j));
@@ -1629,7 +1651,7 @@ void test_stat_raw_vectors() {   // #161, spec/test-vectors/stat-raw.json
   TEST_ASSERT_EQUAL_STRING("—", statText("climate.living_room", HomeData{}, 12, &v).value.c_str());
 }
 
-void test_stat_sub_vectors() {   // #28, spec/test-vectors/stat-sub.json
+void test_stat_sub_vectors() {   // eink-ha-os#28, spec/test-vectors/stat-sub.json
   std::string t = readFile(std::string(X4_REPO_ROOT) + "/spec/test-vectors/stat-sub.json");
   TEST_ASSERT_FALSE_MESSAGE(t.empty(), "spec/test-vectors/stat-sub.json missing");
   Json j; TEST_ASSERT_TRUE(parseJson(t, j));
@@ -1657,7 +1679,7 @@ void test_stat_sub_vectors() {   // #28, spec/test-vectors/stat-sub.json
   TEST_ASSERT_EQUAL_STRING("Avg €0.14", w.sub.c_str());
 }
 
-void test_locale_vectors() {   // #147, spec/test-vectors/locale.json
+void test_locale_vectors() {   // eink-ha-os#147, spec/test-vectors/locale.json
   std::string t = readFile(std::string(X4_REPO_ROOT) + "/spec/test-vectors/locale.json");
   TEST_ASSERT_FALSE_MESSAGE(t.empty(), "spec/test-vectors/locale.json missing");
   Json j; TEST_ASSERT_TRUE(parseJson(t, j));
@@ -1685,7 +1707,7 @@ void test_locale_vectors() {   // #147, spec/test-vectors/locale.json
     TEST_ASSERT_EQUAL_STRING(c.get("text")->str.c_str(), locale::money(c.get("v")->num, c.get("sym")->str).c_str());
 }
 
-void test_settings_put_vectors() {   // #43, spec/test-vectors/settings-put.json
+void test_settings_put_vectors() {   // eink-ha-os#43, spec/test-vectors/settings-put.json
   std::string t = readFile(std::string(X4_REPO_ROOT) + "/spec/test-vectors/settings-put.json");
   TEST_ASSERT_FALSE_MESSAGE(t.empty(), "spec/test-vectors/settings-put.json missing");
   Json j; TEST_ASSERT_TRUE(parseJson(t, j));
@@ -1701,7 +1723,7 @@ void test_settings_put_vectors() {   // #43, spec/test-vectors/settings-put.json
   TEST_ASSERT_TRUE(n > 40);
 }
 
-void test_strings_vectors() {   // #98, spec/test-vectors/strings.json = core/strings_gen.h (both from emulator strings.ts)
+void test_strings_vectors() {   // eink-ha-os#98, spec/test-vectors/strings.json = core/strings_gen.h (both from emulator strings.ts)
   std::string t = readFile(std::string(X4_REPO_ROOT) + "/spec/test-vectors/strings.json");
   if (t.empty()) { TEST_IGNORE_MESSAGE("spec/test-vectors/strings.json not present"); return; }
   Json j; TEST_ASSERT_TRUE(parseJson(t, j));
@@ -1732,7 +1754,7 @@ void test_strings_vectors() {   // #98, spec/test-vectors/strings.json = core/st
   TEST_ASSERT_EQUAL_STRING("{} x", tr(Lang::En, S::cheapestAt, "{} x").substr(9).c_str());   // an arg is not re-scanned
 }
 
-void test_ha_address_vectors() {   // #54, spec/test-vectors/ha-address.json
+void test_ha_address_vectors() {   // eink-ha-os#54, spec/test-vectors/ha-address.json
   std::string t = readFile(std::string(X4_REPO_ROOT) + "/spec/test-vectors/ha-address.json");
   TEST_ASSERT_FALSE_MESSAGE(t.empty(), "spec/test-vectors/ha-address.json missing");
   Json j; TEST_ASSERT_TRUE(parseJson(t, j));
@@ -1772,7 +1794,7 @@ void test_ha_address_vectors() {   // #54, spec/test-vectors/ha-address.json
   TEST_ASSERT_TRUE(n > 60);
 }
 
-void test_ha_report_vectors() {   // #32, spec/test-vectors/ha-report.json
+void test_ha_report_vectors() {   // eink-ha-os#32, spec/test-vectors/ha-report.json
   std::string t = readFile(std::string(X4_REPO_ROOT) + "/spec/test-vectors/ha-report.json");
   TEST_ASSERT_FALSE_MESSAGE(t.empty(), "spec/test-vectors/ha-report.json missing");
   Json j; TEST_ASSERT_TRUE(parseJson(t, j));
@@ -1813,7 +1835,7 @@ void test_ha_report_vectors() {   // #32, spec/test-vectors/ha-report.json
   TEST_ASSERT_TRUE(ha_report::due(&w, true, 60000, 50, false));
 }
 
-// ---------- CW2017 gauge state machine (#11): one short bus step per call, never a wait ----------
+// ---------- CW2017 gauge state machine (eink-ha-os#11): one short bus step per call, never a wait ----------
 struct FakeGauge : Cw2017Bus {
   uint8_t reg[0x60] = {};
   bool nak = false;
@@ -1923,7 +1945,7 @@ void test_cw2017_vcell_vectors() {
   TEST_ASSERT_GREATER_OR_EQUAL(8, n);
 }
 
-// ---- #151: large example house tile fixes ----
+// ---- eink-ha-os#151: large example house tile fixes ----
 void test_real_house_tiles() {
   // a name cut to fit keeps its last word, so "Bathroom attic" stays apart from "Bathroom"
   auto chars = [](const std::string& x) { int n = 0; for (unsigned char ch : x) n += (ch & 0xC0) != 0x80; return n; };
@@ -1960,7 +1982,7 @@ void test_real_house_tiles() {
   TEST_ASSERT_EQUAL_STRING("Of 14.2 kWh forecast", statText("sensor.solar_today", d, 13).sub.c_str());
 }
 
-// Remote input spec (#214): shared by /__qemu/input and /api/v1/debug/input.
+// Remote input spec (eink-ha-os#214): shared by /__qemu/input and /api/v1/debug/input.
 void test_input_spec() {
   InputEvent e;
   TEST_ASSERT_TRUE(parseInputSpec("tap=400,240", e));
@@ -1979,7 +2001,7 @@ void test_input_spec() {
   TEST_ASSERT_FALSE(parseInputSpec("hold=1", e));
 }
 
-// ---------- history tile (spec/test-vectors/history.json, emulator src/core/history.ts, #268) ----------
+// ---------- history tile (spec/test-vectors/history.json, emulator src/core/history.ts, eink-ha-os#268) ----------
 static void assertNear(const Json& want, double got, const std::string& what) {
   if (want.isNull()) { TEST_ASSERT_TRUE_MESSAGE(std::isnan(got), (what + ": want null").c_str()); return; }
   TEST_ASSERT_FALSE_MESSAGE(std::isnan(got), (what + ": got null").c_str());
@@ -1996,7 +2018,7 @@ void test_history_vectors() {
   TEST_ASSERT_TRUE(parseJson(readFile(std::string(X4_REPO_ROOT) + "/spec/test-vectors/history.json"), j));
   const int64_t now = int64_t(j.get("now")->num);
   int cases = runVectorFile(std::string(X4_REPO_ROOT) + "/spec/test-vectors/history.json");
-  TEST_ASSERT_EQUAL_INT(19, cases);   // the config cases (parseConfig, like config/*.json)
+  TEST_ASSERT_EQUAL_INT(23, cases);   // the config cases (parseConfig, like config/*.json)
   for (auto& c : j.get("defaultBucket")->arr) {
     int64_t b = hist::defaultBucket(hist::parseSpan(c.get("window")->str), int(c.get("cs")->num));
     const Json* want = c.get("bucket");
@@ -2021,9 +2043,10 @@ void test_history_vectors() {
     TEST_ASSERT_EQUAL_STRING(o.get("style")->str.c_str(), hist::styleName(s.style));
     assertNear(*o.get("min"), s.min, "spec min");
     assertNear(*o.get("max"), s.max, "spec max");
-    TEST_ASSERT_EQUAL_MESSAGE(!o.get("threshold"), !hist::has(s.threshold), "spec threshold");   // #304
+    TEST_ASSERT_EQUAL_MESSAGE(!o.get("threshold"), !hist::has(s.threshold), "spec threshold");   // eink-ha-os#304
     if (o.get("threshold")) assertNear(*o.get("threshold"), s.threshold, "spec threshold");
     TEST_ASSERT_EQUAL_MESSAGE(o.get("labels") != nullptr, s.labels, "spec labels");
+    TEST_ASSERT_EQUAL_INT64_MESSAGE(o.get("compareMs") ? int64_t(o.get("compareMs")->num) : 0, s.compareMs, "spec compareMs");   // eink-ha-os#304
     ++cases;
   }
   for (auto& c : j.get("style")->arr) {
@@ -2066,6 +2089,26 @@ void test_history_vectors() {
       assertSeries(kv.second, s, "history " + name + " " + kv.first);
       ++cases;
     }
+  }
+  for (auto& c : j.get("compare")->arr) {   // eink-ha-os#304 wave 2: the compare series = the rows bucketed at now - compareMs
+    const std::string name = "compare " + c.get("name")->str;
+    Widget w; w.type = "history";
+    w.fields["entity"] = "sensor.x"; w.fields["window"] = c.get("window")->str; w.fields["bucket"] = c.get("bucket")->str;
+    w.fields["compare"] = c.get("compare")->str;
+    const hist::Spec ts = hist::specOf(w), cs = hist::compareSpec(ts);
+    const int tz = int(c.get("tz")->num);
+    TEST_ASSERT_EQUAL_INT64_MESSAGE(int64_t(c.get("shiftMs")->num), cs.shiftMs, name.c_str());
+    const int64_t at = hist::seriesNow(cs, now);
+    hist::Span sp = hist::chartSpan(cs.windowMs, cs.bucketMs, at, tz);
+    TEST_ASSERT_EQUAL_INT64_MESSAGE(int64_t(c.get("span")->get("start")->num), sp.start, name.c_str());
+    TEST_ASSERT_EQUAL_INT64_MESSAGE(int64_t(c.get("tileStart")->num) - cs.shiftMs, sp.start, name.c_str());   // bucket i under bucket i
+    std::vector<hist::Point> pts;
+    for (auto& r : c.get("rows")->arr) pts.push_back(hist::pointOf(r.get("s")->str.data(), r.get("s")->str.size(), r.get("lu")->num));
+    hist::sortPoints(pts.data(), pts.size());
+    hist::bucketize(pts.data(), pts.size(), cs.windowMs, cs.bucketMs, cs.agg, at, tz, s);
+    assertSeries(*c.get("out"), s, name);
+    TEST_ASSERT_TRUE(hist::seriesKey(cs) != hist::seriesKey(ts));
+    ++cases;
   }
   for (auto& c : j.get("statistics")->arr) {
     std::string name = c.get("name")->str;
@@ -2145,7 +2188,7 @@ void test_history_vectors() {
   std::printf("history vectors: %d cases\n", cases);
 }
 
-// weather tile (spec/test-vectors/weather.json, #318)
+// weather tile (spec/test-vectors/weather.json, eink-ha-os#318)
 static EntityValue wxEntity(const Json* state, const Json& attrs) {
   EntityValue v;
   v.state = state && state->isStr() ? state->str : "";
@@ -2265,7 +2308,7 @@ void test_weather_vectors() {
   std::printf("weather vectors: %d cases\n", cases);
 }
 
-// history tile series from an attribute or a weather forecast (spec/test-vectors/history-series.json, #283, #292)
+// history tile series from an attribute or a weather forecast (spec/test-vectors/history-series.json, eink-ha-os#283, eink-ha-os#292)
 static Widget historyWidget(const Json& w) {
   Widget x; x.type = "history";
   for (auto& kv : w.obj) {
@@ -2368,7 +2411,7 @@ void test_history_series_vectors() {
     }
     ++cases;
   }
-  // #307: past (recorder rows of `past`) + forecast in one chart
+  // eink-ha-os#307: past (recorder rows of `past`) + forecast in one chart
   static hist::Series past, ahead, joined;
   for (auto& c : j.get("both")->arr) {
     const std::string name = "both " + c.get("name")->str;
@@ -2472,12 +2515,12 @@ void test_history_series_vectors() {
   std::printf("history series vectors: %d cases\n", cases);
 }
 
-// history chart geometry (history.json "chart", emulator historyChart.ts, #270)
+// history chart geometry (history.json "chart", emulator historyChart.ts, eink-ha-os#270)
 void test_history_chart_vectors() {
   Json j;
   TEST_ASSERT_TRUE(parseJson(readFile(std::string(X4_REPO_ROOT) + "/spec/test-vectors/history.json"), j));
   const int64_t now = int64_t(j.get("now")->num);
-  static hist::Series s;
+  static hist::Series s, xs[3];   // xs: band min / max, compare (eink-ha-os#304 wave 2)
   int cases = 0;
   for (auto& c : j.get("chart")->arr) {
     const std::string name = "chart " + c.get("name")->str;
@@ -2496,9 +2539,62 @@ void test_history_chart_vectors() {
       s.start = hist::chartSpan(sp.windowMs, sp.bucketMs, now, tz).start; s.bucketMs = sp.bucketMs; s.n = int(vals->arr.size());
       for (int i = 0; i < s.n; ++i) s.v[i] = numOrNan(&vals->arr[i]);
     }
+    const hist::Series* extra[3] = {};
+    const char* const xk[3] = {"lo", "hi", "prev"};
+    for (int k = 0; k < 3; ++k) {
+      const Json* x = c.get(xk[k]);
+      if (!x || x->isNull()) continue;
+      xs[k].start = s.start; xs[k].bucketMs = sp.bucketMs; xs[k].n = int(x->arr.size());
+      for (int i = 0; i < xs[k].n; ++i) xs[k].v[i] = numOrNan(&x->arr[i]);
+      extra[k] = &xs[k];
+    }
     hist::Chart ch;
-    hist::chart(sp, vals->isNull() ? nullptr : &s, st, now, tz, lang, ch);
+    hist::chart(sp, vals->isNull() ? nullptr : &s, st, now, tz, lang, ch, extra[0], extra[1], extra[2]);
     const Json* o = c.get("out");
+    {   // eink-ha-os#304 wave 2: band runs of 2+ buckets with both sides; compare as outline bars or line runs
+      const auto& band = o->get("band")->arr;
+      std::vector<std::vector<int>> runs;
+      std::vector<int> run;
+      for (int i = 0; i <= ch.n; ++i) {
+        if (i < ch.n && ch.bandAt(i)) { run.push_back(i); continue; }
+        if (run.size() > 1) runs.push_back(run);
+        run.clear();
+      }
+      TEST_ASSERT_EQUAL_INT_MESSAGE(int(band.size()), int(runs.size()), (name + " band").c_str());
+      for (size_t k = 0; k < runs.size(); ++k) {
+        TEST_ASSERT_EQUAL_INT(int(band[k].arr.size()), int(runs[k].size()));
+        for (size_t p = 0; p < runs[k].size(); ++p) {
+          const int i = runs[k][p];
+          assertNear(*band[k].arr[p].get("x"), ch.x(i), name + " band x");
+          assertNear(*band[k].arr[p].get("lo"), ch.y(ch.lo[i]), name + " band lo");
+          assertNear(*band[k].arr[p].get("hi"), ch.y(ch.hi[i]), name + " band hi");
+        }
+      }
+      const auto& pt = o->get("prevTicks")->arr;
+      const bool bars = sp.style == hist::Style::Bars;
+      TEST_ASSERT_EQUAL_INT_MESSAGE(int(pt.size()), ch.prev && bars ? ch.n : 0, (name + " prevTicks").c_str());
+      for (size_t i = 0; i < pt.size(); ++i) assertNear(pt[i], ch.prevAt(int(i)) ? ch.y(ch.prev[i]) : NAN, name + " prev tick");
+      std::vector<std::vector<std::pair<double, double>>> segs;
+      bool open = false;
+      for (int i = 0; ch.prev && !bars && i < ch.n; ++i) {
+        if (!ch.prevAt(i)) { open = false; continue; }
+        if (!open) segs.emplace_back();
+        if (sp.style == hist::Style::Step) {
+          segs.back().push_back({ch.edge(i), ch.y(ch.prev[i])});
+          segs.back().push_back({ch.edge(i + 1), ch.y(ch.prev[i])});
+        } else segs.back().push_back({ch.x(i), ch.y(ch.prev[i])});
+        open = true;
+      }
+      const auto& pl = o->get("prevLines")->arr;
+      TEST_ASSERT_EQUAL_INT_MESSAGE(int(pl.size()), int(segs.size()), (name + " prevLines").c_str());
+      for (size_t k = 0; k < segs.size(); ++k) {
+        TEST_ASSERT_EQUAL_INT(int(pl[k].arr.size()), int(segs[k].size()));
+        for (size_t p = 0; p < segs[k].size(); ++p) {
+          assertNear(*pl[k].arr[p].get("x"), segs[k][p].first, name + " prev x");
+          assertNear(*pl[k].arr[p].get("y"), segs[k][p].second, name + " prev y");
+        }
+      }
+    }
     TEST_ASSERT_EQUAL_STRING_MESSAGE(o->get("state")->str.c_str(), hist::stateName(ch.state), name.c_str());
     TEST_ASSERT_EQUAL_STRING_MESSAGE(o->get("stateText")->str.c_str(), hist::stateText(ch.state, lang), name.c_str());
     assertNear(*o->get("lo"), ch.r.lo, name + " lo");
@@ -2515,7 +2611,7 @@ void test_history_chart_vectors() {
         TEST_ASSERT_EQUAL_MESSAGE(bars[i].get("now")->b, i == ch.latest, name.c_str());
       }
     } else TEST_ASSERT_EQUAL_INT(0, int(bars.size()));
-    if (sp.style != hist::Style::Bars) {   // segments: the points between gaps (step: bucket edges, #304)
+    if (sp.style != hist::Style::Bars) {   // segments: the points between gaps (step: bucket edges, eink-ha-os#304)
       std::vector<std::vector<std::pair<double, double>>> segs;
       std::vector<std::pair<double, double>> dots;
       bool open = false;
@@ -2548,7 +2644,7 @@ void test_history_chart_vectors() {
       TEST_ASSERT_EQUAL_MESSAGE(dot->isNull(), ch.latest < 0 || ch.gap(ch.latest), name.c_str());
       if (!dot->isNull()) { assertNear(*dot->get("x"), ch.x(ch.latest), name + " dot"); assertNear(*dot->get("y"), ch.y(ch.v[ch.latest]), name + " dot"); }
     }
-    assertNear(*o->get("threshold"), ch.threshold, name + " threshold");   // #304
+    assertNear(*o->get("threshold"), ch.threshold, name + " threshold");   // eink-ha-os#304
     const auto& labs = o->get("labels")->arr;
     TEST_ASSERT_EQUAL_INT_MESSAGE(int(labs.size()), ch.nLabels, name.c_str());
     for (int k = 0; k < ch.nLabels; ++k) {
@@ -2577,7 +2673,7 @@ void test_history_chart_vectors() {
     TEST_ASSERT_EQUAL_STRING_MESSAGE(o->get("key")->str.c_str(), hist::chartKey(ch).c_str(), name.c_str());
     ++cases;
   }
-  TEST_ASSERT_EQUAL_INT(18, cases);
+  TEST_ASSERT_EQUAL_INT(26, cases);
   // a stale series (other bucket after a config change) is drawn as loading, not misread
   hist::Spec sp; sp.windowMs = hist::kDay; sp.bucketMs = hist::kHour; sp.n = 24;
   s.n = 12; s.bucketMs = 2 * hist::kHour;

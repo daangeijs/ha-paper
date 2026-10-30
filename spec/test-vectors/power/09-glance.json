@@ -1,6 +1,6 @@
 {
   "name": "09-glance",
-  "description": "Glance (#10, default on battery per #18; #356): the panel shows the sleep face and the display deep-sleeps until a key, the charger, or the next transition: midnight (the face's date) or the start of quiet hours, whichever comes first, at most 8 h (MAX_SLEEP_S). wakeEvery and failed wakes (glanceFails) no longer change the wait. A key press keeps it live (live = within liveMin minutes); quiet hours and the 03:00 OTA window still win; every guard of 01-07 holds. armBootsLeft > 0 (first-boot safety: confirmed boots with network still needed) blocks every deep sleep.",
+  "description": "Glance (eink-ha-os#10, default on battery per eink-ha-os#18; eink-ha-os#356): the panel shows the sleep face and the display deep-sleeps until a key, the charger, or the next transition: midnight (the face's date) or the start of quiet hours, whichever comes first, at most 8 h (MAX_SLEEP_S). wakeEvery and failed wakes (glanceFails) no longer change the wait. A key press keeps it live (live = within liveMin minutes); quiet hours and the 03:00 OTA window still win; every guard of 01-07 holds. armBootsLeft > 0 (first-boot safety: confirmed boots with network still needed) blocks every deep sleep.",
   "base": {
     "nowEpoch": 1800000000,
     "localSec": 43200,

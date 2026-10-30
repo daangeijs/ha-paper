@@ -8,4 +8,4 @@
     It reports the firmware's negated Energy-dashboard battery sign (`-sensor.x (energy)`) but, as before, does not
     apply it to the value; overrides with "-" are applied. The in-browser emulator only stores the overrides: its mock
     HA already carries every logical id, so the screens do not change.
-    Since #191 the page is gone: each tile's source sits in the screen editor ([191](191-console-layout.md)).
+    Since eink-ha-os#191 the page is gone: each tile's source sits in the screen editor ([191](191-console-layout.md)).

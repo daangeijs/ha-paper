@@ -19,7 +19,7 @@ struct OptNum {
   static OptNum of(double x) { OptNum o; o.ok = true; o.v = x; return o; }
 };
 
-// awayOk: HA preset_modes lists "away" (#148: the away button and set_preset_mode only for those zones)
+// awayOk: HA preset_modes lists "away" (eink-ha-os#148: the away button and set_preset_mode only for those zones)
 struct ZoneState { std::string id, name; OptNum cur, set; bool awayOk = false; bool heating() const { return cur.ok && set.ok && set.v > cur.v + 0.05; } };
 struct LightState { std::string id, area, areaName, name; bool dim = false, on = false; int pct = 100; };
 struct DepartureState { int minuteOfDay = 0; double delay = 0; bool cancelled = false; std::string info; };
@@ -35,7 +35,7 @@ struct HomeData {
   OptNum solar, home, grid, batt, soc;                 // W, W, W (+import), W (+charge), %
   OptNum usedToday, solarToday, importToday, exportToday, solarForecast, inside;
   std::vector<double> prices, usage, solarSeries;      // 24 hourly values or empty
-  // quarter-hourly price source (#151): attr quarters, in 1/10000 €/kWh, no heap (derived on every redraw)
+  // quarter-hourly price source (eink-ha-os#151): attr quarters, in 1/10000 €/kWh, no heap (derived on every redraw)
   bool hasQuarters = false;
   std::array<int32_t, 96> quarters{};
   std::vector<ZoneState> zones;                         // ordered
@@ -57,11 +57,11 @@ struct HomeData {
 HomeData deriveHome(const EntityStore& store);
 // Does a climate's preset_modes attribute (JSON text of a list) offer "away"? (emulator core/format.ts presetHasAway)
 bool presetHasAway(const std::string& modes);
-// A route tile's entity (spec/SCHEMA.md, #145): train/bus = attr departures, else attr upcoming (NS departures, ISO
-// times → local via localtime(), #275), car = state minutes + attr typical. = emulator core/route.ts.
+// A route tile's entity (spec/SCHEMA.md, eink-ha-os#145): train/bus = attr departures, else attr upcoming (NS departures, ISO
+// times → local via localtime(), eink-ha-os#275), car = state minutes + attr typical. = emulator core/route.ts.
 RouteState routeState(const EntityValue* e, bool car, Lang lang = Lang::En);
 
-// What a lightList / zoneList tile shows (#127, spec/test-vectors/list-pick.json, emulator core/paging.ts): the picked
+// What a lightList / zoneList tile shows (eink-ha-os#127, spec/test-vectors/list-pick.json, emulator core/paging.ts): the picked
 // areas then entities (order follows the pick, unknown ids skipped); nothing picked = everything.
 std::vector<LightGroup> pickLights(const std::vector<LightGroup>& groups, const Widget& w);
 std::vector<ZoneState> pickZones(const std::vector<ZoneState>& zones, const Widget& w);
@@ -77,7 +77,7 @@ LightSubs lightSubs(const Config& c);
 // lights: HA discovery (entity_id, area_id) in HA order → the ones to subscribe, at most `cap`
 std::vector<std::string> lightsToWatch(const std::vector<std::pair<std::string, std::string>>& lights, const LightSubs& s, size_t cap);
 constexpr size_t kMaxWatched = 80;   // climate + lights subscribed when nothing narrows them (emulator MAX_WATCHED)
-// What an unpicked zoneList / lightList can show (#134, GET /ha/entities `lists`, emulator core/paging.ts listCounts):
+// What an unpicked zoneList / lightList can show (eink-ha-os#134, GET /ha/entities `lists`, emulator core/paging.ts listCounts):
 // climate first, then lights, kMaxWatched in total.
 struct ListCount { size_t total = 0, shown = 0; };
 struct ListCounts { ListCount climate, lights; };
@@ -86,11 +86,11 @@ ListCounts listCounts(size_t climate, size_t lights, size_t cap = kMaxWatched);
 // Display text for a stat entity (emulator ENT[..].get). hour = local hour (prices).
 // Logical ids (catalog entities()) use HomeData; any other HA entity is shown from its raw state `raw`
 // (label = friendly_name, value = state, unit = unit_of_measurement; binary_sensor → On/Off; missing → "—").
-// gap: HA has the entity but no value (unavailable / unknown, #86): value and unit are empty, the tile draws a ring and
+// gap: HA has the entity but no value (unavailable / unknown, eink-ha-os#86): value and unit are empty, the tile draws a ring and
 // the reason; the emulator's core/format.ts entityGap.
 enum class EntityGap { None, Unavailable, Unknown };
 struct StatText { std::string label, value, unit, sub; EntityGap gap = EntityGap::None; };
-// What a stat tile shows for a raw HA entity (#161, emulator core/format.ts statSource, stat-raw.json): climate →
+// What a stat tile shows for a raw HA entity (eink-ha-os#161, emulator core/format.ts statSource, stat-raw.json): climate →
 // current_temperature in °C, weather → temperature in its temperature_unit (absent = °C), else state + unit. ok false =
 // a climate / weather without a temperature ("—").
 struct StatSource { bool ok = true; std::string state, unit; };
@@ -100,7 +100,7 @@ StatText statText(const std::string& entity, const HomeData& d, int hour, const 
 // Generic HA entity helpers (stat / gauge / switch widgets on non-logical entities).
 std::string friendlyName(const std::string& entity, const EntityValue* raw);   // friendly_name or the entity id
 bool entityAvailable(const EntityValue* raw);                                  // present and not unknown/unavailable
-int displayPrecision(const EntityValue* raw);                                  // attr display_precision (#85), -1 = none
+int displayPrecision(const EntityValue* raw);                                  // attr display_precision (eink-ha-os#85), -1 = none
 EntityGap entityGap(const EntityValue* raw);                                   // unavailable / unknown; absent = None ("—")
 // Entities of stat / gauge / switch tiles HA has no value for (GET /console/state entity_gaps, emulator core/config.ts
 // entityGaps): id → "unavailable" | "unknown". Logical ids (catalog) and the gauge's home battery are never listed.

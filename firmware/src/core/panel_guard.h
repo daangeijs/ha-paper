@@ -1,4 +1,4 @@
-// Bounded e-paper BUSY waits (#181). The SDK's waits are unbounded (UC8179/UC8279 idle-high) or 30 s (SSD1677), on
+// Bounded e-paper BUSY waits (eink-ha-os#181). The SDK's waits are unbounded (UC8179/UC8279 idle-high) or 30 s (SSD1677), on
 // loopTask, which the 30 s task watchdog watches: a panel that never releases BUSY boot-looped on TASK_WDT. The hw layer
 // gates every SDK wait through PanelGuard::wait (hw/x4_display.cpp, QEMU: hw/qemu_hw.cpp): the first wait that runs
 // past kPanelBusyMaxMs marks the panel failed, and from then on every wait returns at once and the display skips panel

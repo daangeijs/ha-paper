@@ -26,4 +26,4 @@
 - App switcher open: the pager shows no page position (Classic: no "3 / 3"; Sleek: no current dot).
 - Not done: GET /screens/{id}/preview.png still returns the current panel for any known screen (`X-X4-Preview:
   current-panel`); rendering another screen off-screen needs a second 96 KB frame (PSRAM) and an ask/answer between the web and
-  the App task (follow-up: done in #168, see 168-preview-off-screen.md).
+  the App task (follow-up: done in eink-ha-os#168, see 168-preview-off-screen.md).

@@ -269,7 +269,7 @@ void Canvas::invert(Rect r) {
       if (inClip(x, y)) put(x, y, Ink(3 - int(get(x, y))), 3);
 }
 
-// Rounded-rect geometry in quarter pixels (issue #213): edges, the radius (a half pixel when min(w, h) is odd) and the
+// Rounded-rect geometry in quarter pixels (issue eink-ha-os#213): edges, the radius (a half pixel when min(w, h) is odd) and the
 // 2x2 sample points px + 0.25 / 0.75 are all exact integers, so this is the same test the double version did, without
 // soft-float (the ESP32-S3 FPU is single precision).
 struct RR4 {
@@ -509,7 +509,7 @@ void Canvas::tone(Rect r, int radius, Tone t) {
   surf_ = false;
 }
 
-// Text under 20 px on the card surface (issue #28): surface texture pixels (dither or dots) within 2 px of a glyph go
+// Text under 20 px on the card surface (issue eink-ha-os#28): surface texture pixels (dither or dots) within 2 px of a glyph go
 // back to paper, so dots never touch or sit inside small strokes. Only pixels that still hold the texture are cleared.
 void Canvas::surfKnockout(int x, int baseline, int tw, const std::string& s, const FontData* d, const TextOpts& o) {
   const int halo = 2;
@@ -579,6 +579,18 @@ void Canvas::toneUnder(int xa, int ya, int xb, int yb, int yBase, Tone t) {
   rec_ = save;
 }
 
+void Canvas::toneBetween(int xa, int ta, int ba, int xb, int tb, int bb, Tone t) {
+  rec("W%d,%d,%d,%d,%d,%d,%d;", xa, ta, ba, xb, tb, bb, int(t));
+  if (!fb_ || xb < xa) return;
+  std::string* save = rec_; rec_ = nullptr;
+  auto at = [&](int a, int b, int x) { return xb == xa ? a : a + int(std::lround(double(b - a) * (x - xa) / (xb - xa))); };
+  for (int x = xa; x <= xb; ++x) {
+    const int y0 = at(ta, tb, x), y1 = at(ba, bb, x);
+    if (y1 > y0) tone(Rect{int16_t(x), int16_t(y0), 1, int16_t(y1 - y0)}, 0, t);
+  }
+  rec_ = save;
+}
+
 void Canvas::dottedVLine(int x, int y, int h, int th, Ink c) {
   rec("v%d,%d,%d;", x, y, h);
   std::string* save = rec_; rec_ = nullptr;
@@ -592,7 +604,7 @@ void Canvas::arcTone(int cx, int cy, double radius, double stroke, double fromDe
 }
 
 // 4x4 supersampled stroke of a circular arc with round caps. `exact` is the reference test of one sample in doubles;
-// those are soft-float on the ESP32-S3, so only pixels near an angle or cap boundary still use it (issue #213). The radial
+// those are soft-float on the ESP32-S3, so only pixels near an angle or cap boundary still use it (issue eink-ha-os#213). The radial
 // band is tested in 1/8 px integers (exact when radius and stroke/2 are multiples of 1/8), angles and caps in float with a
 // margin; anything inside the margin falls back to `exact`. Same pixels as the all-double version.
 namespace {

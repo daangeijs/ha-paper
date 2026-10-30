@@ -1,10 +1,10 @@
-// History tile fetch (#269, plan in #264): what the device asks HA for, and how the answers become a Series without a
+// History tile fetch (eink-ha-os#269, plan in eink-ha-os#264): what the device asks HA for, and how the answers become a Series without a
 // DOM and without holding the frame. Pure; the net task drives it (net/ha_client.cpp).
 //   statistics first: one recorder/statistics_during_period per period for every due tile, then a history tail
 //   [last compiled row, now) per tile; no statistics → history/history_during_period in 6 h slices (≤ 24 h window).
 //   Answers stream through Scanner into Accum (exact port of bucketize, incremental) / StatRows; one request in flight.
 //   Live: every state change of a tile's entity is appended to its open bucket; a bucket boundary shifts the span.
-// Attribute / forecast tiles (#292): an attribute list is parsed from the entity mirror whenever the entity changes
+// Attribute / forecast tiles (eink-ha-os#292): an attribute list is parsed from the entity mirror whenever the entity changes
 //   (feedAttr) and again at each bucket boundary; a weather forecast is asked with call_service weather.get_forecasts
 //   (return_response) and its answer streams through ListScanner. Both keep their samples (≤ kMaxSamples) per tile.
 // All per-tile state (buckets, rows, samples) lives in PSRAM (PsramAlloc); the object itself is ~1.5 KB, in PSRAM.
@@ -27,7 +27,7 @@ constexpr int64_t kLiveGapMs = 30000;             // live appends publish at mos
 constexpr int64_t kTimeoutMs = 60000;             // an unanswered request is given up
 constexpr int64_t kForecastMs = kHour;            // a weather forecast is asked again (providers update about hourly)
 
-// What a tile shows (= history_chart State, #270): Loading until the first answer.
+// What a tile shows (= history_chart State, eink-ha-os#270): Loading until the first answer.
 enum class FetchState : uint8_t { Ok, Loading, None, TooMany, NeedsStats };
 enum class Source : uint8_t { None, Statistics, History, Attribute, Forecast };
 const char* fetchStateName(FetchState s);
@@ -125,7 +125,7 @@ class Fetcher : private RowSink {
   // A state change of `entity` at t (HA last_updated); v NaN = unavailable / not a number. Recorder tiles only.
   void live(const std::string& entity, double v, int64_t t);
   bool watches(const std::string& entity) const;
-  // Attribute tiles (#292): wantsAttr = a tile reads an attribute of `entity`; feedAttr: its text in the mirror
+  // Attribute tiles (eink-ha-os#292): wantsAttr = a tile reads an attribute of `entity`; feedAttr: its text in the mirror
   // (known = the entity is in the mirror; text nullptr = the attribute is absent). Unchanged text is skipped unless the
   // tile waits for a re-parse (new, or a bucket boundary). pendingAttr: entities whose tiles wait.
   // get(attribute) → the mirror's text (a PStr*), nullptr when the entity has no such attribute. Call only for an entity
@@ -155,7 +155,7 @@ class Fetcher : private RowSink {
     int64_t bucketAt = 0;        // attribute / forecast: bucket holding now when last built
     Series stats;
     Accum acc;
-    SampleList samples;          // attribute / forecast (#292)
+    SampleList samples;          // attribute / forecast (eink-ha-os#292)
   };
   struct RowOf { uint8_t entity; StatRow r; };
   void row(const char* id) override;
@@ -182,7 +182,7 @@ class Fetcher : private RowSink {
   int reqTile_ = -1;                               // history request: tile index; statistics: -1
   int tz_ = 0;
   Scanner scan_;
-  ListScanner fscan_, ascan_;                      // forecast answers; attribute text (#292)
+  ListScanner fscan_, ascan_;                      // forecast answers; attribute text (eink-ha-os#292)
   SampleList incoming_;                            // forecast answer in flight
   bool fcScan_ = false;                            // the answer in flight is a forecast
   // row in progress
@@ -210,7 +210,7 @@ void Fetcher::publish(int64_t now, F f) {
     if (!t.dirty || (!t.force && now - t.pubAt < kLiveGapMs)) continue;
     t.dirty = t.force = false;
     t.pubAt = now;
-    if (t.spec.kind != Kind::Recorder && t.state == FetchState::Ok) {   // #292: None when the span has no sample
+    if (t.spec.kind != Kind::Recorder && t.state == FetchState::Ok) {   // eink-ha-os#292: None when the span has no sample
       series(t, now, scratch_[0]);
       bool any = false;
       for (int i = 0; i < scratch_[0].n && !any; ++i) any = has(scratch_[0].v[i]);

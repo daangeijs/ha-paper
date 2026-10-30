@@ -7,7 +7,7 @@
 // (src/webconsole/DeviceApi.ts), implemented here by ./emulatorApi.ts.
 import { Component } from 'react';
 import {
-  PAPER, INK, PRICES, USAGE, SOLAR, ZONE_LIST, ZONE_NAME, ROOMS, ROOM_NAME, LIGHT_LIST, LIGHT, CHEAP, MODE_ICON, NETWORKS, KB, REPO, HOST, SIM_IP, ICON, FW_INSTALLED, INITIAL_RELEASES, ENT, APP, SETTINGS, SETTING_CFG, EXTRA_ENTITIES, HA_ENTITIES, DEMO_BINS, demoBinState, type HaData, type Derived, type Release,
+  PAPER, INK, PRICES, USAGE, SOLAR, ZONE_LIST, ZONE_NAME, ROOMS, ROOM_NAME, LIGHT_LIST, LIGHT, CHEAP, MODE_ICON, NETWORKS, KB, REPO, HOST, SIM_IP, ICON, FW_INSTALLED, INITIAL_RELEASES, ENT, APP, SETTINGS, SETTING_CFG, EXTRA_ENTITIES, HA_ENTITIES, DEMO_BINS, demoBinState, DEMO_BIRDS, demoBirds, type HaData, type Derived, type Release,
 } from '../core/data.ts';
 import { currency, currencySymbol, money, setCurrency, tzFor, DEFAULT_TZ } from '../core/locale.ts';
 import { pad, kw, fmtNum, fmtValue, entityGap, hhmm, semver, newer, barsFor, hm, numFormat, numFormatOf, presetHasAway, setNumFormat } from '../core/format.ts';
@@ -19,8 +19,9 @@ import { batteryLabel, powerDecision, type OtaAuto, type PowerInputs } from '../
 import { glanceStep, liveNow, snapshotDiff, snapshotOf, BOOT_HOLD_LIVE_MIN, type Snapshot } from '../core/glance.ts';
 import { recoveryInit, recoveryOffer, recoveryStep, RESET_HOLD_MS, RESET_CONFIRM_MS, RESTART_HOLD_MS, POWER_OFF_HOLD_MS, CRASH_LOOP_BOOTS, KEY_POWER, KEY_RIGHT, KEY_LEFT, KEY_OTHER, type RecoveryState, type RecoveryAction } from '../core/recovery.ts';
 import { binDays, binLabels, binsView, TONIGHT_DEFAULT } from '../core/bins.ts';
+import { listRows, listSpec, listView } from '../core/attrList.ts';
 import { MORNING_IDLE, MORNING_MS, morningSources, morningStep, morningUp, morningView, type MorningState, type MorningView } from '../core/morning.ts';
-import { attrSamples, bucketize, bucketStart, dayLowHigh, fromSamples, historySpec, joinSeries, pastSpec } from '../core/history.ts';
+import { attrSamples, bandSpecs, bucketize, bucketStart, compareSpec, dayLowHigh, fromSamples, historySpec, joinSeries, pastSpec, seriesNow } from '../core/history.ts';
 import { demoForecast, demoHistory, historyChart, historyTile } from '../core/historyChart.ts';
 import { DEMO_WEATHER_ATTRS, demoWeatherForecast, weatherView, wxEntries } from '../core/weather.ts';
 import { agendaKey, agendaLines, agendaMaxLines, demoAnswer, nextView, parseAnswer } from '../core/agenda.ts';
@@ -51,7 +52,7 @@ import { SidePanel } from '../components/SidePanel.tsx';
 import { WebConsole } from '../webconsole/WebConsole.tsx';
 
 const LIGHT_GROUPS = lightGroupsOf(ROOMS, LIGHT_LIST);
-/** The sim HA's get_config (#147): time_zone, and the currencies the side panel steps through. */
+/** The sim HA's get_config (eink-ha-os#147): time_zone, and the currencies the side panel steps through. */
 const SIM_HA_TZ = 'Europe/Amsterdam';
 const SIM_CURRENCIES = ['EUR', 'USD', 'GBP', 'SEK'];
 // App switcher icon for categories the user made (built-in apps keep their own icon).
@@ -62,7 +63,7 @@ const ENT_DP: Record<string, number | undefined> = Object.fromEntries(EXTRA_ENTI
 const LOCAL = ['clock', 'setting', 'ota', 'wifi', 'ha', 'about', 'info', 'setupWeb'];
 /** GET /ota message for a failed check (firmware net/ota.cpp; device-sim server/device.ts). */
 const SIM_CHECK_MSG: Record<OtaErr, string> = { memory: 'Not enough memory right now — try again in a minute', network: 'GitHub not reachable (HTTP -1)', busy: 'GitHub not reachable (HTTP 403)', none: 'No releases published yet', other: 'GitHub not reachable (HTTP 502)' };
-/** The showcase adds its demo Travel screen (mock timetables, demoTravel.ts) after Heating; real defaults have none (#145). */
+/** The showcase adds its demo Travel screen (mock timetables, demoTravel.ts) after Heating; real defaults have none (eink-ha-os#145). */
 const withDemoTravel = (screens: Screen[]): Screen[] => { const i = screens.findIndex((x) => x.id === 'climate') + 1; return [...screens.slice(0, i), demoTravelScreen(), ...screens.slice(i)]; };
 const isLookKey = (k: string) => (LOOK_KEYS as readonly string[]).includes(k);
 /** Awake at least this long after a boot / wake / key press before the power rules may deep-sleep (emulator pacing). */
@@ -84,23 +85,23 @@ export type EmuState = {
   entities: EntityOverrides; setup: 'wifi' | 'web' | null;
   ha: { linked: boolean; revoked: boolean; view: 'status' | 'link'; server: string; user: string; stage: number; pair: string; running: boolean };
   onboard: { step: number } | null; resetArm: boolean; bootAt: Date;
-  /** Hardware-key factory reset / crash-loop offer (src/core/recovery.ts, issue #21). */
+  /** Hardware-key factory reset / crash-loop offer (src/core/recovery.ts, issue eink-ha-os#21). */
   recovery: RecoveryState;
   /** Device-side state of the web console (session cookie, API token hashes, config revision). */
   session: { signedIn: boolean }; tokens: StoredToken[]; configRev: number; installId: string;
   /** Laptop: terminal lines, downloaded file, exported token, and the secrets the user copied when they were shown once. */
   term: { lines: TermLine[]; file: string | null; exported: string | null; known: Record<string, string> };
   simHour: number | null; haLang: Lang; haCurrency: string; tz: string; render: 'gray4' | 'mono' | 'none'; paused: boolean; offline: boolean; zoneCount: number; away: boolean; showRegions: boolean;
-  /** Panel preview (#25): areas a partial refresh left B/W on the panel since the last full refresh. */
+  /** Panel preview (eink-ha-os#25): areas a partial refresh left B/W on the panel since the last full refresh. */
   panelPreview: boolean; bw: Rect[];
   pending: Record<string, true>; lastUpdate: Date | null; peekUntil: number;
-  /** Ambient idle mode (#27): chrome hidden after 60 s without input. `quietSnap` (#295): the Home page values the quiet
+  /** Ambient idle mode (eink-ha-os#27): chrome hidden after 60 s without input. `quietSnap` (eink-ha-os#295): the Home page values the quiet
    *  face shows, taken when it went up; `at`: "HH:MM" only when the data was stale. */
-  /** Front light timed out (#220, core/frontlight.ts); the next key/tap only turns it back on. `bootDark` (#357): a timer
+  /** Front light timed out (eink-ha-os#220, core/frontlight.ts); the next key/tap only turns it back on. `bootDark` (eink-ha-os#357): a timer
    *  wake booted with the light off; the next key/tap turns it on and still counts. */
   lightOut: boolean; bootDark: boolean;
   ambient: boolean; quietSnap: { row: QuietRow; at: string } | null; dirty: string[];
-  /** Good morning page (#330, core/morning.ts); the firmware keeps it in RTC memory (net/morning_rtc.cpp). */
+  /** Good morning page (eink-ha-os#330, core/morning.ts); the firmware keeps it in RTC memory (net/morning_rtc.cpp). */
   morning: MorningState;
   bootMsg: string;
   ota: { fw: string; channel: 'stable' | 'beta'; auto: string; status: string; lastCheck: Date | null; avail: Release | null; msg: string; err: OtaErr | null; pendingVerify: boolean; prev: string | null };
@@ -111,12 +112,12 @@ export type EmuState = {
   d: HaData;
   /** Mock state of the extra HA entities (EXTRA_ENTITIES: outdoor sensors, switches, …). */
   ent: Record<string, string>;
-  /** Now playing (#319): the demo players (queue position, title of a started favorite) and the tile whose favorites
+  /** Now playing (eink-ha-os#319): the demo players (queue position, title of a started favorite) and the tile whose favorites
    *  picker is open (`idx:sub:tile`; a page change closes it). */
   media: Record<string, { state: string; i: number; vol: number; title?: string }>; mediaPick: string | null;
 };
 
-/** One sleep face (#356): quiet hours, Nobody home and glance sleep; the quiet face's layout (firmware ui_chrome.cpp
+/** One sleep face (eink-ha-os#356): quiet hours, Nobody home and glance sleep; the quiet face's layout (firmware ui_chrome.cpp
  *  sleepFace). items: the Tomorrow / Today row; facts: the Nobody home facts; tap: a tap peeks (quiet hours only). */
 export type SleepFace = { title: string; sub: string; head: string; items: QuietItem[]; facts: { label: string; value: string }[]; foot: string; tap: boolean };
 export type EmulatorProps = { osName?: string; deviceBattery?: number; bodyColor?: 'Black' | 'White'; initial?: 'firstInstall' | 'installed'; look?: Look; lang?: string };
@@ -125,27 +126,27 @@ const newInstallId = () => Math.random().toString(36).slice(2, 10);
 
 export class Emulator extends Component<EmulatorProps, EmuState> {
   timers: ReturnType<typeof setTimeout>[] = [];
-  powerHold = new PowerHold();   // power deadband (#85): tiles keep the last shown value inside it
+  powerHold = new PowerHold();   // power deadband (eink-ha-os#85): tiles keep the last shown value inside it
   debounce = new KeyedDebouncer();
   lastMinute = -1; prevQuiet: boolean | undefined = undefined; bootWake: WakeKind = 'cold'; lastInput = Date.now(); idleHomed = false;
-  /** Epoch minute of the last full refresh: the scheduled clean (#26) runs at the first :00/:30 ≥ 30 min after it. */
+  /** Epoch minute of the last full refresh: the scheduled clean (eink-ha-os#26) runs at the first :00/:30 ≥ 30 min after it. */
   lastFullMin = Math.floor(Date.now() / 60000);
   /** Last web console / API request that reached the display (null = none since boot). */
   lastApi: number | null = null;
-  /** The device log behind GET /logs (#200): every log() line, like the firmware's LOG_* ring. */
+  /** The device log behind GET /logs (eink-ha-os#200): every log() line, like the firmware's LOG_* ring. */
   logs: LogRing = logRing();
   private logsAt = Date.now();
-  /** Glance (#10): what the firmware keeps in RTC memory across deep sleep. */
+  /** Glance (eink-ha-os#10): what the firmware keeps in RTC memory across deep sleep. */
   rtc: { snap: Snapshot | null; fails: number; drawnOffline: boolean; drawnAt: number } = { snap: null, fails: 0, drawnOffline: false, drawnAt: 0 };
-  /** A key held through the boot screen keeps it live until then (first-boot safety, #10). */
+  /** A key held through the boot screen keeps it live until then (first-boot safety, eink-ha-os#10). */
   holdLiveUntil = 0;
-  /** First-boot safety (#10): confirmed boots this image still needs before it may deep-sleep. The emulator plays an
+  /** First-boot safety (eink-ha-os#10): confirmed boots this image still needs before it may deep-sleep. The emulator plays an
    *  installed display (armed); set it to see the "not armed" rule. */
   armLeft = 0;
-  /** Deep sleeps with reason "empty house" (#331, GET /diagnostics power_trail.empty_house_sleeps). */
+  /** Deep sleeps with reason "empty house" (eink-ha-os#331, GET /diagnostics power_trail.empty_house_sleeps). */
   emptySleeps = 0;
   swipe: { x: number; y: number; t: number } | null = null; swallowClick = false;
-  heldBootUntil = 0;   // #299 key wake without a boot screen: the boot window for "Right held at boot"
+  heldBootUntil = 0;   // eink-ha-os#299 key wake without a boot screen: the boot window for "Right held at boot"
   clockT?: ReturnType<typeof setInterval>; tickT?: ReturnType<typeof setInterval>; dirtyT?: ReturnType<typeof setTimeout>;
   listeners = new Set<() => void>();
   api: DeviceApi;
@@ -217,14 +218,14 @@ export class Emulator extends Component<EmulatorProps, EmuState> {
   hourOf(s: EmuState) { return s.simHour == null ? s.now.getHours() : s.simHour; }
   hour() { return this.hourOf(this.state); }
   hm(dt: Date) { return hm(dt); }
-  /** Quiet hours (#295, core/quiet.ts). The face is up inside the window unless peeking or in setup; standby too. */
+  /** Quiet hours (eink-ha-os#295, core/quiet.ts). The face is up inside the window unless peeking or in setup; standby too. */
   quietHour(s: EmuState) { return inQuietHours(this.hourOf(s), s.cfg.quiet); }
   quietActive(s: EmuState) { return this.quietHour(s) && !(s.peekUntil > s.now.getTime()) && !s.setup; }
-  /** Good morning page (#330, core/morning.ts): up from the end of quiet hours for 20 min; one press → the start page. */
-  morningOn(s: EmuState) { return s.mode === 'main' && !s.setup && morningUp(s.morning, s.now.getTime()) && !this.quietActive(s) && !this.emptyActive(s); }   // #331: Nobody home wins
+  /** Good morning page (eink-ha-os#330, core/morning.ts): up from the end of quiet hours for 20 min; one press → the start page. */
+  morningOn(s: EmuState) { return s.mode === 'main' && !s.setup && morningUp(s.morning, s.now.getTime()) && !this.quietActive(s) && !this.emptyActive(s); }   // eink-ha-os#331: Nobody home wins
   morningTick(s: EmuState) {
     const m = morningStep(s.morning, { now: s.now.getTime(), hour: this.hourOf(s), clockKnown: true, quiet: s.cfg.quiet, enabled: s.cfg.morning });
-    // #331: nobody home at the end of quiet hours (glance) → no page, empty-house sleep
+    // eink-ha-os#331: nobody home at the end of quiet hours (glance) → no page, empty-house sleep
     if (m.start && s.cfg.powerSave === 'glance' && this.emptyNow(s)) { m.until = 0; m.start = false; this.log('MORNING skipped · nobody home'); }
     if (m.armed === s.morning.armed && m.until === s.morning.until) return m;
     this.setState({ morning: { armed: m.armed, until: m.until } });
@@ -254,7 +255,7 @@ export class Emulator extends Component<EmulatorProps, EmuState> {
       bins: bt ? ids.map((id, k) => { const demo = DEMO_BINS.find((b) => b.id === id); const v = demo ? demoBinState(demo, t) : { state: s.ent[id], attrs: {} };
         return { label: labels[k], days: binDays(v.state, v.attrs, now, tz) }; }) : null });
   }
-  /** The quiet face's "Tomorrow" row (#328, core/quiet.ts quietTomorrow) from the first weather, agenda / next and bins
+  /** The quiet face's "Tomorrow" row (eink-ha-os#328, core/quiet.ts quietTomorrow) from the first weather, agenda / next and bins
    *  tile, read like those tiles read them (the demo forecasts, calendars and bins); no fetch. */
   quietSnapOf(s: EmuState, endHour = quietEndHour(s.cfg.quiet)): { row: QuietRow; at: string } {
     const t = new Date(s.now); if (s.simHour != null) t.setHours(s.simHour, 0, 0, 0);
@@ -276,13 +277,13 @@ export class Emulator extends Component<EmulatorProps, EmuState> {
     return { row, at: this.staleAt(s) };
   }
 
-  /** Empty house (#331, core/emptyHouse.ts): the presence source says nobody is home. */
+  /** Empty house (eink-ha-os#331, core/emptyHouse.ts): the presence source says nobody is home. */
   emptyNow(s: EmuState): boolean { return !!s.cfg.emptyHouse && houseEmpty(s.cfg.emptyHouse, s.ent[s.cfg.emptyHouse]); }
   /** The Nobody home face is up: asleep in glance, nobody home, outside quiet hours (quiet wins), not in setup. */
   emptyActive(s: EmuState): boolean { return !!s.asleep?.glance && s.mode === 'main' && !s.setup && s.cfg.powerSave === 'glance' && this.emptyNow(s) && !this.quietActive(s); }
-  /** The glance sleep face (#356) is up: asleep in glance, not quiet hours, not Nobody home, not in setup. One calm face
+  /** The glance sleep face (eink-ha-os#356) is up: asleep in glance, not quiet hours, not Nobody home, not in setup. One calm face
    *  instead of the dashboard: "Asleep · press to wake", the date, the "Today" row (core/quiet.ts, endHour TODAY_END).
-   *  The Good morning page wins (#330). */
+   *  The Good morning page wins (eink-ha-os#330). */
   glanceFaceActive(s: EmuState): boolean { return !!s.asleep?.glance && s.mode === 'main' && !s.setup && s.cfg.powerSave === 'glance' && !this.quietActive(s) && !this.emptyActive(s) && !this.morningOn(s); }
   /** Which whole face the sleeping panel shows ('' = the dashboard): going up or down is a full refresh. */
   sleepKind(s: EmuState): '' | 'empty' | 'glance' { return this.emptyActive(s) ? 'empty' : this.glanceFaceActive(s) ? 'glance' : ''; }
@@ -307,7 +308,7 @@ export class Emulator extends Component<EmulatorProps, EmuState> {
     const s = this.state; if (s.mode !== 'main' || s.sleeping || s.asleep) return;
     const idleMs = Date.now() - this.lastInput, idleMin = idleMs / 60000;
     if (!s.lightOut && !s.setup && lightTimedOut(idleMs, s.cfg.lightTimeout)) { this.setState({ lightOut: true }); this.log('IDLE ' + s.cfg.lightTimeout + ' s → front light off'); }
-    if (this.morningOn(s)) return;   // #330: the page stays until its timeout or a press
+    if (this.morningOn(s)) return;   // eink-ha-os#330: the page stays until its timeout or a press
     if (s.cfg.standby && idleMin >= s.cfg.standby) { this.setState({ sleeping: true, menu: false }); this.fullRefresh('standby'); this.log('IDLE ' + s.cfg.standby + ' min → standby'); return; }
     const amb = !s.ambient && ambientDue({ idleMs, menu: !!s.menu, setup: !!s.setup }) && !this.quietActive(s);
     const home = s.screens.findIndex((x) => x.id === 'overview');
@@ -323,9 +324,9 @@ export class Emulator extends Component<EmulatorProps, EmuState> {
     const sc = s.setup ? null : s.screens[s.idx];
     const clockTile = !!sc && (sc.widgets.some((w) => w.type === 'clock') || (!s.ha.linked && !s.ha.revoked && sc.id === 'overview'));
     const c = chromeFor(s.ambient, this.battery, clockTile);
-    return s.setup ? { ...c, pager: false } : c;   // setup: "Step N of 2" in the title instead (#183)
+    return s.setup ? { ...c, pager: false } : c;   // setup: "Step N of 2" in the title instead (eink-ha-os#183)
   }
-  /** Ambient / light timeout (#220): the first touch or key (not Power) brings the chrome back and the light on, and does
+  /** Ambient / light timeout (eink-ha-os#220): the first touch or key (not Power) brings the chrome back and the light on, and does
    *  nothing else. True when it took the input. */
   wakeChrome(src: string): boolean {
     const s = this.state;
@@ -360,16 +361,16 @@ export class Emulator extends Component<EmulatorProps, EmuState> {
   /** Clock tiles of a state: the time alone never wakes the panel in glance. */
   clockKeys(s: EmuState): string[] { const sc = s.screens[s.idx]; return sc && !s.setup && !s.menu ? sc.widgets.map((w, i) => (w.type === 'clock' ? 't' + i : '')).filter(Boolean) : []; }
   glanceSnap(s: EmuState): Snapshot { return snapshotOf(this.regions(s)); }
-  /** Glance timer wake (core/glance.ts), at a transition since #356 (midnight, quiet-hours start, 8 h at most): Wi-Fi +
+  /** Glance timer wake (core/glance.ts), at a transition since eink-ha-os#356 (midnight, quiet-hours start, 8 h at most): Wi-Fi +
    *  one fetch, compare with the RTC snapshot, full refresh only when what the panel shows changed, then sleep again. No
-   *  boot screen; touch and the front light stay off (#357). */
+   *  boot screen; touch and the front light stay off (eink-ha-os#357). */
   glanceWake() {
     const s = this.state; const a = s.asleep; if (!a) return;
     const now = Date.now();
     const ok = !!s.wifi.connected && s.ha.linked && !s.ha.revoked && !s.paused;
     let next = s;
     if (ok) next = { ...s, ...this.dataPatch(s) };
-    const changed = snapshotDiff(this.rtc.snap, this.glanceSnap(next), this.clockKeys(next));   // unreachable too (#356): the face's date
+    const changed = snapshotDiff(this.rtc.snap, this.glanceSnap(next), this.clockKeys(next));   // unreachable too (eink-ha-os#356): the face's date
     const g = glanceStep({ ok, changed, hadSnapshot: this.rtc.snap !== null, fails: this.rtc.fails, drawnOffline: this.rtc.drawnOffline, minSinceDraw: (now - this.rtc.drawnAt) / 60000 });
     this.rtc = { ...this.rtc, fails: g.fails, drawnOffline: g.drawnOffline };
     this.log('TIMER → glance wake · ' + (ok ? (changed.length ? changed.length + ' region(s) changed' : 'values unchanged') : 'Home Assistant unreachable (' + g.fails + ' in a row)') + ' · ' + g.reason);
@@ -390,7 +391,7 @@ export class Emulator extends Component<EmulatorProps, EmuState> {
     const asleep = { wakeAt, clock: s.asleep?.clock ?? this.clockText(s), wasStandby: s.sleeping, glance: d.reason === 'glance' || d.reason === 'empty house' };
     const next = { ...s, asleep, menu: false } as EmuState;
     if (d.reason === 'empty house') this.emptySleeps++;
-    // #331, #356: the snapshot holds what the sleeping panel shows; a face going up or down is a full refresh
+    // eink-ha-os#331, eink-ha-os#356: the snapshot holds what the sleeping panel shows; a face going up or down is a full refresh
     const was = this.sleepKind(s), is = this.sleepKind(next);
     if (!fromWake || is !== was) { this.rtc = { ...this.rtc, snap: this.glanceSnap(next), drawnAt: now }; }
     this.setState({ asleep, menu: false });
@@ -416,7 +417,7 @@ export class Emulator extends Component<EmulatorProps, EmuState> {
     this.bootWake = src === 'TIMER' ? 'timer' : src === 'CHARGER' ? 'charger' : 'button';
     this.log(src + ' → wake from deep sleep (reset)');
     if (this.bootWake !== 'timer' && this.state.morning.until) { this.setState({ morning: { armed: false, until: 0 } }); this.log('MORNING closed by the wake press'); }
-    // #299: a key wake from glance sleep (the dashboard is on the glass) skips the boot screen. The panel is held until
+    // eink-ha-os#299: a key wake from glance sleep (the dashboard is on the glass) skips the boot screen. The panel is held until
     // the data is in, then one clean refresh (controller RAM is gone after deep sleep: no partial possible).
     if (this.bootWake === 'button' && a.glance && !this.state.setup) {
       this.input(); this.bootWake = 'cold'; this.heldBootUntil = Date.now() + 1600;   // Right held through it: still live 10 min
@@ -438,17 +439,17 @@ export class Emulator extends Component<EmulatorProps, EmuState> {
   }
 
   // ---------- Web console, device side (called through DeviceApi, see ./emulatorApi.ts) ----------
-  /** HA state of every entity the picker lists (GET /ha/entities `state`, #84): mock sensors in their HA unit (W, kWh). */
+  /** HA state of every entity the picker lists (GET /ha/entities `state`, eink-ha-os#84): mock sensors in their HA unit (W, kWh). */
   entityStates(): Record<string, string> {
     const s = this.state; const d = this.derive(s.d, s); const out: Record<string, string> = { ...s.ent };
-    const nf = numFormat(); setNumFormat('point');   // HA states carry a decimal point, whatever the display shows (#110)
+    const nf = numFormat(); setNumFormat('point');   // HA states carry a decimal point, whatever the display shows (eink-ha-os#110)
     try { Object.keys(ENT).forEach((id) => { const r = ENT[id].get(d); out[id] = r.u === 'kW' ? String(Math.round(Number(r.v) * 1000)) : String(r.v); }); } finally { setNumFormat(nf); }
     out[GAUGE_DEFAULT_ENTITY] = String(Math.round(d.soc));
     LIGHT_LIST.forEach((l) => { out['light.' + l.id] = s.d.lights[l.id].on ? 'on' : 'off'; });
-    ZONE_LIST.forEach((z) => { out['climate.' + z.id] = String(d.zones[z.id].cur); });   // the list shows a climate's temperature (#161)
+    ZONE_LIST.forEach((z) => { out['climate.' + z.id] = String(d.zones[z.id].cur); });   // the list shows a climate's temperature (eink-ha-os#161)
     return out;
   }
-  /** GET /screens/{id}/values (#122, console Values view): each tile's main value as the display draws it, in widget
+  /** GET /screens/{id}/values (eink-ha-os#122, console Values view): each tile's main value as the display draws it, in widget
    *  order; '' = no single value (lists, charts, settings: the console keeps the name). null = unknown id. */
   tileValues(id: string): string[] | null {
     const s = this.state; const sc = s.screens.find((x) => x.id === id); if (!sc) return null;
@@ -457,8 +458,9 @@ export class Emulator extends Component<EmulatorProps, EmuState> {
     const lg = this.lang(s);
     return sc.widgets.map((w, i) => {
       if (w.type === 'clock') return clock;
-      if (w.type === 'guestWifi') return fieldDecode(w.ssid) || '—';   // #329: the network name, never the password
-      if (w.type === 'zoneList') {   // #161: "3 of 9 heating" / "4 of 9 lights on" instead of ''
+      if (w.type === 'attrList') { const v = this.vm(w, d, s, i); return v.rows.length ? v.rows[0].title + (v.rows[0].ago ? ' · ' + v.rows[0].ago : '') : '—'; }   // eink-ha-os#332: "Klapekster · 1 h ago"
+      if (w.type === 'guestWifi') return fieldDecode(w.ssid) || '—';   // eink-ha-os#329: the network name, never the password
+      if (w.type === 'zoneList') {   // eink-ha-os#161: "3 of 9 heating" / "4 of 9 lights on" instead of ''
         const zs = pickZones(ZONE_LIST.slice(0, s.zoneCount), w);
         return zs.length ? tr(lg, 'nOfHeating', zs.filter((z) => d.zones[z.id].set > d.zones[z.id].cur + 0.05).length, zs.length) : '—';
       }
@@ -466,9 +468,9 @@ export class Emulator extends Component<EmulatorProps, EmuState> {
         const ids = pickLights(LIGHT_GROUPS, w).flatMap((g) => g.ids);
         return ids.length ? tr(lg, 'lightsOnOf', ids.filter((id) => d.lights[id].on).length, ids.length) : '—';
       }
-      if (w.type === 'bins') { const v = this.vm(w, d, s, i); return v.known ? v.head + ' · ' + v.big : '—'; }   // #317: "Paper · Tomorrow"
+      if (w.type === 'bins') { const v = this.vm(w, d, s, i); return v.known ? v.head + ' · ' + v.big : '—'; }   // eink-ha-os#317: "Paper · Tomorrow"
       if (!['stat', 'price', 'gauge', 'thermo', 'switch'].includes(w.type)) return '';
-      // an HA entity with no value: the word, not "—" (#86); logical ids and the light list have their own sources
+      // an HA entity with no value: the word, not "—" (eink-ha-os#86); logical ids and the light list have their own sources
       const id = typeof w.entity === 'string' ? w.entity : '';
       const st = id && !ENT[id] && id !== GAUGE_DEFAULT_ENTITY && !(domainOf(id) === 'light' && LIGHT[id.slice(6)]) ? s.ent[id] : undefined;
       if (st === 'unavailable' || st === 'unknown') return tr(lg, st === 'unavailable' ? 'gapUnavailable' : 'gapUnknown');
@@ -487,7 +489,7 @@ export class Emulator extends Component<EmulatorProps, EmuState> {
     // Before Wi-Fi the display is not on the home network: the browser can't reach it (unless a phone joined its setup hotspot).
     if (s.mode === 'boot' && !s.wifi.connected) throw new DeviceUnreachableError();
     if (s.asleep) throw new DeviceUnreachableError();   // deep sleep: Wi-Fi off
-    if (s.mode === 'off') throw new DeviceUnreachableError();   // turned off (#258)
+    if (s.mode === 'off') throw new DeviceUnreachableError();   // turned off (eink-ha-os#258)
     if (s.setup === 'wifi' && s.wifi.view !== 'phone') throw new DeviceUnreachableError();
     const tok = (k: StoredToken): TokenInfo => ({ id: k.id, name: k.name, scope: k.scope, created: k.created, last: k.last, masked: k.masked });
     return {
@@ -495,8 +497,8 @@ export class Emulator extends Component<EmulatorProps, EmuState> {
       setup: s.setup, softAp: s.setup === 'wifi' && s.wifi.view === 'phone',
       wifi: { connected: s.wifi.connected, saved: s.wifi.saved },
       networks: NETWORKS.map(({ ssid, rssi, secure }) => ({ ssid, rssi, secure })),
-      // Once linked, the HA address and account are for a signed-in console only (issue #37).
-      // mDNS (mocked) always finds homeassistant.local:8123; an address typed on the link page is "Home Assistant at …" (#54).
+      // Once linked, the HA address and account are for a signed-in console only (issue eink-ha-os#37).
+      // mDNS (mocked) always finds homeassistant.local:8123; an address typed on the link page is "Home Assistant at …" (eink-ha-os#54).
       language: s.ha.linked || s.ha.revoked ? s.haLang : null,
       ha: { linked: s.ha.linked, revoked: s.ha.revoked, ...(s.session.signedIn || !s.ha.linked ? { server: s.ha.server, user: s.ha.user, discovered: [MDNS_HA] } : { server: '', user: '', discovered: [] }) },
       offline: s.offline, session: { signedIn: s.session.signedIn, user: s.session.signedIn ? s.ha.user : '', admin: true },
@@ -574,7 +576,7 @@ export class Emulator extends Component<EmulatorProps, EmuState> {
       if (o) { const r = splitRef(o); src[l.id] = formatSource({ ha: r.ha, minus: '', negate: r.negate, why: 'override' }); }
       else if (this.state.ha.linked) src[l.id] = formatSource({ ha: l.id, minus: '', negate: false, why: 'identity' });
     }
-    // tz (#147): the sim HA is in Europe/Amsterdam; the browser draws the clock in its own zone either way
+    // tz (eink-ha-os#147): the sim HA is in Europe/Amsterdam; the browser draws the clock in its own zone either way
     return { display: { ...display, otaAuto: ota.auto as OtaAutoMode }, name, ota_channel: ota.channel, tz, tz_ha: SIM_HA_TZ, tz_active: tzFor(tz, SIM_HA_TZ) ?? DEFAULT_TZ,
       entities: { ...entities }, entity_sources: src };
   }
@@ -596,7 +598,7 @@ export class Emulator extends Component<EmulatorProps, EmuState> {
       if (changed.some(isLookKey)) { this.setState({ cfg }); this.fullRefresh('display style'); } else this.commit({ cfg }, 'setting');
     }
     if (name !== this.state.name) this.setState({ name });
-    // Settings › Updates (#159): the same state the device's Updates page steps
+    // Settings › Updates (eink-ha-os#159): the same state the device's Updates page steps
     const o = this.state.ota; const auto = display.otaAuto ?? o.auto; const channel = patch.ota_channel ?? o.channel;
     if (auto !== o.auto || channel !== o.channel) {
       this.log('WEB PUT /api/v1/settings · ota ' + channel + ' / ' + auto, 'ha');
@@ -682,7 +684,7 @@ export class Emulator extends Component<EmulatorProps, EmuState> {
     }, 5800);
   }
 
-  // ---------- Hardware-key factory reset (src/core/recovery.ts, issue #21) ----------
+  // ---------- Hardware-key factory reset (src/core/recovery.ts, issue eink-ha-os#21) ----------
   /** One key sample. True when the reset screen took it (it never reaches nav/power/touch). */
   recoveryKeys(keys: number, src: string): boolean {
     if (this.state.recovery.phase !== 'confirm') return false;
@@ -713,7 +715,7 @@ export class Emulator extends Component<EmulatorProps, EmuState> {
     if (r.action !== 'show') { this.log('combo ignored', 'warn'); this.setState({ recovery: r.state }); return; }
     this.recoveryDone(recoveryStep(r.state, t, 0).state, 'show');
   }
-  /** Simulation: Power + Left held for 5 s (issue #226) → "Restarting…" → boot, same as Settings › Restart. */
+  /** Simulation: Power + Left held for 5 s (issue eink-ha-os#226) → "Restarting…" → boot, same as Settings › Restart. */
   holdRestartSim() {
     const t = Date.now();
     let r = recoveryStep(this.state.recovery, t - RESTART_HOLD_MS, KEY_POWER | KEY_LEFT);
@@ -721,7 +723,7 @@ export class Emulator extends Component<EmulatorProps, EmuState> {
     if (r.action !== 'restart') { this.log('combo ignored', 'warn'); this.setState({ recovery: r.state }); return; }
     this.recoveryDone(recoveryStep(r.state, t, 0).state, 'restart');
   }
-  /** Simulation: Power alone held 2 s (#258) → "Turned off" face, then off. Power turns it on again (a boot). */
+  /** Simulation: Power alone held 2 s (eink-ha-os#258) → "Turned off" face, then off. Power turns it on again (a boot). */
   holdPowerSim() {
     const t = Date.now();
     if (this.state.mode === 'updating') { this.log('BTN_POWER held · ignored while updating', 'warn'); return; }
@@ -782,7 +784,7 @@ export class Emulator extends Component<EmulatorProps, EmuState> {
   }
 
   // ---------- e-ink ----------
-  /** Clean (#197): one short flash, both RAM planes rewritten; grays back. Resets the scheduled and the nav clean. */
+  /** Clean (eink-ha-os#197): one short flash, both RAM planes rewritten; grays back. Resets the scheduled and the nav clean. */
   fullRefresh(reason?: string) {
     this.lastFullMin = Math.floor(Date.now() / 60000);
     this.setState((s) => ({ flash: INK, fullCount: s.fullCount + 1, sinceFull: 0, navSinceClean: 0, dirty: [], bw: bwAfter(s.bw, { kind: 'full' }) }));
@@ -790,9 +792,9 @@ export class Emulator extends Component<EmulatorProps, EmuState> {
     this.later(() => this.setState({ flash: null }), 280);
     this.log('EPD clean refresh' + (reason ? ' (' + reason + ')' : ''), 'eink');
   }
-  /** Navigation (#197): whole-frame fast refresh without a flash, B/W only (#212); every NAV_CLEAN-th one is a clean. */
+  /** Navigation (eink-ha-os#197): whole-frame fast refresh without a flash, B/W only (eink-ha-os#212); every NAV_CLEAN-th one is a clean. */
   navRefresh(reason: string) {
-    if (this.state.mediaPick) this.setState({ mediaPick: null });   // #319: a page change closes the favorites picker
+    if (this.state.mediaPick) this.setState({ mediaPick: null });   // eink-ha-os#319: a page change closes the favorites picker
     const s = this.state;
     const dec = decideNav({ navSinceClean: s.navSinceClean, sinceFull: s.sinceFull, clockKnown: true });
     if (dec.kind === 'clean') { this.fullRefresh(reason + ' · ' + dec.reason); return; }
@@ -822,15 +824,15 @@ export class Emulator extends Component<EmulatorProps, EmuState> {
 
   // Every redraw region on the current page: a tile, or for lists the header + each row.
   regions(s: EmuState): RegionMap {
-    if (this.emptyActive(s)) {   // #331: the Nobody home face is one region (wins over the morning page)
+    if (this.emptyActive(s)) {   // eink-ha-os#331: the Nobody home face is one region (wins over the morning page)
       const tx = (k: StrKey, ...a: (string | number)[]) => tr(this.lang(s), k, ...a);
       return { empty: serializeRegion({ next: this.emptyNext(s), rows: this.emptyRows(s, tx) }) };
     }
-    if (this.glanceFaceActive(s)) {   // #356: one region, its date and Today row (a glance wake redraws when either changed)
+    if (this.glanceFaceActive(s)) {   // eink-ha-os#356: one region, its date and Today row (a glance wake redraws when either changed)
       const n = s.now;
       return { sleep: serializeRegion({ date: dateLine(this.lang(s), n.getDay(), n.getDate(), n.getMonth()), ...this.quietSnapOf(s, TODAY_END) }) };
     }
-    if (this.morningOn(s)) return { morning: serializeRegion(this.morningOf(s)) };   // #330: one full-screen region
+    if (this.morningOn(s)) return { morning: serializeRegion(this.morningOf(s)) };   // eink-ha-os#330: one full-screen region
     const out: RegionMap = {}; const sc = s.setup ? SETUP_SCREENS[s.setup] : s.screens[s.idx]; if (!sc || s.menu) return out;
     const d = this.derive(s.d, s);
     sc.widgets.forEach((w, i) => {
@@ -860,7 +862,7 @@ export class Emulator extends Component<EmulatorProps, EmuState> {
       const st = this.state;
       // First install: no Wi-Fi → connect on the display; Wi-Fi but no Home Assistant → finish in the browser.
       const setup = !st.wifi.connected ? 'wifi' : !st.ha.linked && !st.ha.revoked ? 'web' : null;
-      // quiet hours (#295): a boot from a press, power-on or charger opens on the dashboard; a timer wake does not. Set
+      // quiet hours (eink-ha-os#295): a boot from a press, power-on or charger opens on the dashboard; a timer wake does not. Set
       // whatever the hour, like the firmware (its clock may not be known yet); outside the window a peek changes nothing.
       const peek = !setup && peekOnBoot(this.bootWake);
       if (peek && this.quietHour(st)) this.log('QUIET boot (' + this.bootWake + ') → dashboard for ' + PEEK_MS / 1000 + ' s');
@@ -914,7 +916,7 @@ export class Emulator extends Component<EmulatorProps, EmuState> {
     this.setOta({ status: 'checking', err: null, msg: '' });
     this.later(() => {
       const st = this.state; const rel = st.releases[st.ota.channel];
-      // SIM "Next check" (#250): what the firmware maps a failed GitHub request to (core/otaStatus.ts otaErrOf)
+      // SIM "Next check" (eink-ha-os#250): what the firmware maps a failed GitHub request to (core/otaStatus.ts otaErrOf)
       if (st.checkFail !== 'ok') { this.setOta({ status: 'error', err: st.checkFail, msg: SIM_CHECK_MSG[st.checkFail] }); this.log('OTA check failed · ' + SIM_CHECK_MSG[st.checkFail], 'warn'); return; }
       const has = newer(rel.version, st.ota.fw);
       this.setOta({ status: has ? 'available' : 'uptodate', avail: has ? { ...rel } : null, lastCheck: new Date(), msg: '', err: null });
@@ -1077,7 +1079,7 @@ export class Emulator extends Component<EmulatorProps, EmuState> {
     if (this.morningOn(this.state)) { this.morningDone('BTN_POWER'); return; }
     if (this.quietActive(this.state)) { this.doPeek('BTN_POWER'); return; }
     if (this.state.sleeping) { this.wake('BTN_POWER'); return; }
-    // standby ends a peek: inside quiet hours it shows the quiet face (#295)
+    // standby ends a peek: inside quiet hours it shows the quiet face (eink-ha-os#295)
     this.setState({ sleeping: true, menu: false, ambient: false, peekUntil: 0 }); this.fullRefresh('standby'); this.log('BTN_POWER → standby (frontlight off, clock-only updates)');
   }
 
@@ -1108,22 +1110,22 @@ export class Emulator extends Component<EmulatorProps, EmuState> {
   }
   toggleLight(id: string) { const l = this.state.d.lights[id]; this.setLights({ [id]: { on: !l.on } }, 'light.' + (l.on ? 'turn_off' : 'turn_on') + ' light.' + id); }
   dimLight(id: string, step: number) { const l = this.state.d.lights[id]; const b = Math.max(10, Math.min(100, l.b + step)); this.setLights({ [id]: { on: true, b } }, 'light.turn_on light.' + id + ' brightness_pct=' + b); }
-  /** A room header's All on / All off: the lights the tile shows in that room (#127: a pick may show only some). */
+  /** A room header's All on / All off: the lights the tile shows in that room (eink-ha-os#127: a pick may show only some). */
   roomLights(room: string, ids: string[]) {
     const anyOn = ids.some((id) => this.state.d.lights[id].on);
     const ch: Record<string, { on: boolean }> = {}; ids.forEach((id) => { ch[id] = { on: !anyOn }; });
     const all = ids.length === LIGHT_LIST.filter((l) => l.room === room).length;
     this.setLights(ch, 'light.' + (anyOn ? 'turn_off' : 'turn_on') + (all ? ' area_id=' + room : ' entity_id=' + ids.map((id) => 'light.' + id).join(',')));
   }
-  /** Scene tile with an entity (#146): scene.turn_on / script.turn_on; nothing on the panel changes. */
+  /** Scene tile with an entity (eink-ha-os#146): scene.turn_on / script.turn_on; nothing on the panel changes. */
   runScene(w: Widget) {
     const a = sceneAction(w);
     if (this.state.offline) { this.log('TOUCH ' + a.data.entity_id + ' · not sent, offline', 'warn'); return; }
     this.log(a.domain + '.' + a.service + ' ' + a.data.entity_id, 'ha');
   }
-  /** Now playing tile (#319): the HA call of a tap (core mediaAction); the demo player follows it like the fake HA. */
+  /** Now playing tile (eink-ha-os#319): the HA call of a tap (core mediaAction); the demo player follows it like the fake HA. */
   mediaTap(w: Widget, t: MediaTarget, fav = 0) {
-    const a = mediaAction(w, t, fav); if (!a) return;   // set: fav = the slider's % (#351)
+    const a = mediaAction(w, t, fav); if (!a) return;   // set: fav = the slider's % (eink-ha-os#351)
     const S = this.state;
     if (S.offline) { this.log('TOUCH ' + a.data.entity_id + ' · not sent, offline', 'warn'); return; }
     this.log(a.domain + '.' + a.service + ' ' + JSON.stringify(a.data), 'ha');
@@ -1147,9 +1149,9 @@ export class Emulator extends Component<EmulatorProps, EmuState> {
     this.fullRefresh('style');
   }
   look(s: EmuState): Look { return lookOf(s.cfg.style, s.cfg.typeface); }
-  /** Display language (#98): HA's get_config `language` while linked (the firmware clears it on unlink), else English. */
+  /** Display language (eink-ha-os#98): HA's get_config `language` while linked (the firmware clears it on unlink), else English. */
   lang(s: EmuState): Lang { return s.ha.linked || s.ha.revoked ? s.haLang : 'en'; }
-  /** Price currency (#147): HA's get_config `currency` while linked, else €. */
+  /** Price currency (eink-ha-os#147): HA's get_config `currency` while linked, else €. */
   cur(s: EmuState): string { return currencySymbol(s.ha.linked || s.ha.revoked ? s.haCurrency : null); }
   /** A display text in the current language (messages kept in state: boot line, OTA, Wi-Fi field). */
   tt(k: StrKey, ...a: (string | number)[]): string { return tr(this.lang(this.state), k, ...a); }
@@ -1169,7 +1171,7 @@ export class Emulator extends Component<EmulatorProps, EmuState> {
     s = s || this.state; const S = s;
     const lg = this.lang(s); const tx = (k: StrKey, ...a: (string | number)[]) => tr(lg, k, ...a);
     const gapText = (g: 'unavailable' | 'unknown') => tx(g === 'unavailable' ? 'gapUnavailable' : 'gapUnknown');
-    setNumFormat(numFormatOf(null, lg));   // #110: the sim HA has no profile number_format, so the language decides
+    setNumFormat(numFormatOf(null, lg));   // eink-ha-os#110: the sim HA has no profile number_format, so the language decides
     setCurrency(this.cur(s));
     const dirty = (k: string) => S.dirty.indexOf(k) >= 0;   // markers always render; hidden by CSS when !showRegions
     const pageDirty = dirty('page');
@@ -1189,7 +1191,7 @@ export class Emulator extends Component<EmulatorProps, EmuState> {
     const sub = this.curSub(s);
     if (w.type === 'ghost') {
       const g = w.of; const ent = g.type === 'stat' || g.type === 'switch' || g.type === 'history' || g.type === 'media' || g.type === 'weather' || ((g.type === 'gauge' || g.type === 'route' || g.type === 'scene') && g.entity) ? String(g.entity) : '';
-      const gk = ({ price: 'priceNow', gauge: 'homeBattery', bars: 'todayPerHour', zoneList: 'rooms', lightList: 'lights', thermo: 'room', scene: 'scene', route: 'palRoute', bins: 'binsTitle', guestWifi: 'guestTitle', agenda: 'agTitle', next: 'agNext', weather: 'wxWeather' } as Record<string, StrKey>)[g.type];
+      const gk = ({ price: 'priceNow', gauge: 'homeBattery', bars: 'todayPerHour', zoneList: 'rooms', lightList: 'lights', thermo: 'room', scene: 'scene', route: 'palRoute', bins: 'binsTitle', guestWifi: 'guestTitle', attrList: 'listTitle', agenda: 'agTitle', next: 'agNext', weather: 'wxWeather' } as Record<string, StrKey>)[g.type];
       const label = g.label || (ent ? (ENT[ent] && tx(ENT[ent].lk)) || ENT_NAME[ent] || ent : tx(gk || 'data'));
       return { ...base, isGhost: true, border: '2px dotted #111', label };
     }
@@ -1342,13 +1344,13 @@ export class Emulator extends Component<EmulatorProps, EmuState> {
     }
     if (w.type === 'ota') {
       const o = s.ota;
-      // #250: the status line is its own redraw region (s<i>): Check → "Checking…" → the result is a partial of that block only
+      // eink-ha-os#250: the status line is its own redraw region (s<i>): Check → "Checking…" → the result is a partial of that block only
       const line = otaLine(lg, { status: o.status, error: o.err, version: o.avail ? o.avail.version : '', checked: o.lastCheck ? hm(o.lastCheck) : '', channel: o.channel, message: o.msg });
       const [statusTitle, statusSub] = o.status === 'updated' ? [tx('otaUpdatedTo', o.fw), tx('otaPrevKept', o.prev ?? '')]
         : o.status === 'verifying' ? [tx('otaVerifying'), tx('otaStartingNew')] : [line.title, line.sub];
       const canInstall = !!o.avail && o.status !== 'checking';
       const pick = (on: boolean) => ({ bg: on ? INK : PAPER, fg: on ? PAPER : INK });
-      // #199: a git-describe name ("0.1.0-alpha.6-18-gbf929d4") drops its -g<hash> and steps 46 → 34 px (firmware
+      // eink-ha-os#199: a git-describe name ("0.1.0-alpha.6-18-gbf929d4") drops its -g<hash> and steps 46 → 34 px (firmware
       // measures; About keeps the whole name)
       const fwShown = o.fw.length > 14 ? o.fw.replace(/-g[0-9a-f]+$/, '') : o.fw;
       const fwSize = fwShown.length <= 12 ? 46 : fwShown.length <= 17 ? 40 : 34;
@@ -1367,9 +1369,9 @@ export class Emulator extends Component<EmulatorProps, EmuState> {
     if (w.type === 'stat') {
       const e = ENT[w.entity];
       if (e) { const r = e.get(d, lg); return { ...base, isStat: true, label: w.label || tx(e.lk), ikey: e.label, value: r.v, unit: r.u, sub: r.sub }; }
-      // Any other HA entity: friendly name, state, unit_of_measurement, display_precision (#85; binary_sensor → On / Off). Not
-      // received → "—"; unavailable / unknown in HA → a ring + the reason (#86).
-      const z = domainOf(w.entity) === 'climate' ? d.zones[w.entity.slice(8)] : undefined;   // a room's temperature (#161, core/format.ts statSource)
+      // Any other HA entity: friendly name, state, unit_of_measurement, display_precision (eink-ha-os#85; binary_sensor → On / Off). Not
+      // received → "—"; unavailable / unknown in HA → a ring + the reason (eink-ha-os#86).
+      const z = domainOf(w.entity) === 'climate' ? d.zones[w.entity.slice(8)] : undefined;   // a room's temperature (eink-ha-os#161, core/format.ts statSource)
       if (z) return { ...base, isStat: true, label: w.label || ENT_NAME[w.entity] || w.entity, value: fmtNum(z.cur, '°C'), unit: '°C', sub: '' };
       const st = s.ent[w.entity];
       const g = entityGap(st);
@@ -1407,32 +1409,36 @@ export class Emulator extends Component<EmulatorProps, EmuState> {
       const label = w.label || (w.series === 'prices' ? tx('chartPrices', currency()) : tx(w.series === 'solar' ? 'chartSolar' : 'chartUsage'));
       const summary = w.series === 'prices' ? tx('pricesSummary', money(PRICES[h]), pad(CHEAP) + '–' + pad(CHEAP + 3))
         : tx('soFar', fmtNum(w.series === 'solar' ? d.solarToday : d.usedToday, 'kWh'));
-      // #260: today's low / high on the drawn (hourly) bars, formatted like the history tile; a caret over the hour now
+      // eink-ha-os#260: today's low / high on the drawn (hourly) bars, formatted like the history tile; a caret over the hour now
       const lh = w.series === 'prices' ? dayLowHigh(PRICES, lg) : null;
       return { ...base, isBars: true, label, summary, bars, nowMark: w.series === 'prices', hasLowHigh: !!lh,
         low: lh ? tx('histLow', fmtNum(lh.low.v, '', 2), lh.low.time) : '', high: lh ? tx('histHigh', fmtNum(lh.high.v, '', 2), lh.high.time) : '' };
     }
-    if (w.type === 'history') {   // #267: the demo has no recorder, so a daily curve per unit (core demoHistory)
+    if (w.type === 'history') {   // eink-ha-os#267: the demo has no recorder, so a daily curve per unit (core demoHistory)
       const id = String(w.entity ?? ''); const spec = historySpec(w); const unit = ENT_UNIT[id] || ''; const dp = ENT_DP[id];
       const t = new Date(s.now); if (s.simHour != null) t.setHours(s.simHour, 0, 0, 0);
       const now = t.getTime(), tz = -t.getTimezoneOffset();
       const st = s.ent[id]; const g = entityGap(st);
-      // #283: an attribute / forecast series gets a demo list (core demoForecast) through the real parser
+      // eink-ha-os#283: an attribute / forecast series gets a demo list (core demoForecast) through the real parser
       const src = spec.source, srcUnit = src ? (/precip|rain/i.test(src.value) ? 'mm/h' : /temp/i.test(src.value) ? '°C' : '') : unit;
+      // eink-ha-os#304 wave 2: band min / max and the compare window come from the same demo points (the compare one bucketed a day / week back)
+      const pts = src || g || st == null ? [] : demoHistory(id, unit, now - spec.windowMs - spec.bucketMs - (spec.compareMs ?? 0), now, tz);
       const ahead = src ? fromSamples(g || st == null ? [] : attrSamples(demoForecast(src.value, src.time, src.forecast === 'daily' ? 86_400_000 : src.forecast ? 3_600_000 : 300_000, now, tz, spec.aheadMs ?? 0), src, spec.bucketMs, now, tz), spec, now, tz)
-        : bucketize(g || st == null ? [] : demoHistory(id, unit, now - spec.windowMs - spec.bucketMs, now, tz), spec, now, tz);
-      // #307: `past` = the recorder of another entity before now; the demo draws the same curve as the forecast (5-min
+        : bucketize(pts, spec, now, tz);
+      const [bMin, bMax] = bandSpecs(spec).map((b) => bucketize(pts, b, now, tz).values), cmp = compareSpec(spec);
+      // eink-ha-os#307: `past` = the recorder of another entity before now; the demo draws the same curve as the forecast (5-min
       // points), so the two halves meet at Now. An unknown or unavailable past entity has no history (gaps).
       const ps = spec.past ? pastSpec(spec) : null, pst = spec.past ? s.ent[spec.past] : null;
       const past = ps && src && pst != null && !entityGap(pst) ? bucketize(demoForecast(src.value, src.time, 300_000, now, tz, 0, ps.windowMs + ps.bucketMs).filter((e) => Date.parse(String(e[src.time])) <= now)
         .map((e) => ({ t: Date.parse(String(e[src.time])), v: Number(e[src.value]) })), ps, now, tz) : null;
       const series = ps ? joinSeries(spec, past, ahead, now, tz) : ahead;
-      const chart = historyChart(spec, series, 'ok', now, tz, lg, (v) => fmtNum(v, srcUnit, src ? 1 : dp));
+      const chart = historyChart(spec, series, 'ok', now, tz, lg, (v) => fmtNum(v, srcUnit, src ? 1 : dp),
+        { lo: bMin, hi: bMax, prev: cmp ? bucketize(pts.filter((p) => p.t <= seriesNow(cmp, now)), cmp, seriesNow(cmp, now), tz).values : null });
       const nowV = src ? series.values[Math.round((bucketStart(now, spec.bucketMs, tz) - series.start) / spec.bucketMs)] : null;   // a series' summary: its value now
       return { ...base, isHistory: true, ...historyTile(chart), label: w.label || ENT_NAME[id] || id,
         summary: g ? gapText(g) : st == null ? '—' : src ? (nowV == null ? '—' : fmtNum(nowV, srcUnit, 1) + (srcUnit ? ' ' + srcUnit : '')) : fmtValue(st, unit, dp) + (unit ? ' ' + unit : '') };
     }
-    if (w.type === 'weather') {   // #318: the demo has no HA, so weather.home's attributes and forecasts come from core
+    if (w.type === 'weather') {   // eink-ha-os#318: the demo has no HA, so weather.home's attributes and forecasts come from core
       const id = String(w.entity ?? ''); const st = s.ent[id];
       const t = new Date(s.now); if (s.simHour != null) t.setHours(s.simHour, 0, 0, 0);
       const now = t.getTime(), tz = -t.getTimezoneOffset(), demo = id === 'weather.home';
@@ -1441,7 +1447,17 @@ export class Emulator extends Component<EmulatorProps, EmuState> {
       return { ...base, isWeather: true, wx, tall: (w.rs || 1) > 1, label: w.label || ENT_NAME[id] || id, gapText: wx.gap ? gapText(wx.gap) : '',
         lHigh: tx('wxHigh'), lLow: tx('wxLow'), lWind: tx('wxWind'), lRain: tx('wxRain'), noForecast: tx('wxNoForecast') };
     }
-    if (w.type === 'guestWifi') {   // #329: QR + network + password; geometry from core guestLayout (firmware ui_guest.cpp)
+    if (w.type === 'attrList') {   // eink-ha-os#332: the demo bird sensor is dated from now (data.ts demoBirds); other ids read s.ent (no attributes)
+      const id = String(w.entity ?? ''); const t = new Date(s.now); if (s.simHour != null) t.setHours(s.simHour, 0, 0, 0);
+      const e = id === DEMO_BIRDS.id ? demoBirds(t) : s.ent[id] == null ? null : { state: s.ent[id], attrs: {} as Record<string, unknown> };
+      const spec = listSpec(w); const L = listRows(base.cs, base.rs);
+      const gap = !e || e.state === 'unavailable' || e.state === 'unknown';
+      const lv = gap ? { rows: [], more: 0 } : listView(e.attrs[spec.attribute], spec, t.getTime(), -t.getTimezoneOffset(), lg, L.rows);
+      const attribution = !gap && typeof e.attrs.attribution === 'string' ? e.attrs.attribution : '';
+      return { ...base, isAttrList: true, listSleek: this.look(s) !== 'classic', oneLine: L.oneLine, label: w.label || ENT_NAME[id] || id, rows: lv.rows,
+        empty: lv.rows.length ? '' : gap ? tx('noDataYet') : String(w.empty ?? '') || tx('listEmpty'), attribution, more: lv.more ? tx('listMore', lv.more) : '' };
+    }
+    if (w.type === 'guestWifi') {   // eink-ha-os#329: QR + network + password; geometry from core guestLayout (firmware ui_guest.cpp)
       const ent = typeof w.password_entity === 'string' ? w.password_entity : '';
       const gv = guestView(w, ent ? s.ent[ent] : undefined);
       const qr = gv.status === 'ok' ? guestQr(gv.payload) : null;
@@ -1452,7 +1468,7 @@ export class Emulator extends Component<EmulatorProps, EmuState> {
       return { ...base, isGuest: true, L, qr, msg, bw: sleek ? 0 : 2, guestSleek: sleek,
         rows: [{ cap: tx('guestNetwork'), val: gv.ssid || '—', soft: false }, { cap: tx('guestPassword'), val: gv.open ? tx('guestOpen') : gv.password || '—', soft: gv.open }] };
     }
-    if (w.type === 'bins') {   // #317: demo bin sensors are dated from now (data.ts demoBinState); other ids read s.ent
+    if (w.type === 'bins') {   // eink-ha-os#317: demo bin sensors are dated from now (data.ts demoBinState); other ids read s.ent
       const ids = listOf(w, 'entities'); const t = new Date(s.now); if (s.simHour != null) t.setHours(s.simHour, 0, 0, 0);
       const labels = binLabels(ids, labelPairs(w.labels), (id) => ENT_NAME[id]);
       const bins = ids.map((id, k) => { const demo = DEMO_BINS.find((b) => b.id === id); const v = demo ? demoBinState(demo, t) : { state: s.ent[id], attrs: {} };
@@ -1464,7 +1480,7 @@ export class Emulator extends Component<EmulatorProps, EmuState> {
         big: known ? bv.big : '—', single: known ? bv.head : w.label || tx('binsTitle'), foot: !ids.length ? tx('binsPick') : known ? bv.foot : tx('binsNone'),
         rest: bv.rest.map((r) => ({ label: r.label, when: r.short })) };
     }
-    if (w.type === 'agenda' || w.type === 'next') {   // #316: the demo calendars through the device's parser (core/agenda.ts)
+    if (w.type === 'agenda' || w.type === 'next') {   // eink-ha-os#316: the demo calendars through the device's parser (core/agenda.ts)
       const t = new Date(s.now); if (s.simHour != null) t.setHours(s.simHour, 0, 0, 0);
       const now = t.getTime(), tz = -t.getTimezoneOffset(), key = agendaKey(w);
       const f = key ? parseAnswer(demoAnswer(key, now, tz), key, now, tz) : null;
@@ -1477,7 +1493,7 @@ export class Emulator extends Component<EmulatorProps, EmuState> {
         empty: !f ? tx('agUnavailable') : a.lines.length ? '' : tx('agNothing') };
     }
     if (w.type === 'thermo') {
-      // no zone picked yet / not in HA (#148): "—", the label or "Room", buttons do nothing (core setZone needs a zone)
+      // no zone picked yet / not in HA (eink-ha-os#148): "—", the label or "Room", buttons do nothing (core setZone needs a zone)
       const z = w.zone ? d.zones[w.zone] : undefined; const tall = (w.rs || 1) > 1; const heating = !!z && z.set > z.cur + 0.05;
       return { ...base, isThermo: true, label: w.label || ZONE_NAME[w.zone] || w.zone || tx('room'), value: z ? fmtNum(z.cur, '°C') : '—', set: z ? fmtNum(z.set, '°C') : '—', curN: z ? z.cur : 14, setN: z ? z.set : 14, heating, setDeco: s.pending[w.zone] ? 'underline dotted' : 'none',
         bigSize: tall ? 76 : 40, sub: tall && z ? (heating ? tx('heatingTo', fmtNum(z.set, '°C') + '°') : tx('atSetTemp')) : '',
@@ -1493,7 +1509,7 @@ export class Emulator extends Component<EmulatorProps, EmuState> {
           dec: () => this.setZone(z.id, -0.5), inc: () => this.setZone(z.id, 0.5) };
       });
       const heating = all.filter((z) => d.zones[z.id].set > d.zones[z.id].cur + 0.05).length;
-      const awayIds = ZONE_LIST.slice(0, s.zoneCount).filter((z) => presetHasAway(z.presets)).map((z) => 'climate.' + z.id);   // #148
+      const awayIds = ZONE_LIST.slice(0, s.zoneCount).filter((z) => presetHasAway(z.presets)).map((z) => 'climate.' + z.id);   // eink-ha-os#148
       const range = pages > 1 ? tx('roomsRange', (page * PER_PAGE + 1) + '–' + (page * PER_PAGE + slice.length), all.length) : tx('nRooms', all.length);
       return { ...base, isZoneList: true, rows, hdrDirty: dirty('h' + i),
         summary: range + ' · ' + tx('nHeating', heating) + (s.away ? ' · ' + tx('away') : ''),
@@ -1530,13 +1546,13 @@ export class Emulator extends Component<EmulatorProps, EmuState> {
       return { ...base, isLight: true, dimmable: false, label: w.label || ENT_NAME[id] || id, value: g ? '' : st == null ? '—' : tx(on ? 'on' : 'off'), gap: !!g, gapText: g ? gapText(g) : '',
         trackBg: on ? INK : PAPER, knobBg: PAPER, knobSide: on ? 'flex-end' : 'flex-start', toggle: () => this.toggleEntity(id), dec: () => {}, inc: () => {} };
     }
-    if (w.type === 'scene') {   // #146: a scene / script entity → <domain>.turn_on; none (or scene: all_off) → all lights off
+    if (w.type === 'scene') {   // eink-ha-os#146: a scene / script entity → <domain>.turn_on; none (or scene: all_off) → all lights off
       const id = typeof w.entity === 'string' ? w.entity : '';
       if (id) return { ...base, isScene: true, kind: tx(domainOf(id) === 'script' ? 'script' : 'scene'), label: w.label || ENT_NAME[id] || id, sub: tx('tapToRun'), run: () => this.runScene(w) };
       const on = LIGHT_LIST.filter((l) => d.lights[l.id].on).length;
       return { ...base, isScene: true, kind: tx('scene'), label: w.label || tx('allLightsOff'), sub: tx('lightsOnOf', on, LIGHT_LIST.length), run: () => this.allOff() };
     }
-    if (w.type === 'media') {   // #319: now playing; core media.ts decides what shows and what fits
+    if (w.type === 'media') {   // eink-ha-os#319: now playing; core media.ts decides what shows and what fits
       const id = String(w.entity ?? ''); const m = s.media[id]; const q = m ? DEMO_MEDIA.queue[m.i] : undefined;
       const v = mediaView(m ? m.state : s.ent[id], m ? { media_title: m.title ?? q?.title, media_artist: m.title ? '' : q?.artist, volume_level: m.vol, supported_features: DEMO_MEDIA.features } : {});
       const favs = favoritesOf(w); const L = mediaLayout(w.cs || 1, w.rs || 1, favs.length); const key = s.idx + ':' + s.sub + ':' + i;
@@ -1551,7 +1567,7 @@ export class Emulator extends Component<EmulatorProps, EmuState> {
     }
     if (w.type === 'setting') {
       const def = SETTINGS[w.key]; const ck = (SETTING_CFG[w.key] || w.key) as keyof Cfg;
-      // a two-row tile also says what the setting does (#190)
+      // a two-row tile also says what the setting does (eink-ha-os#190)
       return { ...base, isSetting: true, label: tx(def.lk), value: def.fmt(s.cfg[ck], lg), dec: () => this.setCfg(ck, -1), inc: () => this.setCfg(ck, 1) };
     }
     if (w.type === 'info') {
@@ -1606,7 +1622,7 @@ export class Emulator extends Component<EmulatorProps, EmuState> {
     const emptyOn = this.emptyActive(s);
     const morningOn = this.morningOn(s), morning = morningOn ? this.morningOf(s) : null;
     const peeking = this.quietHour(s) && !quietOn && !s.sleeping && s.mode === 'main';
-    // deep sleep and a timer wake's boot (#357) keep the light off
+    // deep sleep and a timer wake's boot (eink-ha-os#357) keep the light off
     const b = frontlightPct({ brightness: s.cfg.brightness, standby: !!s.asleep || s.bootDark, lightOut: s.lightOut && s.mode === 'main' }), wm = s.cfg.warmth / 100;
     const lr = Math.round(214 + 41 * wm), lg = Math.round(228 - 30 * wm), lb = Math.round(255 - 120 * wm);
     const sel = (on: boolean) => ({ bg: on ? '#1d1d1f' : '#fff', fg: on ? '#F6F5F2' : '#1d1d1f' });
@@ -1615,7 +1631,7 @@ export class Emulator extends Component<EmulatorProps, EmuState> {
     const pos = Math.max(0, f.findIndex(([i, q]) => i === s.idx && q === sub));
     const chrome = this.chromeOf(s);
     const quiet = quietOn ? s.quietSnap || this.quietSnapOf(s) : { row: { head: '', items: [] } as QuietRow, at: '' };
-    // one sleep face (#356): quiet hours, Nobody home and glance sleep share the quiet face's layout with their own lines
+    // one sleep face (eink-ha-os#356): quiet hours, Nobody home and glance sleep share the quiet face's layout with their own lines
     const glanceOn = this.glanceFaceActive(s), glance = glanceOn ? this.quietSnapOf(s, TODAY_END) : null;
     const face: SleepFace | null = quietOn
       ? { title: tx('quietBack', quietBackAt(s.cfg.quiet, s.cfg.clock)), sub: dateText, head: quiet.row.head, items: quiet.row.items, facts: [], foot: quiet.at ? tx('asOf', quiet.at) : '', tap: true }
@@ -1632,7 +1648,7 @@ export class Emulator extends Component<EmulatorProps, EmuState> {
       weekday: tx(('day' + now.getDay()) as StrKey), dayMonth: now.getDate() + ' ' + tx(('month' + now.getMonth()) as StrKey),
       t: tx,
       pagesBgS: s.menu === 'pages' ? TRACK : 'transparent',
-      // the app switcher is open: no page position (#151, it kept "3 / 3" of the page behind it)
+      // the app switcher is open: no page position (eink-ha-os#151, it kept "3 / 3" of the page behind it)
       pageDots: (() => { const tot = s.setup ? 2 : f.length, cur = s.setup ? (s.setup === 'wifi' ? 0 : 1) : s.menu === 'apps' ? -1 : pos;
         return Array.from({ length: Math.min(tot, 8) }, (_, k) => ({ w: k === Math.min(cur, 7) ? 22 : 8, c: INK })); })(),
       lookOpts: LOOKS.map(([k, label]) => ({ label, ...sel(look === k), pick: () => this.setLook(k) })),
@@ -1643,7 +1659,7 @@ export class Emulator extends Component<EmulatorProps, EmuState> {
       asleepFootLine: s.asleep ? tx('asleepFoot') : '',
       term: this.termVm(s),
       markInput: () => this.input(),
-      // ambient (#27): the first touch only brings the chrome back; its click never reaches a button
+      // ambient (eink-ha-os#27): the first touch only brings the chrome back; its click never reaches a button
       ambientDown: (e: React.PointerEvent) => { this.swallowClick = this.wakeChrome('TOUCH'); if (this.swallowClick) e.stopPropagation(); },
       ambientClick: (e: React.MouseEvent) => { if (!this.swallowClick) return; this.swallowClick = false; e.stopPropagation(); e.preventDefault(); },
       firstInstall: () => { this.log('SIM first install (factory fresh)', 'warn'); this.factoryReset(); },
@@ -1673,7 +1689,7 @@ export class Emulator extends Component<EmulatorProps, EmuState> {
       note: { isPill: false, isQuiet: false, text: '', hasMore: false, more: '', go: () => {}, bg: PAPER, fg: INK, icon: '' },
       statusIcons: s.setup ? [] : [
         !s.ha.linked ? { d: ICON.unlinked, fill: 'none', stroke: INK, label: 'Home Assistant not linked' }
-          // HA unreachable (#86): the icon + "since 14:05" (the last data), quiet; the tiles keep their last values
+          // HA unreachable (eink-ha-os#86): the icon + "since 14:05" (the last data), quiet; the tiles keep their last values
           : s.offline ? { d: ICON.offline, fill: 'none', stroke: INK, label: 'Home Assistant offline since ' + (s.lastUpdate ? hm(s.lastUpdate) : '—'), text: s.lastUpdate ? tx('since', hm(s.lastUpdate)) : '' } : null,
         Object.keys(s.pending).length ? { d: ICON.sync, fill: 'none', stroke: INK, label: 'Sending to tado' } : null,
         s.ota.status === 'available' && s.ota.auto !== 'off' ? { d: ICON.update, fill: 'none', stroke: INK, label: 'Update ready' } : null,
@@ -1700,17 +1716,17 @@ export class Emulator extends Component<EmulatorProps, EmuState> {
       failOpts: ([['ok', 'Works'], ['hash', 'Bad download'], ['boot', 'Won’t start']] as const).map(([k, label]) => ({ label, ...sel(s.failMode === k), pick: () => { this.setState({ failMode: k }); this.log('SIM next update → ' + label); } })),
       checkOpts: ([['ok', 'Works'], ['memory', 'Low memory'], ['busy', 'Rate limit'], ['network', 'No answer']] as const).map(([k, label]) => ({ label, ...sel(s.checkFail === k), pick: () => { this.setState({ checkFail: k }); this.log('SIM next check → ' + label); } })),
       isQuiet: quietOn, isPeek: peeking,
-      // Nobody home face (#331): asleep in glance with nobody home; quiet hours win
+      // Nobody home face (eink-ha-os#331): asleep in glance with nobody home; quiet hours win
       isNobodyHome: emptyOn, isGlanceFace: glanceOn,
-      // the sleep face (#295 quiet: "Back at 07:00", the date, the "Tomorrow" row; #331 Nobody home: "Next update ~16:05",
-      // facts; #356 glance: "Asleep · press to wake", the date, the "Today" row); "as of" only when the data was stale
+      // the sleep face (eink-ha-os#295 quiet: "Back at 07:00", the date, the "Tomorrow" row; eink-ha-os#331 Nobody home: "Next update ~16:05",
+      // facts; eink-ha-os#356 glance: "Asleep · press to wake", the date, the "Today" row); "as of" only when the data was stale
       face,
       peek: () => { if (!this.asleepIgnores('TOUCH quiet face')) this.doPeek('TOUCH quiet face'); },
-      // Good morning page (#330): greeting + date, today's weather / events / bins; rows without a source are left out
+      // Good morning page (eink-ha-os#330): greeting + date, today's weather / events / bins; rows without a source are left out
       isMorning: morningOn, morning, morningDone: () => { if (!this.asleepIgnores('TOUCH good morning')) this.morningDone('TOUCH good morning'); },
       isMenu: !!s.menu, isGrid: !s.menu,
       appTitle: s.setup ? tx('setup') : this.appDef(s, this.appOf(s)).title,
-      // setup (#183): "Step 2 of 2" as the title and no pager; the arrows went nowhere until setup was done
+      // setup (eink-ha-os#183): "Step 2 of 2" as the title and no pager; the arrows went nowhere until setup was done
       pageTitle: s.setup ? tx('setupStep', s.setup === 'wifi' ? 1 : 2, 2) : s.menu === 'apps' ? tx('allApps') : s.menu === 'pages' ? tx('allPages') : sc.title,
       toggleApps: () => this.setMenu('apps', 'TOUCH app title'),
       togglePages: () => this.setMenu('pages', 'TOUCH page count'),
@@ -1721,7 +1737,7 @@ export class Emulator extends Component<EmulatorProps, EmuState> {
       flashing: !!s.flash, flashColor: s.flash || PAPER,
       lightOn: b > 0, lightColor: 'rgb(' + lr + ',' + lg + ',' + lb + ')', lightOpacity: s.sleeping ? 0 : (b / 100) * 0.5,
       clock, dateText,
-      // deep sleep (#299, #333): no time of day. The bar says "Asleep"; a clock tile and the standby face show the day
+      // deep sleep (eink-ha-os#299, eink-ha-os#333): no time of day. The bar says "Asleep"; a clock tile and the standby face show the day
       // number big with weekday · month, and the tile carries the "Asleep" mark (Home has no bar clock)
       asleepMark: asleepNow ? tx('asleepBar') : '',
       dayNum: String(now.getDate()), asleepDate,

@@ -37,19 +37,19 @@ type Local = {
   qScreens: string; qPalette: string; qEntity: string; newApp: string; editApp: string | null; appMsg: string; dropApp: string | null;
   settings: DeviceSettings | null; settingsMsg: { ok: boolean; text: string } | null;
   diag: Diagnostics | null; diagMsg: string; haReport: ReportStatus | null;
-  /** Updates card (#250): GET /ota; otaMsg = a refused POST /ota/check */
+  /** Updates card (eink-ha-os#250): GET /ota; otaMsg = a refused POST /ota/check */
   ota: OtaView | null; otaMsg: string;
   yaml: string; yamlEdited: boolean; yamlMsg: { ok: boolean; text: string } | null;
   newName: string; newScope: 'ro' | 'rw'; reveal: { id: string; secret: string } | null;
   wifiSel: string; wifiPw: string; wifiMsg: string; wifiBusy: boolean;
   haUrl: string | null; haEdit: boolean; haMsg: string;
   canvasMsg: string; dropCell: number;
-  /** A tile just added from the palette, until its entity is picked (#184): named after the palette item; `prefer`
+  /** A tile just added from the palette, until its entity is picked (eink-ha-os#184): named after the palette item; `prefer`
    *  domain first in the picker ("Light" adds a switch tile with lights on top). */
   pend: (Pal & { screen: string; j: number }) | null;
-  /** Tile source (#191): Change panel open, its search, the sign chosen before a pick, the last save. */
+  /** Tile source (eink-ha-os#191): Change panel open, its search, the sign chosen before a pick, the last save. */
   srcOpen: boolean; qSrc: string; srcFlip: boolean; srcMsg: { ok: boolean; text: string; warn?: boolean } | null;
-  /** Device settings (#190): the Wi-Fi form unfolded, the settings whose (i) text is open. */
+  /** Device settings (eink-ha-os#190): the Wi-Fi form unfolded, the settings whose (i) text is open. */
   wifiOpen: boolean; infoOpen: Record<string, boolean>;
 };
 const INITIAL: Local = { signing: false, tab: 'screens', sel: 0, selW: -1, draft: null, dirty: false,
@@ -84,7 +84,7 @@ export function useConsole(api: DeviceApi, initial: DeviceSnapshot | null = null
   const installId = S?.installId;
   useEffect(() => { setW((w) => ({ ...w, draft: null, dirty: false, reveal: null, wifiPw: '', wifiMsg: '', haUrl: null, haEdit: false, haMsg: '' })); }, [installId]);
 
-  // Settings is built into the display (#159): an older firmware's settings app / screens never reach the editor
+  // Settings is built into the display (eink-ha-os#159): an older firmware's settings app / screens never reach the editor
   const live: Config = userConfig({ apps: S ? S.apps : [], screens: S ? S.screens : [] });
   const cfg = W.draft || live; const draft = cfg.screens;
   const sel = Math.max(0, Math.min(W.sel, draft.length - 1)); const cur: Screen | undefined = draft[sel];
@@ -98,14 +98,14 @@ export function useConsole(api: DeviceApi, initial: DeviceSnapshot | null = null
   const gmap: Record<string, typeof PALETTE> = {}; PALETTE.filter((it) => matches(W.qPalette, it.label, it.w.type)).forEach((it) => { const g = (PAL_GROUPS.find((p) => p[0] === it.kind) || [0, 'Other'])[1]; (gmap[g] = gmap[g] || []).push(it); });
   const setDrag = (e: DragEvent, d: Drag) => { drag.current = d; try { e.dataTransfer.setData('text/plain', 'widget'); e.dataTransfer.effectAllowed = 'move'; } catch { /* ignore */ } };
   const user = S ? S.session.user || S.ha.user : '';
-  // #98: HA's language while linked, else the browser's; English for anything but Dutch
+  // eink-ha-os#98: HA's language while linked, else the browser's; English for anything but Dutch
   const lang = consoleLang(S, typeof navigator === 'undefined' ? '' : navigator.language);
   const t = (k: StrKey, ...a: (string | number)[]) => tr(lang, k, ...a);
-  /** English from the device API, the screen editor or a shared table, in the console language (#111). */
+  /** English from the device API, the screen editor or a shared table, in the console language (eink-ha-os#111). */
   const tm = (s: string) => trMsg(lang, s);
-  // Signed in as a Home Assistant user who is not an admin: read scope only (issue #22).
+  // Signed in as a Home Assistant user who is not an admin: read scope only (issue eink-ha-os#22).
   const viewOnly = phase === 'in' && !S!.session.admin;
-  // An unpushed draft (#183): the browser asks before a reload or close drops it.
+  // An unpushed draft (eink-ha-os#183): the browser asks before a reload or close drops it.
   const unsaved = (W.dirty || W.yamlEdited) && !viewOnly;
   useEffect(() => {
     if (!unsaved) return;
@@ -113,7 +113,7 @@ export function useConsole(api: DeviceApi, initial: DeviceSnapshot | null = null
     window.addEventListener('beforeunload', ask);
     return () => window.removeEventListener('beforeunload', ask);
   }, [unsaved]);
-  // Screens view (#83, #122): Names = tile names, Values = each tile's live value as the display formats it (every 5 s).
+  // Screens view (eink-ha-os#83, eink-ha-os#122): Names = tile names, Values = each tile's live value as the display formats it (every 5 s).
   const [view, setView] = useState<ScreenView>(loadView);
   const [advPage, setAdvPage] = useState<AdvPage>(loadAdvPage);
   const logsVm = useDeviceLogs(api, phase === 'in' && W.tab === 'advanced' && advPage === 'logs', t, tm);
@@ -121,12 +121,12 @@ export function useConsole(api: DeviceApi, initial: DeviceSnapshot | null = null
   const pushedSc = cur && S ? S.screens.find((x) => x.id === cur.id) : undefined; const pushed = !!pushedSc;
   const { lv, err: lvErr } = useScreenValues(api, values && pushed ? cur!.id : null, rev);
   const liveValue = (w: Widget, j: number) => (values && lv && pushedSc ? tileValueFor(w, pushedSc.widgets[j], lv.values[j]) : '');
-  // #189: each card shows its tile cropped from the display's own render (grid per display style, so after settings)
+  // eink-ha-os#189: each card shows its tile cropped from the display's own render (grid per display style, so after settings)
   const shot = useScreenPreview(api, values && pushed ? cur!.id : null, rev);
   const grid = W.settings?.display.style === 'sleek' ? SLEEK_GRID : CLASSIC_GRID;
   const crops = shot && pushedSc && cur && W.settings ? tileCrops(cur.widgets, pushedSc.widgets, grid) : [];
   const place = (col: number, row: number, cs: number, rs: number) => (values ? panelPlace(grid, col, row, cs, rs) : null);
-  // First-run checklist (#91): "preview checked" once the Values view was open in this browser.
+  // First-run checklist (eink-ha-os#91): "preview checked" once the Values view was open in this browser.
   const [previewSeen, setPreviewSeen] = useState(loadPreviewSeen);
   useEffect(() => { if (values && !previewSeen) { setPreviewSeen(true); savePreviewSeen(); } }, [values, previewSeen]);
 
@@ -157,7 +157,7 @@ export function useConsole(api: DeviceApi, initial: DeviceSnapshot | null = null
   const addNew = (w: Widget, cell?: [number, number], pal?: Pal) => {
     if (!cur) return;
     const r = addTile(cur.widgets, w, cell);
-    tileEdit(r, typeof r === 'string' || !(pickDomains(w.type) || w.type === 'guestWifi') ? -1 : r.sel);   // #329: guest Wi-Fi opens its fields
+    tileEdit(r, typeof r === 'string' || !(pickDomains(w.type) || w.type === 'guestWifi') ? -1 : r.sel);   // eink-ha-os#329: guest Wi-Fi opens its fields
     if (typeof r !== 'string' && pickDomains(w.type)) setWeb({ qEntity: '', pend: pal ? { ...pal, screen: cur.id, j: r.sel } : null });
   };
   const removeAt = (j: number) => { if (!cur || !cur.widgets[j]) return; commit(removeTile(cur.widgets, j), -1); };
@@ -178,8 +178,8 @@ export function useConsole(api: DeviceApi, initial: DeviceSnapshot | null = null
 
   // ---- Home Assistant entities for the picker (GET /ha/entities; not ready yet → retry every 2 s) ----
   const [ents, setEnts] = useState<{ ready: boolean; list: HaEntity[]; areas: { id: string; name: string }[]; lists?: EntityLists; error: string }>({ ready: false, list: [], areas: [], error: '' });
-  const [fav, setFav] = useState({ name: '', target: '' });   // media tile: the favorite being added (#319)
-  const [guestShow, setGuestShow] = useState(false);   // guest Wi-Fi tile: password field shown plain (#329)
+  const [fav, setFav] = useState({ name: '', target: '' });   // media tile: the favorite being added (eink-ha-os#319)
+  const [guestShow, setGuestShow] = useState(false);   // guest Wi-Fi tile: password field shown plain (eink-ha-os#329)
   const signedIn = phase === 'in';
   useEffect(() => {
     if (!signedIn) return;
@@ -194,14 +194,14 @@ export function useConsole(api: DeviceApi, initial: DeviceSnapshot | null = null
   /** Tile name: the user's label or HA's name as is, our own default names in the console language. */
   const wName = (w: Widget) => { const n = wLabel(w, names); const e = pickedEntity(w); return w.label || (e && names[e] === n) ? n : tm(n); };
   const pendAt = (j: number) => (W.pend && cur && W.pend.screen === cur.id && W.pend.j === j && cur.widgets[j] && !pickedEntity(cur.widgets[j]) ? W.pend : null);
-  /** Tile `j` of the current screen: wName, or the palette item's name while its entity is not picked yet (#184). */
+  /** Tile `j` of the current screen: wName, or the palette item's name while its entity is not picked yet (eink-ha-os#184). */
   const nameAt = (w: Widget, j: number) => { const p = pendAt(j); return p && !w.label ? tm(p.label) : wName(w); };
-  // No value in HA (#86): the display's live view for entities on pushed screens (entity_gaps), else the entity list's
+  // No value in HA (eink-ha-os#86): the display's live view for entities on pushed screens (entity_gaps), else the entity list's
   // state (read at most 5 min ago) for one only in the draft.
   const onPanel = new Set(live.screens.flatMap((x) => x.widgets.map((w) => w.entity)));
   const gapOf = (id: unknown): EntityGap | null => typeof id !== 'string' ? null
     : onPanel.has(id) ? S?.entityGaps[id] ?? null : entityGap(ents.list.find((e) => e.id === id)?.state);
-  /** The display's subscription cap hides some of an unpicked list's lights / rooms (#134): the note, else ''. */
+  /** The display's subscription cap hides some of an unpicked list's lights / rooms (eink-ha-os#134): the note, else ''. */
   const capNote = (w: Widget) => { const c = capHides(w, ents.lists); return c ? t(w.type === 'lightList' ? 'capLights' : 'capRooms', ...c) : ''; };
   const gapWord = (g: EntityGap, inHa = false) => t(g === 'unavailable' ? (inHa ? 'gapUnavailableHa' : 'gapUnavailable') : inHa ? 'gapUnknownHa' : 'gapUnknown');
   const selIssue = (w: Widget) => {
@@ -210,7 +210,7 @@ export function useConsole(api: DeviceApi, initial: DeviceSnapshot | null = null
     return g ? { msg: t('gapNote', gapWord(g).toLowerCase()), hard: false } : null;
   };
 
-  // ---- display settings (Device settings tab) and the selected tile's source (logical id → HA entity, #191) ----
+  // ---- display settings (Device settings tab) and the selected tile's source (logical id → HA entity, eink-ha-os#191) ----
   const onDevice = signedIn && W.tab === 'device';
   const selLogical = signedIn && W.tab === 'screens' && sw ? tileLogical(sw) : null;
   const onSource = !!selLogical;
@@ -257,7 +257,7 @@ export function useConsole(api: DeviceApi, initial: DeviceSnapshot | null = null
     api.signInWithHa(src, haUrl).then(() => setWeb({ signing: false, yamlEdited: false, tab: 'screens' }),
       (e: Error) => setWeb({ signing: false, haMsg: e.message === HA_NO_ANSWER ? t('haNoAnswer') : tm(e.message) || t('signInFailed'), haEdit: true }));
   };
-  // Link page address (#54): "Found … on your network" only for an mDNS answer; a typed one is "Home Assistant at …".
+  // Link page address (eink-ha-os#54): "Found … on your network" only for an mDNS answer; a typed one is "Home Assistant at …".
   const haServer = S ? S.ha.server : '';
   const haLabel = haServer.replace(/^http:\/\//, '');
   const haAsk = !!S && !S.ha.linked && (!haServer || W.haEdit);   // linked: the display uses its own server
@@ -291,12 +291,12 @@ export function useConsole(api: DeviceApi, initial: DeviceSnapshot | null = null
     signIn: () => linkSignIn('GET /login'),
     reload: () => { api.reload(); },
     linkTitle: t(S?.setup ? 'finishSetup' : 'linkHa'),
-    // Link page (#55): one sentence, the address, the button; the rest behind two disclosures.
+    // Link page (eink-ha-os#55): one sentence, the address, the button; the rest behind two disclosures.
     haFound: !haAsk && !!S && S.ha.discovered.includes(haServer), haKnown: !haAsk && !!S && !S.ha.discovered.includes(haServer), haAsk,
     haLabel, haField, haMsg: W.haMsg, hasHaMsg: !!W.haMsg,
     setHaField: (e: ChangeEvent<HTMLInputElement>) => setWeb({ haUrl: e.target.value, haMsg: '' }),
     haChange: () => setWeb({ haEdit: true, haUrl: haLabel, haMsg: '' }),
-    // What the stored key can do (issue #22).
+    // What the stored key can do (issue eink-ha-os#22).
     keyTitle: t('keyTitle'),
     keyText: t('keyText'),
     advancedTitle: t('advancedTitle'),
@@ -329,11 +329,11 @@ export function useConsole(api: DeviceApi, initial: DeviceSnapshot | null = null
     },
     discard: () => setWeb({ draft: null, dirty: false, yamlEdited: false, yamlMsg: null, selW: -1 }),
     signOut: () => { api.signOut(); },
-    // HA unreachable (#86): one calm line under the header; the display keeps its last values
+    // HA unreachable (eink-ha-os#86): one calm line under the header; the display keeps its last values
     haDown: phase === 'in' && !!S && S.offline && S.ha.linked && !!S.wifi.connected, haDownText: t('haDown'),
     // screens
     isScreens: W.tab === 'screens',
-    /** Screens tab on screen `id` (the first screen when there is none): the seed report's "Pick one" (#89). */
+    /** Screens tab on screen `id` (the first screen when there is none): the seed report's "Pick one" (eink-ha-os#89). */
     configRev: rev ?? 0,
     offline: !!S?.offline, previewSeen,
     showValues: () => { setView('values'); saveView('values'); setWeb({ tab: 'screens', selW: -1 }); },
@@ -390,13 +390,13 @@ export function useConsole(api: DeviceApi, initial: DeviceSnapshot | null = null
     }),
     unplaced: cur ? gridLayout(cur.widgets).filter((c) => !c).length : 0,
     blocks: cur ? gridLayout(cur.widgets).map((c, j) => ({ c, w: cur.widgets[j], j })).filter((o) => o.c).map(({ c, w, j }) => ({ j, col: c!.col, row: c!.row, cs: c!.cs, rs: c!.rs, place: place(c!.col, c!.row, c!.cs, c!.rs), name: liveValue(w, j) || nameAt(w, j),
-      // #184: no widget type, size or entity id on the card; the names are HA's friendly names
+      // eink-ha-os#184: no widget type, size or entity id on the card; the names are HA's friendly names
       sub: liveValue(w, j) ? nameAt(w, j) : capNote(w) || (gapOf(w.entity) ? gapWord(gapOf(w.entity)!, true) : ''), border: j === selW ? '3px solid #1d1d1f' : '1.5px solid #1d1d1f', bg: j === selW ? '#F6F5F2' : '#fff',
       on: j === selW, bad: !!entityIssue(w, ents.ready ? ents.list : null)?.hard || !!historyIssue(w) || !!agendaIssue(w),
       aria: nameAt(w, j) + (liveValue(w, j) ? ', ' + liveValue(w, j) : '') + ', ' + tileSize(w) + ', column ' + c!.col + ', row ' + c!.row,
       crop: crops[j] && shot ? { url: shot.url, box: `${crops[j]!.x} ${crops[j]!.y} ${crops[j]!.w} ${crops[j]!.h}` } : null,
       select: () => setWeb({ selW: j === selW ? -1 : j, srcOpen: false, qSrc: '', srcFlip: false, srcMsg: null }),
-      // keyboard (#84; tiles are buttons, so Enter / Space select): arrows move one cell (onto a tile = swap),
+      // keyboard (eink-ha-os#84; tiles are buttons, so Enter / Space select): arrows move one cell (onto a tile = swap),
       // Delete / Backspace remove, Escape deselects
       key: (e: KeyboardEvent) => {
         const arrow: Record<string, [number, number]> = { ArrowLeft: [-1, 0], ArrowRight: [1, 0], ArrowUp: [0, -1], ArrowDown: [0, 1] };
@@ -407,7 +407,7 @@ export function useConsole(api: DeviceApi, initial: DeviceSnapshot | null = null
       dragStart: (e: DragEvent) => setDrag(e, { kind: 'move', from: j }),
       drop: (e: DragEvent) => { e.preventDefault(); e.stopPropagation(); dropAt({ tile: j }); } })) : [],
     hasSel: !!sw, selName: sw ? nameAt(sw, selW) : '',
-    // list picker (#127): which lights / areas a lightList shows, which climate entities a zoneList shows
+    // list picker (eink-ha-os#127): which lights / areas a lightList shows, which climate entities a zoneList shows
     hasListPicker: !!sw && !!LIST_PICKS[sw.type],
     listTitle: sw ? t(sw.type === 'lightList' ? 'pickLights' : AGENDA_TYPES.includes(sw.type) ? 'pickCalendars' : 'pickRooms') : '',
     listCount: sw && LIST_PICKS[sw.type] ? (() => { const n = Object.keys(LIST_PICKS[sw.type]).reduce((a, k) => a + listOf(sw, k).length, 0);
@@ -419,7 +419,7 @@ export function useConsole(api: DeviceApi, initial: DeviceSnapshot | null = null
       toggle: () => { if (cur && g.area) commit(togglePick(cur.widgets, selW, 'areas', g.area), selW); },
       rows: g.rows.map((r) => ({ ...r, toggle: () => { if (cur && !r.viaArea) commit(togglePick(cur.widgets, selW, 'entities', r.id), selW); } })) })) : [],
     listEmpty: ents.ready && !!sw && !!LIST_PICKS[sw.type] && !pickGroups(ents.list, ents.areas, sw, W.qEntity, '').length,
-    // bin day tile (#317): tick each bin's sensor, name it
+    // bin day tile (eink-ha-os#317): tick each bin's sensor, name it
     hasBinsPicker: !!sw && sw.type === 'bins', binsTitle: t('pickBins'), binsHint: t('pickBinsHint'),
     binRows: sw && sw.type === 'bins' ? binRows(ents.list, sw, W.qEntity).map((r) => ({ ...r, nameLabel: t('binName', r.name),
       toggle: () => { if (cur) commit(toggleBin(cur.widgets, selW, r.id), selW); },
@@ -434,7 +434,7 @@ export function useConsole(api: DeviceApi, initial: DeviceSnapshot | null = null
     qEntity: W.qEntity, setQEntity: (e: ChangeEvent<HTMLInputElement>) => setWeb({ qEntity: e.target.value }),
     // best fit for the widget first (configEdit rankEntities), with HA's value when the list was read
     entities: sw && pickDomains(sw.type, sw) ? [
-      // scene tile (#146): the built-in all lights off first (no entity), then HA's scenes and scripts
+      // scene tile (eink-ha-os#146): the built-in all lights off first (no entity), then HA's scenes and scripts
       ...(sw.type === 'scene' && matches(W.qEntity, t('allLightsOff'), 'all_off') ? [{ id: 'all_off', name: t('allLightsOff'), value: t('sceneBuiltIn'), on: !sw.entity }] : []).map((r) => ({ ...r,
         bg: r.on ? '#1d1d1f' : '#fff', fg: r.on ? '#fff' : '#1d1d1f', sub: r.on ? '#d9d6ce' : '#5c5a55', pick: () => { if (cur) commit(setSceneAllOff(cur.widgets, selW), selW); } })),
       ...preferFirst(rankEntities(ents.list, sw.type, W.qEntity, sw), pendAt(selW)?.prefer).slice(0, 200).map((en) => {
@@ -445,9 +445,9 @@ export function useConsole(api: DeviceApi, initial: DeviceSnapshot | null = null
       })] : [],
     entityErr: sw ? selIssue(sw) : null,
     noEntities: ents.ready && !!sw && !!pickDomains(sw.type, sw) && !entitiesFor(ents.list, sw.type, W.qEntity, sw).length && !(sw.type === 'scene' && !W.qEntity.trim()),
-    // the display lists at most 800 entities, the most useful first (#150)
+    // the display lists at most 800 entities, the most useful first (eink-ha-os#150)
     entCut: ents.lists?.entities && ents.lists.entities.shown < ents.lists.entities.total ? t('capEntities', ents.lists.entities.shown, ents.lists.entities.total) : '',
-    // nothing to pick (#86): the search found nothing, or HA has no entity of these domains at all
+    // nothing to pick (eink-ha-os#86): the search found nothing, or HA has no entity of these domains at all
     noEntitiesText: W.qEntity.trim() ? t('noMatch', W.qEntity.trim()) : t('noFit'),
     selLabel: sw ? String(sw.label || '') : '',
     hasLabel: !!sw && hasLabelField(sw.type),
@@ -456,15 +456,15 @@ export function useConsole(api: DeviceApi, initial: DeviceSnapshot | null = null
     endLabel: () => { if (!cur || !sw || sw.label === undefined || cleanLabel(String(sw.label)) === sw.label) return; commit(setTileLabel(cur.widgets, selW, String(sw.label)), selW); },
     widths: [1, 2, 4].map((n) => ({ label: String(n), ...seg(!!sw && (sw.cs || 1) === n), pick: () => resizeSel('cs', n) })),
     heights: [1, 2].map((n) => ({ label: String(n), ...seg(!!sw && (sw.rs || 1) === n), pick: () => resizeSel('rs', n) })),
-    // route kind (#145): icon and how the entity is read; absent = train
+    // route kind (eink-ha-os#145): icon and how the entity is read; absent = train
     isRoute: !!sw && sw.type === 'route',
     modes: ROUTE_MODES.map((m) => ({ label: t(({ train: 'modeTrain', bus: 'modeBus', car: 'modeCar' } as const)[m as 'train' | 'bus' | 'car']), ...seg(!!sw && (sw.mode || 'train') === m),
       pick: () => { if (cur && sw) commit(cur.widgets.map((x, k) => (k === selW ? { ...x, mode: m } : x)), selW); } })),
-    // bar chart series (#148)
+    // bar chart series (eink-ha-os#148)
     isBars: !!sw && sw.type === 'bars',
     seriesOpts: BARS_SERIES.map((m) => ({ label: t(({ prices: 'seriesPrices', usage: 'seriesUsage', solar: 'seriesSolar' } as const)[m as 'prices' | 'usage' | 'solar']), ...seg(!!sw && (sw.series || 'usage') === m),
       pick: () => { if (cur) commit(setBarsSeries(cur.widgets, selW, m), selW); } })),
-    // history tile (#267): window, per bar, value, chart, range; choices from core/history.ts
+    // history tile (eink-ha-os#267): window, per bar, value, chart, range; choices from core/history.ts
     isHistory: !!sw && sw.type === 'history',
     ...(() => {
       const h = sw && sw.type === 'history' ? sw : null;
@@ -476,13 +476,13 @@ export function useConsole(api: DeviceApi, initial: DeviceSnapshot | null = null
       const opt = (label: string, on: boolean, pick: () => void) => ({ label, ...seg(on), pick });
       const err = h ? historyIssue(h) : null;
       return {
-        // data source (#283): recorder, a list in an attribute, a weather forecast
+        // data source (eink-ha-os#283): recorder, a list in an attribute, a weather forecast
         histSources: ([['recorder', 'srcRecorder'], ['attribute', 'srcAttribute'], ['forecast', 'srcForecast']] as const).map(([k, lk]) => opt(t(lk), src === k, () => { if (cur) commit(setHistorySource(cur.widgets, selW, k), selW); })),
         histIsAttr: src === 'attribute', histIsSeries: src !== 'recorder', histIsForecast: src === 'forecast',
         histAttr: h?.attribute === undefined ? '' : String(h.attribute), setHistAttr: field('attribute'),
         histValue: h?.value === undefined ? '' : String(h.value), setHistValue: field('value'), histValueHint: src === 'forecast' ? 'temperature' : 'value',
         histTime: h?.time === undefined ? '' : String(h.time), setHistTime: field('time'),
-        // #307: a recorder entity drawn before now
+        // eink-ha-os#307: a recorder entity drawn before now
         histPast: h?.past === undefined ? '' : String(h.past), setHistPast: (e: ChangeEvent<HTMLInputElement>) => put('past', e.target.value.replace(/[^a-z0-9_.]/g, '')),
         histPastIds: ents.ready ? ents.list.filter((e) => /^(sensor|input_number|number)\./.test(e.id) && !!e.unit).map((e) => e.id) : [],
         histAheads: ([['next', 'aheadNext', undefined], ['around', 'aheadAround', half], ['past', 'aheadPast', '0']] as const).map(([k, lk, v]) => opt(t(lk), ahead === k, () => put('ahead', v))),
@@ -490,10 +490,12 @@ export function useConsole(api: DeviceApi, initial: DeviceSnapshot | null = null
         histWindows: (wins.includes(win) ? wins : [...wins, win]).map((x) => opt(x, win === x, () => put('window', x === WINDOW_DEFAULT ? undefined : x))),
         histBuckets: [opt(t('histAuto'), h?.bucket === undefined, () => put('bucket', undefined)), ...bucketsFor(win, h ?? undefined).map((b) => opt(b, String(h?.bucket) === b, () => put('bucket', b)))],
         histAggs: HISTORY_AGGS.map((a) => opt(t(({ mean: 'aggMean', max: 'aggMax', min: 'aggMin', last: 'aggLast', change: 'aggChange' } as const)[a]), String(h?.agg ?? 'mean') === a, () => put('agg', a === 'mean' ? undefined : a))),
-        histStyles: ([['auto', 'histAuto'], ['bars', 'styleBars'], ['line', 'styleLine'], ['area', 'styleArea'], ['step', 'styleStep'], ['dots', 'styleDots']] as const).map(([k, lk]) => opt(t(lk), String(h?.style ?? 'auto') === k, () => put('style', k === 'auto' ? undefined : k))),
-        // #304: a dashed reference line; min / max / last printed on the chart
+        histStyles: ([['auto', 'histAuto'], ['bars', 'styleBars'], ['line', 'styleLine'], ['area', 'styleArea'], ['step', 'styleStep'], ['dots', 'styleDots'], ['band', 'styleBand']] as const).map(([k, lk]) => opt(t(lk), String(h?.style ?? 'auto') === k, () => put('style', k === 'auto' ? undefined : k))),
+        // eink-ha-os#304: a dashed reference line; min / max / last printed on the chart
         histThreshold: h?.threshold === undefined ? '' : String(h.threshold),
         setHistThreshold: (e: ChangeEvent<HTMLInputElement>) => put('threshold', e.target.value.replace(/[^-\d.]/g, '')),
+        // eink-ha-os#304 wave 2: the same window a day / week before (recorder only)
+        histCompares: src === 'recorder' ? ([['off', 'cmpOff', undefined], ['1d', 'cmpDay', '1d'], ['7d', 'cmpWeek', '7d']] as const).map(([k, lk, v]) => opt(t(lk), String(h?.compare ?? 'off') === k, () => put('compare', v))) : [],
         histLabelOpts: ([['on', 'histLabelsOn'], ['off', 'histLabelsOff']] as const).map(([k, lk]) => opt(t(lk), (h?.labels === 'true') === (k === 'on'), () => put('labels', k === 'on' ? 'true' : undefined))),
         histMin: h?.min === undefined ? '' : String(h.min), histMax: h?.max === undefined ? '' : String(h.max),
         setHistMin: (e: ChangeEvent<HTMLInputElement>) => put('min', e.target.value.replace(/[^-\d.]/g, '')),
@@ -501,7 +503,7 @@ export function useConsole(api: DeviceApi, initial: DeviceSnapshot | null = null
         histErr: err ? tm(err.msg) : '',
       };
     })(),
-    // now playing tile (#319): favorites as free type:id entries or HA's scripts / scenes (no browse_media: the display
+    // now playing tile (eink-ha-os#319): favorites as free type:id entries or HA's scripts / scenes (no browse_media: the display
     // has no media browser to proxy, emulator/deviations/319-media-favorites.md)
     isMedia: !!sw && sw.type === 'media',
     ...(() => {
@@ -520,7 +522,7 @@ export function useConsole(api: DeviceApi, initial: DeviceSnapshot | null = null
         addFav: () => { if (!cur || !ok || !name || fs.length >= MAX_FAVORITES) return; commit(setFavorites(cur.widgets, selW, [...fs, { ...(p as object), label: name }]), selW); setFav({ name: '', target: '' }); },
       };
     })(),
-    // guest Wi-Fi tile (#329): network, password (masked unless shown), security, hidden, optional password entity
+    // guest Wi-Fi tile (eink-ha-os#329): network, password (masked unless shown), security, hidden, optional password entity
     isGuest: !!sw && sw.type === 'guestWifi',
     ...(() => {
       const g = sw && sw.type === 'guestWifi' ? sw : null;
@@ -546,7 +548,7 @@ export function useConsole(api: DeviceApi, initial: DeviceSnapshot | null = null
     full: used >= MAX_CELLS,
     qPalette: W.qPalette, setQPalette: (e: ChangeEvent<HTMLInputElement>) => setWeb({ qPalette: e.target.value }), noPalette: !Object.keys(gmap).length,
     groups: Object.keys(gmap).map((g) => ({ label: tm(g), items: gmap[g].map((it) => ({ label: tm(it.label), dragStart: (e: DragEvent) => setDrag(e, { kind: 'new', w: it.w, pal: palOf(it) }), add: () => addNew(it.w, undefined, palOf(it)) })) })),
-    // tile source (#191): one line, the Change panel behind it. Logical tiles: logicalSource (saved at once);
+    // tile source (eink-ha-os#191): one line, the Change panel behind it. Logical tiles: logicalSource (saved at once);
     // tiles with their own entity: the entity picker above (part of the draft, pushed with the screen)
     hasSource: !!sw && (!!selLogical || !!pickDomains(sw.type, sw)), srcLogical: !!selLogical, src: srcL,
     srcEntity: srcL ? srcL.entity : swEntity || (sw?.type === 'scene' ? t('allLightsOff') : '—'),
@@ -562,7 +564,7 @@ export function useConsole(api: DeviceApi, initial: DeviceSnapshot | null = null
     srcEntities: srcL ? srcL.entities.map((en) => ({ ...en, bg: en.on ? '#1d1d1f' : '#fff', fg: en.on ? '#fff' : '#1d1d1f', sub: en.on ? '#d9d6ce' : '#5c5a55' })) : [],
     hasSrcMsg: !!W.srcMsg, srcMsg: W.srcMsg ? W.srcMsg.text : '', srcMsgColor: W.srcMsg && !W.srcMsg.ok ? '#B3261E' : W.srcMsg?.warn ? '#8A5A00' : '#1E6B35',
     // yaml
-    // advanced (#191): Screens as YAML and API, one page at a time, the choice remembered per browser
+    // advanced (eink-ha-os#191): Screens as YAML and API, one page at a time, the choice remembered per browser
     isAdvanced: W.tab === 'advanced',
     advPages: ([['yaml', 'advYaml'], ['api', 'advApi'], ['logs', 'advLogs']] as [AdvPage, StrKey][]).map(([k, key]) => ({ label: t(key), on: advPage === k, ...seg(advPage === k),
       pick: () => { setAdvPage(k); saveAdvPage(k); } })),
@@ -592,7 +594,7 @@ export function useConsole(api: DeviceApi, initial: DeviceSnapshot | null = null
     // device
     isDevice: W.tab === 'device',
     wifiNow: (S && S.wifi.connected) || t('notConnected'),
-    // Wi-Fi folded to one line (#190): network · signal · Change
+    // Wi-Fi folded to one line (eink-ha-os#190): network · signal · Change
     wifiSignal: (() => { const c = S?.wifi.connected; const n = c ? S?.networks.find((x) => x.ssid === c) : undefined;
       return n ? t('netSignal', t((['sigWeak', 'sigFair', 'sigGood', 'sigExcellent'] as const)[barsFor(n.rssi) - 1]).toLowerCase()) : ''; })(),
     wifiOpen: W.wifiOpen, toggleWifi: () => setWeb({ wifiOpen: !W.wifiOpen, wifiMsg: '', wifiPw: '' }),
@@ -600,12 +602,12 @@ export function useConsole(api: DeviceApi, initial: DeviceSnapshot | null = null
       ...(W.haReport ? [{ k: t('kvReporting'), v: reportLine(W.haReport, (e) => hm(new Date(e * 1000)), lang) }] : [])] : [],
     devLines: S ? [{ k: t('firmware'), v: 'v' + S.firmware }, { k: t('kvIp'), v: S.ip || '—' }, { k: t('battery'), v: S.battery + '%' }, { k: t('tabScreens'), v: String(S.screens.length) }] : [],
     settingsReady: !!W.settings,
-    // Settings (#159): the device's fixed Settings pages, field for field
+    // Settings (eink-ha-os#159): the device's fixed Settings pages, field for field
     settingsGroups: W.settings ? settingsPages().map((p) => ({ id: p.id, title: t(p.title), fields: p.fields.map((f) => {
       const st = W.settings as Record<string, unknown> & DeviceSettings;
       const curV = f.top ? st[f.key] : (st.display as Record<string, unknown>)[f.key];
-      // tz (#147): "From Home Assistant · Europe/Amsterdam"; a POSIX string set over the API is offered as itself
-      // #331: the presence source also offers HA's on/off entities (off = nobody home), named like the picker
+      // tz (eink-ha-os#147): "From Home Assistant · Europe/Amsterdam"; a POSIX string set over the API is offered as itself
+      // eink-ha-os#331: the presence source also offers HA's on/off entities (off = nobody home), named like the picker
       const fv = f.key === 'emptyHouse' ? [...f.values, ...ents.list.map((e) => e.id).filter((id) => id !== DEFAULT_EMPTY_SOURCE && validEmptySource(id))] : f.values;
       const values = curV !== undefined && !fv.includes(curV as string) ? [curV as string, ...fv] : fv;
       const optLabel = (v: string | number | boolean) => (f.key === 'emptyHouse' && v !== '' && names[String(v)] ? names[String(v)] + ' · ' + v : f.fmt(v, lang))
@@ -615,7 +617,7 @@ export function useConsole(api: DeviceApi, initial: DeviceSnapshot | null = null
         change: (e: ChangeEvent<HTMLSelectElement>) => { const raw = e.target.value; const v = typeof f.values[0] === 'number' ? Number(raw) : typeof f.values[0] === 'boolean' ? raw === 'true' : raw; putSetting(f, v); } };
     }) })) : [],
     hasSettingsMsg: !!W.settingsMsg, settingsMsg: W.settingsMsg ? W.settingsMsg.text : '', settingsMsgColor: W.settingsMsg && !W.settingsMsg.ok ? '#B3261E' : '#1E6B35',
-    // Updates (#250): what the display's Settings › Updates says, and Check
+    // Updates (eink-ha-os#250): what the display's Settings › Updates says, and Check
     otaReady: !!W.ota,
     otaLine: W.ota ? (W.ota.repo === '' ? { title: t('otaChecksOff'), sub: t('otaChecksOffText') }
       : otaLine(lang, { status: W.ota.status, error: W.ota.error ?? null, version: W.ota.available?.version ?? '', checked: W.ota.last_check ? hm(new Date(W.ota.last_check)) : '', channel: W.ota.channel, message: W.ota.message }))

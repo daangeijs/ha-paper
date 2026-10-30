@@ -1,9 +1,9 @@
-// Power trail (#225): the last power transitions, kept in userdata /power.txt so a real power loss (RTC memory and the
+// Power trail (eink-ha-os#225): the last power transitions, kept in userdata /power.txt so a real power loss (RTC memory and the
 // RTC log tail gone) still tells what the board was doing when it lost power. Firmware only: the emulator has no
 // power path. Device glue: net/power.cpp. Pure; test/test_power_trail.
 // The file is lines, oldest first, capped at kMaxLines: `awake`, `sleep <reason>`, `key <ms> <mV> <usb>` (Power
 // KeyDown, before the App acts), `standby drawn <ms>` (after the standby full refresh), `keyup <held ms>`, `off <ms>`
-// (Power held 2 s, #258: written before the latch is released).
+// (Power held 2 s, eink-ha-os#258: written before the latch is released).
 #pragma once
 #include <cstddef>
 #include <cstdint>
@@ -22,7 +22,7 @@ std::string offLine(uint32_t ms);                    // "off <ms>"
 
 std::string lastLine(const std::string& trail);
 std::vector<std::string> lastLines(const std::string& trail, size_t n);   // oldest first
-// trail + line, '\n'-terminated, trimmed to the newest kMaxLines lines (a pre-#225 single marker without '\n' is kept)
+// trail + line, '\n'-terminated, trimmed to the newest kMaxLines lines (a pre-eink-ha-os#225 single marker without '\n' is kept)
 std::string append(const std::string& trail, const std::string& line);
 
 // This boot vs the last line the previous boot left. Only a POWERON counts: every other reset keeps the board powered.

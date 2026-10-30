@@ -86,7 +86,7 @@ void test_never_linked_ghosts() {
   TEST_ASSERT_TRUE(r.sig("t0").find("Front light") != std::string::npos || r.sig("t0").find("FRONT LIGHT") != std::string::npos);
 }
 
-// ---- HA's language (#98): Dutch clock and our own headings after one full refresh; screen titles stay as written ----
+// ---- HA's language (eink-ha-os#98): Dutch clock and our own headings after one full refresh; screen titles stay as written ----
 void test_language_from_ha() {
   Rig r(true, 13, 0, 14);
   auto any = [&r](const std::string& t) { for (auto& kv : r.app.regionSignatures()) if (kv.second.find(t) != std::string::npos) return true; return false; };
@@ -143,7 +143,7 @@ static DisplaySettings fast() { DisplaySettings ds; ds.intervalSec = 5; return d
 
 void test_no_visible_change_no_refresh() {
   Rig r(true, 13, 0, 10, fast());
-  r.setNum("sensor.home_power", "410");                  // 400 → 410 W: inside the 50 W deadband, still "400 W" (#85)
+  r.setNum("sensor.home_power", "410");                  // 400 → 410 W: inside the 50 W deadband, still "400 W" (eink-ha-os#85)
   r.step(5100);
   TEST_ASSERT_EQUAL_INT(0, int(r.d.events.size()));
   TEST_ASSERT_TRUE(r.app.log().back().find("nothing visible changed") != std::string::npos);
@@ -203,7 +203,7 @@ void test_five_taps_one_call() {
   TEST_ASSERT_EQUAL_INT(1, int(r.s.calls.size()));
 }
 
-// ---- quiet hours 23–07 (#295): quiet face, no redraws at all (no clock), the light left to its timeout, tap = peek ----
+// ---- quiet hours 23–07 (eink-ha-os#295): quiet face, no redraws at all (no clock), the light left to its timeout, tap = peek ----
 void test_quiet_hours_and_peek() {
   DisplaySettings ds; ds.brightness = 40;
   Rig r(true, 22, 59, 10, ds);
@@ -237,7 +237,7 @@ void test_quiet_hours_and_peek() {
   TEST_ASSERT_EQUAL_INT(2, r.d.fulls());
 }
 
-// ---- empty-house sleep (#331): Nobody home face on the sleeping glance panel; quiet hours win; live = dashboard ----
+// ---- empty-house sleep (eink-ha-os#331): Nobody home face on the sleeping glance panel; quiet hours win; live = dashboard ----
 void test_empty_house_face() {
   DisplaySettings ds; ds.emptyHouse = "zone.home";
   auto zone = [](Rig& r, const char* n) { EntityValue v; v.state = n; r.app.entities().set("zone.home", v); r.step(31000); };   // live data: once per intervalSec
@@ -253,8 +253,8 @@ void test_empty_house_face() {
     TEST_ASSERT_EQUAL_UINT32(full + 1, r.app.stats().fullRefreshes);
     TEST_ASSERT_TRUE(r.sig("empty").find("Nobody home") != std::string::npos);
     TEST_ASSERT_TRUE(r.sig("empty").find("Next update ~15:00") != std::string::npos);
-    TEST_ASSERT_TRUE(r.sig("empty").find("13:00") == std::string::npos);   // #333: no "Updated HH:MM"
-    zone(r, "1");                                          // someone came home: the glance sleep face (#356)
+    TEST_ASSERT_TRUE(r.sig("empty").find("13:00") == std::string::npos);   // eink-ha-os#333: no "Updated HH:MM"
+    zone(r, "1");                                          // someone came home: the glance sleep face (eink-ha-os#356)
     TEST_ASSERT_FALSE(r.has("empty")); TEST_ASSERT_TRUE(r.has("sleep")); TEST_ASSERT_FALSE(r.app.powerView().emptyHouse);
     zone(r, "0");
     r.app.markAsleep(false);                               // a key wake into live mode: the dashboard
@@ -281,10 +281,10 @@ void test_empty_house_face() {
   }
 }
 
-// ---- #333: asleep, no time of day: the clock tile shows the date + "Asleep", the bar says "Asleep"; midnight redraws ----
+// ---- eink-ha-os#333: asleep, no time of day: the clock tile shows the date + "Asleep", the bar says "Asleep"; midnight redraws ----
 void test_asleep_no_time() {
   for (const char* style : {"classic", "sleek"}) {
-    DisplaySettings ds; ds.style = style; ds.quiet = "off"; ds.powerSave = "off";   // glance shows the sleep face (#356)
+    DisplaySettings ds; ds.style = style; ds.quiet = "off"; ds.powerSave = "off";   // glance shows the sleep face (eink-ha-os#356)
     Rig r(true, 13, 0, 10, ds);
     r.app.prepareSleep(); r.app.markAsleep(true);
     std::string all;
@@ -310,7 +310,7 @@ void test_asleep_no_time() {
   }
 }
 
-// ---- quiet hours (#295): any press or boot shows the dashboard; standby in the window = the quiet face ----
+// ---- quiet hours (eink-ha-os#295): any press or boot shows the dashboard; standby in the window = the quiet face ----
 void test_quiet_hours_boot_power_standby() {
   {   // power-on / button wake at 23:30: the dashboard first, the quiet face 60 s later
     Rig r(true, 23, 30, 10, DisplaySettings(), "cold");
@@ -339,9 +339,9 @@ void test_quiet_hours_boot_power_standby() {
   }
 }
 
-// ---- refresh policy (#26, #197): fast on screen change, partial otherwise, scheduled clean at :00/:30 ----
+// ---- refresh policy (eink-ha-os#26, eink-ha-os#197): fast on screen change, partial otherwise, scheduled clean at :00/:30 ----
 static bool logged(Rig& r, const std::string& s) { for (auto& l : r.app.log()) if (l.find(s) != std::string::npos) return true; return false; }
-// #197: navigation is a fast refresh (no flash); every kNavClean-th navigation since the last clean is a clean
+// eink-ha-os#197: navigation is a fast refresh (no flash); every kNavClean-th navigation since the last clean is a clean
 void test_nav_fast_every_tenth_clean() {
   Rig r;
   for (int i = 0; i < kNavClean; ++i) r.key(Key::Next);       // Home app: every key a different screen
@@ -360,7 +360,7 @@ void test_nav_fast_every_tenth_clean() {
   TEST_ASSERT_EQUAL_INT(3, r.d.fasts());
 }
 
-// #197 acceptance: a tap ~1 s after a page change registers, and one queued while the page change is drawn too
+// eink-ha-os#197 acceptance: a tap ~1 s after a page change registers, and one queued while the page change is drawn too
 void test_tap_after_page_change_registers() {
   Rig r;
   r.key(Key::Next);
@@ -376,7 +376,7 @@ void test_tap_after_page_change_registers() {
   TEST_ASSERT_TRUE(r.has("menu"));
 }
 
-// #212: input queued while a refresh ran lands in one loop pass; only the last event is handled
+// eink-ha-os#212: input queued while a refresh ran lands in one loop pass; only the last event is handled
 void test_taps_during_refresh_one_navigation() {
   Rig r;
   r.key(Key::Next);                                            // ambient: the first key only brings the chrome back
@@ -399,7 +399,7 @@ void test_taps_during_refresh_one_navigation() {
   TEST_ASSERT_EQUAL_INT(1, r.d.fasts() + r.d.fulls());
 }
 
-// #212: press feedback is no separate partial when the action redraws (navigation, a changed control)
+// eink-ha-os#212: press feedback is no separate partial when the action redraws (navigation, a changed control)
 void test_press_feedback_folded_into_the_action() {
   Rig r;
   r.app.setPressFeedback(true);
@@ -424,7 +424,7 @@ void test_full_every_and_screen_change() {
   DisplaySettings ds = fast(); ds.fullEvery = 3;
   Rig r(true, 13, 0, 10, ds);
   r.key(Key::Next);
-  TEST_ASSERT_EQUAL_INT(0, r.d.fulls());                  // different screen → fast, no flash (#197)
+  TEST_ASSERT_EQUAL_INT(0, r.d.fulls());                  // different screen → fast, no flash (eink-ha-os#197)
   TEST_ASSERT_EQUAL_INT(1, r.d.fasts());
   r.key(Key::Prev);
   r.d.clear();
@@ -437,7 +437,7 @@ void test_full_every_and_screen_change() {
   TEST_ASSERT_EQUAL_INT(1, r.d.fulls());
   TEST_ASSERT_TRUE(logged(r, "EPD clean refresh (clean screen)"));
   r.d.clear();
-  r.key(Key::Next);                                       // ambient (#27): the first key only brings the chrome back
+  r.key(Key::Next);                                       // ambient (eink-ha-os#27): the first key only brings the chrome back
   r.key(Key::Next); r.key(Key::Prev);                     // user flashes at 13:30:xx → next clean at 14:00
   r.d.clear();
   r.step(29 * 60000);                                     // 13:59:17
@@ -455,7 +455,7 @@ void test_full_every_and_screen_change() {
   // clock unset (no SNTP): kCleanCap partials are the only clean; the legacy fullEvery (3) does nothing
   r.b.epoch = 0;
   r.d.clear();
-  for (int i = 0; i < kCleanCap; ++i) { r.setNum("sensor.home_power", i % 2 ? "6000" : "7000"); r.step(5100); }   // past the deadband (#85)
+  for (int i = 0; i < kCleanCap; ++i) { r.setNum("sensor.home_power", i % 2 ? "6000" : "7000"); r.step(5100); }   // past the deadband (eink-ha-os#85)
   TEST_ASSERT_EQUAL_INT(kCleanCap - 1, r.d.partials());
   TEST_ASSERT_EQUAL_INT(1, r.d.fulls());                  // 30th redraw → "ghosting limit"
   TEST_ASSERT_TRUE(logged(r, "EPD clean refresh (ghosting limit)"));
@@ -466,7 +466,7 @@ void test_full_every_and_screen_change() {
   TEST_ASSERT_EQUAL_INT(1, int(r.d.events.size()));
 }
 
-// ---- Settings is built in (#159): a config without it still gets the Settings app and its fixed pages ----
+// ---- Settings is built in (eink-ha-os#159): a config without it still gets the Settings app and its fixed pages ----
 void test_settings_built_in() {
   Rig r(true);
   ParseResult p = parseConfig("version: 1\napps:\n  - id: home\nscreens:\n  - id: only\n    app: home\n    widgets:\n      - {type: clock}\n");
@@ -480,7 +480,7 @@ void test_settings_built_in() {
   TEST_ASSERT_EQUAL_STRING("about", c.screens.back().id.c_str());
 }
 
-// ---- no scheduled clean on the quiet face (#26, #295); quiet end is a full anyway ----
+// ---- no scheduled clean on the quiet face (eink-ha-os#26, eink-ha-os#295); quiet end is a full anyway ----
 void test_no_clean_at_night() {
   DisplaySettings ds = fast(); ds.quiet = "23-07";
   Rig r(true, 22, 0, 10, ds);
@@ -504,9 +504,9 @@ void test_home_key_and_idle() {
   TEST_ASSERT_TRUE(r.has("menu"));
   TEST_ASSERT_TRUE(r.barHas("All apps"));
   r.snap("app_switcher");
-  r.tap(14 + 2 * 196 + 92, 166);                          // Settings (the default has no Travel app, #145)
+  r.tap(14 + 2 * 196 + 92, 166);                          // Settings (the default has no Travel app, eink-ha-os#145)
   TEST_ASSERT_TRUE(r.barHas(":Display;"));
-  r.step(61000);                                          // idle 1 min → back to Home, drawn ambient (#27)
+  r.step(61000);                                          // idle 1 min → back to Home, drawn ambient (eink-ha-os#27)
   TEST_ASSERT_TRUE(r.barHas(":Home;"));
   TEST_ASSERT_FALSE(r.barHas(":1 / 4;"));                 // no pager
   TEST_ASSERT_FALSE(r.has("time"));                       // Home has a clock tile: no bar clock
@@ -522,7 +522,7 @@ void test_home_key_and_idle() {
   TEST_ASSERT_TRUE(r.has("bar"));
 }
 
-// #225 power trail: the "key" stage runs before the App acts, "standby drawn" after the standby clean with the light off
+// eink-ha-os#225 power trail: the "key" stage runs before the App acts, "standby drawn" after the standby clean with the light off
 void test_power_stages() {
   Rig r;
   std::vector<std::string> st;
@@ -538,7 +538,7 @@ void test_power_stages() {
   TEST_ASSERT_EQUAL_UINT32(1, st.size());
 }
 
-// ---- hardware-key factory reset (#21, core/recovery.h): Power + Right 5 s → screen → release → Right ----
+// ---- hardware-key factory reset (eink-ha-os#21, core/recovery.h): Power + Right 5 s → screen → release → Right ----
 void test_key_factory_reset() {
   Rig r;
   r.key(Key::Next);
@@ -579,7 +579,7 @@ void test_key_factory_reset() {
   TEST_ASSERT_EQUAL_INT(1, c.s.resets);
 }
 
-// ---- hardware-key restart (#226, core/recovery.h): Power + Prev 5 s → "Restarting…" → Board::restart ----
+// ---- hardware-key restart (eink-ha-os#226, core/recovery.h): Power + Prev 5 s → "Restarting…" → Board::restart ----
 void test_key_restart() {
   Rig r;
   r.key(Key::Next);
@@ -600,7 +600,7 @@ void test_key_restart() {
   TEST_ASSERT_EQUAL_INT(0, r.s.resets);
 }
 
-// ---- Power held 2 s (#258, core/recovery.h): "Turned off" face while still held, then Board::powerOff ----
+// ---- Power held 2 s (eink-ha-os#258, core/recovery.h): "Turned off" face while still held, then Board::powerOff ----
 void test_power_hold_off() {
   Rig r;
   std::vector<std::string> st;
@@ -629,7 +629,7 @@ void test_power_hold_off() {
   TEST_ASSERT_EQUAL_INT(1, r.b.powerOffs);
 }
 
-// #258: a short press stays standby (on release); Power held from power-on does nothing until released once
+// eink-ha-os#258: a short press stays standby (on release); Power held from power-on does nothing until released once
 void test_power_short_press_and_boot_hold() {
   Rig r;
   r.b.held = kKeyPower; r.b.key(Key::Power); r.step(300);
@@ -652,7 +652,7 @@ void test_power_short_press_and_boot_hold() {
 void test_first_install_flow() {
   Rig r(false);
   TEST_ASSERT_TRUE(r.barHas("Step 1 of 2"));
-  TEST_ASSERT_FALSE(r.barHas(" / 2;"));                    // #183: a step in the title, no pager
+  TEST_ASSERT_FALSE(r.barHas(" / 2;"));                    // eink-ha-os#183: a step in the title, no pager
   TEST_ASSERT_TRUE(r.s.scans > 0);
   r.key(Key::Next); r.key(Key::Home);                     // nav does nothing during setup
   TEST_ASSERT_TRUE(r.barHas("Step 1 of 2"));
@@ -701,13 +701,13 @@ void test_first_install_flow() {
   TEST_ASSERT_TRUE(r.sig("t1").find("CHEAP") != std::string::npos);
 }
 
-// ---- #202: a configured device boots with Wi-Fi saved (Connecting) and HA linked (Offline), the state
+// ---- eink-ha-os#202: a configured device boots with Wi-Fi saved (Connecting) and HA linked (Offline), the state
 // DeviceServices::begin() publishes before the first pump; Wi-Fi + WebSocket come up later → boot + home, no setup ----
 void test_configured_boot_no_setup() {
   fake::FakeDisplay d; fake::FakeBoard b; fake::FakeServices s;
   App app{d, b, s};
   std::vector<std::string> fulls;
-  // "EPD full refresh (boot) · 0 ms" (#200; "EPD clean refresh (…)" after #197) → "boot"
+  // "EPD full refresh (boot) · 0 ms" (eink-ha-os#200; "EPD clean refresh (…)" after eink-ha-os#197) → "boot"
   app.onLog([&](const std::string& m) {
     if (m.rfind("EPD full refresh (", 0) != 0 && m.rfind("EPD clean refresh (", 0) != 0) return;
     const size_t a = m.find('(') + 1;
@@ -726,7 +726,7 @@ void test_configured_boot_no_setup() {
   TEST_ASSERT_EQUAL_INT(2, d.fulls());
 }
 
-// ---- glance (#10): a held panel renders without refreshing; the snapshot ignores the clock; redraw = one full ----
+// ---- glance (eink-ha-os#10): a held panel renders without refreshing; the snapshot ignores the clock; redraw = one full ----
 void test_glance_hooks() {
   {   // not glance (standby): the asleep dashboard; the clock tile is a clock region the snapshot ignores
     DisplaySettings ds; ds.powerSave = "standby";
@@ -758,7 +758,7 @@ void test_glance_hooks() {
     TEST_ASSERT_TRUE(r.app.powerView().msSinceUserInput >= 0);
     TEST_ASSERT_TRUE(r.app.powerView().main);
   }
-  {   // glance (#356): the held wake renders the sleep face; a dashboard-only value changes nothing, a new day does
+  {   // glance (eink-ha-os#356): the held wake renders the sleep face; a dashboard-only value changes nothing, a new day does
     DisplaySettings ds; ds.quiet = "off";
     Rig r(true, 13, 0, 10, ds);
     r.app.setPanelHeld(true);
@@ -788,7 +788,7 @@ void test_glance_hooks() {
   }
 }
 
-// ---- #356: glance sleep shows one calm face (date, "Asleep · press to wake", the Today row), not the dashboard ----
+// ---- eink-ha-os#356: glance sleep shows one calm face (date, "Asleep · press to wake", the Today row), not the dashboard ----
 void test_glance_sleep_face() {
   for (const char* style : {"classic", "sleek"}) {
     DisplaySettings ds; ds.style = style;
@@ -801,7 +801,7 @@ void test_glance_sleep_face() {
     const std::string f = r.sig("sleep");
     TEST_ASSERT_TRUE(f.find("Asleep · press to wake") != std::string::npos);
     TEST_ASSERT_TRUE(f.find("Tuesday 13 October") != std::string::npos);
-    TEST_ASSERT_TRUE(f.find("13:00") == std::string::npos);              // #333: no time of day
+    TEST_ASSERT_TRUE(f.find("13:00") == std::string::npos);              // eink-ha-os#333: no time of day
     r.snap(std::string(style) == "classic" ? "glance_face" : "glance_face_sleek");
     r.app.markAsleep(true);                                              // same minute: nothing
     TEST_ASSERT_EQUAL_UINT32(full + 1, r.app.stats().fullRefreshes);
@@ -828,7 +828,7 @@ void test_glance_sleep_face() {
   }
 }
 
-// ---- #357: a timer wake (glance) boots with the front light off; the first key turns it on and still acts ----
+// ---- eink-ha-os#357: a timer wake (glance) boots with the front light off; the first key turns it on and still acts ----
 void test_light_timer_wake() {
   DisplaySettings ds = fast(); ds.brightness = 50;
   Rig r(true, 13, 0, 10, ds, "timer");
@@ -874,7 +874,7 @@ void test_ota_screen() {
   TEST_ASSERT_TRUE(r.sig("bar").find("I4,") != std::string::npos);   // alert icon
 }
 
-// ---- OTA install screen for an upload: the version line only when the upload named one (#237) ----
+// ---- OTA install screen for an upload: the version line only when the upload named one (eink-ha-os#237) ----
 void test_ota_upload_version_line() {
   Rig r;
   r.s.st.otaAvailableVersion = ""; r.s.st.ota = OtaState::Installing; r.s.st.otaProgressPct = 0; r.step(50);
@@ -885,7 +885,7 @@ void test_ota_upload_version_line() {
   TEST_ASSERT_TRUE(r.sig("upd").find(":v0.5.0;") != std::string::npos);
 }
 
-// ---- OTA install screen: a long version gets its own line and fits the panel (#215) ----
+// ---- OTA install screen: a long version gets its own line and fits the panel (eink-ha-os#215) ----
 void test_ota_long_version() {
   for (const std::string ver : {std::string("0.1.0-alpha.6-devtest-212-199-gbf929d4xy"),                    // 40 chars
                                 std::string("0.1.0-alpha.6-devtest-212-199-gbf929d4-and-a-much-longer-tail-that-goes-on-and-on-and-on-xy")}) {
@@ -909,7 +909,7 @@ void test_ota_long_version() {
   }
 }
 
-// ---- Settings › Updates › Check shows that it ran (#250): Checking… → result with its time; partials of the status line only ----
+// ---- Settings › Updates › Check shows that it ran (eink-ha-os#250): Checking… → result with its time; partials of the status line only ----
 void test_ota_check_feedback() {
   Rig r;
   r.openApp(2); r.key(Key::Next); r.key(Key::Next); r.key(Key::Next);   // Updates
@@ -982,7 +982,7 @@ static Config cfgOf(const std::string& yaml) {
   return p.config;
 }
 
-// ---- console Values view (#122, emulator tileValues): each tile's big value on one line, "" without one ----
+// ---- console Values view (eink-ha-os#122, emulator tileValues): each tile's big value on one line, "" without one ----
 void test_tile_values() {
   Rig r;
   EntityValue t; t.state = "12.345"; t.attrs["unit_of_measurement"] = "°C";
@@ -1018,7 +1018,7 @@ void test_tile_values() {
   TEST_ASSERT_EQUAL_STRING("Onbekend", v[4].c_str());
 }
 
-// #268, #270: a history tile parses and both styles draw it (no unknown-tile face); no single console value
+// eink-ha-os#268, eink-ha-os#270: a history tile parses and both styles draw it (no unknown-tile face); no single console value
 void test_history_tile_placeholder() {
   Rig r;
   EntityValue t; t.state = "12.3"; t.attrs["unit_of_measurement"] = "°C";
@@ -1037,7 +1037,7 @@ void test_history_tile_placeholder() {
   TEST_ASSERT_TRUE(r.sig("t1").find(":12.3 °C;") != std::string::npos);
 }
 
-// ---- preview.png of another screen (#168): drawn off-screen, the panel and its frame untouched ----
+// ---- preview.png of another screen (eink-ha-os#168): drawn off-screen, the panel and its frame untouched ----
 void test_render_screen_offscreen() {
   Rig r;
   const Config& c = r.app.config();
@@ -1108,7 +1108,7 @@ void test_generic_entities() {
   TEST_ASSERT_TRUE(r.sig("t0").find("Reading lamp") != std::string::npos);
 }
 
-// #151: a new data source is drawn when its state lands, not a Live data interval later; the app switcher hides the
+// eink-ha-os#151: a new data source is drawn when its state lands, not a Live data interval later; the app switcher hides the
 // page position; a value + unit that does not fit drops decimals first
 void test_new_source_and_fit() {
   Rig r;
@@ -1129,7 +1129,7 @@ void test_new_source_and_fit() {
   r.setNum("sensor.p1_energy", "29.10");
   r.step(1200);
   TEST_ASSERT_TRUE(r.sig("t0").find(":28.3;") != std::string::npos);
-  // #162: a price keeps 2 significant digits ("0.3" before), the size steps down instead
+  // eink-ha-os#162: a price keeps 2 significant digits ("0.3" before), the size steps down instead
   EntityValue p; p.state = "0.2534"; p.attrs["unit_of_measurement"] = "€/kWh"; p.attrs["display_precision"] = "4";
   r.app.entities().set("sensor.other", p);
   r.step(31000);                                           // after the fresh-data window: the Live data interval
@@ -1141,7 +1141,7 @@ void test_new_source_and_fit() {
   TEST_ASSERT_FALSE(r.barHas(" / "));
 }
 
-// issue #80: labels are free text (spaces, %, accents); a long one is cut with … inside the tile
+// issue eink-ha-os#80: labels are free text (spaces, %, accents); a long one is cut with … inside the tile
 static std::string labelText(const std::string& sig, int nth = 0) {   // text of the nth "T…:<text>;" op
   size_t t = sig.find('T');
   for (int k = 0; k < nth && t != std::string::npos; ++k) t = sig.find('T', sig.find(';', t));
@@ -1156,7 +1156,7 @@ void test_free_text_labels() {
                         "      - {type: gauge, entity: sensor.phone_battery, label: Température salle de bains étage}\n"));
   r.step(200);
   TEST_ASSERT_EQUAL_STRING("BATTERIJ %", labelText(r.sig("t0")).c_str());
-  // #199: a long label wraps to two B20 lines; the second is cut with …
+  // eink-ha-os#199: a long label wraps to two B20 lines; the second is cut with …
   TEST_ASSERT_EQUAL_INT(0, int(labelText(r.sig("t1")).find("TEMPÉRATURE")));   // Latin-1 upper-cased like CSS
   std::string cut = labelText(r.sig("t1"), 1);
   TEST_ASSERT_TRUE(cut.size() > 3 && cut.compare(cut.size() - 3, 3, "…") == 0);
@@ -1365,7 +1365,7 @@ void test_sleek_fonts_exact() {
   TEST_ASSERT_EQUAL_INT(int(Face::Classic), int(resolveFont(B(16))->face));
 }
 
-// ---- price chart (#260): today's low / high with times under the Classic bars ----
+// ---- price chart (eink-ha-os#260): today's low / high with times under the Classic bars ----
 void test_price_chart_low_high() {
   Rig r;
   r.key(Key::Next);
@@ -1381,7 +1381,7 @@ void test_sleek_pages_and_targets() {
   r.snap("sleek_home");
   r.tap(800 - 12 - 26, 32);                                 // Next (INK circle in the pager capsule)
   TEST_ASSERT_TRUE(r.barHas("Energy prices"));
-  TEST_ASSERT_TRUE(r.sig("t4").find("Low 0.18 · 13:00") != std::string::npos);    // price chart low / high (#260)
+  TEST_ASSERT_TRUE(r.sig("t4").find("Low 0.18 · 13:00") != std::string::npos);    // price chart low / high (eink-ha-os#260)
   TEST_ASSERT_TRUE(r.sig("t4").find("High 0.38 · 18:00") != std::string::npos);
   r.tap(130, 32);                                           // app + page title → app switcher
   TEST_ASSERT_TRUE(r.has("menu"));
@@ -1410,7 +1410,7 @@ void test_first_data_after_connect() {
   TEST_ASSERT_TRUE(r.sig("t1").find("CHEAP") != std::string::npos);
 }
 
-// ---- issue #38: the minute tick redraws only the clock windows; the partial stays well under half the panel ----
+// ---- issue eink-ha-os#38: the minute tick redraws only the clock windows; the partial stays well under half the panel ----
 static double lastPartialShare(Rig& r) {
   for (auto it = r.d.events.rbegin(); it != r.d.events.rend(); ++it)
     if (!it->full) return double(it->r.w) * it->r.h / (kScreenW * kScreenH);
@@ -1431,16 +1431,16 @@ void test_minute_tick_window() {
     TEST_MESSAGE(msg);
     TEST_ASSERT_TRUE_MESSAGE(share > 0 && share < (sl ? 0.40 : 0.30), msg);
   }
-  Rig n(true, 23, 30);   // quiet face (#295): no clock, the minute tick draws nothing
+  Rig n(true, 23, 30);   // quiet face (eink-ha-os#295): no clock, the minute tick draws nothing
   n.d.clear();
   n.step(60000);
   TEST_ASSERT_EQUAL_INT(0, n.d.partials());
 }
 
-// ---- issue #220: front light timeout — off after N s without input; the first key/tap only turns it back on ----
+// ---- issue eink-ha-os#220: front light timeout — off after N s without input; the first key/tap only turns it back on ----
 void test_light_timeout() {
   DisplaySettings ds = fast(); ds.brightness = 50; ds.lightTimeout = 30; ds.returnHome = "never";
-  Rig r(true, 13, 0, 10, ds, "cold");   // a timer wake boots dark (#357)
+  Rig r(true, 13, 0, 10, ds, "cold");   // a timer wake boots dark (eink-ha-os#357)
   TEST_ASSERT_EQUAL_INT(50, r.b.light);
   r.step(27000);
   TEST_ASSERT_EQUAL_INT(50, r.b.light);
@@ -1483,7 +1483,7 @@ void test_light_timeout() {
   TEST_ASSERT_EQUAL_INT(1, k.d.fasts());
 }
 
-// ---- issue #27: ambient idle mode — 60 s without input hides pager, battery, app label; first input only restores ----
+// ---- issue eink-ha-os#27: ambient idle mode — 60 s without input hides pager, battery, app label; first input only restores ----
 void test_ambient_idle() {
   for (bool sl : {false, true}) {
     Rig r(true, 13, 0, 10, sl ? sleekSet() : fast());
@@ -1538,7 +1538,7 @@ void test_ambient_idle() {
   TEST_ASSERT_TRUE(r.has("standby"));
 }
 
-// ---- quiet face (#295, poster since #27): a Tomorrow row (#328), no live values; "as of HH:MM" only when the data was stale ----
+// ---- quiet face (eink-ha-os#295, poster since eink-ha-os#27): a Tomorrow row (eink-ha-os#328), no live values; "as of HH:MM" only when the data was stale ----
 void test_night_poster() {
   Rig fresh(true, 22, 59);
   fresh.s.st.haLastDataEpoch = fresh.b.epochSeconds() - 60;
@@ -1547,7 +1547,7 @@ void test_night_poster() {
   std::string n = fresh.sig("quiet");
   TEST_ASSERT_TRUE(n.find("as of") == std::string::npos);
   TEST_ASSERT_TRUE(n.find("Cheapest") == std::string::npos);   // no fixed energy terms
-  // #328: the default config has no weather, agenda or bins tile: no Tomorrow row and no live values
+  // eink-ha-os#328: the default config has no weather, agenda or bins tile: no Tomorrow row and no live values
   TEST_ASSERT_TRUE_MESSAGE(n.find("Tomorrow") == std::string::npos && n.find(":Price") == std::string::npos && n.find(":Solar") == std::string::npos, n.c_str());
   Rig bins(true, 22, 59);
   bins.s.st.haLastDataEpoch = bins.b.epochSeconds() - 60;
@@ -1570,7 +1570,7 @@ void test_night_poster() {
   TEST_ASSERT_TRUE(r12.sig("quiet").find("Back at 6:00") != std::string::npos);
 }
 
-// ---- #145: user routes. Title = label, else HA's name; an old catalog route asks for a sensor; a gap is #86's ----
+// ---- eink-ha-os#145: user routes. Title = label, else HA's name; an old catalog route asks for a sensor; a gap is eink-ha-os#86's ----
 void test_user_routes() {
   Rig r;
   const char* y = "version: 1\nscreens:\n  - id: travel\n    app: travel\n    title: Travel\n    widgets:\n"
@@ -1593,7 +1593,7 @@ void test_user_routes() {
   r.snap("user_routes");
 }
 
-// ---- #303: a car route at cs >= 3 shows the arrival time as a second big value; cs 2 keeps the one line ----
+// ---- eink-ha-os#303: a car route at cs >= 3 shows the arrival time as a second big value; cs 2 keeps the one line ----
 void test_car_route_arrival() {
   Rig r;
   const char* y = "version: 1\nscreens:\n  - id: travel\n    app: travel\n    title: Travel\n    widgets:\n"
@@ -1609,7 +1609,7 @@ void test_car_route_arrival() {
   TEST_ASSERT_TRUE(narrow.find("arrive if you leave now") == std::string::npos);
 }
 
-// ---- issue #38: everything a partial refresh can redraw is black/white (boot face + Sleek card surface exempt) ----
+// ---- issue eink-ha-os#38: everything a partial refresh can redraw is black/white (boot face + Sleek card surface exempt) ----
 void test_bw_only_lint() {
   auto pages = [](Rig& r, const char* look) {
     auto check = [&](const char* where) {
@@ -1623,7 +1623,7 @@ void test_bw_only_lint() {
     r.openApp(1); check("lights"); for (int k = 0; k < 3; ++k) { r.key(Key::Next); check("house app page"); }
     r.openApp(2); check("settings"); for (int k = 0; k < 5; ++k) { r.key(Key::Next); check("settings page"); }
     r.key(Key::Home); check("app switcher");
-    r.app.setConfig(parseYamlText(demo::travelYaml()).config); r.step(50); check("travel");   // user routes (#145)
+    r.app.setConfig(parseYamlText(demo::travelYaml()).config); r.step(50); check("travel");   // user routes (eink-ha-os#145)
   };
   DisplaySettings dots = sleekSet(); dots.surface = "dots";
   { Rig r(true, 13, 0, 10, fast()); pages(r, "classic"); }
@@ -1646,7 +1646,7 @@ void test_bw_only_lint() {
   TEST_ASSERT_TRUE(Canvas::grayPuts > 0);
 }
 
-// ---- history tile (#270): drawn from App::setHistory; a sub-pixel change draws nothing; states; 1-bit ----
+// ---- history tile (eink-ha-os#270): drawn from App::setHistory; a sub-pixel change draws nothing; states; 1-bit ----
 void test_history_tile() {
   Rig r(true);
   ParseResult p = parseConfig("version: 1\nscreens:\n  - id: h\n    title: History\n    widgets:\n"

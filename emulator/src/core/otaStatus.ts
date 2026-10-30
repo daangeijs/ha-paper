@@ -1,4 +1,4 @@
-// Settings › Updates status line on the display and the web console's Updates card (#250): "Checking…" while a
+// Settings › Updates status line on the display and the web console's Updates card (eink-ha-os#250): "Checking…" while a
 // check runs, then the result with its time, or a failed check in plain words. Firmware: core/ota_status.{h,cpp};
 // spec/test-vectors/ota-status.json.
 import { tr, type Lang } from './strings.ts';
@@ -7,7 +7,7 @@ import { tr, type Lang } from './strings.ts';
 export type OtaErr = 'memory' | 'network' | 'busy' | 'none' | 'other';
 export const OTA_ERRS: OtaErr[] = ['memory', 'network', 'busy', 'none', 'other'];
 
-/** firmware net/tls.h kHttpLowMemory: the TLS heap guard refused the GitHub handshake (#248). */
+/** firmware net/tls.h kHttpLowMemory: the TLS heap guard refused the GitHub handshake (eink-ha-os#248). */
 export const HTTP_LOW_MEMORY = -100;
 
 /** A failed GitHub request as the user sees it. code: HTTP status, ≤ 0 = no answer (connect/TLS/timeout). */

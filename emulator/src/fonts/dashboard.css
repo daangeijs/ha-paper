@@ -1,4 +1,4 @@
-/* Dashboard typefaces for the emulator (#42: no font CDN): the same TTFs the firmware rasterises from
+/* Dashboard typefaces for the emulator (eink-ha-os#42: no font CDN): the same TTFs the firmware rasterises from
    (firmware/assets/fonts, SIL OFL 1.1, licences next to them). Emulator only; the device console ships plex.css. */
 @font-face{font-family:'Atkinson Hyperlegible';font-weight:400;src:url(../../../firmware/assets/fonts/AtkinsonHyperlegible-Regular.ttf) format('truetype')}
 @font-face{font-family:'Atkinson Hyperlegible';font-weight:700;src:url(../../../firmware/assets/fonts/AtkinsonHyperlegible-Bold.ttf) format('truetype')}

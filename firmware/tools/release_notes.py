@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Release notes for one version from RELEASE_NOTES.md (#251).
+"""Release notes for one version from RELEASE_NOTES.md (eink-ha-os#251).
 
 RELEASE_NOTES.md has one section per version (`## 0.2.0-beta.3`). Its `- ` bullets are the notes the device lists on
 the Updates screen (manifest.json `notes`): at most MAX_ITEMS, each at most MAX_CHARS characters, so they fit the

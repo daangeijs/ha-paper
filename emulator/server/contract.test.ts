@@ -36,7 +36,7 @@ const REAL = !!DEVICE_URL;
 /** Real device + standalone fake HA: X4_FAKE_HA = how this runner reaches it, X4_FAKE_HA_DEVICE = how the device does. */
 const FAKE_HA = REAL ? process.env.X4_FAKE_HA?.replace(/\/$/, '') || '' : '';
 const FAKE_HA_DEVICE = process.env.X4_FAKE_HA_DEVICE?.replace(/\/$/, '') || FAKE_HA;
-/** The same fake HA over https with a test CA only x4qemu trusts (sim/qemu/contract.sh, #79). */
+/** The same fake HA over https with a test CA only x4qemu trusts (sim/qemu/contract.sh, eink-ha-os#79). */
 const FAKE_HA_DEVICE_TLS = process.env.X4_FAKE_HA_DEVICE_TLS?.replace(/\/$/, '') || '';
 const FAKE = !!FAKE_HA;
 /** CONTRACT_HA_TLS=1 (sim/qemu/contract.sh): the device links to the fake HA over https; this runner still controls it over http. */
@@ -59,7 +59,7 @@ type Res = { status: number; headers: Headers; text: string; json: any };
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 const HA_START = '/api/v1/auth/ha/start';
 /** Cookie writes get Origin = base, like a browser on the console page; origin: null sends none.
- *  POST /auth/ha/start waits out the one-probe-at-a-time 429 (#75) unless once: true. */
+ *  POST /auth/ha/start waits out the one-probe-at-a-time 429 (eink-ha-os#75) unless once: true. */
 async function http(base: string, method: string, path: string, o: { token?: string | null; cookie?: string | null; origin?: string | null; body?: string | Uint8Array | FormData; type?: string; accept?: string; headers?: Record<string, string>; once?: boolean } = {}): Promise<Res> {
   for (let i = 0; path === HA_START && !o.once; i++) {
     const r = await http(base, method, path, { ...o, once: true });
@@ -102,7 +102,7 @@ async function until<T>(fn: () => Promise<T>, ok: (v: T) => boolean, ms = 5000):
 const cookieOf = (h: Headers): string | null => (h.getSetCookie().find((c) => c.startsWith('x4_session=')) || '').match(/^x4_session=([^;]*)/)?.[1] || null;
 
 /** Full "Sign in with Home Assistant" round trip against the fake HA. Returns the device's 302 + cookie. */
-/** The seeded screens.yaml names only entities HA has (#82): no "—" from ids that do not exist. */
+/** The seeded screens.yaml names only entities HA has (eink-ha-os#82): no "—" from ids that do not exist. */
 async function expectSeededEntitiesExist(b: string, cookie: string | null, haIds: string[]) {
   const cfg = await http(b, 'GET', '/api/v1/config', { cookie });
   expect(cfg.status, cfg.text).toBe(200);
@@ -133,18 +133,18 @@ async function listen(handler: Parameters<typeof createServer>[1]): Promise<{ po
   return { port: (srv.address() as AddressInfo).port, close: () => { srv.closeAllConnections(); return new Promise<void>((r) => srv.close(() => r())); } };
 }
 
-/** #54, on a display that is not linked: the typed HA address is checked before sign-in. haDev = HA as the device sees it. */
+/** eink-ha-os#54, on a display that is not linked: the typed HA address is checked before sign-in. haDev = HA as the device sees it. */
 async function checkHaAddress(b: string, haDev: string) {
   const start = (ha_url: string) => http(b, 'POST', '/api/v1/auth/ha/start', { body: JSON.stringify({ return_to: '/', ha_url }), type: 'application/json' });
   const bad = await start('ftp://ha.local');
   expect(bad.status, bad.text).toBe(422); expect(bad.json).toMatchObject({ need: 'ha_url' }); expect(bad.json.error).toMatch(/http or https/);
-  if (FAKE_HA_DEVICE_TLS) {   // #79: one real TLS handshake + certificate check on the device, within the probe timeout
+  if (FAKE_HA_DEVICE_TLS) {   // eink-ha-os#79: one real TLS handshake + certificate check on the device, within the probe timeout
     const t0 = Date.now();
     const tls = await start(FAKE_HA_DEVICE_TLS);
-    expect(tls.status, tls.text).toBe(200); expect(tls.json?.authorize_url, 'not JSON or no authorize_url (#300): ' + tls.text).toBeTypeOf('string');
+    expect(tls.status, tls.text).toBe(200); expect(tls.json?.authorize_url, 'not JSON or no authorize_url (eink-ha-os#300): ' + tls.text).toBeTypeOf('string');
     expect(tls.json.authorize_url.startsWith(FAKE_HA_DEVICE_TLS + '/auth/authorize?')).toBe(true);
     expect(Date.now() - t0, 'https probe time').toBeLessThan(15_000);
-    // #87: a TLS host that accepts and then stalls, answers late, or resets mid-handshake
+    // eink-ha-os#87: a TLS host that accepts and then stalls, answers late, or resets mid-handshake
     const tlsProbe = async (mode: string, delay_s = 0) => {
       await fakeCtl('tls', { mode, delay_s });
       await sleep(1100);   // probe cooldown
@@ -165,19 +165,19 @@ async function checkHaAddress(b: string, haDev: string) {
   }
   const dead = await start(new URL(haDev).hostname + ':9');   // discard port: nothing listens
   expect(dead.status, dead.text).toBe(502); expect(dead.json.need).toBe('ha_url'); expect(dead.json.error).toMatch(/can’t reach http:\/\/[^ ]+:9\./);
-  // #75: loopback and link-local are refused before any probe (LAN addresses like haDev stay fine)
+  // eink-ha-os#75: loopback and link-local are refused before any probe (LAN addresses like haDev stay fine)
   for (const a of ['127.0.0.1:8080', 'http://[::1]', '169.254.1.1', 'localhost.']) {
     const r = await start(a);
     expect(r.status, a + ' ' + r.text).toBe(422); expect(r.json.error, a).toMatch(/loopback or link-local/);
   }
-  // #75: a redirect to another port (or host) is not followed; the probed body is never echoed
+  // eink-ha-os#75: a redirect to another port (or host) is not followed; the probed body is never echoed
   const host = new URL(haDev).hostname;
   const away = await listen((_q, res) => { res.writeHead(302, { Location: haDev + '/auth/providers' }); res.end('secret-body'); });
   try {
     const r = await start('http://' + host + ':' + away.port);
     expect(r.status, r.text).toBe(422); expect(r.json.error).toMatch(/redirects to another address/); expect(r.text).not.toMatch(/secret-body/);
   } finally { await away.close(); }
-  // #75: one probe in flight: a second start while a stalled one runs gets 429 + Retry-After
+  // eink-ha-os#75: one probe in flight: a second start while a stalled one runs gets 429 + Retry-After
   await sleep(1100);   // past the cooldown of the probe above
   const stall = await listen(() => { /* never answers */ });
   try {
@@ -195,9 +195,9 @@ async function checkHaAddress(b: string, haDev: string) {
 }
 
 /** QEMU has no mDNS (slirp): POST /debug/ha-discovered (x4qemu only) hands the firmware what a browse would find.
- *  What uses the result on an unlinked display with no address stored (#90): console state lists it, the link page
+ *  What uses the result on an unlinked display with no address stored (eink-ha-os#90): console state lists it, the link page
  *  offers the first one (server ∈ discovered = "Found … on your network", useConsole), and it is remembered only once
- *  it answers as Home Assistant (#54). Leaves haDev remembered and nothing discovered. */
+ *  it answers as Home Assistant (eink-ha-os#54). Leaves haDev remembered and nothing discovered. */
 async function checkDiscovered(b: string, haDev: string) {
   const inject = async (urls: string[]) => {
     const r = await http(b, 'POST', '/api/v1/debug/ha-discovered', { body: JSON.stringify({ urls }), type: 'application/json' });
@@ -238,12 +238,12 @@ const mkToken = async (scope: 'read' | 'write') => {
 
 beforeAll(async () => {
   if (FAKE && !session) {
-    // #300: quiet hours (default 23-07) off before the first sign-in, so a night run links like one at noon; settings
+    // eink-ha-os#300: quiet hours (default 23-07) off before the first sign-in, so a night run links like one at noon; settings
     // need a token until then, so the QEMU-only hook sets it. The first-run path below is unchanged.
     const q = await http(base, 'POST', '/__qemu/settings?display=' + encodeURIComponent('{"quiet":"off"}'));
     expect(q.status, q.text).toBe(204);
     // Real firmware + fake HA: sign in like a user would (first sign-in also links the display).
-    // QEMU has no mDNS: the discovery result is injected (#90), then the typed address's errors are checked (#54).
+    // QEMU has no mDNS: the discovery result is injected (eink-ha-os#90), then the typed address's errors are checked (eink-ha-os#54).
     if (!(await http(base, 'GET', '/api/v1/console/state')).json.home_assistant?.linked) {
       await checkDiscovered(base, FAKE_HA_DEVICE);
       await checkHaAddress(base, FAKE_HA_DEVICE);
@@ -251,18 +251,18 @@ beforeAll(async () => {
     const s = await signIn(base);
     expect(s.res.status, s.res.text).toBe(302);
     session = s.cookie;
-    // …and wait for the first-run screens from HA (#23): they replace the config once, right after linking.
+    // …and wait for the first-run screens from HA (eink-ha-os#23): they replace the config once, right after linking.
     await until(() => http(base, 'GET', '/api/v1/console/state', { cookie: session }), (r) => r.json.home_assistant?.linked === true && r.json.offline === false && r.json.seed_pending === false, 60_000);
-    // …without a single undefined attribute read that real HA would report (#58)
+    // …without a single undefined attribute read that real HA would report (eink-ha-os#58)
     expect(await fakeCtl('template-errors')).toEqual([]);
-    // …and every tile names an entity this HA has (#82)
+    // …and every tile names an entity this HA has (eink-ha-os#82)
     await expectSeededEntitiesExist(base, session, await fakeCtl('entities'));
   }
   if (REAL) {
     // With a session cookie the suite makes its own temporary tokens (revoked again in afterAll).
     if (session && !rw) rw = await mkToken('write');
     if (session && !ro) ro = await mkToken('read');
-    // #87: the hung TLS probes above (and anything else so far) ran without a watchdog reset
+    // eink-ha-os#87: the hung TLS probes above (and anything else so far) ran without a watchdog reset
     if (FAKE) expectNoWatchdogReset(await diagnostics());
     // QEMU keeps real (SNTP) time: no quiet face in the middle of a run, whatever the hour.
     // fullEvery 30: a "clean screen" full refresh after a few clock partials would make refresh counting flaky;
@@ -296,18 +296,18 @@ const expectNoWatchdogReset = (d: { reset_reason: string; boots: { reason: strin
 };
 const simState = async () => (await http(base, 'GET', '/__sim/state')).json;
 /** Real display: the clock redraws on the minute; count refreshes only well inside a minute, with `headroom` seconds
- *  left before the next one (#71: a test that runs longer than its headroom sees the clock partial). */
+ *  left before the next one (eink-ha-os#71: a test that runs longer than its headroom sees the clock partial). */
 const quietMinute = async (headroom = 20) => {
   if (!REAL) return;
   // settle: nothing queued for the main loop (QEMU `busy`: a config / settings / refresh still rendering, e.g. the
-  // screens seeded from HA, #71) and no refresh for 2 s (sign-in welcome, settings, the previous test's config restore)
+  // screens seeded from HA, eink-ha-os#71) and no refresh for 2 s (sign-in welcome, settings, the previous test's config restore)
   const busy = async () => (await http(base, 'GET', '/__qemu/state')).json?.busy === true;
   for (let i = 0; i < 240 && await busy(); i++) await new Promise((r) => setTimeout(r, 500));
   let last = JSON.stringify(await refreshCounts());
   for (let i = 0; i < 20; i++) { await new Promise((r) => setTimeout(r, 2000)); const n = JSON.stringify(await refreshCounts()); if (n === last && !(await busy())) break; last = n; }
   for (;;) { const sec = new Date().getSeconds(); if (sec >= 2 && sec <= 60 - headroom) return; await new Promise((r) => setTimeout(r, 500)); } };
 /** Real display: wait until the full refresh a write just queued has been counted. Under QEMU the render takes seconds
- *  (more on a loaded runner), longer than quietMinute's 2 s settle, so it would land in the next test's count (#71). */
+ *  (more on a loaded runner), longer than quietMinute's 2 s settle, so it would land in the next test's count (eink-ha-os#71). */
 const fullLanded = async (before: { full: number } | null) => {
   if (REAL && before) await until(refreshCounts, (c) => !!c && c.full > before.full, 120_000);
 };
@@ -356,17 +356,17 @@ describe('API auth (401 / 403)', () => {
     expect(['linked', 'not linked', 'revoked', 'offline']).toContain(r.json.home_assistant);
     expect(r.json.hostname).toMatch(/^ha-paper-[0-9a-f]{4}\.local$/);   // unique per display (last 4 hex of the Wi-Fi MAC)
     for (const k of ['free_heap', 'heap_largest_block', 'heap_min_free']) expect(r.json[k], k).toEqual(expect.any(Number));
-    expect(['ok', 'failed']).toContain(r.json.panel);   // #181
-    // #73: CW2017 VCELL in mV, null until read; a 1S Li-ion cell stays within 2.5–4.5 V
+    expect(['ok', 'failed']).toContain(r.json.panel);   // eink-ha-os#181
+    // eink-ha-os#73: CW2017 VCELL in mV, null until read; a 1S Li-ion cell stays within 2.5–4.5 V
     expect('battery_mv' in r.json).toBe(true);
     if (r.json.battery_mv !== null) expect(r.json.battery_mv >= 2500 && r.json.battery_mv <= 4500, String(r.json.battery_mv)).toBe(true);
     // power instrumentation (ROBUSTNESS_PLAN 3.0): no deep sleep yet, so always awake with no planned wake
     expect(r.json.power).toMatchObject({ source: expect.stringMatching(/^(usb|battery)$/), charging: expect.any(Boolean), cpuMhz: expect.any(Number), mode: 'awake', nextWakeEpoch: null });
     expect([null, 'none', 'min', 'max']).toContain(r.json.power.wifiPs);
-    if (r.json.power.charging) expect(r.json.power.source).toBe('usb');   // #11: never "charging" on battery
+    if (r.json.power.charging) expect(r.json.power.source).toBe('usb');   // eink-ha-os#11: never "charging" on battery
     expect(r.json.power.applied).toMatchObject({ cpuMhz: expect.any(Number), wifiPs: expect.stringMatching(/^(none|min)$/), psOffHeld: expect.any(Boolean) });
   });
-  // #177: the power rules' CPU profile and Wi-Fi power save are applied. Simulator: /__sim/control usb; QEMU: /__qemu/power
+  // eink-ha-os#177: the power rules' CPU profile and Wi-Fi power save are applied. Simulator: /__sim/control usb; QEMU: /__qemu/power
   // (no clocks or radio there: `applied` is what the firmware would set). A real display can't be unplugged by a test.
   it.skipIf(NO_RW)('power.applied follows the power rules: 80 MHz + modem sleep on battery, 240 MHz + none on USB', async () => {
     const q = !sim && typeof (await http(base, 'GET', '/__qemu/state')).json?.full === 'number';
@@ -392,8 +392,8 @@ describe('API auth (401 / 403)', () => {
       await source(!usb0);
     }
   });
-  // #249: unplugged from a USB host with a full cell (≥ 4.15 V, charger STAT seen this boot): battery profile within
-  // seconds, not after the 30-minute recent-charge rule (#73). QEMU only: the simulator has no recent-charge memory.
+  // eink-ha-os#249: unplugged from a USB host with a full cell (≥ 4.15 V, charger STAT seen this boot): battery profile within
+  // seconds, not after the 30-minute recent-charge rule (eink-ha-os#73). QEMU only: the simulator has no recent-charge memory.
   it.skipIf(NO_RW)('power.applied switches to battery after a USB unplug with a full, just-charged cell (QEMU)', async () => {
     if (sim || typeof (await http(base, 'GET', '/__qemu/state')).json?.full !== 'number') return;
     const applied = (want: object, src: string) => until(() => http(base, 'GET', '/api/v1/status', { token: rw }), (r) => {
@@ -442,7 +442,7 @@ describe('API auth (401 / 403)', () => {
     expect(after.status).toBe(401); expect(after.json).toEqual({ error: 'invalid or revoked token' });
     expect((await http(base, 'DELETE', '/api/v1/tokens/' + c.json.id, { cookie: session })).status).toBe(404);
   });
-  it.skipIf(NO_SESSION)('cookie writes need a same-origin Origin or Referer; bearer writes do not (#37)', async () => {
+  it.skipIf(NO_SESSION)('cookie writes need a same-origin Origin or Referer; bearer writes do not (eink-ha-os#37)', async () => {
     const origin = new URL(base).origin;
     const mk = (o: { origin?: string | null; headers?: Record<string, string> }) =>
       http(base, 'POST', '/api/v1/config/validate', { cookie: session, body: 'version: 1\nscreens: []\n', type: 'application/yaml', ...o });
@@ -460,7 +460,7 @@ describe('API auth (401 / 403)', () => {
     expect((await http(base, 'GET', '/api/v1/tokens', { cookie: session })).status).toBe(200);
     if (rw) expect((await http(base, 'POST', '/api/v1/config/validate', { token: rw, body: 'version: 1\nscreens: []\n', type: 'application/yaml' })).status).not.toBe(403);
   });
-  it('linked: GET /console/state without a session does not reveal the HA server or account (#37)', async () => {
+  it('linked: GET /console/state without a session does not reveal the HA server or account (eink-ha-os#37)', async () => {
     const anon = await http(base, 'GET', '/api/v1/console/state');
     expect(anon.status).toBe(200);
     expect(anon.json.home_assistant.linked).toBe(true);
@@ -544,13 +544,13 @@ describe('config (PUT /config, /config/validate)', () => {
     expect(b.subarray(1, 4).toString()).toBe('PNG'); expect(b.readUInt32BE(16)).toBe(800); expect(b.readUInt32BE(20)).toBe(480);
     expect((await http(base, 'GET', '/api/v1/screens/nope/preview.png', { token: rw })).status).toBe(404);
   });
-  it.skipIf(NO_SESSION)('GET /screens/{id}/preview.png with the console session cookie (Values view, #83)', async () => {
+  it.skipIf(NO_SESSION)('GET /screens/{id}/preview.png with the console session cookie (Values view, eink-ha-os#83)', async () => {
     const r = await fetch(base + '/api/v1/screens/overview/preview.png', { headers: { Cookie: 'x4_session=' + session } });
     expect(r.status).toBe(200); expect(r.headers.get('content-type')).toBe('image/png');
     expect(Buffer.from(await r.arrayBuffer()).subarray(1, 4).toString()).toBe('PNG');
     expect((await http(base, 'GET', '/api/v1/screens/overview/preview.png', { cookie: 'stalesessionxxxxxxxxxxxxxxxx' })).status).toBe(401);
   });
-  it.skipIf(NO_RW)('GET /screens/{id}/values → one value per tile, as the display formats it (#122); unknown → 404', async () => {
+  it.skipIf(NO_RW)('GET /screens/{id}/values → one value per tile, as the display formats it (eink-ha-os#122); unknown → 404', async () => {
     const ws: { type: string }[] = (await http(base, 'GET', '/api/v1/config', { token: rw, accept: 'application/json' })).json.screens.find((s: any) => s.id === 'overview').widgets;
     // the firmware formats on its main loop: the first ask can answer ready: false
     const r = await until(() => http(base, 'GET', '/api/v1/screens/overview/values', { token: rw }), (x) => x.status !== 200 || x.json.ready === true, 15_000);
@@ -566,7 +566,7 @@ describe('config (PUT /config, /config/validate)', () => {
     expect((await http(base, 'GET', '/api/v1/screens/nope/values', { token: rw })).status).toBe(404);
     expect((await http(base, 'GET', '/api/v1/screens/overview/values')).status).toBe(401);
   });
-  it.skipIf(NO_SESSION)('GET /screens/{id}/values with the console session cookie (Values view, #122)', async () => {
+  it.skipIf(NO_SESSION)('GET /screens/{id}/values with the console session cookie (Values view, eink-ha-os#122)', async () => {
     const r = await until(() => http(base, 'GET', '/api/v1/screens/overview/values', { cookie: session }), (x) => x.status !== 200 || x.json.ready === true, 15_000);
     expect(r.status).toBe(200); expect(Array.isArray(r.json.values)).toBe(true);
   });
@@ -623,7 +623,7 @@ describe.skipIf(REAL && !FAKE)('Sign in with Home Assistant (OAuth2 + PKCE again
     const code = new URL(login.headers.get('location')!).searchParams.get('code')!;
     await expect(exchangeCode(haLocal(), code, base + '/', 'wrong-verifier-wrong-verifier-wrong-verifier')).rejects.toMatchObject({ status: 400, code: 'invalid_grant' });
   });
-  it('a non-admin HA user gets a view-only session: reads work, writes and session-only endpoints → 403 (#22)', async () => {
+  it('a non-admin HA user gets a view-only session: reads work, writes and session-only endpoints → 403 (eink-ha-os#22)', async () => {
     const s = await signIn(base, { user: 'kid', admin: false });
     expect(s.res.status).toBe(302); expect(s.res.headers.get('location')).toBe('/'); expect(s.cookie).toBeTruthy();
     const cookie = s.cookie;
@@ -703,9 +703,9 @@ describe.skipIf(REAL)('fake HA WebSocket API', () => {
   });
 });
 
-// The fake HA's recorder answers, pinned to HA core's shapes (server/fake-ha-history.ts cites the source, #266). Runs
+// The fake HA's recorder answers, pinned to HA core's shapes (server/fake-ha-history.ts cites the source, eink-ha-os#266). Runs
 // from this runner against the simulator's fake HA or the standalone one of `make qemu-contract`; the device is not involved.
-describe.skipIf(REAL && !FAKE)('fake HA recorder: statistics_during_period + history_during_period (#266)', () => {
+describe.skipIf(REAL && !FAKE)('fake HA recorder: statistics_during_period + history_during_period (eink-ha-os#266)', () => {
   const ctl = async (path: string, body?: unknown) =>
     (await fetch(haLocal() + '/__fake/' + path, body === undefined ? {} : { method: 'POST', body: JSON.stringify(body) })).json();
   let ws: HaSocket;
@@ -788,10 +788,10 @@ describe.skipIf(REAL && !FAKE)('fake HA recorder: statistics_during_period + his
   });
 });
 
-// #350: the web console on the www partition. Refusals happen before anything is written (any device); the write
+// eink-ha-os#350: the web console on the www partition. Refusals happen before anything is written (any device); the write
 // round trip needs a real www.bin (X4_WWW_BIN, sim/qemu/contract.sh) or the simulator.
 const WWW_BIN = process.env.X4_WWW_BIN || '';
-describe('web console update (www partition, #350)', () => {
+describe('web console update (www partition, eink-ha-os#350)', () => {
   it.skipIf(NO_RW)('GET /ota www; POST /ota/upload-www refuses before writing; a wrong sha → failed; www.bin → current', async () => {
     const ota = async () => (await http(base, 'GET', '/api/v1/ota', { token: rw })).json;
     const before = await ota();
@@ -843,12 +843,12 @@ describe.skipIf(REAL)('OTA', () => {
     const ok = await http(base, 'POST', '/api/v1/ota/upload', { token: rw, body: fd(img, { version: '0.4.0', sha256: sha256(img), size: img.length, notes: [] }) });
     expect(ok.status).toBe(202); expect(ok.json).toMatchObject({ status: 'rebooting', version: '0.4.0', sha256: sha256(img) });
     const up = await until(() => http(base, 'GET', '/api/v1/ota', { token: rw }), (r) => r.json.status === 'updated' && r.json.installed === '0.4.0');
-    // #350: the confirmed image fetched the console of its own release
+    // eink-ha-os#350: the confirmed image fetched the console of its own release
     expect(up.json.www).toMatchObject({ version: '0.4.0', current: true, state: 'current' });
     const raw = await http(base, 'POST', '/api/v1/ota/upload?sha256=' + 'f'.repeat(64), { token: rw, body: new Uint8Array(img), type: 'application/octet-stream' });
     expect(raw.status).toBe(422);
   });
-  // #250: Check gave no sign it ran. GET /ota right after the 202 says checking; then the result with last_check, or a
+  // eink-ha-os#250: Check gave no sign it ran. GET /ota right after the 202 says checking; then the result with last_check, or a
   // failed check as `error` (the display and the console turn it into plain words, core/otaStatus.ts).
   it('POST /ota/check → checking at once → uptodate/available with last_check; a failed check → error + reason', async () => {
     const ctl = (b: object) => http(base, 'POST', '/__sim/control', { body: JSON.stringify(b), type: 'application/json' });
@@ -911,7 +911,7 @@ describe('OTA with update checks off (no release repository in the build)', () =
       if (sim) await http(base, 'POST', '/__sim/control', { body: JSON.stringify({ ota_repo: SIM_OTA_REPO }), type: 'application/json' });
     }
   });
-  // #237: the install face said "Updating to" + a bare "v" for an upload; GET /ota `available` mirrors its version line
+  // eink-ha-os#237: the install face said "Updating to" + a bare "v" for an upload; GET /ota `available` mirrors its version line
   it.skipIf(NO_RW)('POST /ota/upload: the version from ?version= shows while the image streams; a 422 leaves none behind', async () => {
     const img = Buffer.alloc(16 * 1024); img[0] = 0xe9;   // ESP image magic: the updater accepts the first 4 KB block
     const u = new URL(base + '/api/v1/ota/upload?version=v0.5.0-test&sha256=' + 'f'.repeat(64));
@@ -949,7 +949,7 @@ describe('settings (x-firmware)', () => {
     if (ro) expect((await http(base, 'PUT', '/api/v1/settings', { token: ro, body: '{}', type: 'application/json' })).status).toBe(403);
     await http(base, 'PUT', '/api/v1/settings', { token: rw, body: JSON.stringify({ display: { warmth: orig } }), type: 'application/json' });
   });
-  it.skipIf(NO_RW)('unknown keys and a non-POSIX tz → 422 naming the problem, nothing applied; a POSIX tz round-trips (#43)', async () => {
+  it.skipIf(NO_RW)('unknown keys and a non-POSIX tz → 422 naming the problem, nothing applied; a POSIX tz round-trips (eink-ha-os#43)', async () => {
     const put = (b: object) => http(base, 'PUT', '/api/v1/settings', { token: rw, body: JSON.stringify(b), type: 'application/json' });
     const g = await http(base, 'GET', '/api/v1/settings', { token: rw });
     const tzMsg = 'tz must be "", a known zone like Europe/Amsterdam or a POSIX TZ string like CET-1CEST,M3.5.0,M10.5.0/3';
@@ -991,7 +991,7 @@ describe('settings (x-firmware)', () => {
     expect((await put(orig)).status).toBe(200);
     await fullLanded(pre);   // the old look back: one more full refresh, seconds of render under QEMU
   });
-  it.skipIf(NO_RW)('power saving (#10): powerSave / wakeEvery / liveMin, glance by default, exact 422 messages', async () => {
+  it.skipIf(NO_RW)('power saving (eink-ha-os#10): powerSave / wakeEvery / liveMin, glance by default, exact 422 messages', async () => {
     const put = (display: object) => http(base, 'PUT', '/api/v1/settings', { token: rw, body: JSON.stringify({ display }), type: 'application/json' });
     const g = await http(base, 'GET', '/api/v1/settings', { token: rw });
     expect(g.json.display).toMatchObject({ powerSave: expect.stringMatching(/^(off|standby|glance)$/), wakeEvery: expect.any(Number), liveMin: expect.any(Number) });
@@ -1004,7 +1004,7 @@ describe('settings (x-firmware)', () => {
     expect(p.status).toBe(200); expect(p.json.display).toMatchObject({ powerSave: 'off', wakeEvery: 30, liveMin: 5 });
     expect((await put(orig)).status).toBe(200);
   });
-  it.skipIf(NO_RW)('empty-house source (#331): emptyHouse round trip, default off, exact 422 message', async () => {
+  it.skipIf(NO_RW)('empty-house source (eink-ha-os#331): emptyHouse round trip, default off, exact 422 message', async () => {
     const put = (display: object) => http(base, 'PUT', '/api/v1/settings', { token: rw, body: JSON.stringify({ display }), type: 'application/json' });
     const g = await http(base, 'GET', '/api/v1/settings', { token: rw });
     expect(typeof g.json.display.emptyHouse).toBe('string');
@@ -1019,7 +1019,7 @@ describe('settings (x-firmware)', () => {
     }
     expect((await put({ emptyHouse: orig })).status).toBe(200);
   });
-  it.skipIf(NO_RW)('good morning page (#330): morning round trip, default true, exact 422 message', async () => {
+  it.skipIf(NO_RW)('good morning page (eink-ha-os#330): morning round trip, default true, exact 422 message', async () => {
     const put = (display: object) => http(base, 'PUT', '/api/v1/settings', { token: rw, body: JSON.stringify({ display }), type: 'application/json' });
     const g = await http(base, 'GET', '/api/v1/settings', { token: rw });
     expect(typeof g.json.display.morning).toBe('boolean');
@@ -1035,7 +1035,7 @@ describe('settings (x-firmware)', () => {
     }
     expect((await put({ morning: orig })).status).toBe(200);
   });
-  it.skipIf(NO_RW)('front light timeout (#220): lightTimeout round trip, default 60, exact 422 message', async () => {
+  it.skipIf(NO_RW)('front light timeout (eink-ha-os#220): lightTimeout round trip, default 60, exact 422 message', async () => {
     const put = (display: object) => http(base, 'PUT', '/api/v1/settings', { token: rw, body: JSON.stringify({ display }), type: 'application/json' });
     const g = await http(base, 'GET', '/api/v1/settings', { token: rw });
     expect([30, 60, 120, 300, 0]).toContain(g.json.display.lightTimeout);
@@ -1051,7 +1051,7 @@ describe('settings (x-firmware)', () => {
     }
     expect((await put({ lightTimeout: orig })).status).toBe(200);
   });
-  it.skipIf(NO_RW)('entities: the tile source round trip (#191) (PUT merges, "-" negates, null / "" removes, exact 422 messages)', async () => {
+  it.skipIf(NO_RW)('entities: the tile source round trip (eink-ha-os#191) (PUT merges, "-" negates, null / "" removes, exact 422 messages)', async () => {
     const put = (entities: object) => http(base, 'PUT', '/api/v1/settings', { token: rw, body: JSON.stringify({ entities }), type: 'application/json' });
     const g = await http(base, 'GET', '/api/v1/settings', { token: rw });
     expect(g.json.entities).toEqual(expect.any(Object)); expect(g.json.entity_sources).toEqual(expect.any(Object));
@@ -1072,8 +1072,8 @@ describe('settings (x-firmware)', () => {
   });
 });
 
-// Device health as HA entities (#32): the device POSTs /api/states/<id> to HA with its own key (admin only in HA).
-describe.skipIf(REAL && !FAKE)('device health in Home Assistant (#32)', () => {
+// Device health as HA entities (eink-ha-os#32): the device POSTs /api/states/<id> to HA with its own key (admin only in HA).
+describe.skipIf(REAL && !FAKE)('device health in Home Assistant (eink-ha-os#32)', () => {
   type Posted = { entity_id: string; state: string; attributes: Record<string, unknown> };
   it('linked as an admin: battery, charging, firmware, reset reason become HA states; display.haReport toggles it', async () => {
     let dev = base, auth: { token?: string | null; cookie?: string | null } = { token: rw }, r4: RunningSim | null = null;
@@ -1096,7 +1096,7 @@ describe.skipIf(REAL && !FAKE)('device health in Home Assistant (#32)', () => {
       expect(last(`sensor.${id}_firmware`)?.state).toBe(st.firmware);
       expect(last(`sensor.${id}_reset_reason`)?.state).toMatch(/^[A-Z_]+$/);
       const status = () => http(dev, 'GET', '/api/v1/status', auth);
-      // a failed push retries after 10 s, then 60 s (ha_report::kMinGapMs): one slow handshake under TCG must not fail this (#123)
+      // a failed push retries after 10 s, then 60 s (ha_report::kMinGapMs): one slow handshake under TCG must not fail this (eink-ha-os#123)
       const ok = await until(status, (r) => r.json.ha_report?.state === 'ok', REAL ? 90_000 : 5000);
       expect(ok.json.ha_report).toEqual({ enabled: true, state: 'ok', last_push_epoch: expect.any(Number) });
       const put = (display: object) => http(dev, 'PUT', '/api/v1/settings', { ...auth, body: JSON.stringify({ display }), type: 'application/json' });
@@ -1119,13 +1119,13 @@ describe.skipIf(REAL && !FAKE)('device health in Home Assistant (#32)', () => {
       expect(r5.fakeHa!.posted).toEqual([]);
       const admin = await signIn(r5.url);   // an admin session; the display's key stays the non-admin one
       expect((await http(r5.url, 'GET', '/api/v1/status', { cookie: admin.cookie })).json.ha_report).toEqual({ enabled: true, state: 'not_admin', last_push_epoch: null });
-      expect((await http(r5.url, 'DELETE', '/api/v1/ha', { cookie: admin.cookie })).status).toBe(204);   // unlink: status starts over (#44)
+      expect((await http(r5.url, 'DELETE', '/api/v1/ha', { cookie: admin.cookie })).status).toBe(204);   // unlink: status starts over (eink-ha-os#44)
       expect((await http(r5.url, 'GET', '/__sim/state')).json.ha.report).toBe('waiting');
     } finally { await r5.close(); }
   });
 });
 
-/** GET /seed body (#89): counts match the tiles; each tile is filled (rule) or dropped (why), never both. */
+/** GET /seed body (eink-ha-os#89): counts match the tiles; each tile is filled (rule) or dropped (why), never both. */
 function expectSeedReport(j: any) {
   expect(j).toMatchObject({ filled: expect.any(Number), total: expect.any(Number), dismissed: expect.any(Boolean), tiles: expect.any(Array) });
   expect(j.total).toBe(j.tiles.length);
@@ -1136,7 +1136,7 @@ function expectSeedReport(j: any) {
   }
 }
 
-describe('seed report (x-firmware, #89)', () => {
+describe('seed report (x-firmware, eink-ha-os#89)', () => {
   it.skipIf(NO_RW)('GET → what the first-link seed filled and dropped (404 when none ran); 401 without a token; DELETE needs write, sets dismissed', async () => {
     expect((await http(base, 'GET', '/api/v1/seed')).status).toBe(401);
     const g = await http(base, 'GET', '/api/v1/seed', { token: rw });
@@ -1154,7 +1154,7 @@ describe('seed report (x-firmware, #89)', () => {
   });
 });
 
-describe('logs (x-firmware, #200)', () => {
+describe('logs (x-firmware, eink-ha-os#200)', () => {
   type Line = { seq: number; ms: number; epoch: number | null; level: string; tag: string; msg: string };
   const logs = async (q = '', token = ro || rw) => http(base, 'GET', '/api/v1/logs' + q, { token });
   it.skipIf(NO_RW)('GET → this boot\'s lines; since polls; level / tag / limit filter; 422 on bad parameters; 401 without a token', async () => {
@@ -1227,21 +1227,21 @@ describe('diagnostics (x-firmware)', () => {
       heap: { free_internal: expect.any(Number), min_free_internal: expect.any(Number), largest_free_internal: expect.any(Number), free_psram: expect.any(Number) },
       panel: { controller: expect.any(String), source: expect.stringMatching(/^(probe|default|none)$/), promoted: expect.any(Boolean) } });
     expect(d.heap.largest_free_internal).toBeGreaterThan(0);
-    // #198: the last internal-heap low point with its context (null before the first checkpoint)
+    // eink-ha-os#198: the last internal-heap low point with its context (null before the first checkpoint)
     expect(d.heap.low_point === null || (typeof d.heap.low_point.min_free_internal === 'number' && typeof d.heap.low_point.where === 'string' && typeof d.heap.low_point.tls_slots === 'number')).toBe(true);
     if (FAKE) expect(d.heap.low_point).not.toBeNull();   // the health loop checks every 10 s
     expect(d.boots.length).toBeGreaterThanOrEqual(1); expect(d.boots.length).toBeLessThanOrEqual(8);
     expect(d.boots[0]).toMatchObject({ reason: d.reset_reason, crash: expect.any(Boolean), version: d.firmware, uptime_s: expect.any(Number), min_free_heap: expect.any(Number) });
     expect(d.coredump === null || typeof d.coredump.task === 'string').toBe(true);
     expect(d.touch_recoveries === null || typeof d.touch_recoveries === 'number').toBe(true);
-    expect(d.deep_sleep).toMatchObject({ armed: expect.any(Boolean), boots_left: expect.any(Number) });   // #10 first-boot safety
+    expect(d.deep_sleep).toMatchObject({ armed: expect.any(Boolean), boots_left: expect.any(Number) });   // eink-ha-os#10 first-boot safety
     expect(d.deep_sleep.armed).toBe(d.deep_sleep.boots_left === 0);
-    // #225 power trail (/power.txt): the last line when this boot started and the newest lines
+    // eink-ha-os#225 power trail (/power.txt): the last line when this boot started and the newest lines
     expect(d.power_trail.before_boot === null || typeof d.power_trail.before_boot === 'string').toBe(true);
     expect(Array.isArray(d.power_trail.lines) && d.power_trail.lines.length <= 8).toBe(true);
     expect(d.power_trail.lines.every((l: unknown) => typeof l === 'string')).toBe(true);
-    expect(Number.isInteger(d.power_trail.empty_house_sleeps) && d.power_trail.empty_house_sleeps >= 0).toBe(true);   // #331
-    const ph = d.power_trail.phases;   // #327: awake phases; the device-sim has no power path (boot null, wakes [])
+    expect(Number.isInteger(d.power_trail.empty_house_sleeps) && d.power_trail.empty_house_sleeps >= 0).toBe(true);   // eink-ha-os#331
+    const ph = d.power_trail.phases;   // eink-ha-os#327: awake phases; the device-sim has no power path (boot null, wakes [])
     expect(Array.isArray(ph.wakes) && ph.wakes.length <= 12).toBe(true);
     const keys = ['boot_ms', 'wifi_ms', 'ha_ms', 'render_ms', 'panel_ms', 'idle_ms', 'total_ms'];
     for (const w of [ph.boot, ...ph.wakes].filter((x) => x !== null)) {
@@ -1250,23 +1250,25 @@ describe('diagnostics (x-firmware)', () => {
       expect(w.boot_ms + w.wifi_ms + w.ha_ms + w.idle_ms <= w.total_ms).toBe(true);
     }
     if (REAL) expect(ph.boot).not.toBeNull();   // firmware: this boot is measured
-    expect(d.deep_sleep.armed_by === null ? !d.deep_sleep.armed : ['uptime', 'boots'].includes(d.deep_sleep.armed_by)).toBe(true);   // #231
-    // #231 battery history: the first sample is taken as soon as the gauge is read (the device and the simulator both have one)
+    expect(d.deep_sleep.armed_by === null ? !d.deep_sleep.armed : ['uptime', 'boots'].includes(d.deep_sleep.armed_by)).toBe(true);   // eink-ha-os#231
+    // eink-ha-os#231 battery history: the first sample is taken as soon as the gauge is read (the device and the simulator both have one)
     expect(d.battery).toMatchObject({ interval_s: 300, fields: ['t', 'pct', 'mv', 'chg', 'usb', 'power', 'rssi'] });
     expect(d.battery.history.length).toBeGreaterThanOrEqual(1); expect(d.battery.history.length).toBeLessThanOrEqual(288);
     const row = d.battery.history[d.battery.history.length - 1];
     expect(row).toHaveLength(7); expect(row[1]).toBeGreaterThanOrEqual(0); expect([0, 1]).toContain(row[3]); expect([0, 1]).toContain(row[4]); expect(typeof row[5]).toBe('string');
-    // #227 inbound path: this request is open; earlier ones were served; QEMU has no mDNS responder and no RSSI
+    // eink-ha-os#227 inbound path: this request is open; earlier ones were served; QEMU has no mDNS responder and no RSSI
     expect(d.web).toMatchObject({ open: expect.any(Number), served: expect.any(Number), refused_503: expect.any(Number) });
     // open is 0 on the firmware today: handleRequest's onDisconnect replaces the connection gate's (counted at dispatch)
     expect(d.web.open).toBeGreaterThanOrEqual(0); expect(d.web.served).toBeGreaterThanOrEqual(1);
     expect(typeof d.web.last_request_age_s).toBe('number');
     expect(d.mdns).toMatchObject({ up: expect.any(Boolean), restarts: expect.any(Number) });
-    expect(d.mdns.last_restart_reason === null || ['connect', 'got_ip', 'bssid', 'idle'].includes(d.mdns.last_restart_reason)).toBe(true);
+    expect(d.mdns.last_restart_reason === null || ['connect', 'got_ip', 'bssid', 'idle', 'v4_off', 'renamed'].includes(d.mdns.last_restart_reason)).toBe(true);
+    // eink-ha-os#376: QEMU and the sim run no responder: no name, no IPv4 socket, no announce
+    expect(d.mdns).toMatchObject({ hostname: null, v4: false, last_announce_age_s: null });
     expect(d.wifi).toMatchObject({ idle_checks: expect.any(Number), idle_reconnects: expect.any(Number) });
     expect(d.wifi.bssid === null || /^[0-9a-f]{4}$/.test(d.wifi.bssid)).toBe(true);
     expect(d.wifi.rssi === null || typeof d.wifi.rssi === 'number').toBe(true);
-    expect(d.panel.failed).toEqual(expect.any(Boolean));   // #181: null failure while the panel is fine
+    expect(d.panel.failed).toEqual(expect.any(Boolean));   // eink-ha-os#181: null failure while the panel is fine
     expect(d.panel.failed ? typeof d.panel.failure === 'string' : d.panel.failure === null).toBe(true);
     expect((await http(base, 'GET', '/api/v1/status', { token: rw })).json.uptime_s).toEqual(expect.any(Number));
     if (ro) {
@@ -1303,10 +1305,10 @@ describe('diagnostics (x-firmware)', () => {
   });
 });
 
-// #181: a panel whose BUSY never releases (QEMU: POST /__qemu/panel?stuck=1) is given up after one 20 s wait instead of
+// eink-ha-os#181: a panel whose BUSY never releases (QEMU: POST /__qemu/panel?stuck=1) is given up after one 20 s wait instead of
 // boot-looping on the task watchdog; the display keeps serving and skips every refresh. A real display skips this.
-// #214: remote input and the frame on the glass, for measuring render/refresh on hardware. Off by default.
-describe.skipIf(NO_RW)('remote input + framebuffer (#214)', () => {
+// eink-ha-os#214: remote input and the frame on the glass, for measuring render/refresh on hardware. Off by default.
+describe.skipIf(NO_RW)('remote input + framebuffer (eink-ha-os#214)', () => {
   const putS = (on: boolean) => http(base, 'PUT', '/api/v1/settings', { token: rw, body: JSON.stringify({ display: { debugInput: on } }), type: 'application/json' });
   const input = (q: string, token = rw) => http(base, 'POST', '/api/v1/debug/input?' + q, { token });
   const qemu = async () => (await http(base, 'GET', '/__qemu/state')).json;
@@ -1346,7 +1348,7 @@ describe.skipIf(NO_RW)('remote input + framebuffer (#214)', () => {
   }, REAL ? 120_000 : 10_000);
 });
 
-describe('stuck panel BUSY (#181)', () => {
+describe('stuck panel BUSY (eink-ha-os#181)', () => {
   it.skipIf(NO_RW)('BUSY never releases → panel failed once, refreshes skipped, /status keeps answering', async () => {
     if (typeof (await http(base, 'GET', '/__qemu/state')).json?.full !== 'number') return;   // QEMU only
     const idle = async () => { for (let i = 0; i < 120 && (await http(base, 'GET', '/__qemu/state')).json?.busy === true; i++) await new Promise((r) => setTimeout(r, 500)); };
@@ -1376,13 +1378,13 @@ describe('stuck panel BUSY (#181)', () => {
     }
     expect((await http(base, 'GET', '/api/v1/status', { token: rw })).json.panel).toBe('ok');
     expect((await diagnostics()).panel).toMatchObject({ failed: false, failure: null });
-  }, 180_000);   // quietMinute(50) up to ~60 s + the 20 s BUSY wait + idle polls: 120 s was too tight on a loaded runner (#207)
+  }, 180_000);   // quietMinute(50) up to ~60 s + the 20 s BUSY wait + idle polls: 120 s was too tight on a loaded runner (eink-ha-os#207)
 });
 
-// #178: power measurement hooks. /status power counters + refreshes, POST /device/sleep. The sleep round trip runs on
+// eink-ha-os#178: power measurement hooks. /status power counters + refreshes, POST /device/sleep. The sleep round trip runs on
 // the simulator (POST /__sim/control {wake}) and QEMU (simulated deep sleep: ≤ 8 s, then a reset with the wake cause);
 // a real display is left awake.
-describe('power measurement hooks (#178)', () => {
+describe('power measurement hooks (eink-ha-os#178)', () => {
   const status = async () => { const r = await http(base, 'GET', '/api/v1/status', { token: rw }); expect(r.status, r.text).toBe(200); return r.json; };
   const sleepReq = (body: string, token = rw) => http(base, 'POST', '/api/v1/device/sleep', { token, body, type: 'application/json' });
   const isQemu = async () => typeof (await http(base, 'GET', '/__qemu/state')).json?.full === 'number';
@@ -1394,7 +1396,7 @@ describe('power measurement hooks (#178)', () => {
     expect(s.power.awakeS).toBeGreaterThanOrEqual((s.uptime_s ?? 0) - 2);   // firmware: since setup(), uptime_s since the reset
     expect(s.refreshes).toMatchObject({ full: expect.any(Number), partial: expect.any(Number), boot: { full: expect.any(Number), partial: expect.any(Number) } });
     expect(s.refreshes.full).toBeGreaterThanOrEqual(s.refreshes.boot.full);
-    if (s.refreshes.boot.fast !== undefined) expect(s.refreshes.boot).toMatchObject({ fast: expect.any(Number), clean: expect.any(Number) });   // #197
+    if (s.refreshes.boot.fast !== undefined) expect(s.refreshes.boot).toMatchObject({ fast: expect.any(Number), clean: expect.any(Number) });   // eink-ha-os#197
   });
   it.skipIf(NO_RW)('POST /device/sleep: 422 for bad seconds, 401 without a token, 409 on external power', async () => {
     const msg = 'seconds must be an integer from 60 to 86400';
@@ -1444,10 +1446,10 @@ describe('power measurement hooks (#178)', () => {
   });
 });
 
-// #202: a configured display boots straight to its dashboard: two full refreshes (boot, home), never the setup
+// eink-ha-os#202: a configured display boots straight to its dashboard: two full refreshes (boot, home), never the setup
 // screens. The firmware read its status defaults (no Wi-Fi, never linked) when the boot refresh outlasted the boot
 // screen: boot → "setup: Wi-Fi" → "setup: browser" on every boot of a real panel.
-describe('configured boot (#202)', () => {
+describe('configured boot (eink-ha-os#202)', () => {
   const status = async () => { try { const r = await http(base, 'GET', '/api/v1/status', { token: rw }); return r.status === 200 ? r.json : null; } catch { return null; } };
   const signedIn = async () => { try { return (await http(base, 'GET', '/api/v1/console/state', { cookie: session })).json?.session?.signed_in === true; } catch { return null; } };
   it.skipIf(NO_RW)('restart of a linked display → boot + home, no setup refresh', async (ctx) => {
@@ -1499,7 +1501,7 @@ describe.skipIf(REAL)('first install (separate simulator)', () => {
     const st = await until(() => http(b, 'GET', '/__sim/state'), (r) => r.json.ha.connected);
     expect(st.json.screen).toBe('overview');
     expect((await http(b, 'GET', '/api/v1/console/state')).json.seed_pending).toBe(false);
-    expect(r2.fakeHa!.templateErrors).toEqual([]);   // no undefined attribute reads real HA would report (#58)
+    expect(r2.fakeHa!.templateErrors).toEqual([]);   // no undefined attribute reads real HA would report (eink-ha-os#58)
     expect(st.json.events.map((e: any) => e.reason)).toContain('welcome · live data');
     // After setup the Wi-Fi endpoints need a session again… unless never linked; linked now → 401.
     expect((await http(b, 'GET', '/api/v1/wifi')).status).toBe(401);
@@ -1509,7 +1511,7 @@ describe.skipIf(REAL)('first install (separate simulator)', () => {
   });
 });
 
-describe.skipIf(REAL)('first sign-in on a real-shaped Dutch house (separate simulators, #82)', () => {
+describe.skipIf(REAL)('first sign-in on a real-shaped Dutch house (separate simulators, eink-ha-os#82)', () => {
   for (const house of ['dutch', 'dutch-energy'] as const) it(house + ': the seeded home tiles all exist in HA', async () => {
     const r = await startSimulator({ port: 0, fakeHaPort: 0, haTickMs: 0, preset: 'never-linked', house, delays: FAST });
     try {
@@ -1518,7 +1520,7 @@ describe.skipIf(REAL)('first sign-in on a real-shaped Dutch house (separate simu
       await until(() => http(r.url, 'GET', '/api/v1/console/state', { cookie: s.cookie }), (x) => x.json.seed_pending === false);
       const ids = await expectSeededEntitiesExist(r.url, s.cookie, [...r.fakeHa!.states.keys()]);
       expect(ids).toEqual(expect.arrayContaining(['sensor.solaredge_i1_ac_power', 'sensor.p1_meter_power', 'sensor.anker_solix_home_load', 'sensor.anker_solix_soc', 'sensor.buienradar_temperature']));
-      // #89: the report names the same entities and says why the rest is missing
+      // eink-ha-os#89: the report names the same entities and says why the rest is missing
       const rep = await http(r.url, 'GET', '/api/v1/seed', { cookie: s.cookie });
       expect(rep.status, rep.text).toBe(200);
       expectSeedReport(rep.json);
@@ -1532,7 +1534,7 @@ describe.skipIf(REAL)('first sign-in on a real-shaped Dutch house (separate simu
   });
 });
 
-describe.skipIf(REAL)('one sign-in with a non-admin account (separate simulator, #22)', () => {
+describe.skipIf(REAL)('one sign-in with a non-admin account (separate simulator, eink-ha-os#22)', () => {
   let r4: RunningSim;
   beforeAll(async () => { r4 = await startSimulator({ port: 0, fakeHaPort: 0, haTickMs: 0, preset: 'never-linked', delays: FAST }); });
   afterAll(async () => { await r4.close(); });
@@ -1552,7 +1554,7 @@ describe.skipIf(REAL)('one sign-in with a non-admin account (separate simulator,
   });
 });
 
-describe.skipIf(REAL)('Home Assistant address on the link page (separate simulator, #54)', () => {
+describe.skipIf(REAL)('Home Assistant address on the link page (separate simulator, eink-ha-os#54)', () => {
   let r5: RunningSim;
   beforeAll(async () => { r5 = await startSimulator({ port: 0, fakeHaPort: 0, haTickMs: 0, preset: 'never-linked', delays: FAST }); });
   afterAll(async () => { await r5.close(); });
@@ -1624,13 +1626,13 @@ describe.skipIf(REAL)('linking alternatives, restart, factory reset, rate limit 
 });
 
 // ---------------------------------------------------------------------------------------------------------------
-// #57: a real HA (800 entities) — building the console's entity list split internal RAM below the TLS guard
-// (#79: largest block >= 20 KB and internal free >= 64 KB, core/net_policy.h).
-describe.skipIf(REAL && !FAKE)('entity picker on a big house (#57)', () => {
+// eink-ha-os#57: a real HA (800 entities) — building the console's entity list split internal RAM below the TLS guard
+// (eink-ha-os#79: largest block >= 20 KB and internal free >= 64 KB, core/net_policy.h).
+describe.skipIf(REAL && !FAKE)('entity picker on a big house (eink-ha-os#57)', () => {
   const bigHouse = async (n: number) => { if (FAKE) await fakeCtl('big-house', { n }); else run!.fakeHa!.bigHouse(n); };
   afterAll(async () => { await bigHouse(0); });
-  // A health report (#32) opens a second TLS session next to the WebSocket for a few seconds under TCG (~45 KB): sample
-  // the heap outside that window (#123), the thresholds stay.
+  // A health report (eink-ha-os#32) opens a second TLS session next to the WebSocket for a few seconds under TCG (~45 KB): sample
+  // the heap outside that window (eink-ha-os#123), the thresholds stay.
   const heapSettled = () => until(() => http(base, 'GET', '/api/v1/status', { token: rw }),
     (r) => r.json.free_heap >= 65536 && r.json.heap_largest_block >= 20480, 15_000);
   it('+1200 entities with long attributes: list capped at 800, opened 6×; TLS-sized heap block left, HA stays linked', async () => {
@@ -1639,7 +1641,7 @@ describe.skipIf(REAL && !FAKE)('entity picker on a big house (#57)', () => {
     for (let i = 0; i < 6; i++) {
       const r = await until(() => http(base, 'GET', '/api/v1/ha/entities', { token: rw }), (x) => x.status === 200 && x.json?.ready === true, 60_000);
       expect(r.json.entities.length).toBe(800);
-      // state (#84): HA's value when the list was read, shown in the console's entity picker
+      // state (eink-ha-os#84): HA's value when the list was read, shown in the console's entity picker
       expect(r.json.entities[0]).toMatchObject({ id: expect.stringMatching(/^[a-z_]+\.[a-z0-9_]+$/), name: expect.any(String), unit: expect.any(String), state: expect.any(String) });
       expect(r.json.entities.filter((e: { state: string }) => e.state !== '').length, 'entities with a state').toBeGreaterThan(0);
       expect(r.json.entities.some((e: { name: string }) => e.name.includes('"'))).toBe(true);   // quotes in names survive
@@ -1657,13 +1659,13 @@ describe.skipIf(REAL && !FAKE)('entity picker on a big house (#57)', () => {
 });
 
 // ---------------------------------------------------------------------------------------------------------------
-// #127: lightList / zoneList picks: areas / entities in screens.yaml; the console's list picker reads areas, area ids
-// and climate entities from GET /ha/entities. After #57: the entity list is cached (5 min), and that test needs the
+// eink-ha-os#127: lightList / zoneList picks: areas / entities in screens.yaml; the console's list picker reads areas, area ids
+// and climate entities from GET /ha/entities. After eink-ha-os#57: the entity list is cached (5 min), and that test needs the
 // first read.
-// #159: Settings is a fixed, built-in app. A config without it still shows it on the display, and PUT /settings shows
+// eink-ha-os#159: Settings is a fixed, built-in app. A config without it still shows it on the display, and PUT /settings shows
 // up on its pages. Simulator: /__sim/state apps + screen; QEMU: the panel text (GET /__qemu/regions) after Home → Home
 // (app switcher) → tap the second tile (the user's one app, then Settings).
-describe.skipIf(NO_RW)('built-in Settings (#159)', () => {
+describe.skipIf(NO_RW)('built-in Settings (eink-ha-os#159)', () => {
   const put = (yaml: string) => http(base, 'PUT', '/api/v1/config', { token: rw, body: yaml, type: 'application/yaml' });
   const putSettings = (b: object) => http(base, 'PUT', '/api/v1/settings', { token: rw, body: JSON.stringify(b), type: 'application/json' });
   const panel = async () => { const r = await http(base, 'GET', '/__qemu/regions'); return r.status === 200 && /^text\/plain/.test(r.headers.get('content-type') || '') ? r.text : null; };
@@ -1677,15 +1679,7 @@ describe.skipIf(NO_RW)('built-in Settings (#159)', () => {
   afterAll(async () => {
     // leave Settings first: a config push keeps the display on the page it shows, and the Settings pages always exist
     if (sim) await http(base, 'POST', '/__sim/control', { body: JSON.stringify({ screen: 'only' }), type: 'application/json' });
-    else if (await panel()) {
-      // after 60 s idle the first key only brings the chrome / light back (#27, #220): press until the panel left Settings
-      const state = () => http(base, 'GET', '/__qemu/state');
-      for (let k = 0; k < 3 && (await state()).json?.screen !== 'only'; k++) {
-        await notBusy(); await input('key=home'); await notBusy();
-        await until(state, (r) => r.json?.screen === 'only', 15_000).catch(() => null);
-      }
-      expect((await state()).json?.screen, 'Home leaves the Settings page').toBe('only');
-    }
+    else if (await panel()) { await notBusy(); await input('key=home'); await notBusy(); }
     if (original) expect((await put(original)).status).toBe(200);
     await putSettings({ display: { warmth } });
   });
@@ -1720,7 +1714,7 @@ describe.skipIf(NO_RW)('built-in Settings (#159)', () => {
   }, REAL ? 300_000 : 20_000);
 });
 
-describe('lightList / zoneList picks (#127)', () => {
+describe('lightList / zoneList picks (eink-ha-os#127)', () => {
   const H = 'version: 1\nscreens:\n  - id: picks\n    app: house\n    title: Picks\n    widgets:\n';
   it.skipIf(NO_RW)('validate: space-separated area ids / light / climate entities; a name or a wrong domain → 422 with the line', async () => {
     const ok = H + '      - {type: lightList, areas: living kitchen, entities: light.hall_stairs, cs: 4}\n      - {type: zoneList, entities: climate.living climate.office, cs: 4}\n';
@@ -1757,25 +1751,25 @@ describe('lightList / zoneList picks (#127)', () => {
     expect(r.json.entities.find((e: { id: string }) => e.id === 'climate.office')).toMatchObject({ unit: expect.any(String), area: 'office' });
     expect(r.json.entities.filter((e: { id: string }) => e.id.startsWith('climate.')).length).toBeGreaterThanOrEqual(4);
   });
-  it.skipIf(REAL && !FAKE)('GET /ha/entities lists (#134): climate / lights in HA and what an unpicked list shows (80 cap)', async () => {
+  it.skipIf(REAL && !FAKE)('GET /ha/entities lists (eink-ha-os#134): climate / lights in HA and what an unpicked list shows (80 cap)', async () => {
     const r = await until(() => http(base, 'GET', '/api/v1/ha/entities', { token: rw }), (x) => x.status === 200 && x.json?.ready === true && x.json.lists?.lights.total > 0, 60_000);
-    // totals follow HA now (the entity list may be up to 5 min older: the #57 test adds and removes the big house)
+    // totals follow HA now (the entity list may be up to 5 min older: the eink-ha-os#57 test adds and removes the big house)
     const { climate, lights } = r.json.lists;
     expect(climate.total).toBeGreaterThanOrEqual(4);
     expect({ climate, lights }).toEqual(listCounts(climate.total, lights.total));
-    // #150: entities in HA vs rows sent (800 at most)
+    // eink-ha-os#150: entities in HA vs rows sent (800 at most)
     expect(r.json.lists.entities.shown).toBe(Math.min(800, r.json.lists.entities.total));
     expect(r.json.entities).toHaveLength(r.json.lists.entities.shown);
   });
 });
 
 // ---------------------------------------------------------------------------------------------------------------
-// #88: a house shaped like a real HA (fake-ha-real.ts: ~1050 entities, areas via devices, registry display_precision,
+// eink-ha-os#88: a house shaped like a real HA (fake-ha-real.ts: ~1050 entities, areas via devices, registry display_precision,
 // unavailable / unknown, emoji and quotes in names). The simulator runs it on its own; real firmware opts in with
-// FAKE_HA_HOUSE=real X4_VITEST_ARGS="-t #88" sim/qemu/contract.sh (the suite's beforeAll then signs in on this house:
+// FAKE_HA_HOUSE=real X4_VITEST_ARGS="-t eink-ha-os#88" sim/qemu/contract.sh (the suite's beforeAll then signs in on this house:
 // seed, template errors and seeded entities are checked there too).
 const FAKE_HOUSE: string = FAKE ? String((await fakeCtl('state')).house ?? '') : '';
-describe.skipIf(REAL && FAKE_HOUSE !== 'real')('real-shaped house (#88)', () => {
+describe.skipIf(REAL && FAKE_HOUSE !== 'real')('real-shaped house (eink-ha-os#88)', () => {
   const PICKABLE = LIST_BUDGET.map(([d]) => d);
   const devArea = new Map(REAL_DEVICES.map((d) => [d.id, d.area]));
   const areaOf = (e: RealEntity) => e.area ?? (e.device ? devArea.get(e.device) : null) ?? '';
@@ -1807,37 +1801,37 @@ describe.skipIf(REAL && FAKE_HOUSE !== 'real')('real-shaped house (#88)', () => 
     expect(by.solar_power).toMatchObject({ entity: 'sensor.envoy_482100000000_current_power_production', rule: 'energy' });   // stat_rate
     expect(by.lights).toMatchObject({ rule: 'found' }); expect(by.heating).toMatchObject({ rule: 'found' });
     expect(by.rooms).toMatchObject({ rule: 'area' });
-    // #136: real thermometers, not Zigbee chip temperatures; Envoy for home use / solar today; no weekly counter or
+    // eink-ha-os#136: real thermometers, not Zigbee chip temperatures; Envoy for home use / solar today; no weekly counter or
     // Envoy consumption as grid import / export (the grid meters have no today sensor)
     expect(by.inside).toMatchObject({ entity: 'sensor.co2_living_room_temperature', rule: 'area' });
     expect(by.outside).toMatchObject({ entity: 'sensor.shelly_ht_outdoor_temperature', rule: 'name' });
     expect(by.home_power).toMatchObject({ entity: 'sensor.envoy_482100000000_current_power_consumption', rule: 'name' });
     expect(by.solar_today).toMatchObject({ entity: 'sensor.envoy_482100000000_energy_production_today', rule: 'name' });
     expect(by.grid_import_today).toMatchObject({ why: 'no_sensor' }); expect(by.grid_export_today).toMatchObject({ why: 'no_sensor' });
-    // #152: not the forecast's max of today (outside above), not the dryer plug's "today consumption" (imported / used today)
+    // eink-ha-os#152: not the forecast's max of today (outside above), not the dryer plug's "today consumption" (imported / used today)
     expect(by.energy_today).toMatchObject({ entity: 'sensor.home_energy_usage_today', rule: 'name' });
     // room labels are HA's area names, '&' included; the Tesla's climate is not a heating zone
     const cfg = (await http(b, 'GET', '/api/v1/config', { token: tok })).text;
     expect(cfg).toContain('label: Playroom & Study}');
     expect(cfg).not.toContain('_device_temperature');
     expect(cfg).toContain('{type: zoneList, entities: climate.attic climate.bathroom climate.bedroom climate.kitchen climate.living_room climate.playroom, cs: 4, rs: 2}');
-    // #152: the Better-Thermostat-style wrapper is no zone (above); per room its Hue group, not the second group or the
+    // eink-ha-os#152: the Better-Thermostat-style wrapper is no zone (above); per room its Hue group, not the second group or the
     // bulbs; rooms without a group keep their bulbs; the two lights without an area are left out
     expect(cfg).toContain('{type: lightList, entities: light.living_room light.kitchen light.hallway light.toilet light.bedroom light.desk_lamp_playroom light.playroom light.guest_room_lamp light.bathroom_mirror light.office_desk light.attic_tube_light light.garage_lamp light.outdoor light.driveway_spot, cs: 4, rs: 2}');
   });
 
-  it('GET /ha/entities (#150): a fair 800 (every switch / weather / climate / light), the cut says so; names / states / units as HA has them, areas via the device', async () => {
+  it('GET /ha/entities (eink-ha-os#150): a fair 800 (every switch / weather / climate / light), the cut says so; names / states / units as HA has them, areas via the device', async () => {
     const pickable = REAL_ENTITIES.filter((e) => PICKABLE.includes(e.id.split('.')[0]));
     expect(pickable.length).toBeGreaterThan(800);
     const r = await until(() => http(b, 'GET', '/api/v1/ha/entities', { token: tok }), (x) => x.status === 200 && x.json?.ready === true, 60_000);
     expect(r.json.areas).toEqual(REAL_AREAS.map(([id, name]) => ({ id, name })));
     const got: { id: string; name: string; unit: string; state: string; area?: string }[] = r.json.entities;
-    // capped at 800; besides the fixture HA has the display's own health entities (#32, posted meanwhile)
+    // capped at 800; besides the fixture HA has the display's own health entities (eink-ha-os#32, posted meanwhile)
     expect(got).toHaveLength(800);
     expect(r.json.lists.entities.shown).toBe(800);
     expect(r.json.lists.entities.total).toBeGreaterThanOrEqual(pickable.length);
     const ids = new Set(got.map((e) => e.id));
-    for (const d of ['switch', 'weather', 'climate', 'light', 'input_boolean', 'fan', 'scene', 'script']) {   // scene / script: #146
+    for (const d of ['switch', 'weather', 'climate', 'light', 'input_boolean', 'fan', 'scene', 'script']) {   // scene / script: eink-ha-os#146
       const missing = pickable.filter((e) => e.id.startsWith(d + '.') && !ids.has(e.id)).map((e) => e.id);
       expect(missing, d + '.* left out').toEqual([]);
     }
@@ -1859,13 +1853,13 @@ describe.skipIf(REAL && FAKE_HOUSE !== 'real')('real-shaped house (#88)', () => 
     expect(at('light.kitchen_spot_3')).toMatchObject({ state: 'unavailable', area: 'kitchen' });
     expect(at('light.playroom')?.name).toBe('Playroom "starry sky"');
     expect(at('light.living_room_reading_lamp')?.name).toBe('Reading lamp 📖');
-    expect(at('climate.living_room')).toMatchObject({ unit: '°C', state: '20.83' });   // #161: the temperature, not "auto"
+    expect(at('climate.living_room')).toMatchObject({ unit: '°C', state: '20.83' });   // eink-ha-os#161: the temperature, not "auto"
     expect(at('climate.attic')).toMatchObject({ unit: '', state: 'unavailable' });
     expect(at('weather.forecast_home')).toMatchObject({ unit: '°C', state: '10.9' });
     expect(at('switch.coffee_maker')).toBeDefined();
   });
 
-  it('lightList / zoneList picks (#127) on HA\'s own area ids: validate, PUT, GET writes them back', async () => {
+  it('lightList / zoneList picks (eink-ha-os#127) on HA\'s own area ids: validate, PUT, GET writes them back', async () => {
     const H = 'version: 1\nscreens:\n  - id: picks\n    app: house\n    title: Picks\n    widgets:\n';
     const ok = H + '      - {type: lightList, areas: living_room kids_room office, entities: light.hue_color_lamp_3, cs: 4}\n      - {type: zoneList, entities: climate.living_room climate.bathroom, cs: 4}\n';
     expect((await http(b, 'POST', '/api/v1/config/validate', { token: tok, body: ok, type: 'application/yaml' })).status).toBe(200);
@@ -1892,7 +1886,7 @@ describe.skipIf(REAL && FAKE_HOUSE !== 'real')('real-shaped house (#88)', () => 
     }
   });
 
-  it('values view (#122): every seeded screen, and unavailable / unknown / switch / gauge tiles', async () => {
+  it('values view (eink-ha-os#122): every seeded screen, and unavailable / unknown / switch / gauge tiles', async () => {
     const cfg = (await http(b, 'GET', '/api/v1/config', { token: tok, accept: 'application/json' })).json;
     const values = (id: string) => until(() => http(b, 'GET', '/api/v1/screens/' + id + '/values', { token: tok }), (x) => x.status !== 200 || x.json.ready === true, 15_000);
     for (const sc of cfg.screens.filter((s: any) => s.app !== 'settings')) {
@@ -1919,7 +1913,7 @@ describe.skipIf(REAL && FAKE_HOUSE !== 'real')('real-shaped house (#88)', () => 
       expect(put.status, put.text).toBe(200);
       const r = await until(() => values('x88'), (x) => x.status === 200 && x.json.values.every((v: string) => v !== '—'), 30_000).catch(() => values('x88'));
       expect(r.json.values).toEqual(tiles.map(([, v]) => v));
-      // #161: a climate / weather stat shows the temperature; list tiles count what they show
+      // eink-ha-os#161: a climate / weather stat shows the temperature; list tiles count what they show
       const v = await until(() => values('x161'), (x) => x.status === 200 && x.json.values.every((s: string) => s !== '—'), 30_000).catch(() => values('x161'));
       const lit = ['light.kitchen', 'light.living_room_ceiling'].filter((id) => byId.get(id)!.state === 'on').length;
       expect(v.json.values).toEqual([expect.stringMatching(/^\d+[.,]\d °C$/), '10.9 °C', tr(lang, 'nOfHeating', 2, 3), tr(lang, 'lightsOnOf', lit, 2)]);
@@ -1932,8 +1926,8 @@ describe.skipIf(REAL && FAKE_HOUSE !== 'real')('real-shaped house (#88)', () => 
 });
 
 // ---------------------------------------------------------------------------------------------------------------
-// #98: the display follows HA's language (get_config `language`, asked after every auth_ok): nl → nl, others → en.
-describe.skipIf(REAL && !FAKE)('language from Home Assistant (#98)', () => {
+// eink-ha-os#98: the display follows HA's language (get_config `language`, asked after every auth_ok): nl → nl, others → en.
+describe.skipIf(REAL && !FAKE)('language from Home Assistant (eink-ha-os#98)', () => {
   const setLang = async (language: string) => { if (FAKE) await fakeCtl('language', { language }); else run!.fakeHa!.language = language; };
   const reconnect = async () => { if (FAKE) await fakeCtl('drop-ws', {}); else run!.fakeHa!.dropWs(); };
   const status = () => http(base, 'GET', '/api/v1/status', { token: rw });
@@ -1946,7 +1940,7 @@ describe.skipIf(REAL && !FAKE)('language from Home Assistant (#98)', () => {
     await setLang('de'); await reconnect();
     await until(status, (r) => r.json?.language === 'en', 60_000);
   });
-  // #110: the profile's number_format (frontend/get_user_data "language") is asked after auth_ok too
+  // eink-ha-os#110: the profile's number_format (frontend/get_user_data "language") is asked after auth_ok too
   it('a profile number_format redraws the display once; an HA answering null keeps the link', async () => {
     const setFmt = async (nf: string | null) => { if (FAKE) await fakeCtl('language', { language: 'en', number_format: nf }); else run!.fakeHa!.numberFormat = nf; };
     const qemu = async () => { const r = await http(base, 'GET', '/__qemu/state'); return r.status === 200 ? r.json : null; };
@@ -1961,9 +1955,9 @@ describe.skipIf(REAL && !FAKE)('language from Home Assistant (#98)', () => {
   });
 });
 
-// #147: the clock follows HA's get_config time_zone (a table maps it to POSIX) unless PUT /settings tz overrides it;
+// eink-ha-os#147: the clock follows HA's get_config time_zone (a table maps it to POSIX) unless PUT /settings tz overrides it;
 // price tiles show HA's currency (GET /status currency).
-describe.skipIf(REAL && !FAKE)('time zone and currency from Home Assistant (#147)', () => {
+describe.skipIf(REAL && !FAKE)('time zone and currency from Home Assistant (eink-ha-os#147)', () => {
   const setLocale = async (time_zone: string, currency: string) => {
     if (FAKE) await fakeCtl('language', { time_zone, currency }); else { run!.fakeHa!.timeZone = time_zone; run!.fakeHa!.currency = currency; }
   };
@@ -1994,11 +1988,11 @@ describe.skipIf(REAL && !FAKE)('time zone and currency from Home Assistant (#147
   });
 });
 
-// #146: the scene tile runs an HA scene or script; without entity it is all lights off. Tap → the HA service call the
+// eink-ha-os#146: the scene tile runs an HA scene or script; without entity it is all lights off. Tap → the HA service call the
 // fake HA records. Simulator: POST /__sim/control {tap: n}; QEMU: /__qemu/input tap at the tile (classic and sleek
-// share the grid: 4 × 2 cells from x 14, y 72, a cs 2 tile 380 × 191). Ambient chrome (#27) swallows the first touch
-// 60 s after the last input: each tap is preceded by one on the empty fourth cell, so it lands on an awake display (#193).
-describe.skipIf(NO_RW || (REAL && !FAKE))('scene tile (#146)', () => {
+// share the grid: 4 × 2 cells from x 14, y 72, a cs 2 tile 380 × 191). Ambient chrome (eink-ha-os#27) swallows the first touch
+// 60 s after the last input: each tap is preceded by one on the empty fourth cell, so it lands on an awake display (eink-ha-os#193).
+describe.skipIf(NO_RW || (REAL && !FAKE))('scene tile (eink-ha-os#146)', () => {
   const put = (yaml: string) => http(base, 'PUT', '/api/v1/config', { token: rw, body: yaml, type: 'application/yaml' });
   const panel = async () => { const r = await http(base, 'GET', '/__qemu/regions'); return r.status === 200 && /^text\/plain/.test(r.headers.get('content-type') || '') ? r.text : null; };
   const notBusy = async () => { for (let i = 0; i < 240 && (await http(base, 'GET', '/__qemu/state')).json?.busy === true; i++) await sleep(500); };
@@ -2047,9 +2041,37 @@ describe.skipIf(NO_RW || (REAL && !FAKE))('scene tile (#146)', () => {
   }, REAL ? 300_000 : 20_000);
 });
 
-// #86: one calm state per failure. What the API shows (console/state) and, under QEMU, what the panel draws
+// eink-ha-os#332: a list from attributes tile on the fake HA's sensor.rare_birds_nearby (made-up places): the display keeps its
+// `sightings` list (capped) and formats the newest sighting as the tile's value.
+describe.skipIf(NO_RW || (REAL && !FAKE))('list from attributes tile (eink-ha-os#332)', () => {
+  const put = (yaml: string) => http(base, 'PUT', '/api/v1/config', { token: rw, body: yaml, type: 'application/yaml' });
+  const H = 'version: 1\nscreens:\n  - id: birds\n    title: Birds\n    widgets:\n';
+  let original = '';
+  beforeAll(async () => { original = (await http(base, 'GET', '/api/v1/config', { token: rw })).text; });
+  afterAll(async () => { if (original) expect((await put(original)).status).toBe(200); });
+
+  it('validate: a sensor and field names; another domain or a bad field → 422 with the line', async () => {
+    const v = (y: string) => http(base, 'POST', '/api/v1/config/validate', { token: rw, body: y, type: 'application/yaml' });
+    expect((await v(H + '      - {type: attrList, entity: sensor.rare_birds_nearby, subtitle: place distance_km, empty: Geen vogels, cs: 2, rs: 2}\n')).status).toBe(200);
+    const dom = await v(H + '      - {type: clock}\n      - {type: attrList, entity: calendar.birds, cs: 2}\n');
+    expect(dom.status).toBe(422); expect(dom.json).toMatchObject({ line: 7, message: 'attrList: “calendar.birds” is not a sensor entity' });
+    const fld = await v(H + '      - {type: attrList, entity: sensor.rare_birds_nearby, time: seen-at, cs: 2}\n');
+    expect(fld.status).toBe(422); expect(fld.json).toMatchObject({ line: 6, message: 'attrList: time must be a field name (letters, digits, _)' });
+  });
+
+  it('values: the newest sighting and how long ago, from the attribute the display keeps', async () => {
+    await until(() => http(base, 'GET', '/api/v1/status', { token: rw }), (r) => r.json?.home_assistant === 'linked', 60_000);
+    expect((await put(H + '      - {type: attrList, entity: sensor.rare_birds_nearby, cs: 2, rs: 2}\n      - {type: attrList, entity: sensor.no_such_birds, cs: 2, rs: 2}\n')).status).toBe(200);
+    const values = () => http(base, 'GET', '/api/v1/screens/birds/values', { token: rw });
+    const r = await until(values, (x) => x.status === 200 && x.json.ready === true && /^Klapekster · \S/.test(x.json.values[0]), 60_000).catch(() => values());
+    expect(r.json.values[0]).toMatch(/^Klapekster · \S/);
+    expect(r.json.values[1]).toBe('—');
+  }, 90_000);
+});
+
+// eink-ha-os#86: one calm state per failure. What the API shows (console/state) and, under QEMU, what the panel draws
 // (GET /__qemu/regions: the canvas text of every region). The simulator has no panel text: those checks are skipped.
-describe.skipIf(REAL && !FAKE)('failure states (#86)', () => {
+describe.skipIf(REAL && !FAKE)('failure states (eink-ha-os#86)', () => {
   const GAP = 'sensor.contract_gap';
   const setGap = async (state: string) => {
     const attributes = { friendly_name: 'Contract gap', unit_of_measurement: '°C' };
@@ -2098,9 +2120,9 @@ describe.skipIf(REAL && !FAKE)('failure states (#86)', () => {
   }, T);
 });
 
-// #87 (CONTRACT_HA_TLS=1): the WebSocket runs over https. A TLS session reset mid-stream, then HA's TLS port accepts and
-// never answers the handshake for a while (#79's hang): offline, no watchdog reset, relinked once handshakes work again.
-describe.skipIf(!HA_TLS)('HA WebSocket over https (#87)', () => {
+// eink-ha-os#87 (CONTRACT_HA_TLS=1): the WebSocket runs over https. A TLS session reset mid-stream, then HA's TLS port accepts and
+// never answers the handshake for a while (eink-ha-os#79's hang): offline, no watchdog reset, relinked once handshakes work again.
+describe.skipIf(!HA_TLS)('HA WebSocket over https (eink-ha-os#87)', () => {
   const ha = () => http(base, 'GET', '/api/v1/status', { token: rw });
   it('TLS reset mid-session + hung handshakes for 25 s: offline, then relinks; no watchdog reset', async () => {
     await until(ha, (r) => r.json.home_assistant === 'linked', 60_000);
@@ -2121,11 +2143,11 @@ describe.skipIf(!HA_TLS)('HA WebSocket over https (#87)', () => {
     expect(d1.boots.length, 'no reboot').toBe(d0.boots.length);
     expect(d1.uptime_s).toBeGreaterThan(d0.uptime_s);
   });
-  // #198: each HA report push opens a second TLS session next to the WebSocket. With a 3-slot reserve it took one
+  // eink-ha-os#198: each HA report push opens a second TLS session next to the WebSocket. With a 3-slot reserve it took one
   // 16.7 KB record buffer from the internal heap per push, and over a night on the X4 Pro the largest internal block
   // fell to 17,396 B (TLS refused). Now both sessions live in the reserve: no record buffer from the heap, the largest
   // block holds over WebSocket reconnects + pushes. Report pushes are ≥ 60 s apart (core/ha_report.h kMinGapMs).
-  it('WebSocket reconnects + HA report pushes: record buffers never leave the TLS reserve, largest internal block holds (#198)', async () => {
+  it('WebSocket reconnects + HA report pushes: record buffers never leave the TLS reserve, largest internal block holds (eink-ha-os#198)', async () => {
     const poll = async <T,>(fn: () => Promise<T>, ok: (v: T) => boolean, ms: number) => until(async () => { const v = await fn(); if (!ok(v)) await sleep(1000); return v; }, ok, ms);
     const q = async () => (await http(base, 'GET', '/__qemu/state')).json;
     const settled = () => poll(q, (x: any) => x.tls_slots === 2 && x.ha === 2, 120_000);   // WebSocket up, no second session
@@ -2146,7 +2168,7 @@ describe.skipIf(!HA_TLS)('HA WebSocket over https (#87)', () => {
       largest.push(s.largest);
       expect(s.tls_spills, 'record buffers from the internal heap').toBe(s0.tls_spills);
     }
-    console.log(`[#198] largest internal block ${s0.largest} → ${largest.join(' → ')} B, tls spills ${s0.tls_spills}`);
+    console.log(`[eink-ha-os#198] largest internal block ${s0.largest} → ${largest.join(' → ')} B, tls spills ${s0.tls_spills}`);
     // QEMU moves it by up to 8 KB around a relink (77,812 → 69,620 → 73,716 B); a record buffer is 16.7 KB
     expect(Math.min(...largest), 'largest internal block').toBeGreaterThanOrEqual(s0.largest - 12 * 1024);
     expect((await ha()).json.home_assistant).toBe('linked');
@@ -2160,8 +2182,8 @@ describe.skipIf(!FAKE)('real firmware with the fake HA', () => {
   const qemu = async () => { const r = await http(base, 'GET', '/__qemu/state'); return r.status === 200 ? r.json : null; };
   it('HA state changes reach the panel: a visible change redraws, an invisible one does not', async () => {
     await until(() => http(base, 'GET', '/api/v1/status', { token: rw }), (r) => r.json.home_assistant === 'linked', 60_000);
-    // ambient chrome (#27) comes 60 s after the last key, and only once the display is out of setup: after a re-link
-    // that is seconds later, under QEMU sometimes inside the counting below (#71: partial 8 → 10). Let it land first.
+    // ambient chrome (eink-ha-os#27) comes 60 s after the last key, and only once the display is out of setup: after a re-link
+    // that is seconds later, under QEMU sometimes inside the counting below (eink-ha-os#71: partial 8 → 10). Let it land first.
     for (let i = 0; i < 90 && (await qemu())?.ambient === false; i++) await new Promise((r) => setTimeout(r, 1000));
     await fakeCtl('state', { entity_id: 'sensor.home_power', state: '3456' });
     // let the re-link's "linked · live data" full refresh and the 3.5 kW update land first
@@ -2176,16 +2198,16 @@ describe.skipIf(!FAKE)('real firmware with the fake HA', () => {
     const q1 = await qemu();
     if (q0 && q1) expect(q1.partial, JSON.stringify([q0, q1])).toBe(q0.partial + 1);          // one partial, no flash
     if (q0 && q1) expect(q1.full).toBe(q0.full);
-    await fakeCtl('state', { entity_id: 'sensor.home_power', state: '1240' });            // 6 W: inside the deadband, still 1.23 kW (#85)
+    await fakeCtl('state', { entity_id: 'sensor.home_power', state: '1240' });            // 6 W: inside the deadband, still 1.23 kW (eink-ha-os#85)
     await new Promise((r) => setTimeout(r, 7000));                                        // > one Live data interval
     expect(await png()).toBe(b);
     const q2 = await qemu();
     if (q1 && q2) { expect(q2.partial).toBe(q1.partial); expect(q2.full).toBe(q1.full); }
   });
-  it('preview.png of another screen draws that screen off-screen: panel, refresh counts and internal heap untouched (#168)', async () => {
+  it('preview.png of another screen draws that screen off-screen: panel, refresh counts and internal heap untouched (eink-ha-os#168)', async () => {
     const get = (id: string) => fetch(base + '/api/v1/screens/' + id + '/preview.png', { headers: { Authorization: 'Bearer ' + rw } });
     const pgm = async () => Buffer.from(await (await fetch(base + '/__qemu/framebuffer.pgm')).arrayBuffer()).toString('base64');
-    await quietMinute(50);   // the renders below are compared byte for byte: no minute tick in between (slow CI, #207)
+    await quietMinute(50);   // the renders below are compared byte for byte: no minute tick in between (slow CI, eink-ha-os#207)
     const q0 = await until(qemu, (q) => !!q && typeof q.screen === 'string' && q.screen !== '', 60_000);
     const ids: string[] = (await http(base, 'GET', '/api/v1/config', { token: rw, accept: 'application/json' })).json.screens
       .filter((s: any) => s.widgets?.length).map((s: any) => s.id);
@@ -2217,14 +2239,14 @@ describe.skipIf(!FAKE)('real firmware with the fake HA', () => {
     const q1 = (await qemu())!;
     expect(await pgm(), 'panel framebuffer unchanged').toBe(f0);
     expect([q1.full, q1.partial, q1.screen]).toEqual([q0.full, q0.partial, a]);
-    console.log(`[#168] internal heap before ${q0.heap} after ${q1.heap} (${q1.heap - q0.heap} B)`);
+    console.log(`[eink-ha-os#168] internal heap before ${q0.heap} after ${q1.heap} (${q1.heap - q0.heap} B)`);
     expect(q1.heap, 'internal heap').toBeGreaterThan(q0.heap - 8192);
     expect((await get('nope')).status).toBe(404);
   });
-  // #269: the device asks the recorder only for the history tiles of the app on screen: statistics first, the history
+  // eink-ha-os#269: the device asks the recorder only for the history tiles of the app on screen: statistics first, the history
   // fallback for an entity without statistics, and an answer over the 512 KB frame cap read and dropped (tile "tooMany",
   // asked once, the WebSocket stays up). /__qemu/state history: per series key {active, state, source, bytes, points}.
-  it('history tiles: statistics first, history fallback, an oversized answer dropped without a reconnect; other apps not fetched; attribute + forecast (#292)', async () => {
+  it('history tiles: statistics first, history fallback, an oversized answer dropped without a reconnect; other apps not fetched; attribute + forecast (eink-ha-os#292)', async () => {
     const q0 = await until(qemu, (q) => !!q && typeof q.screen === 'string' && q.screen !== '', 60_000);
     const original = (await http(base, 'GET', '/api/v1/config', { token: rw })).text;
     const cfg = (await http(base, 'GET', '/api/v1/config', { token: rw, accept: 'application/json' })).json;
@@ -2235,7 +2257,7 @@ describe.skipIf(!FAKE)('real firmware with the fake HA', () => {
     const tile = (entity: string, window: string, extra: Record<string, unknown> = {}) => ({ type: 'history', entity, window, cs: 2, ...extra });
     const screens = [...cfg.screens,
       { id: 'hist_here', app, title: 'History', widgets: [tile('sensor.outdoor_temperature', '24h'), tile('sensor.train_delay', '6h', { agg: 'max' }), tile('sensor.chatty_power', '6h')] },
-      // #292: a nowcast list in an attribute (from the entity mirror) and weather.get_forecasts (call_service, return_response)
+      // eink-ha-os#292: a nowcast list in an attribute (from the entity mirror) and weather.get_forecasts (call_service, return_response)
       { id: 'hist_ahead', app, title: 'Ahead', widgets: [tile('binary_sensor.rain_expected', '2h', { attribute: 'forecast', value: 'precipitation', bucket: '10m', agg: 'max' }), tile('weather.home', '24h')] },
       { id: 'hist_there', app: other, title: 'History 2', widgets: [tile('sensor.rain_total', '24h', { agg: 'change' })] }];
     await quietMinute();
@@ -2267,7 +2289,7 @@ describe.skipIf(!FAKE)('real firmware with the fake HA', () => {
       await new Promise((r) => setTimeout(r, 5000));
       expect(((await fakeCtl('history')).calls as typeof calls).filter((c) => c.type === 'history/history_during_period' && c.ids.includes('sensor.chatty_power'))).toHaveLength(1);
       const q2 = (await qemu())!;
-      console.log(`[#269] internal heap ${q0.heap} → ${q2.heap} B, largest ${q0.largest} → ${q2.largest} B; ${JSON.stringify(q2.history)}`);
+      console.log(`[eink-ha-os#269] internal heap ${q0.heap} → ${q2.heap} B, largest ${q0.largest} → ${q2.largest} B; ${JSON.stringify(q2.history)}`);
       expect(q2.largest, 'largest internal block').toBeGreaterThan(Math.min(q0.largest, 16384) - 4096);
     } finally {
       const pre = await refreshCounts();
@@ -2288,7 +2310,7 @@ describe.skipIf(!FAKE)('real firmware with the fake HA', () => {
     const del = await http(base, 'PUT', '/api/v1/settings', { token: rw, body: JSON.stringify({ entities: { 'sensor.living_temperature': null, 'sensor.battery_power': '' } }), type: 'application/json' });
     expect(del.json.entities).toEqual({});
   });
-  // #149: a Frank Energie price sensor (192 quarter-hours in `prices` + 96 in `prices_today`, ~26 KB of attributes)
+  // eink-ha-os#149: a Frank Energie price sensor (192 quarter-hours in `prices` + 96 in `prices_today`, ~26 KB of attributes)
   // mapped as the price source took the internal low-water to ~1.2 KB on the real test display.
   it('a price source with a large `prices` attribute: hourly prices parsed, internal low-water stays ≥ 32 KB', async () => {
     const status = () => http(base, 'GET', '/api/v1/status', { token: rw });
@@ -2308,14 +2330,14 @@ describe.skipIf(!FAKE)('real firmware with the fake HA', () => {
       const s = await status();
       expect(s.json.home_assistant).toBe('linked');
       // base: 67 → 38.5 KB on the demo house (a ~16 KB DOM per event in internal RAM); now ~1.6 KB. Over https a
-      // health report's second TLS session in this window costs another ~11 KB (#123).
+      // health report's second TLS session in this window costs another ~11 KB (eink-ha-os#123).
       expect(before - s.json.heap_min_free, `internal low-water ${before} → ${s.json.heap_min_free} B`).toBeLessThanOrEqual(16384);
       expect(s.json.heap_min_free).toBeGreaterThanOrEqual(Math.min(32768, before));
     } finally { await put({ 'sensor.energy_prices': null }); }
   });
-  // #274: HA 2025.12+ stores the grid source flat (stat_energy_from / _to, entity_energy_price, stat_rate); the display
+  // eink-ha-os#274: HA 2025.12+ stores the grid source flat (stat_energy_from / _to, entity_energy_price, stat_rate); the display
   // read only flow_from / flow_to, so grid import / export, usage and the price entity were missing.
-  it('#274: a flat grid source (HA 2025.12+) gives the price, grid power and the import / export meters', async () => {
+  it('eink-ha-os#274: a flat grid source (HA 2025.12+) gives the price, grid power and the import / export meters', async () => {
     const status = () => http(base, 'GET', '/api/v1/status', { token: rw });
     const linked = () => until(status, (r) => r.json.home_assistant === 'linked', 60_000);
     await linked();
@@ -2333,11 +2355,11 @@ describe.skipIf(!FAKE)('real firmware with the fake HA', () => {
       await linked();
     }
   });
-  // #149: once the link dropped during a low-memory episode it stayed offline until a manual restart. Hold internal
+  // eink-ha-os#149: once the link dropped during a low-memory episode it stayed offline until a manual restart. Hold internal
   // RAM below the TLS guard, drop the WebSocket, let go: the client must relink on its own.
-  // #160: a series of config PUTs of a real-sized house (10 screens, lights in 10 rooms, 9 zones) took the internal
+  // eink-ha-os#160: a series of config PUTs of a real-sized house (10 screens, lights in 10 rooms, 9 zones) took the internal
   // low-water to ~1.4 KB and the largest block 31.7 → 8 KB on the real test display.
-  it('#160: 20 PUTs of a 10-screen config: internal low-water ≥ 32 KB, largest block ≥ 20 KB, HA stays linked', async () => {
+  it('eink-ha-os#160: 20 PUTs of a 10-screen config: internal low-water ≥ 32 KB, largest block ≥ 20 KB, HA stays linked', async () => {
     const status = () => http(base, 'GET', '/api/v1/status', { token: rw });
     await until(status, (r) => r.json.home_assistant === 'linked', 60_000);
     const original = (await http(base, 'GET', '/api/v1/config', { token: rw })).text;

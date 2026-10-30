@@ -10,13 +10,13 @@
   (the display subscribes to config entities). The firmware reads its whole entity store; the emulator reads the
   entities on its screens. Ingest keeps `device_class` only for those four binary_sensor classes (`core/ha_stream.cpp`).
 - The face redraws on every empty-house wake (one full refresh per 2 h): "Next update ~HH:MM" changes
-  each time ("Updated HH:MM" was dropped in #333). Inside temperature changes alone would not wake it more often.
+  each time ("Updated HH:MM" was dropped in eink-ha-os#333). Inside temperature changes alone would not wake it more often.
 - The 2 h wait is cut at the start of quiet hours (so the quiet face goes up on time) and at the 03:00 OTA window; it
   does not add the glance backoff on top. Presence unknown (HA unreachable, state unknown / unavailable) counts as
   someone home: the normal interval.
 - `power_trail.empty_house_sleeps` counts since power-on in RTC memory, not in `/power.txt`: the trail writes one
   `sleep empty house` line per run of them (no flash write per wake).
-- Good morning page (#330): when nobody is home at the end of quiet hours (glance, source set), the page is skipped
+- Good morning page (eink-ha-os#330): when nobody is home at the end of quiet hours (glance, source set), the page is skipped
   (disarmed, log `MORNING skipped · nobody home`) and the display goes to empty-house sleep. While asleep with nobody
   home, the Nobody home face wins over a page that is still up.
 - The optional "HA automation shortens the next wake" from the issue is not built (doc idea only).

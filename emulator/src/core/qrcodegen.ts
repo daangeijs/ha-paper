@@ -22,7 +22,7 @@
  */
 
 // Vendored from https://github.com/nayuki/QR-Code-generator (typescript-javascript/qrcodegen.ts, commit 3c6d0b3)
-// for the guest Wi-Fi tile (#329). Changed only to fit this repo's TypeScript settings (erasableSyntaxOnly, ES
+// for the guest Wi-Fi tile (eink-ha-os#329). Changed only to fit this repo's TypeScript settings (erasableSyntaxOnly, ES
 // modules): the qrcodegen namespaces became module exports (QrCode.Ecc -> Ecc, QrSegment.Mode -> Mode) and parameter
 // properties became fields. The algorithm is untouched; the firmware vendors the same library's C version
 // (firmware/lib/qrcodegen), so both produce the same modules.

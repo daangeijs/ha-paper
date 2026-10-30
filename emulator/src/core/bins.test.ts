@@ -8,7 +8,7 @@ import { binsVectors } from '../../scripts/gen-vectors.ts';
 const file = join(import.meta.dirname, '..', '..', '..', 'spec', 'test-vectors', 'bins.json');
 const at = (d: number, h: number, m: number, tz = 60) => Date.UTC(2026, 9, d, h, m) - tz * 60_000;
 
-describe('bins (#317)', () => {
+describe('bins (eink-ha-os#317)', () => {
   it('reads both state shapes and the attributes', () => {
     const now = at(28, 19, 5);
     expect(binDays('2026-10-29', {}, now, 60)).toBe(1);

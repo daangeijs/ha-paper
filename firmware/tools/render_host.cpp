@@ -3,7 +3,7 @@
 // Classic: <name>.png. Sleek (display styles): sleek_<typeface>_<name>.png for every default page in each of the four
 // typefaces, plus for Home the "dots" card surface. Every default page also gets *_bw.png: the whole frame thresholded
 // the way hw/x4_display.h does for a partial refresh (dark gray → black, light gray → white), i.e. the worst case after
-// a ≥ 50 % partial (sub-page turn). Issue #38: these must read the same as the gray frames.
+// a ≥ 50 % partial (sub-page turn). Issue eink-ha-os#38: these must read the same as the gray frames.
 #include <cmath>
 #include <cstdlib>
 #include <cstdio>
@@ -73,11 +73,11 @@ struct Rig {
 static void defaultPages() {
   { Rig r; r.both("home"); r.key(Key::Next); r.both("prices"); r.key(Key::Next); r.both("energy"); r.key(Key::Next); r.both("solar"); }
   { Rig r; r.openApp(1); r.both("lights_1"); r.key(Key::Next); r.both("lights_2"); r.key(Key::Next); r.both("lights_3"); r.key(Key::Next); r.both("heating"); }
-  { Rig r; r.app.setConfig(parseYamlText(demo::travelYaml()).config); r.step(2000); r.both("travel"); }   // user routes (#145)
+  { Rig r; r.app.setConfig(parseYamlText(demo::travelYaml()).config); r.step(2000); r.both("travel"); }   // user routes (eink-ha-os#145)
   { Rig r; r.openApp(2); r.both("settings_display"); r.key(Key::Next); r.both("settings_style"); r.key(Key::Next); r.both("settings_power");
     r.key(Key::Next); r.both("settings_updates"); r.key(Key::Next); r.both("settings_wifi"); r.key(Key::Next); r.both("settings_ha");
     r.key(Key::Next); r.both("settings_about"); }
-  // ambient idle mode (#27): 60 s without input, chrome hidden (Home drops the bar clock: it has a clock tile)
+  // ambient idle mode (eink-ha-os#27): 60 s without input, chrome hidden (Home drops the bar clock: it has a clock tile)
   { Rig r; r.step(61000); r.app.requestFullRefresh(); r.both("home_ambient"); }
   { Rig r; r.openApp(1); r.step(61000); r.app.requestFullRefresh(); r.both("lights_ambient"); }
 }
@@ -95,7 +95,7 @@ static void sleekPasses() {
   gSet = DisplaySettings(); gPrefix.clear();
 }
 
-// Deep sleep (#299): the frame a sleeping panel keeps. `render_host <dir> asleep`
+// Deep sleep (eink-ha-os#299): the frame a sleeping panel keeps. `render_host <dir> asleep`
 static void asleepPass(const char* style, const char* prefix) {
   gSet = DisplaySettings(); gSet.style = style; if (std::string(style) == "sleek") gSet.typeface = "geist";
   gPrefix = prefix;
@@ -105,7 +105,7 @@ static void asleepPass(const char* style, const char* prefix) {
   gSet = DisplaySettings(); gPrefix.clear();
 }
 
-// Nobody home (#331): the sleeping glance panel while zone.home says 0. `render_host <dir> empty`
+// Nobody home (eink-ha-os#331): the sleeping glance panel while zone.home says 0. `render_host <dir> empty`
 static void emptyPass(const char* prefix) {
   gSet = DisplaySettings(); gSet.emptyHouse = "zone.home"; gPrefix = prefix;
   auto put = [](Rig& r, const char* id, const char* st, const char* name, const char* dc) {
@@ -120,7 +120,7 @@ static void emptyPass(const char* prefix) {
   gSet = DisplaySettings(); gPrefix.clear();
 }
 
-// Dutch (#199): the longest UI strings, for text-fit checks
+// Dutch (eink-ha-os#199): the longest UI strings, for text-fit checks
 static void dutchPass() {
   gLang = "nl"; gPrefix = "nl_";
   defaultPages();
@@ -131,8 +131,8 @@ static void dutchPass() {
   gLang.clear(); gPrefix.clear();
 }
 
-// History tile (#270): the emulator's render.test.ts screens, with its demo curve (historyChart.ts demoHistory) fed
-// through App::setHistory as the HA fetch (#269) will. 26 Oct 2026 13:00 UTC, TZ UTC0.
+// History tile (eink-ha-os#270): the emulator's render.test.ts screens, with its demo curve (historyChart.ts demoHistory) fed
+// through App::setHistory as the HA fetch (eink-ha-os#269) will. 26 Oct 2026 13:00 UTC, TZ UTC0.
 static const int64_t kEpochHist = 1793019600;
 static std::vector<hist::Point> demoHistory(const std::string& id, const std::string& unit, int64_t from, int64_t now) {
   const int64_t step = 5 * 60000;
@@ -161,6 +161,7 @@ static void historyPage(const std::string& name, const std::string& widgets, con
   ent("sensor.outdoor_temperature", "Outdoor temperature", "°C", "11.4", "");
   ent("sensor.outdoor_humidity", "Outdoor humidity", "%", "78.4", "0");
   ent("sensor.garden_temperature", "Garden temperature", "°C", "unavailable", "");
+  ent("sensor.power", "Power", "W", "412", "0");
   ParseResult pr = parseConfig("version: 1\nscreens:\n  - id: hist\n    title: History\n    widgets:\n" + widgets);
   if (!pr.ok) { std::fprintf(stderr, "history config: %s\n", pr.message.c_str()); std::exit(1); }
   app.begin(pr.config, set);
@@ -168,13 +169,17 @@ static void historyPage(const std::string& name, const std::string& widgets, con
   const int64_t now = kEpochHist * 1000;
   static hist::Series ser;
   for (auto& w : pr.config.screens[0].widgets) {
-    hist::Spec sp = hist::specOf(w);
-    const EntityValue* v = app.entities().get(sp.entity);
-    std::string unit = v ? std::string(v->attrs.at("unit_of_measurement")) : "";
-    std::vector<hist::Point> pts;
-    if (v && v->state != "unavailable") pts = demoHistory(sp.entity, unit, now - sp.windowMs - sp.bucketMs, now);
-    hist::bucketize(pts.data(), pts.size(), sp.windowMs, sp.bucketMs, sp.agg, now, 0, ser);
-    app.setHistory(hist::seriesKey(sp), &ser, hist::State::Ok);
+    // every series of the tile (eink-ha-os#304 wave 2: band min / max, the compare window, made-up: a slow wave off today's curve)
+    hist::tileSpecs(hist::specOf(w), [&](const hist::Spec& sp) {
+      const EntityValue* v = app.entities().get(sp.entity);
+      std::string unit = v ? std::string(v->attrs.at("unit_of_measurement")) : "";
+      const int64_t at = hist::seriesNow(sp, now);
+      std::vector<hist::Point> pts;
+      if (v && v->state != "unavailable") pts = demoHistory(sp.entity, unit, at - sp.windowMs - sp.bucketMs, at);
+      if (sp.shiftMs) for (auto& p : pts) if (hist::has(p.v)) p.v += -3 + 6 * std::sin(double(p.t) / 1.08e7);
+      hist::bucketize(pts.data(), pts.size(), sp.windowMs, sp.bucketMs, sp.agg, at, 0, ser);
+      app.setHistory(hist::seriesKey(sp), &ser, hist::State::Ok);
+    });
   }
   app.requestFullRefresh();
   for (int i = 0; i < 5; ++i) { b.now += 100; app.loop(); }
@@ -193,8 +198,8 @@ static void historyPages() {
   historyPage("sleek_geist_history_7d", w7, sk);
 }
 
-// #304: area / step / dots with a threshold, labels and the demo's nightly gap (02:20–03:10), Classic and Modern.
-// Weather tile (#318): weather.home with a forecast like the emulator's demo (core/weather.ts), fed through
+// eink-ha-os#304: area / step / dots with a threshold, labels and the demo's nightly gap (02:20–03:10), Classic and Modern.
+// Weather tile (eink-ha-os#318): weather.home with a forecast like the emulator's demo (core/weather.ts), fed through
 // App::setWeather as the HA fetch does. 26 Oct 2026 13:00 UTC, TZ UTC0. `render_host <dir> weather`.
 static void weatherPage(const std::string& name, const std::string& widgets, const DisplaySettings& set, const char* state = "partlycloudy",
                         bool forecast = true, const char* lang = "") {
@@ -254,7 +259,22 @@ static void historyStylePages() {
   historyPage("history_styles_dots_line_modern", p2, sk);
 }
 
-// #307: rain, 1 h of a gauge (recorder) before now and 2 h of a nowcast after it, every style, Classic and Modern.
+// eink-ha-os#304 wave 2: band (mean over each bucket's min–max) and compare (a day / week back), Classic and Modern.
+// `render_host <dir> band`.
+static void historyWave2Pages() {
+  const std::string p1 = "      - {type: history, entity: sensor.power, bucket: 1h, style: band, labels: true, cs: 4}\n"
+                         "      - {type: history, entity: sensor.outdoor_humidity, window: 6h, style: band, compare: 1d, cs: 4}\n";
+  const std::string p2 = "      - {type: history, entity: sensor.outdoor_humidity, agg: max, style: bars, compare: 1d, cs: 4}\n"
+                         "      - {type: history, entity: sensor.outdoor_temperature, style: line, compare: 1d, threshold: 12, cs: 2}\n"
+                         "      - {type: history, entity: sensor.outdoor_temperature, window: 6h, style: step, compare: 7d, cs: 2}\n";
+  DisplaySettings cl, sk; sk.style = "sleek"; sk.typeface = "geist";
+  historyPage("history_band_classic", p1, cl);
+  historyPage("history_compare_classic", p2, cl);
+  historyPage("history_band_modern", p1, sk);
+  historyPage("history_compare_modern", p2, sk);
+}
+
+// eink-ha-os#307: rain, 1 h of a gauge (recorder) before now and 2 h of a nowcast after it, every style, Classic and Modern.
 // `render_host <dir> pastfuture`. 26 Oct 2026 13:00 UTC, TZ UTC0.
 static double rainAt(double m) {   // mm/h, m = minutes from now: a shower 35 min ago, the next one in about an hour
   return std::max(0.0, 1.3 * std::exp(-std::pow((m + 35) / 14, 2)) + 2.4 * std::exp(-std::pow((m - 55) / 22, 2)) +
@@ -301,7 +321,7 @@ static void pastFuturePages() {
   pastFuturePage("pastfuture_step_line_dots_modern", p2, sk);
 }
 
-// Car route (#303): cs 4 (arrival time as a second big value) above cs 2 (one line), Classic and Modern (geist).
+// Car route (eink-ha-os#303): cs 4 (arrival time as a second big value) above cs 2 (one line), Classic and Modern (geist).
 // `render_host <dir> route`
 static void routePass(const char* style, const char* prefix) {
   gSet = DisplaySettings(); gSet.style = style; if (std::string(style) == "sleek") gSet.typeface = "geist";
@@ -315,9 +335,9 @@ static void routePass(const char* style, const char* prefix) {
   gSet = DisplaySettings(); gPrefix.clear();
 }
 
-// Bin day (#317): a 2-wide tile with four bins (date and days-to sensors), 1-wide single bins, no sensors, unknown;
+// Bin day (eink-ha-os#317): a 2-wide tile with four bins (date and days-to sensors), 1-wide single bins, no sensors, unknown;
 // at 19:05 (put out tonight) and 13:00, Classic and Modern (geist), English and Dutch. `render_host <dir> bins`
-// #351: now playing tiles with the volume slider (VOLUME_SET) and − / + (a player without it); 2 × 2, 2 × 1 and 4 × 2.
+// eink-ha-os#351: now playing tiles with the volume slider (VOLUME_SET) and − / + (a player without it); 2 × 2, 2 × 1 and 4 × 2.
 static void mediaPass(const char* style, const char* prefix) {
   gSet = DisplaySettings(); gSet.style = style; if (std::string(style) == "sleek") gSet.typeface = "geist";
   gPrefix = prefix;
@@ -373,7 +393,51 @@ static void binsPass(const char* style, const char* prefix) {
   gLang.clear();
   gSet = DisplaySettings(); gPrefix.clear();
 }
-// Agenda and Next tiles (#316): the demo week of spec/test-vectors/agenda.json (parse[0], Wed 28 Oct 2026 07:42 CET)
+// List from attributes (eink-ha-os#332): sensor.rare_birds_nearby as ha-waarneming 0.2.0 fills it (recipe fields + title / subtitle /
+// ts, eink-ha-os#375; made-up places), 13:00 UTC; a 2×2 + 2×1
+// + an empty 2×1, and a 4×2; Classic and Modern (geist), English and Dutch. `render_host <dir> list`
+static void listPass(const char* style, const char* prefix) {
+  gSet = DisplaySettings(); gSet.style = style; if (std::string(style) == "sleek") gSet.typeface = "geist";
+  gPrefix = prefix;
+  const char* a = "version: 1\nscreens:\n  - id: birds\n    app: home\n    title: Birds\n    widgets:\n"
+                  "      - {type: attrList, entity: sensor.rare_birds_nearby, cs: 2, rs: 2}\n"
+                  "      - {type: attrList, entity: sensor.rare_birds_nearby, label: Zeldzaam, cs: 2}\n"
+                  "      - {type: attrList, entity: sensor.rare_birds_far, empty: Geen zeldzame vogels, cs: 2}\n";
+  const char* b = "version: 1\nscreens:\n  - id: birds\n    app: home\n    title: Birds\n    widgets:\n"
+                  "      - {type: attrList, entity: sensor.rare_birds_nearby, cs: 4, rs: 2}\n";
+  auto put = [](Rig& r) {
+    auto iso = [](int64_t t) { char buf[32]; std::time_t tt = std::time_t(t); std::strftime(buf, sizeof buf, "%Y-%m-%dT%H:%M:00Z", std::gmtime(&tt)); return std::string(buf); };
+    const int64_t now = r.b.epochSeconds();
+    struct B { const char* sp; int n; const char* place; const char* km; const char* kmNl; int min; };
+    const B birds[] = {{"Klapekster", 1, "Heideveld Oost", "3.2", "3,2", 95}, {"Grote zilverreiger", 2, "Polder De Weide", "5.8", "5,8", 160},
+                       {"Roodkeelduiker", 1, "Plas Noordhoek", "7.4", "7,4", 340}, {"Zwarte ooievaar ?", 1, "Beekdal Zuid", "9.1", "9,1", 1500},
+                       {"Taigaboomkruiper", 1, "Landgoed Ter Horst", "6", "6,0", 2900}, {"Kleine zwaan", 6, "Uiterwaard West", "8.7", "8,7", 3900},
+                       {"Velduil", 1, "Heideveld Oost", "3.4", "3,4", 4300}};
+    std::string list = "[";
+    for (const B& x : birds) {
+      const int64_t t = now - int64_t(x.min) * 60;
+      const std::string title = (x.n > 1 ? std::to_string(x.n) + "× " : std::string()) + x.sp;
+      list += std::string(list.size() > 1 ? "," : "") + "{\"species\":\"" + x.sp + "\",\"count\":" + std::to_string(x.n) + ",\"place\":\"" + x.place +
+              "\",\"distance_km\":" + x.km + ",\"observed_at\":\"" + iso(t) + "\",\"rarity\":3,\"title\":\"" + title + "\",\"subtitle\":\"" +
+              x.place + " · " + x.kmNl + " km\",\"ts\":" + std::to_string(t) + "}";
+    }
+    list += "]";
+    EntityValue v; v.state = "7"; v.attrs["friendly_name"] = "Rare birds nearby"; v.attrs["sightings"] = list;
+    v.attrs["attribution"] = "Data: waarneming.nl / observation.org";
+    r.app.entities().set("sensor.rare_birds_nearby", v);
+    EntityValue e; e.state = "0"; e.attrs["friendly_name"] = "Rare birds far"; e.attrs["sightings"] = "[]";
+    r.app.entities().set("sensor.rare_birds_far", e);
+  };
+  for (int pass = 0; pass < 2; ++pass) {
+    if (pass) gLang = "nl";
+    const std::string sfx = pass ? "_nl" : "";
+    { Rig r; put(r); r.app.setConfig(parseYamlText(a).config); r.step(2000); r.save("list_2x2" + sfx); }
+    { Rig r; put(r); r.app.setConfig(parseYamlText(b).config); r.step(2000); r.save("list_4x2" + sfx); }
+  }
+  gLang.clear();
+  gSet = DisplaySettings(); gPrefix.clear();
+}
+// Agenda and Next tiles (eink-ha-os#316): the demo week of spec/test-vectors/agenda.json (parse[0], Wed 28 Oct 2026 07:42 CET)
 // through the streaming scanner, at 07:42 (Next counts down) and 08:40 (Next is on). Run with TZ=CET.
 static void agendaPage(const std::string& name, const DisplaySettings& set, int64_t at, const char* lang) {
   std::FILE* fp = std::fopen("../spec/test-vectors/agenda.json", "rb");
@@ -417,7 +481,7 @@ static void agendaPages() {
   agendaPage("agenda_modern_now_nl", sk, t0 + 58 * 60000, "nl");
 }
 
-// Good morning page (#330): Thu 29 Oct 2026 07:05 UTC (TZ UTC0), the page up. Full: weather + made-up events + bins;
+// Good morning page (eink-ha-os#330): Thu 29 Oct 2026 07:05 UTC (TZ UTC0), the page up. Full: weather + made-up events + bins;
 // sparse: a weather tile only. `render_host <dir> morning`
 static void morningPage(const std::string& name, bool full, const char* lang) {
   const int64_t now = 1793257500;   // 2026-10-29T07:05:00Z
@@ -465,7 +529,7 @@ static void morningPages() {
   morningPage("morning_weather_only", false, "");
 }
 
-// Guest Wi-Fi (#329): 2×2 (QR over the text), 2×1 (QR beside it), 1-wide (QR only), a password from HA, an open
+// Guest Wi-Fi (eink-ha-os#329): 2×2 (QR over the text), 2×1 (QR beside it), 1-wide (QR only), a password from HA, an open
 // network and a too-long password; Classic and Modern (geist). Made-up networks. `render_host <dir> guest`
 static void guestPass(const char* style, const char* prefix) {
   gSet = DisplaySettings(); gSet.style = style; if (std::string(style) == "sleek") gSet.typeface = "geist";
@@ -486,9 +550,9 @@ static void guestPass(const char* style, const char* prefix) {
   gSet = DisplaySettings(); gPrefix.clear();
 }
 
-// Quiet face (#328): "Back at 07:00", the date and the Tomorrow row from a weather, agenda and bins tile (forecast through
+// Quiet face (eink-ha-os#328): "Back at 07:00", the date and the Tomorrow row from a weather, agenda and bins tile (forecast through
 // App::setWeather, events through App::setAgenda, a bin sensor dated tomorrow), and from a config without them. The face
-// goes up at 23:00 (Tue 13 Oct 2026, TZ UTC0). `render_host <dir> quiet`. glance (#356): the glance sleep face at 09:00
+// goes up at 23:00 (Tue 13 Oct 2026, TZ UTC0). `render_host <dir> quiet`. glance (eink-ha-os#356): the glance sleep face at 09:00
 // Wed 14 Oct, its Today row from the same data (rain from 09:00, the dentist at 08:30 not over, paper collected today).
 static void quietPage(const std::string& name, const DisplaySettings& set, bool items, const char* lang, bool glance = false) {
   fake::FakeDisplay d; fake::FakeBoard b; fake::FakeServices s; s.linked(); s.st.language = lang;
@@ -561,11 +625,13 @@ int main(int argc, char** argv) {
   if (argc > 2 && std::string(argv[2]) == "agenda") { agendaPages(); return 0; }
   if (argc > 2 && std::string(argv[2]) == "morning") { morningPages(); return 0; }
   if (argc > 2 && std::string(argv[2]) == "styles") { historyStylePages(); return 0; }
+  if (argc > 2 && std::string(argv[2]) == "band") { historyWave2Pages(); return 0; }
   if (argc > 2 && std::string(argv[2]) == "weather") { weatherPages(); return 0; }
   if (argc > 2 && std::string(argv[2]) == "quiet") { quietPages(); return 0; }
   if (argc > 2 && std::string(argv[2]) == "glance") { glancePages(); return 0; }
   if (argc > 2 && std::string(argv[2]) == "pastfuture") { pastFuturePages(); return 0; }
   if (argc > 2 && std::string(argv[2]) == "guest") { guestPass("classic", "classic_"); guestPass("sleek", "modern_"); return 0; }
+  if (argc > 2 && std::string(argv[2]) == "list") { listPass("classic", "classic_"); listPass("sleek", "modern_"); return 0; }
   if (argc > 2 && std::string(argv[2]) == "media") { mediaPass("classic", "classic_"); mediaPass("sleek", "modern_"); return 0; }
   if (argc > 2 && std::string(argv[2]) == "bins") { binsPass("classic", "classic_"); binsPass("sleek", "modern_"); return 0; }
   if (argc > 2 && std::string(argv[2]) == "route") { routePass("classic", "classic_"); routePass("sleek", "modern_"); return 0; }

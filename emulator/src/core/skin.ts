@@ -40,7 +40,7 @@ export const SK_FONTS: Record<Look, { t: string; d: string; s: string; k: number
 /** `isX` (Classic template) → `sX` (Sleek template). Widgets not listed keep the Classic layout + fallback styling. */
 const SWAP: [string, string][] = [['isStat', 'sStat'], ['isClock', 'sClock'], ['isPrice', 'sPrice'], ['isGauge', 'sGauge'], ['isBars', 'sBars'], ['isThermo', 'sThermo'],
   ['isZoneList', 'sZones'], ['isLightList', 'sLights'], ['isLight', 'sLight'], ['isScene', 'sScene'], ['isSetting', 'sSetting'], ['isHistory', 'sHistory'], ['isBins', 'sBins'],
-  ['isAgenda', 'sAgenda'], ['isNext', 'sNext']];   // #316
+  ['isAgenda', 'sAgenda'], ['isNext', 'sNext']];   // eink-ha-os#316
 
 /**
  * Map one widget view model to style-specific render data. Pure: same input, same output; never mutates `v`.
@@ -70,7 +70,7 @@ export function skin(v: any, look: Look, h: number, mins: number, lang: Lang = '
   if (o.sBars) o.nowPct = (((h + 0.5) / 24) * 100).toFixed(2);
   if (o.sThermo) {
     const fr = (t: number) => Math.max(0, Math.min(1, (t - 14) / 12));
-    const a = ((135 + 270 * fr(o.setN)) * Math.PI) / 180;   // numbers, not the text: "20,6" in Dutch (#110)
+    const a = ((135 + 270 * fr(o.setN)) * Math.PI) / 180;   // numbers, not the text: "20,6" in Dutch (eink-ha-os#110)
     o.arc = (fr(o.curN) * 207.3).toFixed(1); o.mx = (60 + 44 * Math.cos(a)).toFixed(1); o.my = (60 + 44 * Math.sin(a)).toFixed(1);
   }
   if (o.sZones) {
@@ -87,6 +87,6 @@ export function skin(v: any, look: Look, h: number, mins: number, lang: Lang = '
   }
   if (o.sLight) { const on = o.value !== tr(lang, 'off'); o.bg = on ? INK : SURF; o.fg = on ? PAPER : INK; o.subc = on ? PAPER : INK; o.dotBg = on ? PAPER : INK; o.dotFg = on ? INK : PAPER; o.btnBg = PAPER; }
   if (o.sScene) { o.bg = INK; o.fg = PAPER; }
-  if (o.isWeather) { o.wxSleek = true; if (o.tall) o.bg = 'transparent'; }   // #318: two cards (hero, strip) when full screen
+  if (o.isWeather) { o.wxSleek = true; if (o.tall) o.bg = 'transparent'; }   // eink-ha-os#318: two cards (hero, strip) when full screen
   return o;
 }

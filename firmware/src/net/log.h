@@ -1,4 +1,4 @@
-// Device log (#200): every LOG_* line (include/Logging.h → x4Log) is redacted (core/log_ring.h redact), printed on
+// Device log (eink-ha-os#200): every LOG_* line (include/Logging.h → x4Log) is redacted (core/log_ring.h redact), printed on
 // Serial as `[I][TAG] message` and kept in two rings (core/log_ring.h):
 //  * 64 KB in PSRAM, this boot (GET /api/v1/logs);
 //  * 2 KB in RTC_NOINIT memory (RTC slow, not heap), which survives esp_restart(), panics, watchdog resets and deep

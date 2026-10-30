@@ -23,7 +23,7 @@ void applyTz() {
 std::string timezoneSetting() {
   std::string v;
   if (storage().readFile("/tz", v)) return v;
-  return storage().getString("x4dev", "tz", "");   // set before #147: an override
+  return storage().getString("x4dev", "tz", "");   // set before eink-ha-os#147: an override
 }
 
 std::string haTimezone() {

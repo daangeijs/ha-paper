@@ -1,4 +1,4 @@
-// core/agenda (#316) against spec/test-vectors/agenda.json: config rules, the request text, titles, the streaming
+// core/agenda (eink-ha-os#316) against spec/test-vectors/agenda.json: config rules, the request text, titles, the streaming
 // scanner over whole result frames in several chunkings, the tile lines / next view, the fetch plan and the cache.
 #include <unity.h>
 #include <cstdio>

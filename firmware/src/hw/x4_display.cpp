@@ -35,7 +35,7 @@ uint8_t bwNibble(uint8_t b, bool grayBase) {
   return out;
 }
 
-// Gate in front of the SDK's BUSY wait (#181): bounded, feeds the task watchdog, skips the bus once the panel failed.
+// Gate in front of the SDK's BUSY wait (eink-ha-os#181): bounded, feeds the task watchdog, skips the bus once the panel failed.
 // UC8179/UC8279 (idle-high): one tick first, as the SDK does, for the command to raise BUSY_N. Returns true when the
 // SDK's own wait may run (it then finds BUSY released and returns at once).
 bool gateBusy(freeink::EpdBus* bus, freeink::BusyPolarity p, const char* tag) {
@@ -168,19 +168,19 @@ void X4Display::show(const Framebuffer& fb, EpdKind kind) {
   if (panelGuard().failed()) return;
   const bool ssd1677 = BoardConfig::ACTIVE.displayController == BoardConfig::DisplayController::SSD1677;
   // Grays on the glass: a fast refresh would not touch them (core/epd_sequence.h). SSD1677 seeds RED from their mask;
-  // the UltraChip controllers take a clean, B/W like the fast it stands in for (#212).
+  // the UltraChip controllers take a clean, B/W like the fast it stands in for (eink-ha-os#212).
   const bool bwOnly = kind == EpdKind::Fast;
   const bool seed = bwOnly && grayShown_ && ssd1677;
   if (bwOnly && grayShown_ && !ssd1677) kind = EpdKind::Clean;
   if (seed) std::swap(msb_, seed_);   // seed_ = mask of the grays on the glass, turned into the RED seed by toBw
   const uint32_t t0 = millis();
-  // Fast is B/W only (#212): thresholded like a partial, no gray pass; a Clean / Full draws grays white + the overlay
+  // Fast is B/W only (eink-ha-os#212): thresholded like a partial, no gray pass; a Clean / Full draws grays white + the overlay
   const bool grayBase = gray_ && !bwOnly;
   const bool anyGray = toBw(fb.data, grayBase, seed ? seed_ : nullptr);
   const bool withGray = grayBase && grayPassFor(kind, anyGray);
   if (withGray) buildMasks(fb.data);
   const uint32_t t1 = millis();
-  // After the gray pass both RAM planes hold the B/W base again, so the next partial only drives its own pixels (#201)
+  // After the gray pass both RAM planes hold the B/W base again, so the next partial only drives its own pixels (eink-ha-os#201)
   epdSequence(epd_, kind, epd_.getFrameBuffer(), lsb_, msb_, withGray, ssd1677, seed ? seed_ : nullptr);
   grayShown_ = withGray;
   static const char* const kName[] = {"fast", "clean", "full"};

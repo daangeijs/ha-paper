@@ -1,15 +1,15 @@
-// mbedTLS record buffers from a reserve (#123). Each TLS session allocates two of them (MBEDTLS_SSL_IN/OUT_BUFFER_LEN,
+// mbedTLS record buffers from a reserve (eink-ha-os#123). Each TLS session allocates two of them (MBEDTLS_SSL_IN/OUT_BUFFER_LEN,
 // 16717 B with CONFIG_MBEDTLS_SSL_MAX_CONTENT_LEN 16384) in mbedtls_ssl_setup. Next to the open WebSocket the second
 // session often found only one free block that size: small long-lived allocations settle in the holes earlier
 // sessions leave, and the report failed with -32512 every 10 s at 105 KB free.
 // Four slots, taken first: the WebSocket holds two, the second session (HA report, OTA, token refresh; TLS only runs
 // on the net task, so never a third) the other two.
-// Device: the reserve lives in PSRAM (#248). As 67.6 KB of internal .bss it left the real X4 Pro 111 KB of internal
+// Device: the reserve lives in PSRAM (eink-ha-os#248). As 67.6 KB of internal .bss it left the real X4 Pro 111 KB of internal
 // RAM at boot, and at RSSI -88 the Wi-Fi RX/TX buffers took the rest (min free 340 B, `alloc failed … 1626 B caps
 // 0x80c`). IDF 5.5's AES DMA driver handles PSRAM buffers itself (esp_aes_dma_core: esp_ptr_dma_ext_capable, cache
 // msync, aligned bounce for unaligned ends); 64 B aligned slots keep the bounces small. Internal heap if PSRAM is
-// missing or full. QEMU: internal .bss, its GDMA can't read PSRAM (#79).
-// Everything else (x509 chains, MPI, handshake state, cipher contexts) goes to PSRAM on the device (#198): the CPU
+// missing or full. QEMU: internal .bss, its GDMA can't read PSRAM (eink-ha-os#79).
+// Everything else (x509 chains, MPI, handshake state, cipher contexts) goes to PSRAM on the device (eink-ha-os#198): the CPU
 // reads it, and the S3 SHA/AES DMA drivers bounce or cache-sync the PSRAM buffers they are handed. QEMU keeps it
 // internal, so the contract suite does not exercise this path.
 #include "net/tls.h"

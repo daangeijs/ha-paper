@@ -22,9 +22,9 @@ const Words kOutside = {"outdoor", "outside", "buiten", "exterior", "weather", "
 const Words kNotARoom = {"cpu", "processor", "battery", "chip", "disk", "nas", "router", "soc", "fridge", "freezer", "koelkast", "vriezer",
                          "water", "boiler", "pomp", "pump"};
 const Words kLiving = {"living", "lounge", "woon", "family", "sitting"};
-const Words kDay = {"today", "vandaag", "daily", "dag", "day"};   // whole tokens (#136)
+const Words kDay = {"today", "vandaag", "daily", "dag", "day"};   // whole tokens (eink-ha-os#136)
 const Words kDeviceT = {"device_temperature", "device temperature"};
-// whole tokens of a temperature that is no reading of now (#152)
+// whole tokens of a temperature that is no reading of now (eink-ha-os#152)
 const Words kForecast = {"forecast", "verwachting", "max", "min", "maximum", "minimum", "high", "low", "today", "tomorrow", "vandaag", "morgen",
                          "daily", "day", "dag", "apparent", "feels", "gevoel", "gevoelstemperatuur", "dew", "dewpoint", "dauwpunt"};
 
@@ -62,7 +62,7 @@ const Role& roleSoc() {
 }
 const Role& roleImportDay() { static const Role r{kImport, cat({kSolar, kBatt, kExport})}; return r; }
 const Role& roleExportDay() { static const Role r{kExport, cat({kSolar, kBatt, kImport})}; return r; }
-// by name, a grid day counter must name the grid, used today the house (#152: an appliance plug's "today consumption")
+// by name, a grid day counter must name the grid, used today the house (eink-ha-os#152: an appliance plug's "today consumption")
 const Words& gridDay() { static const Words w = cat({kGrid, {"import", "export", "afname", "teruglever", "injection"}}); return w; }
 const Words& houseDay() { static const Words w = cat({kHome, {"total", "totaal", "energieverbruik", "stroomverbruik", "elektriciteitsverbruik"}}); return w; }
 const Role& roleUsedDay() {
@@ -161,7 +161,7 @@ int sharedWords(const std::string& a, const std::string& b) {
   return int(n);
 }
 
-// Same text as SEED_TEMPLATE in emulator/src/core/seed.ts (rules for real HA there, #58); seed.json `template`.
+// Same text as SEED_TEMPLATE in emulator/src/core/seed.ts (rules for real HA there, eink-ha-os#58); seed.json `template`.
 const char* seedTemplate() {
   return "{# x4_seed #}{% set ns = namespace(a=[], l=[], s=[], c=[], v=[], w=[], t=0, p=0, e=0, b=0) %}"
          "{% for a in areas() %}{% set ns.a = ns.a + [[a, area_name(a) or a]] %}{% endfor %}"
@@ -370,7 +370,7 @@ Config seedConfig(const Json& snap, const std::vector<Screen>& tail, SeedReport*
   const Row* outside = nullptr;
   for (auto* s : temps) if (hasAny(s->id, kOutside) || hasAny(s->name, kOutside)) { outside = s; break; }
   static const std::vector<const char*> kWeather{"weather"};
-  std::string weather;   // no outdoor thermometer: a weather entity's current temperature (#152)
+  std::string weather;   // no outdoor thermometer: a weather entity's current temperature (eink-ha-os#152)
   if (!outside)
     for (auto& w : arr("weather")) if (w.isStr() && entityFits(w.str, kWeather)) { weather = w.str; break; }
   std::vector<const Row*> inRooms;
@@ -434,7 +434,7 @@ Config seedConfig(const Json& snap, const std::vector<Screen>& tail, SeedReport*
 
   // ---- House app
   static const std::vector<const char*> kLight{"light"}, kClimate{"climate"};
-  // lights (#152): per area its first group or else its bulbs; lights without an area left out (seed.ts)
+  // lights (eink-ha-os#152): per area its first group or else its bulbs; lights without an area left out (seed.ts)
   struct Light { std::string id, area; bool group; };
   std::vector<Light> lights;
   for (auto& l : arr("lights"))
@@ -461,7 +461,7 @@ Config seedConfig(const Json& snap, const std::vector<Screen>& tail, SeedReport*
     add("lights", "house", "Lights", {lightAreas.empty() || lightPicks.size() == lights.size() ? make("lightList", {}, 4, 2)
                                       : !grouped ? make("lightList", {{"areas", joined(lightAreas)}}, 4, 2)
                                                  : make("lightList", {{"entities", joined(lightPicks)}}, 4, 2)});
-  // zones (#152): one per area / friendly name; of duplicates the first that is not off / unavailable
+  // zones (eink-ha-os#152): one per area / friendly name; of duplicates the first that is not off / unavailable
   struct Zone { std::string id, name, area, state; };
   auto idle = [](const Zone& z) { return z.state == "off" || z.state == "unavailable" || z.state == "unknown"; };
   std::vector<Zone> zones;
@@ -497,7 +497,7 @@ Config seedConfig(const Json& snap, const std::vector<Screen>& tail, SeedReport*
   }
 
   // ---- Travel app
-  // Any sensor.x4_route_* in HA (or mapped): a user route on it (#145), sorted by id; car when it reports minutes.
+  // Any sensor.x4_route_* in HA (or mapped): a user route on it (eink-ha-os#145), sorted by id; car when it reports minutes.
   std::set<std::string> routeIds;
   const std::string rp = "sensor.x4_route_";
   for (auto& id : live) if (id.compare(0, rp.size(), rp) == 0) routeIds.insert(id);
@@ -519,7 +519,7 @@ Config seedConfig(const Json& snap, const std::vector<Screen>& tail, SeedReport*
   }
   if (!report) return c;
 
-  // ---- seed report (#89, SEED_TILES in the emulator). Only overview tiles can be crowded out.
+  // ---- seed report (eink-ha-os#89, SEED_TILES in the emulator). Only overview tiles can be crowded out.
   auto has = [&](const char* id) {
     for (auto& s : c.screens) if (s.id == id) return true;
     return false;

@@ -8,6 +8,6 @@
   `X-X4-Preview: current-panel`, the console then says it may be another screen); the device simulator sends a
   layout-only PNG (tile frames); the in-browser emulator draws an SVG of that screen with its live values (frames,
   label, value, sub line, list rows, `Emulator.previewSvg`), not the full panel look.
-- HA address check (#75): the device simulator accepts its own fake HA's loopback host (`localhost`, from `--ha`)
+- HA address check (eink-ha-os#75): the device simulator accepts its own fake HA's loopback host (`localhost`, from `--ha`)
   through `parseHaAddress(input, allowHost)`; every other loopback / link-local address is refused like on the device.
   The firmware has no such exception (its HA is never on loopback).

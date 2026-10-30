@@ -1,6 +1,6 @@
 {
   "name": "319a-media-favorites",
-  "description": "A media tile takes a media_player entity, an optional label and up to 6 favorites (#319); ids may hold colons and slashes.",
+  "description": "A media tile takes a media_player entity, an optional label and up to 6 favorites (eink-ha-os#319); ids may hold colons and slashes.",
   "input": "# HA Paper display config\nversion: 1\nscreens:\n  - id: a\n    widgets:\n      - {type: media, entity: media_player.living_room, cs: 2, favorites: Radio 1=music:http://icecast.omroep.nl/radio1-bb-mp3; Bedtime=script.good_night; Movie=scene.movie_night}\n      - {type: media, entity: media_player.kitchen, label: Kitchen}\n",
   "expect": {
     "ok": true,

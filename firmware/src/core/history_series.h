@@ -1,4 +1,4 @@
-// History tile series from an attribute list or weather.get_forecasts (#292; emulator history.ts attrSamples, vectors
+// History tile series from an attribute list or weather.get_forecasts (eink-ha-os#292; emulator history.ts attrSamples, vectors
 // spec/test-vectors/history-series.json). A streaming parse into Samples: the attribute's JSON text from the entity
 // mirror, or a call_service answer chunk by chunk, without a DOM. Pure; samples live in PSRAM (PsramAlloc).
 #pragma once
@@ -15,7 +15,7 @@ namespace hist {
 constexpr size_t kMaxSamples = 400;   // per tile: a 5-min nowcast is ~49, an hourly forecast 48, 15-min solar 2 days 192
 using SampleList = std::vector<Sample, PsramAlloc<Sample>>;
 
-// Every scalar field of each object entry, for readers of more than one field (the weather tile, #318).
+// Every scalar field of each object entry, for readers of more than one field (the weather tile, eink-ha-os#318).
 struct RowFields {
   virtual ~RowFields() = default;
   virtual void rowField(const char* key, const char* v, size_t n, bool str) = 0;   // a scalar of the entry (null: "null")
@@ -32,7 +32,7 @@ class ListScanner {
   void begin(const char* const* path, int nPath, const std::string& value, const std::string& time, int64_t t0,
              int64_t step, int tz, SampleList* out);
   void feed(const char* p, size_t n);   // any chunking
-  void fields(RowFields* f) { fields_ = f; }   // after begin(), which clears it (#318)
+  void fields(RowFields* f) { fields_ = f; }   // after begin(), which clears it (eink-ha-os#318)
   bool success() const { return success_; }   // a WS answer's "success": true
   bool broken() const { return broken_; }
   bool complete() const { return !broken_ && rootDone_ && depth_ == 0 && mode_ == Ws; }   // one whole JSON value

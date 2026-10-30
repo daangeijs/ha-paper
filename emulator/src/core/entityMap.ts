@@ -1,13 +1,13 @@
 // Logical entity ids (firmware core/entities.h) and the settings `entities` overrides (firmware core/entity_map.h,
 // PUT /api/v1/settings in net/web_server.cpp). Shared by the device simulator, the emulator and the web console's
-// tile source in the screen editor (#191).
+// tile source in the screen editor (eink-ha-os#191).
 export const ROUTE_PREFIX = 'sensor.x4_route_';
 
 export type LogicalGroup = 'Energy now' | 'Energy today' | 'House';
 /** `flip`: a power value where HA's sign convention may be the opposite of the UI's (+ = charging / importing). */
 export type LogicalDef = { id: string; label: string; group: LogicalGroup; unit: string; flip?: boolean; hint?: string };
 
-/** = fixedLogical() in firmware core/entity_map.cpp, in the same order. Routes are user tiles with their own entity (#145). */
+/** = fixedLogical() in firmware core/entity_map.cpp, in the same order. Routes are user tiles with their own entity (eink-ha-os#145). */
 export const LOGICAL: LogicalDef[] = [
   { id: 'sensor.solar_power', label: 'Solar power', group: 'Energy now', unit: 'W', flip: true, hint: '+ = producing' },
   { id: 'sensor.grid_power', label: 'Grid power', group: 'Energy now', unit: 'W', flip: true, hint: '+ = importing, − = exporting' },

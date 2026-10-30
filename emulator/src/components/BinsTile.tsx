@@ -1,4 +1,4 @@
-// Bin day tile (#317, core/bins.ts binsView). 2+ wide: title + TONIGHT / TODAY pill, a bin, the soonest bin big with
+// Bin day tile (eink-ha-os#317, core/bins.ts binsView). 2+ wide: title + TONIGHT / TODAY pill, a bin, the soonest bin big with
 // its day line, the later bins along the foot. 1 wide: the soonest bin's name, when (Today / Tomorrow / in N days),
 // the date or "Put out tonight". Classic: uppercase title, square pill on a 2 px rule; Modern: card, capsule pill,
 // display font. Firmware app/ui_bins.cpp draws the same geometry.

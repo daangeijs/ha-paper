@@ -56,7 +56,7 @@ void roundButton(Canvas& c, int cx, int cy, int d, const std::string& label, int
 
 void label(Canvas& c, int x, int top, const std::string& s, int size, Ink ink, int maxW) {
   if (sleek()) { TextOpts o = C(ink); o.maxW = maxW; c.text(x, baseline(top, T6(size), 1.2), s, T6(size), o); return; }
-  TextOpts o = C(ink); o.upper = true; o.tracking = size >= 20 ? 0 : 1; o.maxW = maxW;   // #199: B20 labels untracked
+  TextOpts o = C(ink); o.upper = true; o.tracking = size >= 20 ? 0 : 1; o.maxW = maxW;   // eink-ha-os#199: B20 labels untracked
   c.text(x, baseline(top, B(size), 1.2), s, B(size), o);
 }
 
@@ -69,19 +69,19 @@ void kvRow(Canvas& c, int x, int top, int w, const std::string& k, const std::st
 }
 
 // ---------------- top bar ----------------
-// The top-bar clock is its own region "time" (issue #38): fixed "00:00" width, right-aligned against the pager, so the
-// minute tick redraws only this box instead of the whole bar. Ambient (#27): no pager, so it moves to the right edge.
+// The top-bar clock is its own region "time" (issue eink-ha-os#38): fixed "00:00" width, right-aligned against the pager, so the
+// minute tick redraws only this box instead of the whole bar. Ambient (eink-ha-os#27): no pager, so it moves to the right edge.
 Rect barTimeRect(I& a) {
   if (sleek()) return sleekBarTimeRect(a);
   TextOpts ct; ct.tabular = true;
   int right = a.chr.pager ? kScreenW - 6 - kZonePager - 12 : kScreenW - 6, w = Canvas().textWidth("00:00", B(22), ct);
-  if (!a.asleepAt.empty()) w = Canvas().textWidth(a.t(S::asleepBar), B(18));   // #299, #333: no time of day
+  if (!a.asleepAt.empty()) w = Canvas().textWidth(a.t(S::asleepBar), B(18));   // eink-ha-os#299, eink-ha-os#333: no time of day
   return rc(right - w, 8, w, 40);
 }
 void barTime(Canvas& c, I& a) {
   if (sleek()) { sleekBarTime(c, a); return; }
   Rect r = barTimeRect(a);
-  if (!a.asleepAt.empty()) { c.textRight(r.x + r.w, 35, a.t(S::asleepBar), B(18)); return; }   // #299: not live
+  if (!a.asleepAt.empty()) { c.textRight(r.x + r.w, 35, a.t(S::asleepBar), B(18)); return; }   // eink-ha-os#299: not live
   TextOpts ct; ct.tabular = true;
   c.textRight(r.x + r.w, 37, a.now.clock, B(22), ct);
 }
@@ -94,13 +94,13 @@ void topBar(Canvas& c, I& a) {
   bool setup = a.setup != Setup::None;
   std::string appTitle = setup ? a.t(S::setup) : a.appTitle(a.appOf());
   const Screen* sc = a.curScreen();
-  // setup (#183): "Step 2 of 2" as the title, no pager (app.cpp)
+  // setup (eink-ha-os#183): "Step 2 of 2" as the title, no pager (app.cpp)
   std::string pageTitle = setup ? a.t(S::setupStep, a.setup == Setup::Wifi ? "1" : "2", "2")
       : a.menu == Menu::Apps ? a.t(S::allApps) : a.menu == Menu::Pages ? a.t(S::allPages) : (sc ? sc->title : "");
   int x = z1.x + 8;
   int y1 = z1.y + 7;
   if (a.chr.app) {
-    // grid glyph (4 rounded squares, 12 px), centred on the B20 caps (#199)
+    // grid glyph (4 rounded squares, 12 px), centred on the B20 caps (eink-ha-os#199)
     for (int k = 0; k < 4; ++k) c.box(rc(x + (k % 2) * 7, y1 + 3 + (k / 2) * 7, 5, 5), 1, Ink::Black);
     TextOpts up; up.upper = true; up.tracking = 1; up.maxW = z1.w - 16 - 17 - 17;
     int tw = c.text(x + 17, y1 + 15, appTitle, B(20), up);
@@ -127,7 +127,7 @@ void topBar(Canvas& c, I& a) {
     c.icon(Icon::ChevLeft22, pg.x + 17, pg.y + 11);
     c.icon(Icon::ChevRight22, pg.x + pg.w - 39, pg.y + 11);
     std::string pageText;
-    if (a.menu != Menu::Apps) {   // app switcher open: no page position (#151)
+    if (a.menu != Menu::Apps) {   // app switcher open: no page position (eink-ha-os#151)
       auto f = flatPages(a.cfg, a.idx, a.paging());
       int pos = 0, cs = a.curSub();
       for (int i = 0; i < int(f.size()); ++i) if (f[i].screen == a.idx && f[i].sub == cs) pos = i;
@@ -170,7 +170,7 @@ void topBar(Canvas& c, I& a) {
     if (a.quietHour() && !a.quietActive() && !a.sleeping) icons.push_back(Icon::StatusNight);   // peeking in quiet hours
     if (a.set.brightness > 0 && !a.quietActive()) icons.push_back(Icon::StatusLight);
     for (auto it = icons.rbegin(); it != icons.rend(); ++it) {
-      // HA unreachable (#86): "since 14:05" (the last data) right of the icon; the tiles keep their last values
+      // HA unreachable (eink-ha-os#86): "since 14:05" (the last data) right of the icon; the tiles keep their last values
       if (*it == Icon::StatusOffline && st.haLastDataEpoch > 0) {
         time_t t = time_t(st.haLastDataEpoch); struct tm tm; localtime_r(&t, &tm);
         std::string since = a.t(S::since, pad2(tm.tm_hour) + ":" + pad2(tm.tm_min));
@@ -230,7 +230,7 @@ void menu(Canvas& c, I& a, Rect r) {
     if (it.hasIcon) c.icon(it.icon, b.x + 14, b.y + 12);
     else c.text(b.x + 14, b.y + 12 + 20, it.num, B(20), C(Ink::Black));
     if (!it.pages.empty()) c.textRight(b.x + b.w - 14, b.y + 12 + 20, it.pages, B(20), C(Ink::Black));
-    // #199: title B26 up to 2 lines, the R18 description below it up to 2 lines; together at most 3 (ellipsis),
+    // eink-ha-os#199: title B26 up to 2 lines, the R18 description below it up to 2 lines; together at most 3 (ellipsis),
     // bottom-aligned ("Overview, prices, energy, solar" no longer cut after "prices,")
     Canvas m(nullptr);
     int lines = std::max(1, m.paragraph(0, 0, b.w - 28, 30, it.title, B(26), TextOpts(), 2));
@@ -251,7 +251,7 @@ void bootFace(Canvas& c, I& a) {
   c.textCenter(kScreenW / 2, cy + 22 + 18 + 26, a.bootMsg, R(18), C(Ink::G1));
 }
 
-// Power held 2 s (#258): the boot-face layout; the panel keeps it while the board is off
+// Power held 2 s (eink-ha-os#258): the boot-face layout; the panel keeps it while the board is off
 void offFace(Canvas& c, I& a) {
   int cy = kScreenH / 2;
   c.icon(Icon::BootHome64, kScreenW / 2 - 32, cy - 32 - 18 - 53);
@@ -276,10 +276,10 @@ Rect faceTimeRect(I& a) {
   return rc(kScreenW / 2 - w / 2, bl - ch - 6, w, ch + 12);
 }
 void faceTime(Canvas& c, I& a) {
-  c.textCenter(kScreenW / 2, faceBl(a), a.asleepAt.empty() ? a.now.clock : a.now.day, B(150), faceClockOpts());   // #333
+  c.textCenter(kScreenW / 2, faceBl(a), a.asleepAt.empty() ? a.now.clock : a.now.day, B(150), faceClockOpts());   // eink-ha-os#333
 }
 
-// #199: stats at 26 px (names R26, values B26), date B28, footer R18. Standby (4 stats) is a centred 2×2 grid.
+// eink-ha-os#199: stats at 26 px (names R26, values B26), date B28, footer R18. Standby (4 stats) is a centred 2×2 grid.
 static const int kFaceStatGap = 40, kFaceRowH = 36;
 static void bigClockFace(Canvas& c, I& a, int top, const std::vector<std::pair<std::string, std::string>>& stats, const std::string& foot,
                          bool grid) {
@@ -307,8 +307,8 @@ static void bigClockFace(Canvas& c, I& a, int top, const std::vector<std::pair<s
   c.textCenter(kScreenW / 2, sb + 12 + 26, foot, R(18), C(Ink::Black));
 }
 
-// The Tomorrow / Today row (#328, core/tomorrow.h) from the first weather, agenda and bins tiles' data; endHour: the
-// quiet window's end (Tomorrow after it) or quiet::kTodayEnd (the glance face, #356).
+// The Tomorrow / Today row (eink-ha-os#328, core/tomorrow.h) from the first weather, agenda and bins tiles' data; endHour: the
+// quiet window's end (Tomorrow after it) or quiet::kTodayEnd (the glance face, eink-ha-os#356).
 quiet::Row quietRow(I& a, int endHour) {
   const auto& scs = a.cfg.screens;
   const quiet::Sources src = quiet::sources(scs);
@@ -337,7 +337,7 @@ std::string staleAt(I& a) {
 }
 
 namespace {
-// One sleep face (#356, emulator Device.tsx SLEEP FACE): no clock (a deep-sleeping panel would keep a wrong time). A
+// One sleep face (eink-ha-os#356, emulator Device.tsx SLEEP FACE): no clock (a deep-sleeping panel would keep a wrong time). A
 // 52 px title, a 28 px line under it, then either the Tomorrow / Today row (a head, one centred line per item: a 44 px
 // weather drawing, the bold part, the text) or facts wrapping into centred rows, and an 18 px footer.
 struct SleepFace {
@@ -400,7 +400,7 @@ void sleepFace(Canvas& c, const SleepFace& f) {
 }
 }  // namespace
 
-// Quiet face (#295): "Back at 07:00", the date, the "Tomorrow" row (#328) built when the face went up, "as of HH:MM"
+// Quiet face (eink-ha-os#295): "Back at 07:00", the date, the "Tomorrow" row (eink-ha-os#328) built when the face went up, "as of HH:MM"
 // only when the data was stale.
 void quietFace(Canvas& c, I& a) {
   SleepFace f;
@@ -411,8 +411,8 @@ void quietFace(Canvas& c, I& a) {
   sleepFace(c, f);
 }
 
-// Nobody home face (#331): "Nobody home", "Next update ~16:05", up to three facts (inside temperature, doors / windows,
-// alarm; a fact without a source is dropped), no "Updated" (#333). Doors and the alarm come from the entities the
+// Nobody home face (eink-ha-os#331): "Nobody home", "Next update ~16:05", up to three facts (inside temperature, doors / windows,
+// alarm; a fact without a source is dropped), no "Updated" (eink-ha-os#333). Doors and the alarm come from the entities the
 // display watches (a door or alarm tile on some screen).
 void emptyFace(Canvas& c, I& a) {
   std::vector<FactEntity> ents;
@@ -437,7 +437,7 @@ void emptyFace(Canvas& c, I& a) {
   sleepFace(c, f);
 }
 
-// Glance sleep face (#356): "Asleep · press to wake", the date, the "Today" row (values that stay true until the next
+// Glance sleep face (eink-ha-os#356): "Asleep · press to wake", the date, the "Today" row (values that stay true until the next
 // timer wake), "as of HH:MM" only when the data was stale. Built at each render: a glance wake compares its signature.
 void glanceFace(Canvas& c, I& a) {
   SleepFace f;
@@ -473,8 +473,8 @@ void updatingFace(Canvas& c, I& a) {
   int top = 90;
   c.icon(Icon::Download48, kScreenW / 2 - 24, top);
   c.textCenter(kScreenW / 2, top + 48 + 18 + 34, a.t(S::updatingTo), B(36));
-  // #215: the version on its own line; long git-describe names step down, then lose their middle.
-  // #237: an upload without a version leaves the line out (never a bare "v")
+  // eink-ha-os#215: the version on its own line; long git-describe names step down, then lose their middle.
+  // eink-ha-os#237: an upload without a version leaves the line out (never a bare "v")
   if (!st.otaAvailableVersion.empty()) {
     FitValue ver = fitMiddle(a.t(S::updVersion, st.otaAvailableVersion), {28, 24, 20, 18}, kScreenW - 80,
                              [&c](const std::string& v, int z) { return c.textWidth(v, B(z)); });

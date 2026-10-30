@@ -9,7 +9,7 @@
   stored (the link page's "Found … on your network"), a dead first answer → 502 and nothing stored, a later browse
   not replacing a stored address. Untested in QEMU: the multicast query, the TXT parse and the `internal_url` →
   `base_url` → `<address>:<port>` order. That is FIRST_FLASH step 9b (A39).
-- Changed with #54: discovery no longer saves the first answer as the HA URL. It is offered (`console/state`
+- Changed with eink-ha-os#54: discovery no longer saves the first answer as the HA URL. It is offered (`console/state`
   `home_assistant.server` on an unlinked display = typed/stored, else the first discovered, like the simulator) and
   stored only once `POST /auth/ha/start` probed it as Home Assistant. Before, it was saved unchecked, and the console
   only showed it after a restart (`link.url` is loaded from storage at boot). `onConnected()` skips the browse while

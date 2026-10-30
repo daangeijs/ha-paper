@@ -1,4 +1,4 @@
-// Our esp_app_desc_t (#242). The Arduino core's libesp_app_format.a defines `esp_app_desc` weak with its own
+// Our esp_app_desc_t (eink-ha-os#242). The Arduino core's libesp_app_format.a defines `esp_app_desc` weak with its own
 // project/version ("arduino-lib-builder", "ee57070"); this strong definition replaces it, so the bootloader log,
 // esp_app_get_description() and the browser flasher (flasher/src/firmwareInfo.ts) see "ha-paper" + X4_FW_VERSION.
 // app_elf_sha256 stays zero here: esptool elf2image fills it in (--elf-sha256-offset 0xb0).

@@ -1,4 +1,4 @@
-// Remote input spec (#214): "tap=x,y" | "key=prev|next|home|power" | "swipe=-1|1" → InputEvent. Shared by QEMU's
+// Remote input spec (eink-ha-os#214): "tap=x,y" | "key=prev|next|home|power" | "swipe=-1|1" → InputEvent. Shared by QEMU's
 // POST /__qemu/input and POST /api/v1/debug/input; both feed the board's input queue like real touch/keys.
 #pragma once
 #include <string>

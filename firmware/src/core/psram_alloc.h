@@ -1,5 +1,5 @@
-// PSRAM allocator for the entity mirror (#76). malloc() keeps blocks up to 4 KB in internal RAM (main.cpp; lowering
-// that breaks DMA users such as TLS, #79), so the hundreds of small strings and map nodes of HA entity states
+// PSRAM allocator for the entity mirror (eink-ha-os#76). malloc() keeps blocks up to 4 KB in internal RAM (main.cpp; lowering
+// that breaks DMA users such as TLS, eink-ha-os#79), so the hundreds of small strings and map nodes of HA entity states
 // fragmented it below the contiguous block a TLS handshake needs. Every container and string inside EntityValue, EntityAdapter's raw
 // states and EntityStore allocates here: PSRAM on the device (internal RAM when PSRAM is missing or full), malloc on
 // the host. Native builds count live bytes so tests can check nothing else is used.

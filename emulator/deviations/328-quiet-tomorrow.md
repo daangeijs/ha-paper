@@ -8,7 +8,7 @@
 - Sources are the first weather tile with an entity, the first agenda or next tile with a calendar and the first bins
   tile with a sensor, on any page (screen order). A house without these tiles gets "Back at 07:00" and the date only;
   the face no longer shows the Home page's first value tiles (stale overnight).
-- One centred line per item (not the wrapping value pairs of #295): the weather drawing at the 44 px strip size, so the
+- One centred line per item (not the wrapping value pairs of eink-ha-os#295): the weather drawing at the 44 px strip size, so the
   firmware needs no new bitmap. Classic and Modern draw the same face (standby and quiet faces keep the Classic look).
 - Rain: the first wet hour of the kept hourly forecast on that day that is not over. The hourly list holds 16 hours from
   the last fetch, so at 23:00 it reaches about 15:00 the next day; no wet hour means no rain text, not "dry".

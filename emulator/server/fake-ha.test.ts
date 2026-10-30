@@ -1,4 +1,4 @@
-// Fault knobs of the fake HA for the endurance run (#48): restart and dropped WebSockets; the device relinks.
+// Fault knobs of the fake HA for the endurance run (eink-ha-os#48): restart and dropped WebSockets; the device relinks.
 import { describe, it, expect, afterEach } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
@@ -17,7 +17,7 @@ async function until<T>(fn: () => T | Promise<T>, ok: (v: T) => boolean, ms = 50
   }
 }
 
-describe('fake HA fault control (#48)', () => {
+describe('fake HA fault control (eink-ha-os#48)', () => {
   let run: RunningSim | null = null;
   afterEach(async () => { await run?.close(); run = null; });
   const ctl = (path: string, body?: unknown) => fetch(run!.fakeHa!.url + '/__fake/' + path, body === undefined ? {} : { method: 'POST', body: JSON.stringify(body) }).then((r) => r.json());
@@ -44,7 +44,7 @@ describe('fake HA fault control (#48)', () => {
   });
 });
 
-describe('fake HA https faults (#87)', () => {
+describe('fake HA https faults (eink-ha-os#87)', () => {
   const dir = join(import.meta.dirname, '..', '..', 'sim', 'qemu', 'tls');
   let ha: FakeHa | null = null;
   afterEach(async () => { await ha?.close(); ha = null; });
@@ -85,7 +85,7 @@ describe('fake HA https faults (#87)', () => {
   });
 });
 
-describe('fake HA real-shaped house (#88)', () => {
+describe('fake HA real-shaped house (eink-ha-os#88)', () => {
   it('areas via devices: area_id() resolves the device, the entity registry keeps only its own; device discovery per meter', () => {
     const hd = houseData('real');
     expect(hd.states.size).toBeGreaterThan(1000);

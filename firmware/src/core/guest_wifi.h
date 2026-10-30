@@ -1,4 +1,4 @@
-// Guest Wi-Fi tile (#329) = emulator src/core/guestWifi.ts; vectors spec/test-vectors/guest-wifi.json. Pure. The QR is
+// Guest Wi-Fi tile (eink-ha-os#329) = emulator src/core/guestWifi.ts; vectors spec/test-vectors/guest-wifi.json. Pure. The QR is
 // core/qr.h (qrcodegen, ECC M, version 1..6). Never log the payload, the ssid or the password.
 #pragma once
 #include <string>

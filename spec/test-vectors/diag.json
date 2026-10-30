@@ -1,5 +1,5 @@
 {
-  "description": "Boot / crash ring (GET /api/v1/diagnostics boots + last_crash). ops run in order on an empty ring: boot = a new boot (esp_reset_reason name, firmware version, panic message or null, optional hw = raw chip reset cause, null when absent), touch = the running boot is alive (uptime_s, min_free_heap, epoch; epoch 0 = clock unknown → last_seen unchanged), clear = DELETE /diagnostics. Newest first, 8 kept; a DEEPSLEEP boot right after a DEEPSLEEP boot replaces it (glance wakes, #10). Strings are cut to 11 / 23 / 95 / 15 bytes (RTC struct).",
+  "description": "Boot / crash ring (GET /api/v1/diagnostics boots + last_crash). ops run in order on an empty ring: boot = a new boot (esp_reset_reason name, firmware version, panic message or null, optional hw = raw chip reset cause, null when absent), touch = the running boot is alive (uptime_s, min_free_heap, epoch; epoch 0 = clock unknown → last_seen unchanged), clear = DELETE /diagnostics. Newest first, 8 kept; a DEEPSLEEP boot right after a DEEPSLEEP boot replaces it (glance wakes, eink-ha-os#10). Strings are cut to 11 / 23 / 95 / 15 bytes (RTC struct).",
   "cases": [
     {
       "name": "first boot",
@@ -685,7 +685,7 @@
       }
     },
     {
-      "name": "hw: the raw reset cause rides along (#241); a TWDT panic is CORE_SW, a hardware watchdog stage CORE_MWDT0; cut to 15",
+      "name": "hw: the raw reset cause rides along (eink-ha-os#241); a TWDT panic is CORE_SW, a hardware watchdog stage CORE_MWDT0; cut to 15",
       "ops": [
         {
           "op": "boot",

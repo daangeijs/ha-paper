@@ -5,6 +5,26 @@ display lists under "What's new" on its Updates screen (manifest.json `notes`): 
 most 34 characters. The release workflow fails if the tag's section is missing or a bullet is too long
 (`firmware/tools/release_notes.py`). Prose below the bullets goes only into the GitHub release.
 
+## 0.2.0-beta.6
+
+- List tile: rare birds nearby
+- Chart styles: band and compare
+- One wake per quiet-hours change
+- More free memory on the display
+- Console updates over the air
+- mDNS name repairs itself
+
+New: a list tile shows rows from a sensor attribute, made for the Waarneming integration
+(github.com/daangeijs/ha-waarneming): rare bird sightings around home and in chosen waarneming.nl areas, with
+Dutch names, place, distance and how long ago. History charts gain a band (lowest to highest per period) and a
+compare line (the day or week before).
+
+Better: the display learns how fast its sleep timer runs and wakes once per quiet-hours change instead of twice.
+About 30 KB of long-lived data moved to PSRAM. A console update over the air no longer stops on the first try.
+
+Fixed: the .local name could stop answering after a wake while the display still answered on its IP; a check
+every minute now repairs it. A very fast stream of HA updates no longer crashes the display.
+
 ## 0.2.0-beta.5
 
 - Agenda, bins and weather tiles

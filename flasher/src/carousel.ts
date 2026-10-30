@@ -1,4 +1,4 @@
-// Screens carousel (#239): crossfade every 4 s, pause on hover/focus, dots to pick, still under reduced motion.
+// Screens carousel (eink-ha-os#239): crossfade every 4 s, pause on hover/focus, dots to pick, still under reduced motion.
 
 export const SLIDE_MS = 4000;
 

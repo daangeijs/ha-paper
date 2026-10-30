@@ -1,4 +1,4 @@
-// Device log ring (GET /api/v1/logs, #200). The behaviour spec for firmware/src/core/log_ring.cpp: every LOG_* line
+// Device log ring (GET /api/v1/logs, eink-ha-os#200). The behaviour spec for firmware/src/core/log_ring.cpp: every LOG_* line
 // goes into a byte-budgeted ring (64 KB in PSRAM on the device) and into a 2 KB tail in RTC memory that survives a
 // soft reset, panic or watchdog reset (`boot=previous`). A line costs 16 header bytes + tag + message (UTF-8); the
 // oldest lines go when the budget is full. Messages are redacted before they are stored or printed.

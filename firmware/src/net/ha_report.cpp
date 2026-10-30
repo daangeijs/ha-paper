@@ -62,7 +62,7 @@ void haReportLoop() {
   }
   if (on && !g_wasOn) g_force = true;
   g_wasOn = on;
-  if (!linked) {  // unlinked: the next link starts over (#44)
+  if (!linked) {  // unlinked: the next link starts over (eink-ha-os#44)
     g_force = true;
     g_denied = false;
     g_have = false;
@@ -107,7 +107,7 @@ void haReportLoop() {
     return;
   }
   // failed: retry after the minimum gap, keeping the last reported values. No HTTP answer (a handshake that ran out
-  // of time or heap next to the WebSocket's): one early retry first (#123).
+  // of time or heap next to the WebSocket's): one early retry first (eink-ha-os#123).
   if (!g_have) g_last = {now, h.battery, h.charging};
   g_last.atMs = now;
   g_last.retry = code <= 0 && !g_retried;

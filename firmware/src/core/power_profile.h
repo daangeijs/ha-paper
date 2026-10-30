@@ -1,4 +1,4 @@
-// Power profile switching on the device (#249): when a plug / unplug changes the CPU clock and Wi-Fi modem sleep the
+// Power profile switching on the device (eink-ha-os#249): when a plug / unplug changes the CPU clock and Wi-Fi modem sleep the
 // power rules (core/power.h) apply. Pure; glue in net/power.cpp. The emulator applies each decision at once and has no
 // recent-charge memory (chargedAgoMin is always null there): firmware/deviations/249-power-profile-switch.md.
 #pragma once
@@ -10,7 +10,7 @@ namespace x4 {
 
 constexpr uint32_t kProfileSettleMs = 2000;   // a new profile must hold this long before it is applied (USB flapping)
 
-// PowerInputs.chargedAgoMin: minutes since the charger STAT pin was last seen on (#73). Unplugging a USB host forgets it:
+// PowerInputs.chargedAgoMin: minutes since the charger STAT pin was last seen on (eink-ha-os#73). Unplugging a USB host forgets it:
 // the cable that charged is gone, so a full cell (≥ 4.15 V) must not keep the external profile for 30 more minutes.
 // A charger without data lines never shows a USB host and keeps the 30-minute rule.
 struct ChargeMemory {

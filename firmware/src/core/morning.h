@@ -1,4 +1,4 @@
-// Good morning page (#330) = emulator src/core/morning.ts; vectors spec/test-vectors/morning.json. The first wake after
+// Good morning page (eink-ha-os#330) = emulator src/core/morning.ts; vectors spec/test-vectors/morning.json. The first wake after
 // Quiet hours shows today's weather, events and bins for kMs; one press or the timeout hands over to the start page.
 // Built from what the tiles already keep (weather forecast, agenda events, bin sensors). Pure: epoch ms, tz in minutes.
 #pragma once
@@ -31,7 +31,7 @@ struct Step { State s; bool start = false, end = false; };
 Step step(const State& s, const Tick& t);
 inline bool up(const State& s, int64_t now) { return s.until != 0 && now < s.until; }
 
-// The tiles the page reads: the quiet face's Tomorrow row sources (#328, core/tomorrow.h quiet::sources).
+// The tiles the page reads: the quiet face's Tomorrow row sources (eink-ha-os#328, core/tomorrow.h quiet::sources).
 
 struct Bin { std::string label; int days; };   // days: bins::kUnknown (-1) = unknown
 struct In {

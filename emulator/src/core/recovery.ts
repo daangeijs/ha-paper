@@ -1,13 +1,13 @@
-// Hardware-key factory reset and crash-loop recovery (issue #21). Pure; the emulator and the firmware
+// Hardware-key factory reset and crash-loop recovery (issue eink-ha-os#21). Pure; the emulator and the firmware
 // (firmware/src/core/recovery.cpp, a 1:1 port) run it. Vectors: spec/test-vectors/recovery.json.
 //
 // Hold Power + Right (and nothing else) for 5 s → confirmation screen. Release every key, then Right alone resets;
 // any other key, the Home key or a touch cancels; 10 s without an answer cancels. Left is never part of the combo:
 // held at reset it is the GPIO0 strap for download mode. After the screen goes away (reset, cancel, timeout) all keys
 // must be released before a new hold counts, so a key stuck down in a bag shows the screen once, not every 15 s.
-// Hold Power + Left (and nothing else) for 5 s → restart (issue #226): the app shows "Restarting…" and restarts. A
+// Hold Power + Left (and nothing else) for 5 s → restart (issue eink-ha-os#226): the app shows "Restarting…" and restarts. A
 // software restart does not sample the GPIO0 strap, so Left held then does not enter download mode.
-// Power alone (issue #258): released before 2 s = a short press ('press': standby / wake); held 2 s = 'off' (the
+// Power alone (issue eink-ha-os#258): released before 2 s = a short press ('press': standby / wake); held 2 s = 'off' (the
 // "Turned off" face, then the board switches off), while still held. Power + Right / Left within the 2 s turns into
 // those holds. A Power hold only counts after Power was seen released once since boot: the hold that switched the
 // board on is still down when the firmware starts.

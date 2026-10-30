@@ -1,5 +1,5 @@
 {
-  "_doc": "Home Assistant address on the link page (#54). parseHaAddress(input) and resolveHaAddress(input, probe): emulator src/core/haAddress.ts = firmware core/ha_address.cpp. probe(url) is one GET url + /auth/providers without following redirects; only a redirect to the https upgrade of the same host and port is probed next (#75). Loopback and link-local hosts are refused, LAN addresses kept. A url missing from answers has no answer (status -1). probed = the urls in probe order.",
+  "_doc": "Home Assistant address on the link page (eink-ha-os#54). parseHaAddress(input) and resolveHaAddress(input, probe): emulator src/core/haAddress.ts = firmware core/ha_address.cpp. probe(url) is one GET url + /auth/providers without following redirects; only a redirect to the https upgrade of the same host and port is probed next (eink-ha-os#75). Loopback and link-local hosts are refused, LAN addresses kept. A url missing from answers has no answer (status -1). probed = the urls in probe order.",
   "parse": [
     {
       "input": "",

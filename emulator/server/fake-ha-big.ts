@@ -1,4 +1,4 @@
-// The fake HA's "big house" (#57): the demo house plus ~1200 extra entities with the long attributes a real
+// The fake HA's "big house" (eink-ha-os#57): the demo house plus ~1200 extra entities with the long attributes a real
 // installation has (the first real HA: 800 entities; the entity picker list once fragmented the firmware's internal RAM
 // below the TLS guard). `npm run fake-ha -- --house big`, or POST /__fake/big-house {n} on a running fake HA.
 // Entity ids are `<domain>.bulk_<n>`, so they can be removed again.

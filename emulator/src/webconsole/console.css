@@ -3,9 +3,9 @@ body{margin:0}
 button{font:inherit;color:inherit;cursor:pointer}
 .dev-btn:hover{background:#e6e3dc}
 .dev-btn:active{background:#d6d2c9}
-/* One way to add a tile (#184): the widget column on wide screens, the "+ Add tile" menu on phones and in Values. */
+/* One way to add a tile (eink-ha-os#184): the widget column on wide screens, the "+ Add tile" menu on phones and in Values. */
 .x4-add{display:none}
-/* Phone width (#83): one column; the editor's side lists stack above and below the screen. */
+/* Phone width (eink-ha-os#83): one column; the editor's side lists stack above and below the screen. */
 @media (max-width:760px){
 .x4-page{min-width:0!important;height:auto!important;min-height:100vh!important;overflow:visible!important}
 .x4-head{flex-wrap:wrap;gap:8px 12px!important;padding:10px 12px!important}
@@ -21,7 +21,7 @@ button{font:inherit;color:inherit;cursor:pointer}
 .x4-tile{padding:6px!important}
 }
 .x4-tile:focus-visible{outline:3px solid #1d1d1f;outline-offset:2px}
-/* Device settings and Advanced (#190, #191) on a phone: one column; the Advanced pages as a row of links. */
+/* Device settings and Advanced (eink-ha-os#190, eink-ha-os#191) on a phone: one column; the Advanced pages as a row of links. */
 @media (max-width:760px){
 .x4-dev{flex-direction:column;align-items:stretch!important;padding:16px!important}
 .x4-dev-side{width:auto!important}

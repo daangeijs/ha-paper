@@ -1,4 +1,4 @@
-// Awake phases (#327): where a boot's awake time goes, as an energy proxy (the radio and CPU are on for all of it).
+// Awake phases (eink-ha-os#327): where a boot's awake time goes, as an energy proxy (the radio and CPU are on for all of it).
 // Wall time since the reset is cut in order: boot (reset → setup done), wifi (→ Wi-Fi first up), ha (→ HA connected
 // with entities in), then the rest. render and panel are this boot's totals (App::Stats); idle = the rest minus the
 // render + panel time after the ha mark. A phase not reached takes the time up to now, the later ones are 0. Firmware
@@ -22,7 +22,7 @@ struct Rec {                    // trivially copyable: lives in RTC_NOINIT memor
   uint32_t epoch;               // when measured (end of the boot); 0 = clock unknown
   uint32_t boot, wifi, ha, render, panel, idle, total;   // ms
   int16_t mv;                   // cell voltage; -1 = not read
-  int8_t pct, raw;              // shown % (#327 filter) and the gauge's own; -1 = not read
+  int8_t pct, raw;              // shown % (eink-ha-os#327 filter) and the gauge's own; -1 = not read
   char wake;                    // c(old) t(imer) b(utton) h = charger, o(ther)
 };
 

@@ -38,7 +38,7 @@ describe('redraw only what changed', () => {
   });
 });
 
-describe('front light timeout (#220)', () => {
+describe('front light timeout (eink-ha-os#220)', () => {
   const cfg = (p: object) => ({ ...new Emulator({}).state.cfg, returnHome: 0, brightness: 50, ...p });
   it('off after the timeout, brightness unchanged; the first key only turns it back on', () => {
     const { emu, logs } = harness({ idx: 0, cfg: cfg({ lightTimeout: 30 }) });
@@ -84,7 +84,7 @@ describe('front light timeout (#220)', () => {
   });
 });
 
-describe('ambient idle mode (#27)', () => {
+describe('ambient idle mode (eink-ha-os#27)', () => {
   it('60 s idle hides pager, battery, app label and (with a clock tile) the bar clock; first key brings them back only', () => {
     const { emu, logs } = harness({ idx: 0, cfg: { ...new Emulator({}).state.cfg, returnHome: 0 } });
     emu.lastInput = Date.now() - 59_000; emu.idleCheck();
@@ -118,7 +118,7 @@ describe('ambient idle mode (#27)', () => {
   });
 });
 
-describe('quiet face (#295)', () => {
+describe('quiet face (eink-ha-os#295)', () => {
   it('"as of HH:MM" only when the data is older than 30 min', () => {
     const now = new Date(2026, 9, 13, 23, 30);
     const fresh = harness({ simHour: 23, now, lastUpdate: new Date(now.getTime() - 5 * 60_000) }).emu;
@@ -126,12 +126,12 @@ describe('quiet face (#295)', () => {
     const stale = harness({ simHour: 23, now, lastUpdate: new Date(now.getTime() - 45 * 60_000) }).emu;
     expect((stale.renderVals() as any).face.foot).toBe('as of 22:45');
   });
-  it('"Back at 07:00", no clock; no weather, agenda or bins tile: no Tomorrow row (#328)', () => {
+  it('"Back at 07:00", no clock; no weather, agenda or bins tile: no Tomorrow row (eink-ha-os#328)', () => {
     const v = harness({ simHour: 23 }).emu.renderVals() as any;
     expect(v.isQuiet).toBe(true);
     expect(v.face).toMatchObject({ title: 'Back at 07:00', head: '', items: [], facts: [], tap: true });
   });
-  it('Tomorrow row from the weather, agenda and bins tiles, in that order (#328)', () => {
+  it('Tomorrow row from the weather, agenda and bins tiles, in that order (eink-ha-os#328)', () => {
     const e = new Emulator({});
     const screens = [...e.state.screens, { id: 'morning', app: e.state.screens[0].app, title: 'Morning', widgets: [
       { type: 'bins', entities: 'sensor.afval_papier sensor.afval_pmd', cs: 2 }, { type: 'agenda', entities: 'calendar.family', cs: 2, rs: 2 }, { type: 'weather', entity: 'weather.home', cs: 4 }] }];
@@ -190,7 +190,7 @@ describe('device API from the terminal', () => {
     const cfg = { apps: [{ id: 'garden', title: 'Garden' }, ...emu.state.apps], screens: [{ id: 'g', app: 'garden', title: 'Garden', widgets: [{ type: 'switch', entity: 'switch.garden_pump' }, { type: 'stat', entity: 'sensor.outdoor_temperature' }] }, ...emu.state.screens] };
     await emu.api.putConfig(cfg, 'test');
     expect(emu.state.apps[0]).toEqual({ id: 'garden', title: 'Garden' });
-    expect(emu.snapshot().apps.length).toBe(4);   // the console sees your own categories; Settings is built in (#159)
+    expect(emu.snapshot().apps.length).toBe(4);   // the console sees your own categories; Settings is built in (eink-ha-os#159)
     expect(emu.state.apps.at(-1)!.id).toBe('settings');
     const d = emu.derive(emu.state.d, emu.state);
     expect(emu.vm({ type: 'stat', entity: 'sensor.outdoor_temperature' }, d)).toMatchObject({ label: 'Outdoor temperature', value: '11.4', unit: '°C' });
@@ -199,7 +199,7 @@ describe('device API from the terminal', () => {
     sw.toggle();
     expect(emu.state.ent['switch.garden_pump']).toBe('on');
   });
-  it('labels on price / bars / gauge / thermo; thermo without a zone; away only with an away-capable zone (#148)', () => {
+  it('labels on price / bars / gauge / thermo; thermo without a zone; away only with an away-capable zone (eink-ha-os#148)', () => {
     const { emu } = harness();
     const d = emu.derive(emu.state.d, emu.state);
     expect(emu.vm({ type: 'price', label: 'Stroom' }, d)).toMatchObject({ label: 'Stroom', sLabel: 'Stroom' });
@@ -215,7 +215,7 @@ describe('device API from the terminal', () => {
     expect(emu.vm({ type: 'zoneList', cs: 4, rs: 2 }, d).awayOk).toBe(true);
     expect(emu.vm({ type: 'zoneList', cs: 4, rs: 2, entities: 'climate.garage' }, d).awayOk).toBe(true);   // any zone in HA, like the display
   });
-  it('failure states (#86): unavailable / unknown → ring + reason, not "—"; entity_gaps; empty screen; offline since', async () => {
+  it('failure states (eink-ha-os#86): unavailable / unknown → ring + reason, not "—"; entity_gaps; empty screen; offline since', async () => {
     const { emu } = harness();
     const d = emu.derive(emu.state.d, emu.state);
     expect(emu.vm({ type: 'stat', entity: 'sensor.garden_temperature' }, d)).toMatchObject({ gap: true, value: '', unit: '', sub: 'Unavailable' });
@@ -238,7 +238,7 @@ describe('device API from the terminal', () => {
     expect(r.display).toMatchObject({ brightness: 50, standby: '30' });
     expect(emu.state.cfg).toMatchObject({ brightness: 50, standby: 30 });
   });
-  it('Settings is built in (#159): a config without it still has the Settings app; Updates settings from the browser reach it', async () => {
+  it('Settings is built in (eink-ha-os#159): a config without it still has the Settings app; Updates settings from the browser reach it', async () => {
     const { emu } = harness();
     await emu.api.putConfig({ apps: [{ id: 'home', title: 'Home' }], screens: [{ id: 'a', app: 'home', title: 'A', widgets: [{ type: 'clock' }] }] }, 'test');
     expect(emu.state.apps.map((a) => a.id)).toEqual(['home', 'settings']);
@@ -249,7 +249,7 @@ describe('device API from the terminal', () => {
     expect(emu.state.ota).toMatchObject({ channel: 'beta', auto: 'night' });
     await expect(emu.api.putSettings({ ota_channel: 'nightly' as 'beta' })).rejects.toThrow('ota_channel must be stable or beta');
   });
-  it('settings: entities overrides (tile source, #191) are stored and reported as sources', async () => {
+  it('settings: entities overrides (tile source, eink-ha-os#191) are stored and reported as sources', async () => {
     const { emu } = harness();
     await expect(emu.api.putSettings({ entities: { 'sensor.nope': 'sensor.x' } })).rejects.toThrow('entities: unknown logical id sensor.nope');
     const r = await emu.api.putSettings({ entities: { 'sensor.battery_power': '-sensor.inverter_battery_power' } });
@@ -258,7 +258,7 @@ describe('device API from the terminal', () => {
     expect(emu.state.entities).toEqual(r.entities);
     expect((await emu.api.putSettings({ entities: { 'sensor.battery_power': null } })).entities).toEqual({});
   });
-  it('settings: unknown keys → 422 naming the key (#43, spec/test-vectors/settings-put.json)', async () => {
+  it('settings: unknown keys → 422 naming the key (eink-ha-os#43, spec/test-vectors/settings-put.json)', async () => {
     const { emu } = harness();
     await expect(emu.api.putSettings({ powerSave: 'auto' } as any)).rejects.toThrow('unknown key: powerSave');
     await expect(emu.api.putSettings({ display: { brightness: 50, sleepMode: 'auto' } } as any)).rejects.toThrow('unknown key: display.sleepMode');
@@ -310,7 +310,7 @@ describe('first install + web console via DeviceApi', () => {
   });
 });
 
-describe('quiet hours (#295)', () => {
+describe('quiet hours (eink-ha-os#295)', () => {
   it('23–07: no data redraws; a press = 60 s dashboard peek', () => {
     const { emu, logs } = harness({ simHour: 23 });
     emu.tick(false);
@@ -332,14 +332,14 @@ describe('quiet hours (#295)', () => {
   });
 });
 
-describe('Good morning page (#330)', () => {
+describe('Good morning page (eink-ha-os#330)', () => {
   // a config with the three sources: the demo weather, a calendar, the demo bins
   const withTiles = (emu: Emulator) => {
     const sc = emu.state.screens.map((x, i) => (i === 0 ? { ...x, widgets: [{ type: 'weather', entity: 'weather.home', cs: 4 }, { type: 'agenda', entities: 'calendar.family', cs: 2 }, { type: 'bins', entities: 'sensor.afval_papier sensor.afval_pmd', cs: 2 }] } : x));
     (emu as any).state = { ...emu.state, screens: sc };
   };
   const night = (emu: Emulator, h: number) => { (emu as any).state = { ...emu.state, simHour: h }; emu.componentDidUpdate(); };
-  it('#331: nobody home at the end of quiet hours (glance, emptyHouse on) → no page, disarmed', () => {
+  it('eink-ha-os#331: nobody home at the end of quiet hours (glance, emptyHouse on) → no page, disarmed', () => {
     const { emu, logs } = harness({ simHour: 23 });
     (emu as any).state = { ...emu.state, cfg: { ...emu.state.cfg, emptyHouse: 'zone.home' }, ent: { ...emu.state.ent, 'zone.home': '0' } };
     night(emu, 23); night(emu, 6); night(emu, 7);
@@ -509,10 +509,10 @@ describe('power saving: asleep (deep sleep) vs sleeping (standby face)', () => {
   });
 });
 
-describe('glance (#10): deep sleep between timer wakes, redraw only on change', () => {
+describe('glance (eink-ha-os#10): deep sleep between timer wakes, redraw only on change', () => {
   const idle = (emu: Emulator, min = 4) => { emu.lastInput = Date.now() - min * 60_000; };
   const same = (emu: Emulator) => { (emu as any).dataPatch = (s: EmuState) => ({ d: s.d, lastUpdate: new Date() }); };
-  it('default on battery: live for 3 min after input, then glance sleep: the sleep face, to the next transition (#356)', () => {
+  it('default on battery: live for 3 min after input, then glance sleep: the sleep face, to the next transition (eink-ha-os#356)', () => {
     const { emu, logs } = harness();
     expect(emu.state.cfg.powerSave).toBe('glance');
     idle(emu, 2); emu.powerTick(); expect(emu.state.asleep).toBeNull();   // live window
@@ -522,18 +522,18 @@ describe('glance (#10): deep sleep between timer wakes, redraw only on change', 
     // 13:xx, quiet hours 23-07: quiet start is > 8 h away, so the 8 h cap (MAX_SLEEP_S)
     expect(emu.state.asleep!.wakeAt! - Date.now()).toBeGreaterThan(8 * 3600_000 - 1000);
     expect(emu.state.asleep!.wakeAt! - Date.now()).toBeLessThanOrEqual(8 * 3600_000);
-    expect(emu.state.fullCount).toBe(full + 1);   // #356: the sleep face goes up, one full refresh
+    expect(emu.state.fullCount).toBe(full + 1);   // eink-ha-os#356: the sleep face goes up, one full refresh
     expect(emu.state.log.some((l) => l.msg === 'EPD clean refresh (sleep face)')).toBe(true);
     expect(emu.renderVals()).toMatchObject({ isSleeping: false, asleepLine: '', isGlanceFace: true, isNobodyHome: false, isQuiet: false });
     expect(emu.renderVals().statusLine).toMatch(/· glance ·/);
-    // #333, #356: no time of day while asleep: "Asleep · press to wake" and the date, no dashboard
+    // eink-ha-os#333, eink-ha-os#356: no time of day while asleep: "Asleep · press to wake" and the date, no dashboard
     const v: any = emu.renderVals();
     expect(v.face).toMatchObject({ title: 'Asleep · press to wake', sub: v.dateText, facts: [], tap: false });
     expect(v.face.title + v.face.sub).not.toMatch(/\d:\d/);
     expect(Object.keys(emu.regions(emu.state))).toEqual(['sleep']);
     expect(logs().some((l) => l.startsWith('POWER deep sleep (glance)'))).toBe(true);
   });
-  // #356: the wake is a transition, hours later; pin "drawn at" to the wake so only a change of the face redraws
+  // eink-ha-os#356: the wake is a transition, hours later; pin "drawn at" to the wake so only a change of the face redraws
   const wake = (emu: Emulator) => { const t = emu.state.asleep!.wakeAt!; vi.setSystemTime(t); emu.rtc = { ...emu.rtc, drawnAt: t }; emu.powerTick(); };
   it('transition wake: unchanged face → no refresh; a dashboard-only value → none; a new date → one full refresh', () => {
     const { emu, logs } = harness();
@@ -570,9 +570,9 @@ describe('glance (#10): deep sleep between timer wakes, redraw only on change', 
     const { emu, logs } = harness();
     idle(emu); emu.powerTick();
     emu.nav(-1, 'BTN_PREV'); expect(emu.state.asleep).not.toBeNull();
-    // #299: asleep, the bar says when it updated instead of a live-looking clock
-    expect(emu.renderVals().isGlanceFace).toBe(true);   // #356: the sleep face
-    emu.nav(1, 'BTN_NEXT'); expect(emu.state.asleep).toBeNull(); expect(emu.renderVals().isGlanceFace).toBe(false); expect(emu.state.mode).toBe('main');   // #299: no boot screen
+    // eink-ha-os#299: asleep, the bar says when it updated instead of a live-looking clock
+    expect(emu.renderVals().isGlanceFace).toBe(true);   // eink-ha-os#356: the sleep face
+    emu.nav(1, 'BTN_NEXT'); expect(emu.state.asleep).toBeNull(); expect(emu.renderVals().isGlanceFace).toBe(false); expect(emu.state.mode).toBe('main');   // eink-ha-os#299: no boot screen
     expect(logs().some((l) => l.includes('button wake · held until data, no boot screen'))).toBe(true);
     emu.nav(1, 'BTN_NEXT'); expect(logs()).toContain('BTN_NEXT held at boot → live for 10 min, no deep sleep');
     vi.advanceTimersByTime(1600);
@@ -592,7 +592,7 @@ describe('glance (#10): deep sleep between timer wakes, redraw only on change', 
   });
 });
 
-describe('front light after a timer wake (#357)', () => {
+describe('front light after a timer wake (eink-ha-os#357)', () => {
   it('a timer wake boots dark; the first key turns the light on and still counts; deep sleep shows no light', () => {
     const { emu } = harness({ cfg: { ...new Emulator({}).state.cfg, brightness: 40, powerSave: 'standby' } as any });
     expect(emu.renderVals().lightOpacity).toBeGreaterThan(0);
@@ -604,7 +604,7 @@ describe('front light after a timer wake (#357)', () => {
     const idx = emu.state.idx;
     emu.nav(1, 'BTN_NEXT');
     expect(emu.state.bootDark).toBe(false); expect(emu.renderVals().lightOpacity).toBeGreaterThan(0);
-    expect(emu.state.idx).not.toBe(idx);   // not consumed (unlike the #220 timeout)
+    expect(emu.state.idx).not.toBe(idx);   // not consumed (unlike the eink-ha-os#220 timeout)
   });
   it('a button wake boots with the light on', () => {
     const { emu } = harness({ cfg: { ...new Emulator({}).state.cfg, brightness: 40, powerSave: 'standby' } as any });
@@ -614,7 +614,7 @@ describe('front light after a timer wake (#357)', () => {
   });
 });
 
-describe('empty-house sleep (#331): 2 h glance and the Nobody home face while nobody is home', () => {
+describe('empty-house sleep (eink-ha-os#331): 2 h glance and the Nobody home face while nobody is home', () => {
   const idle = (emu: Emulator, min = 4) => { emu.lastInput = Date.now() - min * 60_000; };
   const set = (emu: Emulator, p: Partial<EmuState>) => { (emu as any).state = { ...emu.state, ...p }; };
   const home = (emu: Emulator, n: string) => set(emu, { ent: { ...emu.state.ent, 'zone.home': n } });
@@ -624,7 +624,7 @@ describe('empty-house sleep (#331): 2 h glance and the Nobody home face while no
     expect(emu.state.cfg.emptyHouse).toBe('');
     home(emu, '0'); set(emu, { simHour: 12 }); idle(emu); emu.powerTick();
     expect(emu.state.asleep).toMatchObject({ glance: true }); expect(emu.renderVals().isNobodyHome).toBe(false);
-    expect(emu.state.asleep!.wakeAt! - Date.now()).toBeLessThanOrEqual(8 * 3600_000);   // #356: no 15 min wakes
+    expect(emu.state.asleep!.wakeAt! - Date.now()).toBeLessThanOrEqual(8 * 3600_000);   // eink-ha-os#356: no 15 min wakes
   });
   it('nobody home: sleeps 2 h with the face up (one full refresh), counted; someone home again → glance sleep', () => {
     const { emu, logs } = harness();
@@ -636,13 +636,13 @@ describe('empty-house sleep (#331): 2 h glance and the Nobody home face while no
     expect(emu.state.fullCount).toBe(full + 1); expect(emu.emptySleeps).toBe(1);
     const v: any = emu.renderVals();
     expect(v).toMatchObject({ isNobodyHome: true, isQuiet: false, isGlanceFace: false, face: { title: 'Nobody home', items: [], foot: '', tap: false } });
-    expect(v.face.sub).toMatch(/^Next update ~\d\d:\d\d$/);   // #333: no time of day
+    expect(v.face.sub).toMatch(/^Next update ~\d\d:\d\d$/);   // eink-ha-os#333: no time of day
     expect(v.face.facts[0]).toMatchObject({ label: 'Inside' });
-    // a timer wake that sees someone home: the glance sleep face (#356), the normal interval
+    // a timer wake that sees someone home: the glance sleep face (eink-ha-os#356), the normal interval
     home(emu, '2'); vi.setSystemTime(emu.state.asleep!.wakeAt!); emu.powerTick();
     expect(emu.renderVals().isNobodyHome).toBe(false); expect(emu.renderVals().isGlanceFace).toBe(true); expect(emu.state.log[0].msg).toMatch(/^POWER deep sleep \(glance\)/);
     expect(emu.state.log[1].msg).toBe('EPD clean refresh (glance: changed)');
-    expect(emu.state.asleep!.wakeAt! - Date.now()).toBeLessThanOrEqual(8 * 3600_000);   // #356: no 15 min wakes
+    expect(emu.state.asleep!.wakeAt! - Date.now()).toBeLessThanOrEqual(8 * 3600_000);   // eink-ha-os#356: no 15 min wakes
   });
   it('quiet hours win: at night it stays the quiet face, no empty-house wake', () => {
     const { emu } = harness();
@@ -665,7 +665,7 @@ describe('empty-house sleep (#331): 2 h glance and the Nobody home face while no
   });
 });
 
-describe("Home Assistant's language (#98)", () => {
+describe("Home Assistant's language (eink-ha-os#98)", () => {
   it('Dutch HA: Dutch day name and our headings; screen titles stay; unlinked → English', () => {
     const { emu } = harness({ haLang: 'nl' });
     let v: any = emu.renderVals();
@@ -682,7 +682,7 @@ describe("Home Assistant's language (#98)", () => {
   });
 });
 
-describe('Power hold (#258)', () => {
+describe('Power hold (eink-ha-os#258)', () => {
   it('held 2 s → "Turned off" face, API unreachable, other keys ignored; Power boots it again', () => {
     const { emu, logs } = harness();
     emu.holdPowerSim();

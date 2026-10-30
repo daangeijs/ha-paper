@@ -11,7 +11,7 @@ export function rateOf(s: Record<string, any>): string {
   return obj(s.power_config) ? str(s.power_config.stat_rate) : '';
 }
 
-/** Import / export meters and price entities of one grid source (#274), both shapes: legacy flow_from[] / flow_to[]
+/** Import / export meters and price entities of one grid source (eink-ha-os#274), both shapes: legacy flow_from[] / flow_to[]
  * (stat_energy_from / stat_energy_to, entity_energy_price) and HA 2025.12+ flat stat_energy_from / stat_energy_to /
  * entity_energy_price / entity_energy_price_export. Legacy first; a meter listed in both counts once; first price wins. */
 export type GridFlows = { import: string[]; export: string[]; price: string; priceExport: string };

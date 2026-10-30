@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""x4flash.py backup -> flash -> restore against a fake esptool on a patterned 16 MB image (issue #65, make test-tools).
+"""x4flash.py backup -> flash -> restore against a fake esptool on a patterned 16 MB image (issue eink-ha-os#65, make test-tools).
 
 The fake replaces subprocess.run: it parses the esptool command line x4flash.py builds and applies it to an in-memory
 flash with the chip's semantics (write-flash erases every 4 KB sector a part touches, then writes it). No serial port,

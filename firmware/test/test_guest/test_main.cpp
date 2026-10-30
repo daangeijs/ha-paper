@@ -1,4 +1,4 @@
-// core/guest_wifi + app/qr (qrcodegen) (#329) against spec/test-vectors/guest-wifi.json (emulator src/core/guestWifi.ts).
+// core/guest_wifi + app/qr (qrcodegen) (eink-ha-os#329) against spec/test-vectors/guest-wifi.json (emulator src/core/guestWifi.ts).
 #include <unity.h>
 #include <fstream>
 #include <sstream>

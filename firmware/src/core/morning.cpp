@@ -1,4 +1,4 @@
-// Good morning page (#330), a port of emulator src/core/morning.ts.
+// Good morning page (eink-ha-os#330), a port of emulator src/core/morning.ts.
 #include "core/morning.h"
 
 #include <algorithm>

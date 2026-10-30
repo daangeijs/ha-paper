@@ -87,7 +87,7 @@ Icon statIcon(const std::string& id) {
   return Icon::SkBolt17;
 }
 
-// 24 hourly bars, bottom-aligned in [top, bottom): now INK, past Hatch, future Track (B/W patterns, issue #38)
+// 24 hourly bars, bottom-aligned in [top, bottom): now INK, past Hatch, future Track (B/W patterns, issue eink-ha-os#38)
 void spark(Canvas& c, int x0, int w, int bottom, int h, const std::vector<double>& ser, int hour) {
   double mx = *std::max_element(ser.begin(), ser.end());
   int n = 24, avail = w - 2 * (n - 1);
@@ -128,7 +128,7 @@ void statCard(Canvas& c, I& a, const Widget& w, Rect r) {
   };
   TextOpts t; t.tracking = -1; t.tabular = true;
   int unitW = s.unit.empty() ? 0 : c.textWidth(s.unit, DS(20)) + 4;
-  // #151/#162: drop decimals while 2 significant digits stay, then step the size down; no ellipsis on a number
+  // eink-ha-os#151/eink-ha-os#162: drop decimals while 2 significant digits stay, then step the size down; no ellipsis on a number
   std::vector<int> sizes;
   for (int z : {62, 56, 48, 40, 38, 30}) if (z <= tokenOf(s.value)) sizes.push_back(z);
   FitValue fv = fitValue(s.value, sizes, r.w - 32, [&c, &t, unitW](const std::string& v, int z) { return c.textWidth(v, D(z), t) + unitW; });
@@ -144,7 +144,7 @@ void statCard(Canvas& c, I& a, const Widget& w, Rect r) {
 
 // ---------------- clock (inverted hero) ----------------
 // Two regions: the card + date line (tile t<i>), and the minute window below the date line (k<i>: digits + day
-// progress), so the minute tick redraws only the window (issue #38).
+// progress), so the minute tick redraws only the window (issue eink-ha-os#38).
 static const int kClockCardTop = 16;
 static int clockHdrBot(Rect r) { return r.y + kClockCardTop + lineH(T6(16)); }
 
@@ -156,14 +156,14 @@ void clockCard(Canvas& c, I& a, const Widget& w, Rect r) {
   std::string wd = a.now.date, dm;
   auto sp = wd.find(' ');
   if (sp != std::string::npos) { dm = wd.substr(sp + 1); wd = wd.substr(0, sp); }
-  if (!a.asleepAt.empty()) { sp = dm.find(' '); if (sp != std::string::npos) dm = dm.substr(sp + 1); }   // #333: the month; the number is big
+  if (!a.asleepAt.empty()) { sp = dm.find(' '); if (sp != std::string::npos) dm = dm.substr(sp + 1); }   // eink-ha-os#333: the month; the number is big
   c.text(x0, top + asc(hf), wd, hf, C(Ink::Paper));
   c.textRight(x1, top + asc(hf), dm, hf, C(Ink::Paper));
 }
 
 Rect clockWindowRect(Rect r) { int y = clockHdrBot(r) + 2; return rc(r.x, y, r.w, r.y + r.h - y); }
 
-// #333 asleep: the day number in place of the digits, and a paper "Asleep" pill where the day progress was (no time of day)
+// eink-ha-os#333 asleep: the day number in place of the digits, and a paper "Asleep" pill where the day progress was (no time of day)
 static void clockWindowAsleep(Canvas& c, I& a, const Widget& w, Rect r) {
   int x0 = r.x + 20, bot = r.y + r.h - 14;
   Font pf = T6(16);
@@ -185,7 +185,7 @@ void clockWindow(Canvas& c, I& a, const Widget& w, Rect r) {
   int x0 = r.x + 20, x1 = r.x + r.w - 20, bot = r.y + r.h - 14;
   Font af = T4(12);
   int axisTop = bot - lineH(af), barTop = axisTop - 5 - 6, tw = x1 - x0;
-  c.fill(rc(x0, barTop + 2, tw, 2), Ink::Paper);   // track: 2 px paper hairline (B/W, #38)
+  c.fill(rc(x0, barTop + 2, tw, 2), Ink::Paper);   // track: 2 px paper hairline (B/W, eink-ha-os#38)
   int pct = a.now.known ? int(jsRound(a.now.minuteOfDay / 1440.0 * 100)) : 0;
   if (pct > 0) c.box(rc(x0, barTop, std::max(6, tw * pct / 100), 6), 3, Ink::Paper);
   static const char* ax[] = {"00", "06", "12", "18", "24"};
@@ -210,7 +210,7 @@ void priceCard(Canvas& c, I& a, const Widget& w, Rect r) {
   bool ok = P.size() >= 24 && a.now.known;
   int h = a.now.h;
   std::vector<double> so = P; std::sort(so.begin(), so.end());
-  double pn = ok ? a.data.priceAt(h, a.now.m) : 0;   // this quarter-hour's when the source has them (#151)
+  double pn = ok ? a.data.priceAt(h, a.now.m) : 0;   // this quarter-hour's when the source has them (eink-ha-os#151)
   bool cheap = ok && pn <= so[7], dear = ok && pn >= so[16];
   int chipW = 0;
   if (ok) {
@@ -221,7 +221,7 @@ void priceCard(Canvas& c, I& a, const Widget& w, Rect r) {
   }
   TextOpts lo; lo.maxW = x1 - x0 - chipW - 4;
   Font lf = T6(16);
-  std::string lab = w.field("label").empty() ? std::string(a.t(S::powerPrice)) : w.field("label");   // #148
+  std::string lab = w.field("label").empty() ? std::string(a.t(S::powerPrice)) : w.field("label");   // eink-ha-os#148
   for (int sz : {16, 15, 14}) { lf = T6(sz); if (c.textWidth(lab, lf) <= lo.maxW) break; }   // wide faces
   c.text(x0, centreBl(top + 13, lf), lab, lf, lo);
   int ch = a.data.cheapestStart(3);
@@ -242,7 +242,7 @@ void priceCard(Canvas& c, I& a, const Widget& w, Rect r) {
   Font vf = D(58);
   double lh = vf.size * 0.9;
   int bl = baseIn(int(sb - 26 - 6 - lh), vf, lh);
-  const std::string& cur = locale::currency();   // the digits face has € only; $ £ SEK in the text face (#147)
+  const std::string& cur = locale::currency();   // the digits face has € only; $ £ SEK in the text face (eink-ha-os#147)
   int ew = c.text(x0, bl, cur, cur == "€" ? DS(24) : B(24));
   TextOpts t; t.tracking = -1; t.tabular = true;
   c.text(x0 + ew + 3, bl, ok ? fmtNum(pn, "", 2) : "—", vf, t);
@@ -259,7 +259,7 @@ void ringCard(Canvas& c, Rect r, const std::string& label, bool ok, int pct, con
   c.arcTone(cx, cy, 46, 12, 0, 360, Tone::Track);
   if (ok && pct > 0) c.arc(cx, cy, 46, 12, -90, std::min(100, pct) * 3.6, Ink::Black);
   Font vf = D(40), pf = T7(16);   // design: display 600; the condensed 16 px % loses its slash at 2 bits
-  std::string v = ok ? std::to_string(pct) : gap ? "" : "—";   // gap (#86): the empty track is the mark
+  std::string v = ok ? std::to_string(pct) : gap ? "" : "—";   // gap (eink-ha-os#86): the empty track is the mark
   TextOpts t; t.tabular = true;
   int w1 = c.textWidth(v, vf, t), w2 = ok ? c.textWidth("%", pf) : 0;
   int bl = baseIn(ringTop + 34, vf, vf.size);
@@ -311,7 +311,7 @@ void barsCard(Canvas& c, I& a, const Widget& w, Rect r) {
   c.text(x0, hb, lab, lf, lo);
   if (!summary.empty()) c.textRight(x1, hb, summary, sf);
   Font af = T4(13), lf2 = T6(15);
-  // prices (#260): today's low / high under the axis
+  // prices (eink-ha-os#260): today's low / high under the axis
   hist::Extreme pLo, pHi;
   const bool lh = series == "prices" && ser.size() >= 24 && hist::dayLowHigh(ser.data(), 24, a.lang, pLo, pHi);
   if (lh) {
@@ -379,7 +379,7 @@ void thermoCard(Canvas& c, I& a, const Widget& w, Rect r) {
   std::string cur = z && z->cur.ok ? fmtNum(z->cur.v, "°C") + "°" : "—";
   for (int t : {34, 30, 27}) { vf = D(t); if (c.textWidth(cur, vf, vt) <= 70) break; }   // stay inside the ring (r 44 − 4.5)
   c.textCenter(cx, baseIn(boxTop + 6 + (98 - vf.size) / 2, vf, vf.size), cur, vf, vt);
-  // #162: the name sits under the ring's open bottom, card-wide (was 62 px inside the ring: "Slaapk…" twice)
+  // eink-ha-os#162: the name sits under the ring's open bottom, card-wide (was 62 px inside the ring: "Slaapk…" twice)
   std::string name = !w.field("label").empty() ? w.field("label") : z ? z->name : id.empty() ? std::string(a.t(S::room)) : id;
   TextOpts no; no.maxW = r.w - 24;
   int nameMid = (cy + 41 + bottomRow) / 2;
@@ -498,7 +498,7 @@ static void pagerPos(I& a, int& tot, int& cur) {
   int cs = a.curSub();
   tot = int(f.size()); cur = 0;
   for (int i = 0; i < tot; ++i) if (f[i].screen == a.idx && f[i].sub == cs) cur = i;
-  if (a.menu == Menu::Apps) cur = -1;   // app switcher open: no current page dot (#151)
+  if (a.menu == Menu::Apps) cur = -1;   // app switcher open: no current page dot (eink-ha-os#151)
 }
 static int dotsWidth(int nd, int dcur) { int w = 0; for (int k = 0; k < nd; ++k) w += (k == dcur ? 22 : 8) + (k ? 5 : 0); return w; }
 static int pagerCapW(I& a) {
@@ -511,7 +511,7 @@ static int pagerCapW(I& a) {
 Rect sleekBarTimeRect(I& a) {
   TextOpts ct; ct.tabular = true;
   int right = a.chr.pager ? kScreenW - 12 - pagerCapW(a) - 12 : kScreenW - 12, w = Canvas().textWidth("00:00", D(24), ct);
-  if (!a.asleepAt.empty()) w = Canvas().textWidth(a.t(S::asleepBar), T6(16)) + 28;   // #299; #333: a dark pill, no time
+  if (!a.asleepAt.empty()) w = Canvas().textWidth(a.t(S::asleepBar), T6(16)) + 28;   // eink-ha-os#299; eink-ha-os#333: a dark pill, no time
   return rc(right - w, 8, w, 48);
 }
 void sleekBarTime(Canvas& c, I& a) {
@@ -530,7 +530,7 @@ void sleekTopBar(Canvas& c, I& a) {
   bool setup = a.setup != Setup::None;
   const Screen* sc = a.curScreen();
   std::string appTitle = setup ? a.t(S::setup) : a.appTitle(a.appOf());
-  // setup (#183): "Step 2 of 2" as the title, no pager (app.cpp)
+  // setup (eink-ha-os#183): "Step 2 of 2" as the title, no pager (app.cpp)
   std::string pageTitle = setup ? a.t(S::setupStep, a.setup == Setup::Wifi ? "1" : "2", "2")
       : a.menu == Menu::Apps ? a.t(S::allApps) : a.menu == Menu::Pages ? a.t(S::allPages) : (sc ? sc->title : "");
   // 1. app + page title button (x 6, w 250, h 56), content inset 10
@@ -577,7 +577,7 @@ void sleekTopBar(Canvas& c, I& a) {
   }
 
   // 3. status icons, battery bar, clock (display face 24 × fk; region "time", sleekBarTime), right-aligned to the pager.
-  // Ambient (#27): status icons stay, battery only when low, clock only without a clock tile.
+  // Ambient (eink-ha-os#27): status icons stay, battery only when low, clock only without a clock tile.
   Rect tr = sleekBarTimeRect(a);
   int right = a.chr.clock ? tr.x - 10 : tr.x + tr.w;
   int batt = a.board.power().batteryPct;
@@ -638,7 +638,7 @@ void sleekListRegions(I& a, const Widget& w, int i, Rect r, std::vector<RegionDe
     std::string range = pages > 1 ? a.t(S::roomsRange, std::to_string(from + 1) + "–" + std::to_string(to), std::to_string(total))
                                   : a.t(S::nRooms, std::to_string(total));
     std::string summary = range + " · " + a.t(S::nHeating, std::to_string(heating)) + (a.data.away ? std::string(" · ") + a.t(S::away) : "");
-    bool away = a.data.away, awayOk = a.data.awayOk();   // #148: no away pill when no zone offers the preset
+    bool away = a.data.away, awayOk = a.data.awayOk();   // eink-ha-os#148: no away pill when no zone offers the preset
     out.push_back({"h" + ti, hdr, [&a, hdr, summary, away, awayOk](Canvas& c) {
       Font pf = T7(15);
       int bw = awayOk ? textPill(c, hdr.x + hdr.w, hdr.y + 24, a.t(away ? S::setHome : S::setAway), pf, 18, true, false, [&a] { a.toggleAway(); }) : 0;

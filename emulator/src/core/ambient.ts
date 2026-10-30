@@ -1,4 +1,4 @@
-// Ambient idle mode and the night face as a poster (issue #27). Vectors: spec/test-vectors/ambient.json.
+// Ambient idle mode and the night face as a poster (issue eink-ha-os#27). Vectors: spec/test-vectors/ambient.json.
 //
 // After AMBIENT_MS without input the dashboard drops its chrome: pager, battery icon, app label (and sub-page "1 of 2");
 // a page with a clock tile also drops the top-bar clock. The page title and the status icons (offline, not linked,

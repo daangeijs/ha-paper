@@ -1,5 +1,5 @@
 {
-  "_doc": "Agenda and Next tiles (#316): emulator src/core/agenda.ts; firmware core/agenda.cpp, test_agenda. Times are epoch ms; tz = local UTC offset in minutes. config: like config/*.json. request: eventsRequest text (exact bytes). title: cutTitle (≤ 48 UTF-8 bytes). parse: a whole WebSocket result frame → parseAnswer (null = not a successful answer); the firmware streams the same text in any chunking. views: agendaLines (4 and 11 lines) and nextView of `fetch` at `now`, en and nl.",
+  "_doc": "Agenda and Next tiles (eink-ha-os#316): emulator src/core/agenda.ts; firmware core/agenda.cpp, test_agenda. Times are epoch ms; tz = local UTC offset in minutes. config: like config/*.json. request: eventsRequest text (exact bytes). title: cutTitle (≤ 48 UTF-8 bytes). parse: a whole WebSocket result frame → parseAnswer (null = not a successful answer); the firmware streams the same text in any chunking. views: agendaLines (4 and 11 lines) and nextView of `fetch` at `now`, en and nl.",
   "config": [
     {
       "name": "agenda-basic",

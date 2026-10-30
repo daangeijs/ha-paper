@@ -1,4 +1,4 @@
-// RTC record of the Good morning page (#330).
+// RTC record of the Good morning page (eink-ha-os#330).
 #include "net/morning_rtc.h"
 
 #include <esp_attr.h>

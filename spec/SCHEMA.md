@@ -59,7 +59,7 @@ A tile with no room is not drawn.
 |---|---|---|
 | clock | | time + date |
 | stat | entity | HA entity_id, domain `sensor` \| `binary_sensor` \| `input_number` \| `number` |
-| price | label (optional) | price now + cheap/normal/high + cheapest 3 h window; `label` replaces the title (#148) |
+| price | label (optional) | price now + cheap/normal/high + cheapest 3 h window; `label` replaces the title (eink-ha-os#148) |
 | gauge | entity, label (optional) | percentage; domain `sensor` \| `input_number` \| `number`; default `sensor.home_battery_soc` |
 | bars | series: prices \| usage \| solar, label (optional) | 24 h chart, now = black; another series draws usage |
 | route | label, mode, entity (all optional), route | a user route with severity; `mode` train \| bus \| car (default train), `entity` a `sensor.*`; see *route sensors* |
@@ -67,14 +67,15 @@ A tile with no room is not drawn.
 | switch | entity | toggle; domain `switch` \| `light` \| `input_boolean` \| `fan` |
 | light | light: ‹id› | legacy (pre-0.5): rewritten to `{type: switch, entity: light.‹id›}` (`‹id›` with a `.` kept as-is) |
 | scene | entity, label (optional) | tap runs it: `scene.*` → `scene.turn_on`, `script.*` → `script.turn_on`; no entity (or the older `scene: all_off`) = all lights off (`light.turn_off`, `entity_id: all`); an entity wins over `scene:` |
-| media | entity, label, favorites (both optional) | now playing on a `media_player`: title, artist, state, previous / play-pause / next, volume slider (or − / +), and up to 6 favorites to start; see *media* (#319) |
-| zoneList | entities (optional) | climate entities (any integration), 10 per page (use cs 4, rs 2); see *list picks*; the away button shows when a climate entity's `preset_modes` has `away` and is sent to those (#148) |
-| history | entity, window, bucket, agg, style, min, max, threshold, labels, label; attribute, value, time, ahead, forecast, past (all but entity optional) | a numeric entity over time; domain `sensor` \| `input_number` \| `number`; or a list in an attribute / a weather forecast (#283); see *history* (#264); the firmware parses it (#268) and draws the unknown-tile face until #270 |
-| weather | entity, label (optional) | a `weather.*` entity: condition drawing, temperature, today's high / low / wind / rain, a 5-day strip; `cs: 4` (`rs: 2` full screen, `rs: 1` the top half); see *weather* (#318) |
-| bins | entities, labels, tonight, label (all optional) | bin day: the next waste collection in words; `entities` space-separated `sensor.*` ids (at most 6); see *bins* (#317) |
-| guestWifi | ssid, password, security, hidden, password_entity (all optional) | guest Wi-Fi: a QR code that joins the network, name and password in large type; 2×2 default, 2×1 compact; see *guestWifi* (#329) |
-| agenda | entities (1–4 `calendar.*`), label (optional) | today, tomorrow and the rest of the week from HA calendars; see *agenda and next* (#316) |
-| next | entities (1–4 `calendar.*`), label (optional) | the next timed event with a countdown; see *agenda and next* (#316) |
+| media | entity, label, favorites (both optional) | now playing on a `media_player`: title, artist, state, previous / play-pause / next, volume slider (or − / +), and up to 6 favorites to start; see *media* (eink-ha-os#319) |
+| zoneList | entities (optional) | climate entities (any integration), 10 per page (use cs 4, rs 2); see *list picks*; the away button shows when a climate entity's `preset_modes` has `away` and is sent to those (eink-ha-os#148) |
+| history | entity, window, bucket, agg, style, min, max, threshold, labels, label; attribute, value, time, ahead, forecast, past (all but entity optional) | a numeric entity over time; domain `sensor` \| `input_number` \| `number`; or a list in an attribute / a weather forecast (eink-ha-os#283); see *history* (eink-ha-os#264); the firmware parses it (eink-ha-os#268) and draws the unknown-tile face until eink-ha-os#270 |
+| weather | entity, label (optional) | a `weather.*` entity: condition drawing, temperature, today's high / low / wind / rain, a 5-day strip; `cs: 4` (`rs: 2` full screen, `rs: 1` the top half); see *weather* (eink-ha-os#318) |
+| bins | entities, labels, tonight, label (all optional) | bin day: the next waste collection in words; `entities` space-separated `sensor.*` ids (at most 6); see *bins* (eink-ha-os#317) |
+| guestWifi | ssid, password, security, hidden, password_entity (all optional) | guest Wi-Fi: a QR code that joins the network, name and password in large type; 2×2 default, 2×1 compact; see *guestWifi* (eink-ha-os#329) |
+| attrList | entity, attribute, title, subtitle, time, empty, label (all but entity optional) | rows from a sensor attribute that holds a list of objects (e.g. rare birds nearby); see *attrList* (eink-ha-os#332) |
+| agenda | entities (1–4 `calendar.*`), label (optional) | today, tomorrow and the rest of the week from HA calendars; see *agenda and next* (eink-ha-os#316) |
+| next | entities (1–4 `calendar.*`), label (optional) | the next timed event with a countdown; see *agenda and next* (eink-ha-os#316) |
 | thermo | zone: ‹id›, label (optional) | single room, `‹id›` = object id of a `climate.*` entity (the console picks it); no zone = “—”; rs 2 recommended |
 | setting, ota, wifi, ha, about | | system tiles of the built-in Settings pages: accepted for older files, then dropped (see *Settings is built in*) |
 
@@ -93,7 +94,7 @@ map splits on commas): `{type: lightList, areas: kitchen living_room, entities: 
 - Order follows the pick (areas first, then entities). Ids HA doesn't have are skipped; duplicates count once.
   No pick (or empty values) = every light grouped by area / every climate entity, as before.
 - The display subscribes to every picked entity and to the lights of picked areas.
-- `zoneList labels` (#151): the tile's own room names, `climate.<id>=Name` items split by `;` (names may have spaces,
+- `zoneList labels` (eink-ha-os#151): the tile's own room names, `climate.<id>=Name` items split by `;` (names may have spaces,
   no commas): `{type: zoneList, labels: climate.bathroom_attic=Attic; climate.bathroom=Downstairs, cs: 4, rs: 2}`. A
   room without a label keeps HA's name.
 
@@ -108,12 +109,12 @@ What the display reads from the entity (any integration, or a template sensor th
 
 | mode | state | attributes |
 |---|---|---|
-| train, bus | ignored | `departures` (required): a list, or a JSON string of one, of `{"time": "HH:MM", "delay": minutes, "cancelled": bool, "info": text}`; local clock times, upcoming first. Or, without `departures`, `upcoming` as the NS departures integration (ha-ns-departures) writes it: `{"planned": ISO, "actual": ISO, "delay": minutes, "track": text, "direction": text, "status": "on_time" \| "delayed" \| "cancelled", …}`; the row shows the local time of `actual` (else `planned`), `delay` (else actual − planned), cancelled when `status` is `cancelled`, and "Track ‹track› · ‹direction›" (#275, `spec/test-vectors/route-departures.json`). `note` (optional): replaces the footer. `per_hour` (bus, optional): adds "‹n› per hour" |
+| train, bus | ignored | `departures` (required): a list, or a JSON string of one, of `{"time": "HH:MM", "delay": minutes, "cancelled": bool, "info": text}`; local clock times, upcoming first. Or, without `departures`, `upcoming` as the NS departures integration (ha-ns-departures) writes it: `{"planned": ISO, "actual": ISO, "delay": minutes, "track": text, "direction": text, "status": "on_time" \| "delayed" \| "cancelled", …}`; the row shows the local time of `actual` (else `planned`), `delay` (else actual − planned), cancelled when `status` is `cancelled`, and "Track ‹track› · ‹direction›" (eink-ha-os#275, `spec/test-vectors/route-departures.json`). `note` (optional): replaces the footer. `per_hour` (bus, optional): adds "‹n› per hour" |
 | car | travel time in minutes | `typical` (optional): usual minutes; without it there is no badge and no "usually" line. `note` (optional) |
 
 Severity: worst of the next two departures (delay < 2 on time, < 5 minor, ≤ 15 delayed, > 15 or cancelled disrupted);
 car: travel time / typical ≥ 1.15, 1.4, 1.75 (`spec/test-vectors/severity.json`). No entity: "Pick a sensor for this
-route". Entity `unavailable` / `unknown`: the gap ring and word (#86). Entity missing or without upcoming departures: "—".
+route". Entity `unavailable` / `unknown`: the gap ring and word (eink-ha-os#86). Entity missing or without upcoming departures: "—".
 
 ### media (#319)
 
@@ -126,7 +127,7 @@ route". Entity `unavailable` / `unknown`: the gap ring and word (#86). Entity mi
 - Taps: ⏮ `media_player.media_previous_track`, ⏯ `media_play_pause`, ⏭ `media_next_track`, − / +
   `volume_down` / `volume_up` (HA steps from its own volume, so quick taps add up), each with `entity_id`. A 1-wide tile
   has the three transport buttons only.
-- Volume slider (#351): a player whose `supported_features` has VOLUME_SET (4) gets a bar instead of − / + (from 2 wide),
+- Volume slider (eink-ha-os#351): a player whose `supported_features` has VOLUME_SET (4) gets a bar instead of − / + (from 2 wide),
   filled to `volume_level` with the % on it. A tap, or the end of a drag, at x sets the level (x − bar left) / bar width
   in whole % and sends one `media_player.volume_set` with `volume_level` 0–1; the bar shows the new level at once and the
   next state update corrects it. Other players keep − / +.
@@ -187,6 +188,27 @@ the network name, never the password. Static: redraws only when the config or th
 Reference: `emulator/src/core/guestWifi.ts` (firmware `core/guest_wifi.cpp`, `app/ui_guest.cpp`); vectors:
 `spec/test-vectors/guest-wifi.json`, `config/329a`–`329d`.
 
+### attrList (#332)
+
+`{type: attrList, entity: sensor.rare_birds_nearby, cs: 2, rs: 2}`. A list from one attribute of a `sensor.*`: a list of
+objects (or JSON text of one), in the order the sensor gives it. Field names (letters, digits, `_`), defaults for the
+ha-waarneming integration's display-ready fields (`docs/recipes/rare-birds.md`, eink-ha-os#375): `attribute: sightings`,
+`title: title`, `subtitle: subtitle` (up to 3 names split by spaces, joined with " · "), `time: ts`. A field left at its
+default that an item lacks (absent or null) reads the YAML recipe's field instead: `species`, `place distance_km`,
+`observed_at`; a field the tile sets has no fallback. `empty`: the text when the list is empty
+(default "Nothing to show"); `label` replaces HA's friendly name in the header.
+
+Per item: the title (an item without one is left out), the subtitle parts that are there, and how long ago the time
+field is (epoch seconds or ms, or ISO; ISO without an offset is local time): "just now", "N min ago", "N h ago" (under 24 h), then "yesterday" / "N days ago" by local day; a date without a
+time says today / yesterday / N days ago. Numbers show at most 1 decimal; a field name ending in `_km` / `_m` adds the
+unit. Rows: below 3 columns two lines per row (title + ago, then the subtitle), 2 rows on 1 row, 6 on 2 rows; from 3
+columns one line per row, 4 / 10. Foot: the entity's `attribution` attribute left, "+N more" right. Entity missing,
+`unavailable` or `unknown`: "No data yet".
+
+The display keeps only this tile's attribute (and `attribution`) of that entity, at most 10 items and 3072 bytes of
+JSON: the first items that fit (`capList`). Reference: `emulator/src/core/attrList.ts` (firmware `core/attr_list.cpp`,
+`app/ui_list.cpp`); vectors: `spec/test-vectors/attr-list.json`, `config/332a`–`332d`.
+
 ### history (#264)
 
 `{type: history, entity: sensor.outdoor_temperature, window: 24h, agg: mean, cs: 4}`. At most **6** history tiles per
@@ -197,19 +219,23 @@ config (the 7th fails: `At most 6 history tiles`).
 | window | `‹n›m` \| `‹n›h` \| `‹n›d`, 10m–7d (a bare number has no unit and fails) | `24h` |
 | bucket | `1m 5m 10m 15m 30m 1h 2h 3h 6h 12h 1d`; divides the window into 2–96 bars | the smallest step giving ≤ 12 bars per column (`cs`); else the dividing step with the fewest bars in 2–96 |
 | agg | `mean` (time-weighted) \| `max` \| `min` \| `last` (value at the bucket's end) \| `change` (counters: last minus the value before) | `mean` |
-| style | `bars` \| `line` \| `area` \| `step` \| `dots` \| `auto` | `auto`: `line` for `mean`, `bars` otherwise |
+| style | `bars` \| `line` \| `area` \| `step` \| `dots` \| `band` \| `auto`; `band` only with `agg: mean` on a recorder series | `auto`: `line` for `mean`, `bars` otherwise |
 | min, max | numbers (negative / decimal allowed), `min` < `max` | bars from 0, the other styles auto-ranged with 10 % padding |
-| threshold | number (#304): a dashed reference line; an auto range widens to hold it; outside a fixed range it is not drawn | none |
-| labels | `true` \| `false` (#304): the max, min and last value printed beside their points (last only away from the other two) | `false` |
+| threshold | number (eink-ha-os#304): a dashed reference line; an auto range widens to hold it; outside a fixed range it is not drawn | none |
+| labels | `true` \| `false` (eink-ha-os#304): the max, min and last value printed beside their points (last only away from the other two) | `false` |
+| compare | `1d` \| `7d` (eink-ha-os#304): the same window a day / week before, behind the tile's own series; at least the window; recorder series only | none |
 | label | text | HA friendly name, else the entity id |
 
 Defaults with `cs: 4`: 1h → 5m, 6h → 10m, 24h → 30m, 7d → 6h; `cs: 2`, 24h → 1h. Buckets align to local time; the last
 one is open and holds now. Data: `recorder/statistics_during_period` (`period` 5minute below 1h, hour below 1d, else day;
 `types` = the agg, `last` reads `mean`); without statistics (or a bucket under 5m)
 `history/history_during_period`, only for windows up to 24 h. Unavailable / unknown = an empty bucket: a gap, never
-joined across. Styles (#304): `area` = the line over a 25 % dither fill down to the plot bottom (1-bit safe); `step` =
-a flat run per bucket, joined upright to the next; `dots` = one dot per bucket. The latest point gets the big dot in
-every style but `bars`. The chart prints
+joined across. Styles (eink-ha-os#304): `area` = the line over a 25 % dither fill down to the plot bottom (1-bit safe); `step` =
+a flat run per bucket, joined upright to the next; `dots` = one dot per bucket; `band` = the mean as a line over the
+same dither between each bucket's min and max (two more series of the entity, agg `min` / `max`; a lone bucket draws no
+band). `compare` fetches the tile's series once more, bucketed at now − 1d / 7d, so its bucket i sits under bucket i:
+a 2 px level tick (paper halo) over each bar, else a dashed 2 px line under the tile's line or dots; it widens an auto range, not the low /
+high or labels. The latest point gets the big dot in every style but `bars`. The chart prints
 the low and high bucket with its time and an x axis: minutes before now (≤ 3 h), round hours (≤ 48 h), else weekdays.
 Reference: `emulator/src/core/history.ts` (firmware `core/history.cpp`); vectors: `spec/test-vectors/history.json` (incl. its config cases).
 
@@ -232,7 +258,7 @@ The same tile charts a list HA already holds, e.g. a rain nowcast or a weather f
 | time | the entry field with its time | `datetime` |
 | forecast | `hourly` \| `daily`; weather entity without `attribute` only | `hourly` |
 | ahead | `0` or a span ≤ window that the bucket divides: the part of the window after now | the whole window |
-| past | a `sensor` \| `input_number` \| `number` entity whose recorder history fills the window before now (#307) | — |
+| past | a `sensor` \| `input_number` \| `number` entity whose recorder history fills the window before now (eink-ha-os#307) | — |
 
 The list (or a JSON string of one) holds objects `{‹time›: ISO 8601 or epoch s / ms, ‹value›: number}` (an entry
 without a valid time or number is skipped; an ISO time without offset is local), or plain numbers: one per bucket,
@@ -340,6 +366,9 @@ Reject first error with 1-based line number and message (exact text; `‹›` = 
 | guestWifi `password_entity` not an input_text / text / sensor entity_id | widget | `guestWifi: password_entity is not an input_text / text / sensor entity` |
 | guestWifi `security` not WPA / WEP / nopass | widget | `guestWifi: security must be WPA, WEP or nopass` |
 | guestWifi `hidden` not true / false | widget | `guestWifi: hidden must be true or false` |
+| attrList `attribute` / `title` / `time` not a field name | widget | `attrList: ‹key› must be a field name (letters, digits, _)` |
+| attrList `subtitle` empty or not field names | widget | `attrList: subtitle must be field names (letters, digits, _) split by spaces` |
+| attrList more than 3 `subtitle` fields | widget | `attrList: at most 3 subtitle fields` |
 | `cs` not 1–4 | widget | `cs must be 1–4` |
 | `rs` not 1–2 | widget | `rs must be 1 or 2` |
 | `col`/`row` set, `col` not 1–4 | widget | `col must be 1–4` |
@@ -369,7 +398,7 @@ Reject first error with 1-based line number and message (exact text; `‹›` = 
 
 Plus the apps rules above. Widget checks run in table order; `cs: 0`/`rs: 0` count as unset.
 Reference implementation: `parseYaml()` in `emulator/src/core/config.ts`; test vectors:
-`spec/test-vectors/config/*.json` (apps: `33`–`39`; routes: `22`, `50`–`52`; built-in Settings: `53`–`57`; bins: `90`–`94`; guestWifi: `329a`–`329d`).
+`spec/test-vectors/config/*.json` (apps: `33`–`39`; routes: `22`, `50`–`52`; built-in Settings: `53`–`57`; bins: `90`–`94`; guestWifi: `329a`–`329d`; attrList: `332a`–`332d`).
 
 # settings.json (device settings)
 
@@ -380,8 +409,8 @@ not own, so an OTA rollback still reads it (rules: `emulator/src/core/migrate.ts
 
 | schema | change |
 |---|---|
-| 0 → 1 | files from before versioning (#12): only stamped |
-| 1 → 2 | quiet hours (#295): new key `quiet` (`off` or `HH-HH`) from `night` when that held a window, else `23-07` (on, also for existing installs). `night` stays in the file for a rollback but is no longer read or served. `powerSave: night` ("Sleep at night") becomes `glance`. A `quiet` key already in the file wins. |
+| 0 → 1 | files from before versioning (eink-ha-os#12): only stamped |
+| 1 → 2 | quiet hours (eink-ha-os#295): new key `quiet` (`off` or `HH-HH`) from `night` when that held a window, else `23-07` (on, also for existing installs). `night` stays in the file for a rollback but is no longer read or served. `powerSave: night` ("Sleep at night") becomes `glance`. A `quiet` key already in the file wins. |
 
-A `screens.yaml` from before #295 may still hold a Settings tile `{type: setting, key: night}`: like every system tile
+A `screens.yaml` from before eink-ha-os#295 may still hold a Settings tile `{type: setting, key: night}`: like every system tile
 it is checked and dropped (see "Settings is built in").

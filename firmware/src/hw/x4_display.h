@@ -1,10 +1,10 @@
 // Display impl over freeink EInkDisplay (SSD1677 / UC8179 / UC8279, auto-detected per batch).
 //
 // The UI renders a 2-bit framebuffer (0 black … 3 white). The panel is 1-bit + an optional gray overlay. Panel-wide
-// refreshes (core/epd_sequence.h, #197) draw the B/W base (white under gray pixels), then — clean/full only, if the
+// refreshes (core/epd_sequence.h, eink-ha-os#197) draw the B/W base (white under gray pixels), then — clean/full only, if the
 // frame has gray pixels and the controller advertises Overlay grayscale — a dark/light gray overlay pass, after which both controller RAM
-// planes are restored to the B/W base (#201):
-//  * fastRefresh: navigation, whole-frame differential FAST (SSD1677 0x22=FC), no flash, B/W only (#212: grays
+// planes are restored to the B/W base (eink-ha-os#201):
+//  * fastRefresh: navigation, whole-frame differential FAST (SSD1677 0x22=FC), no flash, B/W only (eink-ha-os#212: grays
 //    thresholded as in a partial, no gray pass). After a gray frame the RED plane is seeded so the old grays are
 //    redrawn (SSD1677); other controllers take a B/W clean instead.
 //  * fullRefresh: the clean, HALF (0x1A=5A, 0x22=D7), one short flash.

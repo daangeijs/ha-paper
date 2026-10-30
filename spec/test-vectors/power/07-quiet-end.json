@@ -1,6 +1,6 @@
 {
   "name": "07-quiet-end",
-  "description": "Quiet hours (#295, every power saving mode but Always live): sleep until the window ends, never longer than 8 h; no timer wakes inside it. Peeking (a press in the window: dashboard for 60 s) keeps it awake.",
+  "description": "Quiet hours (eink-ha-os#295, every power saving mode but Always live): sleep until the window ends, never longer than 8 h; no timer wakes inside it. Peeking (a press in the window: dashboard for 60 s) keeps it awake.",
   "base": {
     "nowEpoch": 1800000000,
     "localSec": 43200,

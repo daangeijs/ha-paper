@@ -1,4 +1,4 @@
-// Guest Wi-Fi tile (#329): a QR code that joins the guest network, with the name and password in large type. Pure;
+// Guest Wi-Fi tile (eink-ha-os#329): a QR code that joins the guest network, with the name and password in large type. Pure;
 // firmware core/guest_wifi.cpp must match spec/test-vectors/guest-wifi.json. The QR comes from Nayuki's qrcodegen
 // (./qrcodegen.ts; the firmware vendors the same library's C version): byte mode, ECC M, version 1–6, mask chosen by
 // the library. Never log the payload or the password.

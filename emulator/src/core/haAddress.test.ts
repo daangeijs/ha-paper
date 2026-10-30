@@ -5,7 +5,7 @@ import { haAddressVectors } from '../../scripts/gen-vectors.ts';
 
 const file = join(import.meta.dirname, '..', '..', '..', 'spec', 'test-vectors', 'ha-address.json');
 
-describe('HA address (spec/test-vectors/ha-address.json, #54)', () => {
+describe('HA address (spec/test-vectors/ha-address.json, eink-ha-os#54)', () => {
   it('generator output matches the file on disk (run `npm run vectors` after changing haAddress.ts)', async () => {
     expect(JSON.parse(readFileSync(file, 'utf8'))).toEqual(JSON.parse(JSON.stringify(await haAddressVectors())));
   });

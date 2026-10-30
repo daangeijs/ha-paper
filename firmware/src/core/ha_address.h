@@ -1,4 +1,4 @@
-// Home Assistant address typed on the link page (#54) = emulator src/core/haAddress.ts,
+// Home Assistant address typed on the link page (eink-ha-os#54) = emulator src/core/haAddress.ts,
 // spec/test-vectors/ha-address.json. Pure: the HTTP probe is passed in (net/web_server.cpp: GET /auth/providers).
 #pragma once
 #include <cstdint>
@@ -8,12 +8,12 @@
 namespace x4::ha_address {
 
 constexpr const char* kProbePath = "/auth/providers";
-// One probe at a time; the next may start this long after the last one ended (#75). Else 429.
+// One probe at a time; the next may start this long after the last one ended (eink-ha-os#75). Else 429.
 constexpr uint32_t kProbeCooldownMs = 1000;
 constexpr const char* kProbeBusy = "The display is still checking an address. Try again in a moment.";
 
 // "homeassistant.local:8123", "https://ha.example.com/lovelace/0" → base URL + the other scheme to try.
-// LAN addresses are fine; loopback and link-local are refused (#75). Scheme typed: the other scheme is tried on its
+// LAN addresses are fine; loopback and link-local are refused (eink-ha-os#75). Scheme typed: the other scheme is tried on its
 // default port. error non-empty = not an address (url/alt empty).
 struct Parsed {
   std::string url, alt, error;

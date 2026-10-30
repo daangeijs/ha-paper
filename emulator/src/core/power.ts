@@ -4,12 +4,12 @@
 import { inQuietHours, quietEndHour } from './quiet.ts';
 import { emptyWaitS } from './emptyHouse.ts';
 
-// glance (#10, decided in #18: the default on battery; #356): the panel shows the sleep face and the display deep-sleeps
+// glance (eink-ha-os#10, decided in eink-ha-os#18: the default on battery; eink-ha-os#356): the panel shows the sleep face and the display deep-sleeps
 // until a key, the charger, or the next transition: midnight (the face's date) or the start of quiet hours, whichever
 // comes first (at most MAX_SLEEP_S). No periodic data wakes. A transition wake fetches a snapshot and redraws only when
 // what the panel shows changed (core/glance.ts). A key press wakes into live mode for `liveMin` minutes.
-// Quiet hours (#295, core/quiet.ts) win over standby and glance: no timer wakes in the window. "Sleep at night" is gone
-// (settings schema 2 moves it to glance). Empty house (#331, core/emptyHouse.ts): glance waits EMPTY_WAIT_S (cut at
+// Quiet hours (eink-ha-os#295, core/quiet.ts) win over standby and glance: no timer wakes in the window. "Sleep at night" is gone
+// (settings schema 2 moves it to glance). Empty house (eink-ha-os#331, core/emptyHouse.ts): glance waits EMPTY_WAIT_S (cut at
 // the start of quiet hours) while nobody is home; quiet hours and live mode win.
 export type PowerSave = 'off' | 'standby' | 'glance';
 export const POWER_SAVES: PowerSave[] = ['off', 'standby', 'glance'];
@@ -46,14 +46,14 @@ export type PowerInputs = {
   setup: boolean;              // AP / setup wizard
   msSinceApi: number | null;   // null = no API request since boot
   live?: boolean;              // glance: a key press / touch within the last `liveMin` minutes (absent = false)
-  glanceFails?: number;        // glance: wakes in a row that could not reach HA (diagnostics; no backoff since #356)
-  armBootsLeft?: number;       // first-boot safety (#10): confirmed boots this image still needs before any deep sleep (absent = 0)
-  emptyHouse?: boolean;        // glance (#331): the presence source says nobody is home (absent = false)
+  glanceFails?: number;        // glance: wakes in a row that could not reach HA (diagnostics; no backoff since eink-ha-os#356)
+  armBootsLeft?: number;       // first-boot safety (eink-ha-os#10): confirmed boots this image still needs before any deep sleep (absent = 0)
+  emptyHouse?: boolean;        // glance (eink-ha-os#331): the presence source says nobody is home (absent = false)
 };
 
 export type CpuProfile = 'full' | 'auto';
 export type WifiPs = 'none' | 'min';
-/** The clock a CPU profile runs at (#177). The Arduino libs ship without CONFIG_PM_ENABLE, so no esp_pm DFS: auto is a
+/** The clock a CPU profile runs at (eink-ha-os#177). The Arduino libs ship without CONFIG_PM_ENABLE, so no esp_pm DFS: auto is a
  *  fixed 80 MHz, the lowest clock that keeps APB at 80 MHz (UART, SPI to the panel, I2C and Wi-Fi unchanged). */
 export const CPU_MHZ: Record<CpuProfile, number> = { full: 240, auto: 80 };
 export type PowerReason = 'unconfirmed image' | 'ota running' | 'external power' | 'battery unknown' | 'low battery' | 'setup mode'
@@ -69,7 +69,7 @@ export type PowerDecision = {
   reason: PowerReason;
 };
 
-/** Glance sleep (#356), seconds from local `localSec` to the next transition: midnight (the sleep face's date) or the
+/** Glance sleep (eink-ha-os#356), seconds from local `localSec` to the next transition: midnight (the sleep face's date) or the
  *  start of quiet hours, whichever comes first. */
 export function glanceWaitS(localSec: number, quiet: string): number {
   const midnight = secsUntil(localSec, 0);
@@ -86,7 +86,7 @@ export function isExternalPower(i: Pick<PowerInputs, 'charging' | 'usb' | 'charg
   return i.charging || i.usb || (i.chargedAgoMin !== null && i.chargedAgoMin < RECENT_CHARGE_MIN && i.voltage !== null && i.voltage >= FULL_VOLTAGE);
 }
 
-/** Charging honesty (issue #11, spec/test-vectors/battery-label.json): `charging` = charger STAT pin, `usb` = a USB host
+/** Charging honesty (issue eink-ha-os#11, spec/test-vectors/battery-label.json): `charging` = charger STAT pin, `usb` = a USB host
  * is seen. A full battery on USB drops STAT, so it says "on USB", never "charging". GET /status `power.source`. */
 export function powerSource(charging: boolean, usb: boolean): 'usb' | 'battery' { return charging || usb ? 'usb' : 'battery'; }
 /** About screen Battery row. */
@@ -120,14 +120,14 @@ export function powerDecision(i: PowerInputs): PowerDecision {
   let reason: PowerReason;
   if (quiet) { reason = 'quiet'; wait = Math.min(wait, secsUntil(i.localSec, quietEndHour(i.quiet) * 3600)); }
   else if (i.powerSave === 'standby' && i.standby) { reason = 'standby'; wait = Math.min(wait, i.wakeEvery * 60); }
-  else if (i.powerSave === 'glance' && i.emptyHouse) { reason = 'empty house'; wait = Math.min(wait, emptyWaitS(i.localSec, i.quiet)); }   // #331
-  else if (i.powerSave === 'glance') { reason = 'glance'; wait = Math.min(wait, glanceWaitS(i.localSec, i.quiet)); }   // #356
+  else if (i.powerSave === 'glance' && i.emptyHouse) { reason = 'empty house'; wait = Math.min(wait, emptyWaitS(i.localSec, i.quiet)); }   // eink-ha-os#331
+  else if (i.powerSave === 'glance') { reason = 'glance'; wait = Math.min(wait, glanceWaitS(i.localSec, i.quiet)); }   // eink-ha-os#356
   else return out('awake');
   if (otaWanted) wait = Math.min(wait, secsUntil(i.localSec, OTA_HOUR * 3600));
   return out(reason, i.nowEpoch + wait);
 }
 
-/** POST /api/v1/device/sleep {"seconds": N} (#178, power measurements): deep sleep now, skipping `liveMin` and the
+/** POST /api/v1/device/sleep {"seconds": N} (eink-ha-os#178, power measurements): deep sleep now, skipping `liveMin` and the
  *  2-min API quiet; wake by timer after N s or by button/charger as usual. Refused (409, the powerDecision words) on an
  *  unconfirmed image, during OTA, on external power (it would never sleep there) and in setup. Not refused: battery
  *  unknown or low, first-boot safety not armed yet (an explicit request). Vectors: spec/test-vectors/sleep-now.json. */

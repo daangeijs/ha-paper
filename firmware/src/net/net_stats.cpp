@@ -15,12 +15,14 @@ namespace x4::net {
 namespace {
 std::atomic<int> g_open{0};
 std::atomic<uint32_t> g_served{0}, g_refused{0}, g_lastMs{0}, g_restarts{0}, g_checks{0}, g_reconnects{0};
-std::atomic<bool> g_any{false}, g_mdnsUp{false};
+std::atomic<uint32_t> g_announceMs{0};
+std::atomic<bool> g_any{false}, g_mdnsUp{false}, g_announced{false}, g_mdnsV4{false};
 std::atomic<const char*> g_reason{nullptr};
 std::mutex g_mu;   // rssi + bssid tag
 bool g_rssiKnown = false;
 int g_rssi = 0;
 char g_bssid[5] = "";
+char g_mdnsHost[33] = "";   // MDNS_NAME_BUF_LEN 64, but ours is ha-paper-XXXX (+ a mangled -N)
 }  // namespace
 
 void webOpened() { g_open++; }
@@ -38,9 +40,21 @@ uint32_t webServed() { return g_served; }
 
 void mdnsStarted(bool up, const char* reason) {
   g_mdnsUp = up;
+  if (!up) g_mdnsV4 = false;
   if (!reason) return;
   g_restarts++;
   g_reason = reason;
+}
+
+void mdnsAnnounced() {
+  g_announceMs = millis();
+  g_announced = true;
+}
+
+void mdnsSample(const char* host, bool v4) {
+  g_mdnsV4 = v4;
+  std::lock_guard<std::mutex> l(g_mu);
+  snprintf(g_mdnsHost, sizeof g_mdnsHost, "%s", host);
 }
 
 void wifiSample(bool rssiKnown, int rssi, const uint8_t* bssid) {
@@ -64,12 +78,15 @@ void netStatsFill(diag::Net& n) {
   n.mdnsUp = g_mdnsUp;
   n.mdnsRestarts = g_restarts;
   n.mdnsReason = g_reason;
+  n.mdnsV4 = g_mdnsUp && g_mdnsV4;
+  n.mdnsAnnounceAgeS = g_announced ? int64_t((millis() - g_announceMs) / 1000) : -1;
   n.idleChecks = g_checks;
   n.idleReconnects = g_reconnects;
   std::lock_guard<std::mutex> l(g_mu);
   n.rssiKnown = g_rssiKnown;
   n.rssi = g_rssi;
   n.bssid = g_bssid;
+  if (g_mdnsUp) n.mdnsHost = g_mdnsHost;
 }
 
 void netStatsLog() {
@@ -78,8 +95,9 @@ void netStatsLog() {
   char age[12] = "-", rssi[8] = "n/a";
   if (n.lastRequestAgeS >= 0) snprintf(age, sizeof age, "%u s", unsigned(n.lastRequestAgeS));
   if (n.rssiKnown) snprintf(rssi, sizeof rssi, "%d", n.rssi);
-  LOG_INF("NET", "web open %d served %u 503 %u last_req %s · mdns up %d restarts %u · rssi %s · bssid %s · idle checks %u relinks %u",
-          n.webOpen, unsigned(n.served), unsigned(n.refused503), age, n.mdnsUp ? 1 : 0, unsigned(n.mdnsRestarts), rssi,
+  LOG_INF("NET", "web open %d served %u 503 %u last_req %s · mdns up %d v4 %d %s restarts %u · rssi %s · bssid %s · idle checks %u relinks %u",
+          n.webOpen, unsigned(n.served), unsigned(n.refused503), age, n.mdnsUp ? 1 : 0, n.mdnsV4 ? 1 : 0,
+          n.mdnsHost.empty() ? "-" : n.mdnsHost.c_str(), unsigned(n.mdnsRestarts), rssi,
           n.bssid.empty() ? "-" : n.bssid.c_str(), unsigned(n.idleChecks), unsigned(n.idleReconnects));
 }
 

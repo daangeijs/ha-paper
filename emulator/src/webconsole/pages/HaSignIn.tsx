@@ -1,4 +1,4 @@
-// Link page / setup wizard: the Home Assistant address (#54), the sign-in button and two disclosures (#55).
+// Link page / setup wizard: the Home Assistant address (eink-ha-os#54), the sign-in button and two disclosures (eink-ha-os#55).
 import type { ConsoleView } from '../useConsole.ts';
 
 const small = { fontSize: "13px", color: "#5c5a55", lineHeight: "1.5" };

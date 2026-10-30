@@ -8,7 +8,7 @@
 #define LOG_DBG(tag, fmt, ...) ((void)0)
 #else
 #include <Arduino.h>
-// Serial `[I][TAG] message` + the log ring behind GET /api/v1/logs (src/net/log.cpp, #200). Lines are cut at 255 bytes.
+// Serial `[I][TAG] message` + the log ring behind GET /api/v1/logs (src/net/log.cpp, eink-ha-os#200). Lines are cut at 255 bytes.
 void x4Log(char level, const char* tag, const char* fmt, ...) __attribute__((format(printf, 3, 4)));
 #define LOG_ERR(tag, fmt, ...) x4Log('E', tag, fmt, ##__VA_ARGS__)
 #define LOG_WRN(tag, fmt, ...) x4Log('W', tag, fmt, ##__VA_ARGS__)

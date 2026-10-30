@@ -47,7 +47,7 @@ describe('toYaml / parseYaml', () => {
   it('default config serialises to exactly spec/default-screens.yaml + the Display style and Power screens', () => {
     const base = readFileSync(join(ROOT, 'spec', 'default-screens.yaml'), 'utf8');
     const style = '  - id: style\n    app: settings\n    title: Display style\n    widgets:\n      - {type: setting, key: style}\n      - {type: setting, key: typeface, cs: 2}\n      - {type: setting, key: surface}\n';
-    // Power (glance, #10): same screen in the firmware's default config.
+    // Power (glance, eink-ha-os#10): same screen in the firmware's default config.
     const power = '  - id: power\n    app: settings\n    title: Power\n    widgets:\n      - {type: setting, key: powerSave, cs: 2}\n      - {type: setting, key: wakeEvery}\n      - {type: setting, key: liveMin}\n';
     expect(toYaml(defaultConfig())).toBe(base.replace('  - id: updates\n', style + power + '  - id: updates\n'));
   });
@@ -89,19 +89,19 @@ describe('grid placement (col/row)', () => {
   });
 });
 
-describe('entityGaps (#86)', () => {
+describe('entityGaps (eink-ha-os#86)', () => {
   it('lists tile entities HA has no value for; logical ids and the home battery never', () => {
     const screens = [{ widgets: [{ type: 'stat', entity: 'sensor.a' }, { type: 'switch', entity: 'switch.b' }, { type: 'gauge', entity: 'sensor.c' },
       { type: 'stat', entity: 'sensor.solar_power' }, { type: 'gauge', entity: GAUGE_DEFAULT_ENTITY }, { type: 'clock' }] }];
     const st: Record<string, string> = { 'sensor.a': 'unavailable', 'switch.b': 'unknown', 'sensor.c': '57', 'sensor.solar_power': 'unavailable', [GAUGE_DEFAULT_ENTITY]: 'unknown' };
     expect(entityGaps(screens, (id) => st[id])).toEqual({ 'sensor.a': 'unavailable', 'switch.b': 'unknown' });
   });
-  it('scene tiles never (#146): a scene is unknown until it first runs', () => {
+  it('scene tiles never (eink-ha-os#146): a scene is unknown until it first runs', () => {
     expect(entityGaps([{ widgets: [{ type: 'scene', entity: 'scene.x' }, { type: 'scene', entity: 'script.y' }] }], () => 'unknown')).toEqual({});
   });
 });
 
-describe('entity list (#150, #146)', () => {
+describe('entity list (eink-ha-os#150, eink-ha-os#146)', () => {
   it('scene / script get a budget; a never-run scene (unknown) is still pickable, an unavailable one is not', () => {
     expect(LIST_BUDGET.reduce((a, [, n]) => a + n, 0)).toBe(LIST_MAX);
     expect(LIST_BUDGET.map(([d]) => d)).toEqual(expect.arrayContaining(['scene', 'script']));
@@ -113,7 +113,7 @@ describe('entity list (#150, #146)', () => {
   });
 });
 
-describe('built-in Settings (#159)', () => {
+describe('built-in Settings (eink-ha-os#159)', () => {
   it('withSettings appends the Settings app and its fixed pages once; userConfig takes them off again', () => {
     const dev = withSettings(defaultConfig());
     expect(dev.apps.at(-1)!.id).toBe('settings');
@@ -130,7 +130,7 @@ describe('built-in Settings (#159)', () => {
   });
 });
 
-describe('user routes (#145)', () => {
+describe('user routes (eink-ha-os#145)', () => {
   it('a route tile reports its sensor gap like any entity tile; no entity = no gap', () => {
     const screens = [{ widgets: [{ type: 'route', entity: 'sensor.commute' }, { type: 'route', route: 'car' }] }];
     expect(entityGaps(screens, () => 'unavailable')).toEqual({ 'sensor.commute': 'unavailable' });

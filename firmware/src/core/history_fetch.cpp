@@ -320,7 +320,7 @@ bool Fetcher::due(const Tile& t, int64_t now) const {
   return t.fetchedAt == 0 || now - t.fetchedAt >= std::max(kRefetchMs, t.spec.bucketMs);
 }
 
-// ---- attribute / forecast tiles (#292) ----
+// ---- attribute / forecast tiles (eink-ha-os#292) ----
 namespace {
 uint32_t fnv(const char* p, size_t n) {
   uint32_t h = 2166136261u;
@@ -385,7 +385,7 @@ void Fetcher::startHistory(Tile& t, int64_t from, bool tail) {
 }
 
 std::string Fetcher::sliceRequest(Tile& t, int64_t now, uint32_t id) {
-  const int64_t s = t.sliceAt, e = std::min(s + kSliceMs, now);
+  const int64_t s = t.sliceAt, e = std::min(s + kSliceMs, seriesNow(t.spec, now));   // eink-ha-os#304: a compare series ends compareMs ago
   const bool first = t.tail ? s == t.covered : s == t.acc.start();
   reqEnd_ = e;
   std::string j = "{\"id\":" + std::to_string(id) + ",\"type\":\"history/history_during_period\",\"start_time\":\"" + isoUtc(s) + "\"";
@@ -409,7 +409,7 @@ bool Fetcher::next(int64_t now, int tz, uint32_t id, std::string& json) {
     Tile& t = tiles_[i];
     if (!due(t, now)) continue;
     t.bytes = t.points = 0;
-    if (t.spec.kind == Kind::Forecast) {   // #292: weather.get_forecasts with return_response
+    if (t.spec.kind == Kind::Forecast) {   // eink-ha-os#292: weather.get_forecasts with return_response
       t.phase = Phase::Forecast;
       json = forecastRequest(t, id);
       reqId_ = id; reqAt_ = now; reqTile_ = int(i);
@@ -418,7 +418,7 @@ bool Fetcher::next(int64_t now, int tz, uint32_t id, std::string& json) {
     const Period p = statsPeriod(t.spec.bucketMs);
     if (p == Period::None) {
       if (!fallbackOk(t.spec)) { done(t, now, FetchState::NeedsStats); continue; }
-      Span sp = chartSpan(t.spec.windowMs, t.spec.bucketMs, now, tz);
+      Span sp = chartSpan(t.spec.windowMs, t.spec.bucketMs, seriesNow(t.spec, now), tz);
       t.acc.begin(sp.start, t.spec.bucketMs, t.spec.n, t.spec.agg, sp.start);
       t.source = Source::History;
       startHistory(t, sp.start, false);
@@ -426,20 +426,22 @@ bool Fetcher::next(int64_t now, int tz, uint32_t id, std::string& json) {
       reqId_ = id; reqAt_ = now; reqTile_ = int(i);
       return true;
     }
-    // every due tile of this period in one request: the union of ids and types, from the earliest span start
+    // every due tile of this period (and shift: a compare series asks its own past span, eink-ha-os#304) in one request: the
+    // union of ids and types, from the earliest span start
     statIds_.clear();
     bool type[5] = {};
     int64_t start = INT64_MAX;
+    const int64_t shift = t.spec.shiftMs;
     for (auto& u : tiles_) {
-      if (!due(u, now) || u.spec.kind != Kind::Recorder || statsPeriod(u.spec.bucketMs) != p) continue;
+      if (!due(u, now) || u.spec.kind != Kind::Recorder || statsPeriod(u.spec.bucketMs) != p || u.spec.shiftMs != shift) continue;
       u.phase = Phase::Stats;
       u.bytes = u.points = 0;
-      start = std::min(start, chartSpan(u.spec.windowMs, u.spec.bucketMs, now, tz).start);
+      start = std::min(start, chartSpan(u.spec.windowMs, u.spec.bucketMs, now - shift, tz).start);
       if (std::find(statIds_.begin(), statIds_.end(), PStr(u.spec.entity)) == statIds_.end()) statIds_.push_back(u.spec.entity);
       type[u.spec.agg == Agg::Last ? int(Agg::Mean) : int(u.spec.agg)] = true;
     }
     json = "{\"id\":" + std::to_string(id) + ",\"type\":\"recorder/statistics_during_period\",\"start_time\":\"" + isoUtc(start) +
-           "\",\"period\":\"" + periodName(p) + "\",\"types\":[";
+           "\"" + (shift ? ",\"end_time\":\"" + isoUtc(now - shift) + "\"" : std::string()) + ",\"period\":\"" + periodName(p) + "\",\"types\":[";
     bool comma = false;
     for (int a = 0; a < 5; ++a) {
       if (!type[a]) continue;
@@ -535,15 +537,16 @@ void Fetcher::finishStats(int64_t now) {
     int64_t covered = INT64_MIN;
     for (auto& r : rows_)
       if (r.entity == k) { mine.push_back(r.r); covered = std::max(covered, r.r.end >= 0 ? r.r.end : r.r.start); }
+    const int64_t tn = seriesNow(t.spec, now);   // eink-ha-os#304 wave 2: a compare series' own now
     if (mine.empty()) {   // no statistics (no state_class): history rows, up to 24 h
       if (!fallbackOk(t.spec)) { done(t, now, FetchState::NeedsStats); continue; }
-      Span sp = chartSpan(t.spec.windowMs, t.spec.bucketMs, now, tz_);
+      Span sp = chartSpan(t.spec.windowMs, t.spec.bucketMs, tn, tz_);
       t.acc.begin(sp.start, t.spec.bucketMs, t.spec.n, t.spec.agg, sp.start);
       t.source = Source::History;
       startHistory(t, sp.start, false);
       continue;
     }
-    fromStatistics(mine.data(), mine.size(), t.spec.windowMs, t.spec.bucketMs, t.spec.agg, now, tz_, t.stats);
+    fromStatistics(mine.data(), mine.size(), t.spec.windowMs, t.spec.bucketMs, t.spec.agg, tn, tz_, t.stats);
     covered = std::max(covered, t.stats.start);
     t.covered = covered;
     t.points = uint32_t(mine.size());
@@ -551,7 +554,7 @@ void Fetcher::finishStats(int64_t now) {
     t.source = Source::Statistics;
     t.acc.begin(t.stats.start, t.spec.bucketMs, t.spec.n, t.spec.agg, covered);
     // the open part after the last compiled row: history, when it is short enough to be cheap
-    if (covered < now && now - covered <= kFallbackMax) startHistory(t, covered, true);
+    if (covered < tn && tn - covered <= kFallbackMax) startHistory(t, covered, true);
     else done(t, now, anyData(t.stats) ? FetchState::Ok : FetchState::None);
   }
   rows_.clear();
@@ -560,7 +563,7 @@ void Fetcher::finishStats(int64_t now) {
 
 void Fetcher::finishSlice(Tile& t, int64_t now) {
   t.sliceAt = reqEnd_;
-  if (reqEnd_ < reqAt_) return;   // more slices
+  if (reqEnd_ < seriesNow(t.spec, reqAt_)) return;   // more slices
   Series& s = scratch_.empty() ? (scratch_.resize(1), scratch_[0]) : scratch_[0];
   series(t, now, s);
   done(t, now, anyData(s) ? FetchState::Ok : FetchState::None);
@@ -582,7 +585,7 @@ void Fetcher::end(int64_t now, uint32_t bytes) {
   Tile& t = tiles_[size_t(reqTile_)];
   reqTile_ = -1;
   t.bytes += bytes;
-  if (t.phase == Phase::Forecast) {   // #292: a failed call (no such forecast type) = no samples
+  if (t.phase == Phase::Forecast) {   // eink-ha-os#292: a failed call (no such forecast type) = no samples
     const bool fok = fcScan_ && fscan_.success() && fscan_.complete();
     fcScan_ = false;
     t.samples.clear();
@@ -645,6 +648,7 @@ void Fetcher::advance(Tile& t, int64_t at) {
 void Fetcher::live(const std::string& entity, double v, int64_t at) {
   for (auto& t : tiles_) {
     if (t.spec.kind != Kind::Recorder || t.spec.entity != entity || t.phase != Phase::Idle || t.state != FetchState::Ok) continue;
+    if (t.spec.shiftMs) continue;   // a compare series is past: only its refetch moves it
     advance(t, at);
     t.acc.add({at, v});
     t.dirty = true;
@@ -654,10 +658,10 @@ void Fetcher::live(const std::string& entity, double v, int64_t at) {
 void Fetcher::tick(int64_t now) {
   for (auto& t : tiles_) {
     if (t.spec.kind == Kind::Recorder) {
-      if (t.phase == Phase::Idle && t.state == FetchState::Ok) advance(t, now);
+      if (t.phase == Phase::Idle && t.state == FetchState::Ok) advance(t, seriesNow(t.spec, now));
       continue;
     }
-    // #292: the span follows now; an attribute is parsed again (plain numbers start at the bucket holding now)
+    // eink-ha-os#292: the span follows now; an attribute is parsed again (plain numbers start at the bucket holding now)
     if (t.state == FetchState::Loading || t.spec.bucketMs <= 0 || bucketStart(now, t.spec.bucketMs, tz_) == t.bucketAt) continue;
     if (t.spec.kind == Kind::Attribute) { t.fed = false; t.bucketAt = bucketStart(now, t.spec.bucketMs, tz_); }
     else if (t.phase == Phase::Idle) built(t, now);
@@ -666,7 +670,7 @@ void Fetcher::tick(int64_t now) {
 
 void Fetcher::series(const Tile& t, int64_t now, Series& out) const {
   if (t.spec.kind != Kind::Recorder) { fromSamples(t.samples.data(), t.samples.size(), t.spec, now, tz_, out); return; }
-  t.acc.output(now, out, t.hasStats ? &t.stats : nullptr, t.covered);
+  t.acc.output(seriesNow(t.spec, now), out, t.hasStats ? &t.stats : nullptr, t.covered);
 }
 
 std::vector<TileInfo> Fetcher::info() const {

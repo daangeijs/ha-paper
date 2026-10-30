@@ -15,12 +15,12 @@ namespace x4 {
 std::string pad2(int n);                         // pad(n)
 std::string hhmm(int minutesOfDay);              // hhmm(t), wraps around 24 h
 struct ValueUnit { std::string v, u; };
-// The one number formatter (#85, spec/test-vectors/format.json): HA display_precision (dp ≥ 0) wins, else per unit
+// The one number formatter (eink-ha-os#85, spec/test-vectors/format.json): HA display_precision (dp ≥ 0) wins, else per unit
 // W 0, kW 2, kWh 1, % 0, °C/°F/V/A 1, else up to 2 decimals with trailing zeros trimmed. Zero never shows "-".
 std::string fmtNum(double v, const std::string& unit, int dp = -1);
 std::string fmtValue(const std::string& state, const std::string& unit, int dp = -1);   // non-numbers unchanged
 ValueUnit kw(double watts, int dp = -1);         // unsigned; |w| ≥ 1000 → kW (2 decimals), else W (dp, else 0)
-// Number format (#110, format.json numberFormatOf/localized): fmtNum/fmtValue/kw write in it. Point/Comma (from the
+// Number format (eink-ha-os#110, format.json numberFormatOf/localized): fmtNum/fmtValue/kw write in it. Point/Comma (from the
 // language, never grouped) or HA's profile number_format: CommaDecimal 1,250.5 · DecimalComma 1.250,5 · SpaceComma 1 250,5.
 enum class NumFmt : uint8_t { Point, Comma, CommaDecimal, DecimalComma, SpaceComma };
 NumFmt numFormatOf(const std::string& haNumberFormat, bool dutch);   // "" / language / system / unknown → the language
@@ -30,17 +30,17 @@ std::string localNum(const std::string& fixed, NumFmt f);   // a toFixed string 
 std::string fmtFixed(double v, int digits);      // toFixed
 // A shown number (fmtNum output, current number format) with one decimal less, rounded like toFixed: "28.30" →
 // "28.3" → "28". No decimals or not a number → unchanged. A value + unit that does not fit drops decimals before the
-// unit is cut (#151, format.json fewerDecimals).
+// unit is cut (eink-ha-os#151, format.json fewerDecimals).
 std::string fewerDecimals(const std::string& shown);
-// A value that fits maxW with its unit (#162, format.json fitValue): over the size steps (descending) drop decimals
+// A value that fits maxW with its unit (eink-ha-os#162, format.json fitValue): over the size steps (descending) drop decimals
 // while 3 significant digits stay, then while 2 stay ("1.23" steps down, "0.2534" → "0.253", never "0.3"); the first
 // fit wins, else the smallest size with decimals dropped until it fits. width(value, size) includes the unit.
 struct FitValue { std::string value; int size; };
 FitValue fitValue(const std::string& value, const std::vector<int>& sizes, int maxW, const std::function<int(const std::string&, int)>& width);
-// A label that fits maxW (#215, format.json fitMiddle): the first size (descending) where it fits whole, else the
+// A label that fits maxW (eink-ha-os#215, format.json fitMiddle): the first size (descending) where it fits whole, else the
 // smallest size with the middle cut to "…" (start ceil(k/2), end floor(k/2) codepoints, largest k that fits).
 FitValue fitMiddle(const std::string& text, const std::vector<int>& sizes, int maxW, const std::function<int(const std::string&, int)>& width);
-// A name cut to maxW keeping its last word (#151): "Bathroom attic" → "Bath… attic", so it stays apart from
+// A name cut to maxW keeping its last word (eink-ha-os#151): "Bathroom attic" → "Bath… attic", so it stays apart from
 // "Bathroom"; one word, or a last word too long → "Bathro…". width: rendered width of a UTF-8 string.
 std::string fitKeepTail(const std::string& s, int maxW, const std::function<int(const std::string&)>& width);
 
@@ -96,9 +96,9 @@ std::vector<std::string> removedRegions(const RegionMap& before, const RegionMap
 bool sameLayout(const RegionMap& a, const RegionMap& b);   // same keys and rects
 Rect unionRect(const RegionMap& m, const std::vector<std::string>& keys);
 
-// Refresh policy (#26, #197, spec/test-vectors/refresh.json). Panel-wide kinds: Fast (whole frame, no flash, B/W only
-// since #212) for navigation, every kNavClean-th navigation a Clean (one short flash); the app's other panel-wide redraws (boot, wake,
-// standby, quiet face, style, config) are Cleans too. Partials are windowed and B/W only (#38). A scheduled clean runs at
+// Refresh policy (eink-ha-os#26, eink-ha-os#197, spec/test-vectors/refresh.json). Panel-wide kinds: Fast (whole frame, no flash, B/W only
+// since eink-ha-os#212) for navigation, every kNavClean-th navigation a Clean (one short flash); the app's other panel-wide redraws (boot, wake,
+// standby, quiet face, style, config) are Cleans too. Partials are windowed and B/W only (eink-ha-os#38). A scheduled clean runs at
 // the first :00/:30 at least `cleanEvery` minutes (30/60/120) after the last clean, only with partial / fast refreshes
 // since and not on the quiet face. Clock unset: no schedule, so kCleanCap partials or fasts force a clean
 // ("ghosting limit"). Times are epoch minutes.
@@ -122,12 +122,12 @@ class RefreshPolicy {
   int64_t lastFullMin_ = -1;
 };
 
-// Input coalescing (#212, emulator core/refresh.ts coalesceInput, spec/test-vectors/refresh.json "input"): App::loop
+// Input coalescing (eink-ha-os#212, emulator core/refresh.ts coalesceInput, spec/test-vectors/refresh.json "input"): App::loop
 // drains every queued event in one pass, so a pass after a refresh holds all taps / keys made while the panel was busy.
 // Only the last one is handled: last intent wins, at most one navigation follows a refresh. Index kept, -1 for none.
 inline int coalesceInput(int n) { return n > 0 ? n - 1 : -1; }
 
-// Power deadband (#85, spec/test-vectors/deadband.json): formatting shows every watt, but a power tile only takes a
+// Power deadband (eink-ha-os#85, spec/test-vectors/deadband.json): formatting shows every watt, but a power tile only takes a
 // new value when it moved ≥ 50 W and ≥ 5 % of the shown value, or crosses the W ↔ kW boundary (|w| = 1000). Until
 // then it keeps the last shown value, so the region diff sees no change. Other units: the formatted text decides.
 bool powerMoved(double shownW, double nowW);
@@ -140,9 +140,9 @@ class PowerHold {
 };
 
 // ---------- quiet hours / idle / swipe ----------
-// Quiet hours (#295, emulator core/quiet.ts, spec/test-vectors/quiet.json): one window that replaced night mode and the
+// Quiet hours (eink-ha-os#295, emulator core/quiet.ts, spec/test-vectors/quiet.json): one window that replaced night mode and the
 // "Sleep at night" power mode. Inside it (clock known, not peeking, not in setup) the quiet face is up: "Back at 07:00",
-// the date and a "Tomorrow" row (#328, core/tomorrow.h), no clock; no data redraws; standby shows it too. On battery the power
+// the date and a "Tomorrow" row (eink-ha-os#328, core/tomorrow.h), no clock; no data redraws; standby shows it too. On battery the power
 // rules sleep to the window end. A key or tap = the dashboard for kPeekMs, also as the first screen of a boot that a
 // timer did not cause. The front light follows its timeout.
 bool isNightHour(int hour, const std::string& window);   // in the window ("23-07" wraps midnight; "off" never)
@@ -156,7 +156,7 @@ bool peekOnBoot(const std::string& wake);                                       
 int idleMinutes(const std::string& setting);              // "5" → 5, "never"/"0"/"" → 0
 struct IdleDecision { bool standby = false; bool goHome = false; };
 IdleDecision idleCheck(uint32_t idleMs, int standbyMin, int returnHomeMin, bool alreadyHomed, bool awayFromHome);
-// Ambient idle mode + quiet face staleness (issue #27, emulator core/ambient.ts, spec/test-vectors/ambient.json).
+// Ambient idle mode + quiet face staleness (issue eink-ha-os#27, emulator core/ambient.ts, spec/test-vectors/ambient.json).
 constexpr uint32_t kAmbientMs = 60000;
 constexpr int kBattLow = 20;              // below: battery stays in ambient, top bar adds "NN%"
 constexpr int64_t kStaleSec = 30 * 60;    // quiet face "as of HH:MM" only when data is older
@@ -164,13 +164,13 @@ bool ambientDue(uint32_t idleMs, bool menuOpen, bool setup);
 struct Chrome { bool app = true, pager = true, battery = true, clock = true; };
 Chrome chromeFor(bool ambient, int batteryPct, bool clockTile);
 bool nightStale(int64_t nowSec, int64_t lastDataSec);   // 0 = unknown → false
-// Front light timeout (#220, emulator core/frontlight.ts, spec/test-vectors/frontlight.json). Seconds, 0 = never.
+// Front light timeout (eink-ha-os#220, emulator core/frontlight.ts, spec/test-vectors/frontlight.json). Seconds, 0 = never.
 constexpr int kLightTimeouts[] = {30, 60, 120, 300, 0};
 constexpr int kDefaultLightTimeout = 60;
 bool validLightTimeout(int sec);
 bool lightTimedOut(uint32_t idleMs, int timeoutSec);
-int frontlightPct(int brightness, bool standby, bool lightOut);   // quiet hours leave it to the timeout (#295)
-bool lightOnBoot(const std::string& wake);   // #357: off after a timer wake (cold|timer|button|charger|other)
+int frontlightPct(int brightness, bool standby, bool lightOut);   // quiet hours leave it to the timeout (eink-ha-os#295)
+bool lightOnBoot(const std::string& wake);   // eink-ha-os#357: off after a timer wake (cold|timer|button|charger|other)
 // The first key/tap (not Power) after the timeout only turns the light back on; on the quiet face it shows the dashboard.
 bool lightWakeConsumes(int brightness, bool standby, bool quiet, bool lightOut, bool power);
 // Swipe: |dx| > 60, mostly horizontal (|dx| > 1.5 |dy|), < 800 ms. Returns nav dir (+1 next / -1 prev) or 0.

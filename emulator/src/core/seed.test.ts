@@ -7,7 +7,7 @@ import { seedVectors, SEED_CASES } from '../../scripts/gen-vectors.ts';
 
 const file = join(import.meta.dirname, '..', '..', '..', 'spec', 'test-vectors', 'seed.json');
 
-describe('first-run screens from HA (#23, spec/test-vectors/seed.json)', () => {
+describe('first-run screens from HA (eink-ha-os#23, spec/test-vectors/seed.json)', () => {
   it('seed.json is in sync with the generator (npm run vectors)', () => {
     expect(JSON.parse(readFileSync(file, 'utf8'))).toEqual(seedVectors());
   });
@@ -19,14 +19,14 @@ describe('first-run screens from HA (#23, spec/test-vectors/seed.json)', () => {
     expect(toYaml(r.config)).toBe(toYaml(cfg));
     for (const s of cfg.screens) expect(cellsUsed(s.widgets)).toBeLessThanOrEqual(MAX_CELLS);
     for (const a of cfg.apps) expect(cfg.screens.some((s) => s.app === a.id)).toBe(true);
-    expect(cfg.screens.some((s) => s.app === 'settings'), 'Settings is built in (#159)').toBe(false);
+    expect(cfg.screens.some((s) => s.app === 'settings'), 'Settings is built in (eink-ha-os#159)').toBe(false);
   });
-  for (const [name, , snap] of SEED_CASES) it(name + ': every stat / gauge entity is a sensor from HA\'s answer (#82)', () => {
-    // route tiles may also sit on a mapped sensor.x4_route_* (live, #145); Outside on a weather entity of the answer (#152)
+  for (const [name, , snap] of SEED_CASES) it(name + ': every stat / gauge entity is a sensor from HA\'s answer (eink-ha-os#82)', () => {
+    // route tiles may also sit on a mapped sensor.x4_route_* (live, eink-ha-os#145); Outside on a weather entity of the answer (eink-ha-os#152)
     const have = new Set([...(snap.sensors || []).map((s) => s[0]), ...(snap.live || []).filter((id) => id.startsWith('sensor.x4_route_')), ...(snap.weather || [])]);
     for (const s of seedConfig(snap, []).screens) for (const w of s.widgets) if (w.entity) expect(have.has(String(w.entity)), String(w.entity)).toBe(true);
   });
-  for (const [name, , snap] of SEED_CASES) it(name + ': the seed report matches the screens it made (#89)', () => {
+  for (const [name, , snap] of SEED_CASES) it(name + ': the seed report matches the screens it made (eink-ha-os#89)', () => {
     const { config, report } = seedPlan(snap, []);
     const ids = new Set(config.screens.flatMap((s) => s.widgets.map((w) => String(w.entity || ''))));
     const screens = new Set(config.screens.map((s) => s.id));

@@ -1,6 +1,6 @@
 {
   "name": "46-list-picks",
-  "description": "lightList areas / entities and zoneList entities are space-separated lists (#127); kept as one string value, written back as is.",
+  "description": "lightList areas / entities and zoneList entities are space-separated lists (eink-ha-os#127); kept as one string value, written back as is.",
   "input": "# HA Paper display config\nversion: 1\nscreens:\n  - id: a\n    widgets:\n      - {type: lightList, areas: kitchen living_room, entities: light.porch light.hall_2, cs: 4}\n  - id: b\n    widgets:\n      - {type: zoneList, entities: climate.living climate.office, cs: 4}\n      - {type: lightList, areas: , cs: 4}\n",
   "expect": {
     "ok": true,

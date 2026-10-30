@@ -1,6 +1,6 @@
 {
   "name": "51-legacy-route",
-  "description": "Old catalog routes (`route: home_centre`, `route: car`, …, before #145) still parse: an empty user route without entity (the tile asks for a sensor; the console blocks saving until one is picked).",
+  "description": "Old catalog routes (`route: home_centre`, `route: car`, …, before eink-ha-os#145) still parse: an empty user route without entity (the tile asks for a sensor; the console blocks saving until one is picked).",
   "input": "# HA Paper display config\nversion: 1\nscreens:\n  - id: t\n    app: travel\n    widgets:\n      - {type: route, route: home_centre, cs: 2}\n      - {type: route, route: car, cs: 2}\n",
   "expect": {
     "ok": true,

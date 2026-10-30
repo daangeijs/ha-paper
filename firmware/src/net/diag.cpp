@@ -73,7 +73,7 @@ struct RtcDiag {
 constexpr uint32_t kRtcMagic = 0x58344447u ^ static_cast<uint32_t>(sizeof(RtcDiag));   // "X4DG" ^ size
 RTC_NOINIT_ATTR RtcDiag g_rtc;
 
-// Last task-watchdog timeout (#241), written by the TWDT interrupt. fresh = the boot after it has not taken it yet.
+// Last task-watchdog timeout (eink-ha-os#241), written by the TWDT interrupt. fresh = the boot after it has not taken it yet.
 struct RtcWdt {
   uint32_t magic;
   uint32_t fresh, uptimeS, freeInternal, largestInternal, minDma;

@@ -17,7 +17,7 @@ const HELP = `HA Paper device simulator — the on-device web console + REST API
   --fake-ha               run the built-in fake Home Assistant (default when --ha-url is not given)
   --fake-ha-port <n>      fake HA port (default 8123)
   --ha-tick <ms>          fake HA live-data interval (default 5000, 0 = off)
-  --house <h>             fake HA data: demo | stranger | big | dutch | dutch-energy (default demo; stranger = someone else's HA, #23; big = +1200 entities, #57; dutch = SolarEdge, P1, Anker, tado, #82)
+  --house <h>             fake HA data: demo | stranger | big | dutch | dutch-energy (default demo; stranger = someone else's HA, eink-ha-os#23; big = +1200 entities, eink-ha-os#57; dutch = SolarEdge, P1, Anker, tado, eink-ha-os#82)
   --releases-file <json>  mock GitHub releases for OTA (see server/ota.ts)
   --battery <pct>         simulated battery level (default 76; < 30 blocks OTA)
   --quiet                 no event log

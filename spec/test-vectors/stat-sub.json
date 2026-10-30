@@ -1,5 +1,5 @@
 {
-  "description": "Stat tile subtitle (issue #28; emulator src/core/data.ts ENT, firmware core/home.cpp statText). The line under the number is a fact or empty, never filler ('Right now', 'Producing'). Power values are unsigned (kw()), so grid and battery keep the direction word. data: W for solar/home/grid (+import)/batt (+charge), % for soc, kWh for the *Today fields.",
+  "description": "Stat tile subtitle (issue eink-ha-os#28; emulator src/core/data.ts ENT, firmware core/home.cpp statText). The line under the number is a fact or empty, never filler ('Right now', 'Producing'). Power values are unsigned (kw()), so grid and battery keep the direction word. data: W for solar/home/grid (+import)/batt (+charge), % for soc, kWh for the *Today fields.",
   "data": { "solar": 2800, "home": 650, "grid": 0, "batt": 0, "soc": 64, "usedToday": 7.43, "solarToday": 12.27, "importToday": 3.2, "exportToday": 5.06 },
   "cases": [
     { "name": "solar producing: today's yield", "entity": "sensor.solar_power", "sub": "12.3 kWh today" },

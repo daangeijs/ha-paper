@@ -1,5 +1,5 @@
 {
-  "_doc": "Clock time zone and price currency from Home Assistant get_config (#147). zones: the whole IANA → POSIX table (firmware must hold exactly these). tzFor(override, ha): the PUT /settings tz override (POSIX or a zone name) wins, else HA time_zone; null = keep the current zone (boot default Europe/Amsterdam). validTz: what PUT /settings accepts for tz. currency: get_config currency → the symbol price tiles show. money: a price in the point number format.",
+  "_doc": "Clock time zone and price currency from Home Assistant get_config (eink-ha-os#147). zones: the whole IANA → POSIX table (firmware must hold exactly these). tzFor(override, ha): the PUT /settings tz override (POSIX or a zone name) wins, else HA time_zone; null = keep the current zone (boot default Europe/Amsterdam). validTz: what PUT /settings accepts for tz. currency: get_config currency → the symbol price tiles show. money: a price in the point number format.",
   "zones": [
     [
       "UTC",

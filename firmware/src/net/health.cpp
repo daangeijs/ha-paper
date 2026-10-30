@@ -197,7 +197,7 @@ void healthLoop() {
 namespace {
 std::mutex g_psMu;
 int g_psDepth = 0;
-int g_psWant = -1;   // power rules (#177): 1 = modem sleep, 0 = none, -1 = not set yet
+int g_psWant = -1;   // power rules (eink-ha-os#177): 1 = modem sleep, 0 = none, -1 = not set yet
 #if !X4_QEMU
 bool g_psSaved = false;
 wifi_ps_type_t g_psPrev = WIFI_PS_MIN_MODEM;

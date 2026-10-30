@@ -1,5 +1,5 @@
 {
-  "description": "Now playing tile (#319, spec/SCHEMA.md media). favorites: items of the favorites value (bad = rejected item). actions: the HA call per tap (fav = index into the valid favorites, or the volume % for set; null = none). views: what the tile shows from the state + attributes (text, like the firmware store; slider = VOLUME_SET in supported_features, #351). layouts: what fits cs × rs with n favorites. volumeAt: the slider level (%) of a tap / drag end at x on a bar from bx, bw wide (#351).",
+  "description": "Now playing tile (eink-ha-os#319, spec/SCHEMA.md media). favorites: items of the favorites value (bad = rejected item). actions: the HA call per tap (fav = index into the valid favorites, or the volume % for set; null = none). views: what the tile shows from the state + attributes (text, like the firmware store; slider = VOLUME_SET in supported_features, eink-ha-os#351). layouts: what fits cs × rs with n favorites. volumeAt: the slider level (%) of a tap / drag end at x on a bar from bx, bw wide (eink-ha-os#351).",
   "favorites": [
     {
       "value": "",

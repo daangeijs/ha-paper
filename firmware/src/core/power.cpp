@@ -44,12 +44,12 @@ PowerDecision powerDecision(const PowerInputs& i) {
   if (i.powerSave == PowerSave::Off) return awake("power save off");
   if (i.powerSave == PowerSave::Glance && i.live) return awake("live");
 
-  const bool quiet = isNightHour(hour, i.quiet) && !i.peeking;   // quiet hours (#295): no timer wakes in the window
+  const bool quiet = isNightHour(hour, i.quiet) && !i.peeking;   // quiet hours (eink-ha-os#295): no timer wakes in the window
   int64_t wait = kMaxSleepS;
   if (quiet) { d.reason = "quiet"; wait = std::min(wait, secsUntil(i.localSec, nightEndHour(i.quiet) * 3600)); }
   else if (i.powerSave == PowerSave::Standby && i.standby) { d.reason = "standby"; wait = std::min<int64_t>(wait, int64_t(i.wakeEvery) * 60); }
-  else if (i.powerSave == PowerSave::Glance && i.emptyHouse) { d.reason = "empty house"; wait = std::min(wait, emptyWaitS(i.localSec, i.quiet)); }   // #331
-  else if (i.powerSave == PowerSave::Glance) { d.reason = "glance"; wait = std::min(wait, glanceWaitS(i.localSec, i.quiet)); }   // #356
+  else if (i.powerSave == PowerSave::Glance && i.emptyHouse) { d.reason = "empty house"; wait = std::min(wait, emptyWaitS(i.localSec, i.quiet)); }   // eink-ha-os#331
+  else if (i.powerSave == PowerSave::Glance) { d.reason = "glance"; wait = std::min(wait, glanceWaitS(i.localSec, i.quiet)); }   // eink-ha-os#356
   else return awake("awake");
   if (otaWanted) wait = std::min(wait, secsUntil(i.localSec, kOtaHour * 3600));
   d.deepSleepNow = true;

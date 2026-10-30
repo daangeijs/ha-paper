@@ -1,4 +1,4 @@
-"""firmware/DEVIATIONS.md and emulator/DEVIATIONS.md list exactly the files in deviations/ (issue #117)."""
+"""firmware/DEVIATIONS.md and emulator/DEVIATIONS.md list exactly the files in deviations/ (issue eink-ha-os#117)."""
 import os
 import unittest
 

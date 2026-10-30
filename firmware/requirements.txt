@@ -3,7 +3,7 @@
 platformio==6.2.0
 esptool==5.6.0
 # firmware/tools/fontgen.py + icongen.py: the committed firmware/src/app/gen files were rendered with these on the CI
-# runner image (GitHub-hosted ubuntu-24.04; make gen-check in CI is the reference)
+# runner image (arm64 Ubuntu 24.04 reference runner; make gen-check in CI is the reference)
 # versions (make gen-check). Another Pillow/FreeType may rasterise glyphs differently.
 Pillow==13.0.0
 fonttools==4.67.0

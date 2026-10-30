@@ -1,4 +1,4 @@
-// #84: build a screen in the console without YAML (tile edits in configEdit.ts), and the Values view shows the result.
+// eink-ha-os#84: build a screen in the console without YAML (tile edits in configEdit.ts), and the Values view shows the result.
 import { describe, it, expect } from 'vitest';
 import { defaultConfig, gridLayout, parseYaml, toYaml, type Config, type Widget } from '../core/config.ts';
 import { HA_ENTITIES, type HaEntity } from '../core/data.ts';
@@ -8,7 +8,7 @@ import { addTile, entityIssue, entityValue, firstIssue, moveTile, nudgeTile, ran
 const ok = (r: TileEdit) => { if (typeof r === 'string') throw new Error(r); return r; };
 const cells = (ws: Widget[]) => gridLayout(ws).map((c) => (c ? c.col + ',' + c.row : null));
 
-describe('tile edits (#84)', () => {
+describe('tile edits (eink-ha-os#84)', () => {
   it('a user builds a screen: 4 tiles, rename one to "Battery %", reorder, delete, swap an entity; YAML and Values match', () => {
     let ws: Widget[] = [];
     ws = ok(addTile(ws, { type: 'stat', entity: 'sensor.outdoor_temperature' })).ws;
@@ -39,7 +39,7 @@ describe('tile edits (#84)', () => {
     const back = parseYaml(toYaml(cfg));
     expect(back.screens.at(-1)).toEqual(cfg.screens.at(-1));
 
-    // Values view (#122): each tile's value as the display formats it after the push
+    // Values view (eink-ha-os#122): each tile's value as the display formats it after the push
     const emu = new Emulator({});
     (emu as any).state = { ...emu.state, ha: { ...emu.state.ha, linked: true }, apps: back.apps, screens: back.screens };   // = after the push
     expect(emu.tileValues('mine')).toEqual(['20.5 °C', '57%', 'Off']);
@@ -70,7 +70,7 @@ describe('tile edits (#84)', () => {
   });
 });
 
-describe('entity picker (#84)', () => {
+describe('entity picker (eink-ha-os#84)', () => {
   it('ranks by fit: a gauge prefers %, a stat prefers W / °C / kWh, unitless last', () => {
     const g = rankEntities(HA_ENTITIES, 'gauge', '');
     const firstOther = g.findIndex((e) => e.unit !== '%');
@@ -93,7 +93,7 @@ describe('entity picker (#84)', () => {
   });
 });
 
-describe('inline validation (#84)', () => {
+describe('inline validation (eink-ha-os#84)', () => {
   it('title and entity fields', () => {
     expect(titleIssue('  ')).toEqual({ msg: 'Give the screen a name.', hard: true });
     expect(titleIssue('Energie')).toBeNull();

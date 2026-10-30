@@ -1,5 +1,5 @@
 {
-  "description": "Scene tile tap (#146, spec/SCHEMA.md scene): the widget and the HA service call it makes.",
+  "description": "Scene tile tap (eink-ha-os#146, spec/SCHEMA.md scene): the widget and the HA service call it makes.",
   "cases": [
     {
       "name": "scene entity → scene.turn_on",

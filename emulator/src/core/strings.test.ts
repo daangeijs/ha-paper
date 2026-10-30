@@ -7,7 +7,7 @@ import { ENT, SETTINGS, type Derived } from './data.ts';
 
 const file = join(import.meta.dirname, '..', '..', '..', 'spec', 'test-vectors', 'strings.json');
 
-describe('UI strings (spec/test-vectors/strings.json, #98)', () => {
+describe('UI strings (spec/test-vectors/strings.json, eink-ha-os#98)', () => {
   it('generator output matches the vectors and the firmware header on disk (run `npm run vectors` after changing strings.ts)', () => {
     expect(JSON.parse(readFileSync(file, 'utf8'))).toEqual(JSON.parse(JSON.stringify(stringsVectors())));
     expect(readFileSync(STRINGS_HEADER, 'utf8')).toBe(stringsHeader());
@@ -39,7 +39,7 @@ describe('UI strings (spec/test-vectors/strings.json, #98)', () => {
     expect(Object.keys(STRINGS).filter((k) => /^(day|month)\d+$/.test(k)).length).toBe(19);
     expect(tr('en', 'updated' as StrKey)).toBe('Updated');
   });
-  it('English messages from the device API and the editor read in Dutch (#111)', () => {
+  it('English messages from the device API and the editor read in Dutch (eink-ha-os#111)', () => {
     expect(trMsg('nl', 'Pick a network')).toBe('Kies een netwerk');
     expect(trMsg('nl', 'Already up to date (0.4.0)')).toBe('Al up-to-date (0.4.0)');
     expect(trMsg('nl', 'Connect the display to your Wi-Fi first, then continue at http://ha-paper.local')).toBe('Verbind het scherm eerst met je wifi en ga dan verder op http://ha-paper.local');
@@ -47,7 +47,7 @@ describe('UI strings (spec/test-vectors/strings.json, #98)', () => {
     expect(trMsg('nl', 'something new from a newer firmware')).toBe('something new from a newer firmware');
     expect(trMsg('en', 'Pick a network')).toBe('Pick a network');
   });
-  it('settings values and our stat tiles follow the language (#111)', () => {
+  it('settings values and our stat tiles follow the language (eink-ha-os#111)', () => {
     expect(SETTINGS.returnHome.fmt(5, 'nl')).toBe('na 5 min');
     expect(SETTINGS.returnHome.fmt(0)).toBe('Never');
     expect(SETTINGS.powerSave.fmt('glance', 'nl')).toBe('Oogopslag');

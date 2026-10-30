@@ -2,7 +2,7 @@
 //
 // esptool-js 0.7.0's HardReset only sets RTS low (lib/reset.js). It never raises RTS first, and after its
 // USB-Serial/JTAG connect sequence RTS is already low, so `after("hard_reset")` changes no line and the chip stays
-// in the flasher stub (#239: the display didn't restart after an install until the cable was re-plugged).
+// in the flasher stub (eink-ha-os#239: the display didn't restart after an install until the cable was re-plugged).
 // esptool (Python, `make flash`) raises RTS, waits 100 ms and drops it. With DTR low the chip then boots from flash.
 // The same sequence resets a UART bridge board (RTS drives EN).
 

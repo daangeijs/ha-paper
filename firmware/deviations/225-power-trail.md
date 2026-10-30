@@ -7,4 +7,4 @@
 - Power → standby turns the frontlight off, waits 50 ms, then runs the full refresh (the emulator draws at once). This
   tests whether the frontlight change and the refresh load together cut the supply on battery.
 - A Power press costs up to three small flash writes (key, standby drawn, keyup). Diagnostic build behaviour; to be
-  reduced once #225 has its answer.
+  reduced once eink-ha-os#225 has its answer.

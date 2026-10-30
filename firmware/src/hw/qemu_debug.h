@@ -1,4 +1,4 @@
-// X4_QEMU_DEBUG only (env:x4qemu_debug, docs/ESP32_EMULATION.md): memory-corruption checks for QEMU soak runs (#39).
+// X4_QEMU_DEBUG only (env:x4qemu_debug, docs/ESP32_EMULATION.md): memory-corruption checks for QEMU soak runs (eink-ha-os#39).
 //  - every portENTER/EXIT_CRITICAL goes through a wrapper (-Wl,--wrap) that keeps the last 64 ops per core and checks
 //    the spinlock before and after; a corrupt lock prints both rings + the 72 bytes around it, then aborts;
 //    an assert inside the real spinlock code prints the rings from the panic path (net/diag.cpp)

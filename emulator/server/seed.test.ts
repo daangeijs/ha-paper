@@ -1,4 +1,4 @@
-// First link without saved screens → the device simulator builds them from the fake HA (#23).
+// First link without saved screens → the device simulator builds them from the fake HA (eink-ha-os#23).
 import { describe, it, expect, afterEach } from 'vitest';
 import { startSimulator, type RunningSim } from './index.ts';
 import { houseData, templateWarnings } from './fake-ha.ts';
@@ -35,20 +35,20 @@ describe('first-run screens from Home Assistant (device simulator)', () => {
     expect(p.screensSaved).toBe(true);
     expect(p.apps.map((a) => a.id)).toEqual(['home', 'house']);
     expect(p.screens.map((s) => s.id)).toEqual(['overview', 'energy', 'lights', 'climate', 'rooms']);
-    // Settings is built into the display, not saved with the screens (#159)
+    // Settings is built into the display, not saved with the screens (eink-ha-os#159)
     expect(run.sim.shown.map((s) => s.id)).toEqual(['overview', 'energy', 'lights', 'climate', 'rooms', 'display', 'style', 'power', 'updates', 'wifi', 'ha', 'about']);
     expect(run.sim.screenId()).toBe('overview');
-    // every overview tile has a value: the HA sensors themselves (#82)
+    // every overview tile has a value: the HA sensors themselves (eink-ha-os#82)
     // (ha.connected is set before subscribe_entities answers: wait for the values instead of racing them)
     const tiles = await until(() => Object.entries(run!.sim.regions()).filter(([k]) => k.startsWith('t')).map(([, v]) => v), (t) => !t.join(' ').includes('—'));
-    expect(tiles.length).toBe(4);   // inside, home use (the P1 meter: grid only, #82), outside + clock
+    expect(tiles.length).toBe(4);   // inside, home use (the P1 meter: grid only, eink-ha-os#82), outside + clock
     const rev = p.configRev;
     await run.sim.unlink();
     await link(run);
     expect(run.sim.p.configRev).toBe(rev);
   });
 
-  for (const house of ['dutch', 'dutch-energy'] as const) it(house + ' house (#82): every seeded tile names an HA entity and shows a value', async () => {
+  for (const house of ['dutch', 'dutch-energy'] as const) it(house + ' house (eink-ha-os#82): every seeded tile names an HA entity and shows a value', async () => {
     run = await startSimulator({ port: 0, fakeHaPort: 0, haTickMs: 0, preset: 'never-linked', house, delays: FAST });
     await link(run);
     const p = run.sim.p;
@@ -62,7 +62,7 @@ describe('first-run screens from Home Assistant (device simulator)', () => {
     expect(run.fakeHa!.templateErrors).toEqual([]);
   });
 
-  it('real-HA undefined attributes (#58): the seed template reads none; the #23 template read device_class', () => {
+  it('real-HA undefined attributes (eink-ha-os#58): the seed template reads none; the eink-ha-os#23 template read device_class', () => {
     for (const h of ['stranger', 'demo'] as const) {
       const st = houseData(h).states.values();
       expect(templateWarnings(SEED_TEMPLATE, st)).toEqual([]);
@@ -86,7 +86,7 @@ describe('first-run screens from Home Assistant (device simulator)', () => {
     sock.close();
   });
 
-  it('a failed seed template saves nothing and retries on the next HA connection (#58)', async () => {
+  it('a failed seed template saves nothing and retries on the next HA connection (eink-ha-os#58)', async () => {
     const logs: string[] = [];
     run = await startSimulator({ port: 0, fakeHaPort: 0, haTickMs: 0, preset: 'never-linked', house: 'stranger', delays: FAST, log: (m) => logs.push(m) });
     const fake = run.fakeHa!;
@@ -107,6 +107,6 @@ describe('first-run screens from Home Assistant (device simulator)', () => {
   it('installed preset (the demo) keeps the demo screens', async () => {
     run = await startSimulator({ port: 0, fakeHaPort: 0, haTickMs: 0, preset: 'installed', delays: FAST });
     await until(() => run!.sim.ha.connected, (c) => c);
-    expect(run.sim.p.screens.map((s) => s.id)).toEqual(defaultConfig().screens.map((s) => s.id));   // no demo Travel screen (#145)
+    expect(run.sim.p.screens.map((s) => s.id)).toEqual(defaultConfig().screens.map((s) => s.id));   // no demo Travel screen (eink-ha-os#145)
   });
 });

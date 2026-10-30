@@ -1,4 +1,4 @@
-// Selectable releases (#239). The Pages build puts every published beta/stable release next to the page in
+// Selectable releases (eink-ha-os#239). The Pages build puts every published beta/stable release next to the page in
 // firmware/<version>/ and lists them in firmware/versions.json; browsers can't fetch GitHub release assets (no CORS).
 // Without versions.json (dev server, zip download, older deploys) the single firmware/ folder is the one version.
 

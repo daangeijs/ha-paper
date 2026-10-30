@@ -19,8 +19,8 @@ struct Framebuffer {
 class Display {
  public:
   virtual ~Display() = default;
-  virtual void fullRefresh(const Framebuffer& fb) = 0;              // clean: one short flash (SSD1677 HALF, #197)
-  virtual void fastRefresh(const Framebuffer& fb) = 0;              // whole frame, no flash (navigation, #197)
+  virtual void fullRefresh(const Framebuffer& fb) = 0;              // clean: one short flash (SSD1677 HALF, eink-ha-os#197)
+  virtual void fastRefresh(const Framebuffer& fb) = 0;              // whole frame, no flash (navigation, eink-ha-os#197)
   virtual void partialRefresh(const Framebuffer& fb, Rect r) = 0;   // windowed, no flash
   virtual void sleep() = 0;
 };
@@ -31,12 +31,12 @@ struct InputEvent {
   Key key;          // KeyDown
   int16_t x, y;     // Tap position / swipe or drag start
   int8_t dir;       // Swipe: -1 = left (next), +1 = right (prev)
-  int16_t ex, ey;   // Swipe / Drag (#351): where the finger lifted; Drag = moved ≥ 60 px, not a swipe
+  int16_t ex, ey;   // Swipe / Drag (eink-ha-os#351): where the finger lifted; Drag = moved ≥ 60 px, not a swipe
 };
 
 // charging = charger STAT; usb = a USB host is seen (HWCDC SOF). Neither sees a full battery on a dumb charger.
-// known: gauge read at least once; mv: cell voltage (CW2017 VCELL, #73), 0 = unknown (no CW2017, or VCELL not read)
-// batteryPct is filtered (#327, core/gauge_filter.h: no rise without a charger); rawPct is the gauge's own last read
+// known: gauge read at least once; mv: cell voltage (CW2017 VCELL, eink-ha-os#73), 0 = unknown (no CW2017, or VCELL not read)
+// batteryPct is filtered (eink-ha-os#327, core/gauge_filter.h: no rise without a charger); rawPct is the gauge's own last read
 struct PowerInfo { uint8_t batteryPct; bool charging; bool usb; bool known = true; uint16_t mv = 0; uint8_t rawPct = 0; };
 
 class Board {
@@ -50,8 +50,8 @@ class Board {
   virtual void restart() = 0;
   virtual void pause(uint32_t ms) { (void)ms; }   // block the calling task (hardware); no-op in host tests
   virtual uint8_t heldKeys() { return 0; }   // keys held now, core/recovery.h bits (kKeyPower | kKeyRight | kKeyLeft)
-  virtual bool pushInput(const InputEvent&) { return false; }   // remote input (#214), any task; false = queue full
-  virtual void powerOff() {}   // Power held 2 s (#258): hardware cuts its own power, no return; QEMU / host return
+  virtual bool pushInput(const InputEvent&) { return false; }   // remote input (eink-ha-os#214), any task; false = queue full
+  virtual void powerOff() {}   // Power held 2 s (eink-ha-os#258): hardware cuts its own power, no return; QEMU / host return
 };
 
 }  // namespace x4

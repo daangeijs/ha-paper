@@ -1,11 +1,11 @@
-// Hardware-key factory reset and crash-loop recovery (issue #21), a 1:1 port of emulator/src/core/recovery.ts.
+// Hardware-key factory reset and crash-loop recovery (issue eink-ha-os#21), a 1:1 port of emulator/src/core/recovery.ts.
 // Pure; checked against spec/test-vectors/recovery.json.
 //
 // Hold Power + Right (nothing else) 5 s → confirmation screen. Release every key, then Right alone resets; any other
 // key, Home or a touch cancels; 10 s without an answer cancels. Left is never in the combo: held at reset it is the
 // GPIO0 download-mode strap. After the screen goes away all keys must be released before a new hold counts.
-// Hold Power + Left (nothing else) 5 s → Restart (#226); a software restart does not sample the GPIO0 strap.
-// Power alone (#258): released before 2 s → Press (standby / wake); held 2 s → Off, while still held. Power + Right /
+// Hold Power + Left (nothing else) 5 s → Restart (eink-ha-os#226); a software restart does not sample the GPIO0 strap.
+// Power alone (eink-ha-os#258): released before 2 s → Press (standby / wake); held 2 s → Off, while still held. Power + Right /
 // Left within the 2 s turns into those holds. Counts only after Power was released once since boot (the power-on hold).
 #pragma once
 #include <cstdint>

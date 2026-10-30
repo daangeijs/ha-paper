@@ -1,7 +1,7 @@
 # History tile past + forecast in one chart (issue #307)
 
 - Config differs from the brief's example (`window: 1h` past + `ahead: 2h`): `window` stays the whole chart and `ahead`
-  its part after now (as in #283), so 1 h back + 2 h ahead is `window: 3h, ahead: 2h`, plus `past: <recorder entity>`.
+  its part after now (as in eink-ha-os#283), so 1 h back + 2 h ahead is `window: 3h, ahead: 2h`, plus `past: <recorder entity>`.
   `past` needs `ahead` written and shorter than the window; there is no default split.
 - The past and the forecast are two series slots (two fetches); the device keeps up to 12 slots (6 tiles × 2), PSRAM.
   The painter joins them per frame into one PSRAM Series (`hist::joinSeries`), never in the fetcher.

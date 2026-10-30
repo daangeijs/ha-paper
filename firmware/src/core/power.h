@@ -1,15 +1,15 @@
 // Power decision (docs/ROBUSTNESS_PLAN.md Phase 3), a 1:1 port of emulator/src/core/power.ts: may the display
 // deep-sleep now, when must it wake, how hard should CPU and Wi-Fi work while awake. Pure; checked against
-// spec/test-vectors/power/*.json. Device glue: net/power.cpp (glance, #10).
+// spec/test-vectors/power/*.json. Device glue: net/power.cpp (glance, eink-ha-os#10).
 #pragma once
 #include <cstdint>
 #include <string>
 
 namespace x4 {
 
-enum class PowerSave : uint8_t { Off, Standby, Glance };   // glance: default on battery (#10, #18); "night" left in #295
+enum class PowerSave : uint8_t { Off, Standby, Glance };   // glance: default on battery (eink-ha-os#10, eink-ha-os#18); "night" left in eink-ha-os#295
 enum class OtaAuto : uint8_t { Off, Notify, Night };
-enum class CpuProfile : uint8_t { Full, Auto };   // Full = 240 MHz; Auto = 80 MHz (cpuMhzFor, #177)
+enum class CpuProfile : uint8_t { Full, Auto };   // Full = 240 MHz; Auto = 80 MHz (cpuMhzFor, eink-ha-os#177)
 enum class WifiPs : uint8_t { None, Min };        // None = no modem sleep; Min = modem sleep (DTIM)
 
 constexpr int64_t kMaxSleepS = 8 * 3600;      // a missed wake source must never leave the device off longer
@@ -24,7 +24,7 @@ struct PowerInputs {
   int32_t localSec = 0;          // seconds since local midnight
   PowerSave powerSave = PowerSave::Off;
   int wakeEvery = 15;            // minutes, standby timer wake
-  std::string quiet = "off";     // quiet hours "23-07" | "off" (#295)
+  std::string quiet = "off";     // quiet hours "23-07" | "off" (eink-ha-os#295)
   bool peeking = false;          // dashboard shown for 60 s after a press in quiet hours
   bool standby = false;          // standby face is on
   bool charging = false;
@@ -39,9 +39,9 @@ struct PowerInputs {
   bool setup = false;            // AP / setup wizard
   int64_t msSinceApi = -1;       // < 0 = no API request since boot
   bool live = false;             // glance: key press / touch within liveMin minutes (or a key held at boot)
-  int glanceFails = 0;           // glance: wakes in a row that could not reach HA (diagnostics; no backoff since #356)
+  int glanceFails = 0;           // glance: wakes in a row that could not reach HA (diagnostics; no backoff since eink-ha-os#356)
   int armBootsLeft = 0;          // first-boot safety: confirmed boots still needed before any deep sleep
-  bool emptyHouse = false;       // glance (#331): the presence source says nobody is home
+  bool emptyHouse = false;       // glance (eink-ha-os#331): the presence source says nobody is home
 };
 
 struct PowerDecision {
@@ -55,11 +55,11 @@ struct PowerDecision {
 };
 
 int64_t secsUntil(int32_t localSec, int32_t targetSec);   // next targetSec of the day; equal = a full day
-int64_t glanceWaitS(int32_t localSec, const std::string& quiet);   // #356: to midnight or quiet start, the first
+int64_t glanceWaitS(int32_t localSec, const std::string& quiet);   // eink-ha-os#356: to midnight or quiet start, the first
 bool isExternalPower(const PowerInputs& i);
 PowerDecision powerDecision(const PowerInputs& i);
 
-// POST /api/v1/device/sleep {"seconds": N} (#178, emulator sleepNowCheck, spec/test-vectors/sleep-now.json): deep sleep
+// POST /api/v1/device/sleep {"seconds": N} (eink-ha-os#178, emulator sleepNowCheck, spec/test-vectors/sleep-now.json): deep sleep
 // now, skipping liveMin and the API quiet. 422 bad seconds; 409 "stays awake: <powerDecision word>" on an unconfirmed
 // image, OTA, external power, setup. isNumber false = missing / not a JSON number.
 constexpr int64_t kSleepNowMinS = 60, kSleepNowMaxS = 86400;
@@ -70,11 +70,11 @@ const char* powerSaveName(PowerSave p);   // off | standby | glance
 bool parsePowerSave(const std::string& s, PowerSave& out);
 const char* cpuProfileName(CpuProfile p); // full | auto
 const char* wifiPsName(WifiPs p);         // none | min
-// Clock per profile (emulator CPU_MHZ, #177). No CONFIG_PM_ENABLE in the Arduino libs, so no esp_pm DFS: Auto is a
+// Clock per profile (emulator CPU_MHZ, eink-ha-os#177). No CONFIG_PM_ENABLE in the Arduino libs, so no esp_pm DFS: Auto is a
 // fixed 80 MHz, the lowest clock that keeps APB at 80 MHz (UART, SPI to the panel, I2C, Wi-Fi unchanged).
 int cpuMhzFor(CpuProfile p);              // 240 | 80
 
-// Charging honesty (issue #11, emulator powerSource/batteryLabel, spec/test-vectors/battery-label.json): "charging"
+// Charging honesty (issue eink-ha-os#11, emulator powerSource/batteryLabel, spec/test-vectors/battery-label.json): "charging"
 // only when the charger STAT pin says so; a full battery on USB drops STAT, so a seen USB host reads "on USB".
 // No VBUS pin is confirmed on the X4 Pro: a full battery on a charger without data lines still reads "battery".
 const char* powerSource(bool charging, bool usb);                  // usb | battery

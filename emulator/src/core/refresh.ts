@@ -1,15 +1,15 @@
-// E-ink refresh policy (SPEC §7, issues #26, #197, #212). Pure decisions used by the emulator's refreshes and minute tick.
+// E-ink refresh policy (SPEC §7, issues eink-ha-os#26, eink-ha-os#197, eink-ha-os#212). Pure decisions used by the emulator's refreshes and minute tick.
 //
-// Three panel-wide kinds (#197, SSD1677 sequences in firmware/src/hw/x4_display.cpp):
+// Three panel-wide kinds (eink-ha-os#197, SSD1677 sequences in firmware/src/hw/x4_display.cpp):
 //  * fast: whole-frame differential update, no flash (~0.6 s). Every navigation: screen/app change, home, overlays
 //    open/close, open page, keyboard / Wi-Fi views. Every NAV_CLEAN-th navigation is a clean instead. B/W only since
-//    #212: grays thresholded like a partial (the gray pass cost ~0.5 s per page on the X4 Pro); the next clean restores them.
+//    eink-ha-os#212: grays thresholded like a partial (the gray pass cost ~0.5 s per page on the X4 Pro); the next clean restores them.
 //  * clean: one short flash (~1 s). Boot, wake, glance render, quiet face / quiet end, standby, setup steps, new config,
 //    style switch, OTA screen, and a scheduled "clean screen" at the first :00/:30 at least `cleanEvery` minutes
 //    (Settings › Clean screen: 30, 60 or 120) after the last clean, only when a partial or fast refresh was drawn
 //    since, and not during quiet hours (quiet end is a clean anyway).
 //  * full: the multi-flash waveform, only for a manual POST /display/refresh.
-// Partial refresh (windowed, B/W only since #38) otherwise, never on the quiet face (#295: no clock either), nor in
+// Partial refresh (windowed, B/W only since eink-ha-os#38) otherwise, never on the quiet face (eink-ha-os#295: no clock either), nor in
 // standby (except its clock). Clock unset (no SNTP yet): no schedule, so CLEAN_CAP partials or fast refreshes force a clean
 // ("ghosting limit").
 
@@ -18,7 +18,7 @@ export const CLEAN_EVERY = [30, 60, 120] as const;
 export const DEFAULT_CLEAN_EVERY = 30;
 /** Partials before a forced full while the clock is unset (safety only; the legacy `fullEvery` setting is unused). */
 export const CLEAN_CAP = 30;
-/** Navigations per clean: the NAV_CLEAN-th navigation since the last clean is a clean, the others are fast (#197). */
+/** Navigations per clean: the NAV_CLEAN-th navigation since the last clean is a clean, the others are fast (eink-ha-os#197). */
 export const NAV_CLEAN = 10;
 
 export type RefreshInput = { reason: string; sleeping: boolean; quiet: boolean; sinceFull: number; clockKnown: boolean };
@@ -41,7 +41,7 @@ export type NavDecision =
   | { kind: 'clean'; reason: 'nav clean' | 'ghosting limit' }
   | { kind: 'fast'; navSinceClean: number; sinceFull: number };
 
-/** A navigation (#197): fast, or a clean every NAV_CLEAN-th time (or at the clock-unset cap). A fast counts toward the
+/** A navigation (eink-ha-os#197): fast, or a clean every NAV_CLEAN-th time (or at the clock-unset cap). A fast counts toward the
  *  scheduled clean like a partial; a clean resets both counters (the caller's clean does). */
 export function decideNav({ navSinceClean, sinceFull, clockKnown }: NavInput): NavDecision {
   const nav = navSinceClean + 1, since = sinceFull + 1;
@@ -50,7 +50,7 @@ export function decideNav({ navSinceClean, sinceFull, clockKnown }: NavInput): N
   return { kind: 'fast', navSinceClean: nav, sinceFull: since };
 }
 
-/** Input coalescing (#212): the device drains its input queue once per loop pass, so a pass after a refresh holds every
+/** Input coalescing (eink-ha-os#212): the device drains its input queue once per loop pass, so a pass after a refresh holds every
  *  tap / key made while the panel was busy. Only the last one is handled (last intent wins, at most one navigation
  *  follows a refresh). Returns the index handled, -1 for none. */
 export function coalesceInput(n: number): number {
@@ -70,7 +70,7 @@ export function cleanDue({ sinceFull, lastFullMin, nowMin, everyMin, quiet }: Cl
 }
 
 /**
- * Regions the minute tick redraws (issue #38): the clock text of the top bar / standby face (`time`) and
+ * Regions the minute tick redraws (issue eink-ha-os#38): the clock text of the top bar / standby face (`time`) and
  * the digit window of each clock tile (`k<i>`; Sleek: digits + day progress). The whole tile `t<i>` only when the date
  * line changes. Top bar + clock tile was 800 × 263 px = 55 % of the panel, which the driver turns into a whole-frame
  * B/W refresh; the two windows' bounding box stays well under half.
@@ -79,7 +79,7 @@ export function minuteKeys(clockTiles: readonly string[], dateChanged: boolean):
   return ['time', ...clockTiles.map((t) => 'k' + t.slice(1)), ...(dateChanged ? clockTiles : [])];
 }
 
-/** Power deadband (#85, spec/test-vectors/deadband.json): a power tile takes a new value only when it moved ≥ 50 W and
+/** Power deadband (eink-ha-os#85, spec/test-vectors/deadband.json): a power tile takes a new value only when it moved ≥ 50 W and
  *  ≥ 5 % of the shown value, or crosses the W ↔ kW boundary; otherwise it keeps the last shown value (no redraw). */
 export function powerMoved(shown: number, now: number): boolean {
   if ((Math.abs(shown) >= 1000) !== (Math.abs(now) >= 1000)) return true;

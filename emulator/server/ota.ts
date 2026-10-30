@@ -9,13 +9,13 @@ import { newer } from '../src/core/format.ts';
 export type Manifest = { version: string; sha256: string; size: number; notes: string[] };
 export type SimRelease = { tag: string; prerelease: boolean; manifest: Manifest; image: () => Buffer };
 
-/** A version from an upload (manifest.json or ?version=): printable, ≤ 64 chars, no leading "v"; else '' (#237). */
+/** A version from an upload (manifest.json or ?version=): printable, ≤ 64 chars, no leading "v"; else '' (eink-ha-os#237). */
 export const uploadVersion = (v: unknown): string => {
   const s = typeof v === 'string' ? v.trim().replace(/^[vV](?=\d)/, '') : '';
   return /^[\x21-\x7e]{1,64}$/.test(s) ? s : '';
 };
 
-/** firmware/partitions.csv `www` (0xC90000, 0x340000): POST /ota/upload-www takes exactly this many bytes (#350). */
+/** firmware/partitions.csv `www` (0xC90000, 0x340000): POST /ota/upload-www takes exactly this many bytes (eink-ha-os#350). */
 export const WWW_PARTITION_SIZE = 0x340000;
 
 export const sha256 = (b: Buffer | string): string => createHash('sha256').update(b).digest('hex');

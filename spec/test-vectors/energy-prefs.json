@@ -1,5 +1,5 @@
 {
-  "_doc": "Energy dashboard prefs (energy/get_prefs) → grid meters and price (#274). grid = gridFlows(source) per grid source (emulator src/core/energyPrefs.ts = firmware gridFlows() in core/entity_map.cpp); statistic_ids = EntityAdapter::statisticIds() after setEnergyPrefs; sources = the Energy-dashboard entity_sources for sensor.grid_power and sensor.energy_prices (emulator aliasesOf in server/device.ts, firmware EntityAdapter::sources()).",
+  "_doc": "Energy dashboard prefs (energy/get_prefs) → grid meters and price (eink-ha-os#274). grid = gridFlows(source) per grid source (emulator src/core/energyPrefs.ts = firmware gridFlows() in core/entity_map.cpp); statistic_ids = EntityAdapter::statisticIds() after setEnergyPrefs; sources = the Energy-dashboard entity_sources for sensor.grid_power and sensor.energy_prices (emulator aliasesOf in server/device.ts, firmware EntityAdapter::sources()).",
   "cases": [
     {
       "name": "legacy",

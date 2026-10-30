@@ -66,7 +66,7 @@ freeink::Rtc g_rtc;
 Cw2017 g_gauge;
 uint32_t g_adcNext = 0;     // non-CW2017 boards: vendor read (ADC, no blocking recovery) every kBatteryEveryMs
 
-// #327: shown % across deep sleep and esp_restart(); a power-on (or garbage) starts over at the first read
+// eink-ha-os#327: shown % across deep sleep and esp_restart(); a power-on (or garbage) starts over at the first read
 struct GaugeRtc { uint32_t magic; gauge::State s; uint32_t check; };
 RTC_NOINIT_ATTR GaugeRtc g_gaugeRtc;
 constexpr uint32_t kGaugeMagic = 0x47415547u;   // "GAUG"
@@ -201,7 +201,7 @@ void powerLatchLog() {
 
 void X4Board::begin() {
   queue_ = xQueueCreate(32, sizeof(InputEvent));
-  // After a deep-sleep wake (#10) the wake pins are still RTC IO and the front-light pads still held LOW: hand them
+  // After a deep-sleep wake (eink-ha-os#10) the wake pins are still RTC IO and the front-light pads still held LOW: hand them
   // back to the digital GPIO matrix before the drivers configure them (no-op after any other reset).
   if (esp_reset_reason() == ESP_RST_DEEPSLEEP) {
     for (const int8_t pin : {BoardConfig::ACTIVE.input.power, BoardConfig::ACTIVE.input.down, BoardConfig::ACTIVE.batteryChargeStatus})
@@ -280,7 +280,7 @@ void X4Board::readBattery(uint32_t now) {
     if (g_battery.readPercentageChecked(pct)) raw = pct > 100 ? 100 : pct;
   }
   if (raw < 0) return;
-  // #327: the shown % never rises without a charger (core/gauge_filter.h); raw stays visible in diagnostics
+  // eink-ha-os#327: the shown % never rises without a charger (core/gauge_filter.h); raw stays visible in diagnostics
   static bool checked = false;
   if (!checked && (g_gaugeRtc.magic != kGaugeMagic || g_gaugeRtc.check != gaugeCheck(g_gaugeRtc) || esp_reset_reason() == ESP_RST_POWERON))
     g_gaugeRtc = GaugeRtc{kGaugeMagic, gauge::State{}, 0};
@@ -381,7 +381,7 @@ void X4Board::task() {
       e.x = static_cast<int16_t>(nx * kScreenW);
       e.y = static_cast<int16_t>(ny * kScreenH);
       send(e);
-    } else if (released && moved && !swiped && !tapped) {   // #351: a slow or vertical drag (a slider takes it; else nothing)
+    } else if (released && moved && !swiped && !tapped) {   // eink-ha-os#351: a slow or vertical drag (a slider takes it; else nothing)
       InputEvent e{};
       e.kind = InputEvent::Kind::Drag;
       e.x = static_cast<int16_t>(sx * kScreenW);
@@ -515,8 +515,8 @@ void X4Board::sleepNow(int64_t seconds, bool offHold) {
   }
   freeink::PowerManager::powerDownRailsForSleep();   // touch rail (GPIO2) off, SD (GPIO5) off, panel RST held
   // GPIO1 (power latch) HIGH through deep sleep, or the X4 Pro cold-boots instead of waking (crosspoint HalPowerManager).
-  // Held since the first constructor (#225); asserted again in case anything touched it. Not after a Power-hold off
-  // (#258): the latch stays released (LOW).
+  // Held since the first constructor (eink-ha-os#225); asserted again in case anything touched it. Not after a Power-hold off
+  // (eink-ha-os#258): the latch stays released (LOW).
   if (!offHold) {
     assertLatch(BoardConfig::ACTIVE.power.latch0);
     assertLatch(BoardConfig::ACTIVE.power.latch1);

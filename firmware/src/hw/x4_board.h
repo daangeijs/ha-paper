@@ -15,7 +15,7 @@
 
 namespace x4 {
 
-// X4 Pro power latch (#225): power.latch0 (GPIO1) keeps the board on when it runs on battery. A global constructor
+// X4 Pro power latch (eink-ha-os#225): power.latch0 (GPIO1) keeps the board on when it runs on battery. A global constructor
 // drives it HIGH before Arduino's init and setup(), and leaves the pad held (gpio_hold_en): esp_restart, OTA, panic
 // and watchdog resets keep the pad HIGH instead of floating it through the next boot. Only an RTC/system reset
 // or a real power loss clears the hold.
@@ -35,15 +35,15 @@ class X4Board : public Board {
   uint8_t heldKeys() override;           // GPIO levels now (not the debounced events): hardware-key factory reset
 
   void writeRtcFromSystemClock();        // after NTP sync (thread-safe: handed to the input task)
-  // Deep sleep (#10, net/power.cpp): front light parked, rails down, GPIO1 latch held, wake on Power/Right, charger
+  // Deep sleep (eink-ha-os#10, net/power.cpp): front light parked, rails down, GPIO1 latch held, wake on Power/Right, charger
   // STAT, and a timer (seconds > 0). Call after the panel's deep-sleep command. Does not return: a wake is a reset.
   [[noreturn]] void deepSleep(int64_t seconds);
-  // Power held 2 s (#258), after the "Turned off" face and the panel's deep-sleep command: waits for Power to be
+  // Power held 2 s (eink-ha-os#258), after the "Turned off" face and the panel's deep-sleep command: waits for Power to be
   // released, releases the GPIO1 latch (battery: the board goes off). Still running 1 s later (USB) → deep sleep, only
   // Power wakes, latch held LOW (unplugging then switches it off). Does not return.
   [[noreturn]] void powerOff() override;
   void notifyOnInput(void* task);        // TaskHandle_t to xTaskNotifyGive() whenever an event is queued
-  bool pushInput(const InputEvent& e) override;   // remote input (#214): same queue as touch/keys
+  bool pushInput(const InputEvent& e) override;   // remote input (eink-ha-os#214): same queue as touch/keys
 
  private:
   static void taskEntry(void* self);
@@ -59,7 +59,7 @@ class X4Board : public Board {
   std::atomic<bool> rtcWriteRequested_{false};
   std::atomic<bool> batteryKnown_{false};
   std::atomic<uint16_t> batteryMv_{0};
-  std::atomic<uint8_t> batteryRaw_{0};   // gauge % before the #327 filter
+  std::atomic<uint8_t> batteryRaw_{0};   // gauge % before the eink-ha-os#327 filter
 };
 
 }  // namespace x4

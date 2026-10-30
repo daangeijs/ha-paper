@@ -1,4 +1,4 @@
-// Bin day tile (#317, emulator components/BinsTile.tsx, data core/bins). 2+ wide: title + TONIGHT / TODAY pill, a bin,
+// Bin day tile (eink-ha-os#317, emulator components/BinsTile.tsx, data core/bins). 2+ wide: title + TONIGHT / TODAY pill, a bin,
 // the soonest bin big with its day line, the later bins along the foot. 1 wide: the soonest bin's name, when, the date
 // or "Put out tonight". Classic: uppercase title, square pill, 2 px rule; Modern (on its card): capsule pill, display
 // font, dotted rule.

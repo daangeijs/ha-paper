@@ -2,43 +2,43 @@
 //   GET/POST /auth/authorize   login page (any user name, "administrator" checkbox) → 302 redirect_uri?code&state
 //   POST /auth/token           authorization_code (+ PKCE S256 when a challenge was sent) and refresh_token; 400 invalid_grant
 //   POST /auth/revoke          revoke a refresh token (always 200, like HA)
-//   POST /api/states/<id>      create/replace a state (admin only, like HA; 201 new, 200 existing): device health (#32)
+//   POST /api/states/<id>      create/replace a state (admin only, like HA; 201 new, 200 existing): device health (eink-ha-os#32)
 //   GET  /api/websocket        auth, auth/current_user, get_states, subscribe_entities, subscribe_events (state_changed),
-//                              call_service (weather.get_forecasts, calendar.get_events with return_response, #283, #316), energy/get_prefs, config/area_registry/list, config/entity_registry/list,
+//                              call_service (weather.get_forecasts, calendar.get_events with return_response, eink-ha-os#283, eink-ha-os#316), energy/get_prefs, config/area_registry/list, config/entity_registry/list,
 //                              render_template (only the firmware's discovery / seed templates),
-//                              recorder/statistics_during_period + history/history_during_period (./fake-ha-history.ts, #266)
+//                              recorder/statistics_during_period + history/history_during_period (./fake-ha-history.ts, eink-ha-os#266)
 //   /__fake/*                  test control (standalone `npm run fake-ha`, e.g. for the QEMU firmware contract run):
 //                              POST revoke-all · POST state {entity_id,state,attributes} · GET calls · POST llat {name,admin}
-//                              · GET posted (every POST /api/states, newest last) · POST big-house {n} (#57)
+//                              · GET posted (every POST /api/states, newest last) · POST big-house {n} (eink-ha-os#57)
 //                              · GET template-errors (undefined attribute reads in render_template, see templateWarnings)
 //                              · POST seed-fail {error} (the seed template answers with an ERROR event; {} = normal)
 //                              · POST restart {down_s} (HA restarts: sockets closed, port refused for down_s, tokens kept)
 //                              · POST drop-ws (every WebSocket's TCP connection destroyed, no close frame)
 //                              · POST tls {mode: ok|hang|slow|reset, delay_s} (new https connections: handshake as normal,
-//                                never answered, answered after delay_s, or TCP reset on the ClientHello; #87)
+//                                never answered, answered after delay_s, or TCP reset on the ClientHello; eink-ha-os#87)
 //                              · POST tls-reset (TCP reset on every open https connection, WebSockets included)
 //                              · GET state: entities, refresh_tokens, connections, sessions (WebSocket auth_ok so far), users
-//                              · GET entities: every entity_id (#82: seeded tiles must name one of them)
+//                              · GET entities: every entity_id (eink-ha-os#82: seeded tiles must name one of them)
 //                              · POST price-sensor {entity_id?, days?} (a Frank Energie-shaped price sensor: `prices` =
-//                                days × 96 quarter-hours {from,till,price} from local midnight, `prices_today` = today's 96, #149)
-//                              · POST language {language, number_format?} (get_config's `language`, #98; the Dutch houses
-//                                start with nl; number_format = the user profile's, frontend/get_user_data "language", #110;
-//                                time_zone / currency = get_config's, #147)
+//                                days × 96 quarter-hours {from,till,price} from local midnight, `prices_today` = today's 96, eink-ha-os#149)
+//                              · POST language {language, number_format?} (get_config's `language`, eink-ha-os#98; the Dutch houses
+//                                start with nl; number_format = the user profile's, frontend/get_user_data "language", eink-ha-os#110;
+//                                time_zone / currency = get_config's, eink-ha-os#147)
 //                              · GET history: recorder entities, seed, chatty, calls (statistics/history requests, newest
 //                                last) · POST history {seed?, chatty?, entities?: [{id, model, kind?}], states?, reset_calls?}
-//                                (states: put the recorder entities' current values into the house; chatty = sensor.chatty_power, #266)
+//                                (states: put the recorder entities' current values into the house; chatty = sensor.chatty_power, eink-ha-os#266)
 //                              · POST energy-prefs {variant: flat-grid|house} (energy/get_prefs with one HA 2025.12+ flat grid
-//                                source sensor.flat_grid_* instead of the house's grid flows, #274; house = back to normal)
+//                                source sensor.flat_grid_* instead of the house's grid flows, eink-ha-os#274; house = back to normal)
 // Houses: 'demo' (default) = the emulator's mock data (src/core/data.ts), changing periodically;
-// 'stranger' = somebody else's HA (./fake-ha-stranger.ts, #23) to test first-run screens; 'big' = demo + ~1200 entities
-// with long attributes (./fake-ha-big.ts, #57); 'dutch' / 'dutch-energy' = SolarEdge + P1 + Anker battery + tado, Dutch names,
-// without / with an Energy dashboard (./fake-ha-dutch.ts, #82); 'real' = ~1050 anonymised entities shaped like a real HA,
-// with a device registry (areas via devices) and display_precision in the entity registry (./fake-ha-real.ts, #88).
+// 'stranger' = somebody else's HA (./fake-ha-stranger.ts, eink-ha-os#23) to test first-run screens; 'big' = demo + ~1200 entities
+// with long attributes (./fake-ha-big.ts, eink-ha-os#57); 'dutch' / 'dutch-energy' = SolarEdge + P1 + Anker battery + tado, Dutch names,
+// without / with an Energy dashboard (./fake-ha-dutch.ts, eink-ha-os#82); 'real' = ~1050 anonymised entities shaped like a real HA,
+// with a device registry (areas via devices) and display_precision in the entity registry (./fake-ha-real.ts, eink-ha-os#88).
 import { createServer, type IncomingMessage, type Server, type ServerResponse } from 'node:http';
 import { createServer as createHttpsServer, type Server as HttpsServer } from 'node:https';
 import type { Duplex } from 'node:stream';
 import { createServer as createNetServer, type AddressInfo, type Server as NetServer, type Socket } from 'node:net';
-import { ENT, LIGHT_LIST, PRICES, ROOMS, ROOM_NAME, SOLAR, USAGE, ZONE_LIST, CHEAP, EXTRA_ENTITIES, DEMO_BINS, demoBinState } from '../src/core/data.ts';
+import { ENT, LIGHT_LIST, PRICES, ROOMS, ROOM_NAME, SOLAR, USAGE, ZONE_LIST, CHEAP, EXTRA_ENTITIES, DEMO_BINS, demoBinState, DEMO_BIRDS, demoBirds } from '../src/core/data.ts';
 import { pad } from '../src/core/format.ts';
 import { demoForecast } from '../src/core/historyChart.ts';
 import { DEMO_WEATHER_ATTRS } from '../src/core/weather.ts';
@@ -93,22 +93,24 @@ function initialStates(): Map<string, EntityState> {
   for (const l of LIGHT_LIST) put('light.' + l.id, l.on ? 'on' : 'off', { friendly_name: ROOM_NAME[l.room] + ' ' + l.name, ...(l.dim ? { brightness: l.on ? Math.round(l.b * 2.55) : null, supported_color_modes: ['brightness'] } : { supported_color_modes: ['onoff'] }) });
   put('scene.all_off', 'unknown', { friendly_name: 'All lights off' });
   for (const e of EXTRA_ENTITIES) put(e.id, e.state, { friendly_name: e.name, ...(e.unit ? { unit_of_measurement: e.unit } : {}), ...(e.dc ? { device_class: e.dc } : {}),
-    ...(e.id.startsWith('zone.') ? { persons: [], radius: 100, passive: false } : {}) });   // #331: zone state = persons in it; POST /__fake/state sets it
+    ...(e.id.startsWith('zone.') ? { persons: [], radius: 100, passive: false } : {}) });   // eink-ha-os#331: zone state = persons in it; POST /__fake/state sets it
   for (const id of ['sensor.living_temperature', 'sensor.outdoor_temperature']) m.get(id)!.attributes.device_class = 'temperature';
   m.get('sensor.outdoor_humidity')!.attributes.device_class = 'humidity';
   Object.assign(m.get('binary_sensor.rain_expected')!.attributes, { device_class: 'moisture', forecast: rainForecast(Date.now()) });
-  // #317: bin sensors in both shapes, dated from today (afvalwijzer date state; waste_collection_schedule days-to + daysTo)
+  // eink-ha-os#317: bin sensors in both shapes, dated from today (afvalwijzer date state; waste_collection_schedule days-to + daysTo)
   for (const b of DEMO_BINS) { const v = demoBinState(b, new Date()); put(b.id, v.state, { friendly_name: b.name, ...v.attrs }); }
-  Object.assign(m.get('weather.home')!.attributes, DEMO_WEATHER_ATTRS);   // #318: + feels, wind (Beaufort) for the weather tile
-  Object.assign(m.get(DEMO_MEDIA.id)!.attributes, { media_title: DEMO_MEDIA.queue[0].title, media_artist: DEMO_MEDIA.queue[0].artist, volume_level: DEMO_MEDIA.volume,   // #319
+  // eink-ha-os#332: the rare birds recipe's sensor (docs/recipes/rare-birds.md), made-up places, dated back from now
+  { const v = demoBirds(new Date()); put(DEMO_BIRDS.id, v.state, v.attrs); }
+  Object.assign(m.get('weather.home')!.attributes, DEMO_WEATHER_ATTRS);   // eink-ha-os#318: + feels, wind (Beaufort) for the weather tile
+  Object.assign(m.get(DEMO_MEDIA.id)!.attributes, { media_title: DEMO_MEDIA.queue[0].title, media_artist: DEMO_MEDIA.queue[0].artist, volume_level: DEMO_MEDIA.volume,   // eink-ha-os#319
     is_volume_muted: false, media_content_type: 'music', media_position: 0, supported_features: DEMO_MEDIA.features });
   return m;
 }
 
-/** A rain nowcast attribute (#283, shaped like a radar integration's): 5-minute {datetime (UTC ISO), precipitation
+/** A rain nowcast attribute (eink-ha-os#283, shaped like a radar integration's): 5-minute {datetime (UTC ISO), precipitation
  *  (mm/h)} from 2 h before to 2 h after now, a shower about an hour ahead. */
 export const rainForecast = (now: number) => demoForecast('precipitation', 'datetime', 5 * 60_000, now, 0, 2 * 3_600_000);
-/** weather.get_forecasts (#283): hourly = 48 h from the current hour, daily = 7 days from today (UTC), with
+/** weather.get_forecasts (eink-ha-os#283): hourly = 48 h from the current hour, daily = 7 days from today (UTC), with
  *  temperature, precipitation and a condition. */
 export function weatherForecast(type: string, now: number): Record<string, string | number>[] | null {
   const step = type === 'hourly' ? 3_600_000 : type === 'daily' ? 86_400_000 : 0; if (!step) return null;
@@ -116,7 +118,7 @@ export function weatherForecast(type: string, now: number): Record<string, strin
   const temp = demoForecast('temperature', 'datetime', step, from + 2 * 3_600_000, 0, n * step), rain = demoForecast('precipitation', 'datetime', step, from + 2 * 3_600_000, 0, n * step);
   return temp.filter((e) => Date.parse(String(e.datetime)) >= from).slice(0, n).map((e, i) => {
     const p = Number(rain.find((r) => r.datetime === e.datetime)?.precipitation ?? 0);
-    // #318: more conditions (the weather tile's drawings) and wind
+    // eink-ha-os#318: more conditions (the weather tile's drawings) and wind
     return { datetime: e.datetime, condition: p > 2 ? 'pouring' : p > 0.5 ? 'rainy' : i % 5 === 0 ? 'partlycloudy' : i % 3 === 1 ? 'sunny' : 'cloudy', temperature: e.temperature, precipitation: p,
       wind_speed: 3 + (i % 4), wind_bearing: (180 + i * 20) % 360, ...(type === 'daily' ? { templow: Number(e.temperature) - 6 } : {}) };
   });
@@ -132,7 +134,7 @@ const DEMO_PREFS = {
 };
 
 /** POST /__fake/energy-prefs {variant: 'flat-grid'}: the house's grid sources replaced by one HA 2025.12+ flat grid
- * source (no flow_from / flow_to, #274); {variant: 'house'} restores the house's prefs. */
+ * source (no flow_from / flow_to, eink-ha-os#274); {variant: 'house'} restores the house's prefs. */
 export const FLAT_GRID = { type: 'grid', stat_energy_from: 'sensor.flat_grid_import', stat_energy_to: 'sensor.flat_grid_export', stat_cost: null,
   entity_energy_price: 'sensor.flat_grid_price', number_energy_price: null, entity_energy_price_export: 'sensor.flat_grid_price_export',
   number_energy_price_export: null, stat_rate: 'sensor.flat_grid_power', cost_adjustment_day: 0 };
@@ -211,7 +213,7 @@ export function seedAnswer(states: Iterable<EntityState>, areas: [string, string
 export const attrUndefined = (name: string) => "'homeassistant.util.read_only_dict.ReadOnlyDict object' has no attribute '" + name + "'";
 
 /**
- * Real HA's undefined handling for attribute reads (#58), without Jinja. In HA `s.attributes.name` on an entity that
+ * Real HA's undefined handling for attribute reads (eink-ha-os#58), without Jinja. In HA `s.attributes.name` on an entity that
  * lacks `name` is a jinja2 Undefined: `| default(…)` and `.get('name')` are fine, any other use (`or`, `in`, output)
  * is reported: render_template with report_errors sends a WARNING event per use and still renders, strict: true fails
  * the render. The fake flags every direct read `x.attributes.name` (not `.get(`, not followed by `| default`) inside
@@ -240,11 +242,11 @@ export class FakeHa {
   url = '';
   states: Map<string, EntityState>;
   house: House;
-  /** get_config `language` (#98). */
+  /** get_config `language` (eink-ha-os#98). */
   language: string;
-  /** User profile number_format (frontend/get_user_data key "language", #110); null = never set in the profile. */
+  /** User profile number_format (frontend/get_user_data key "language", eink-ha-os#110); null = never set in the profile. */
   numberFormat: string | null = null;
-  /** get_config `time_zone` and `currency` (#147); the stranger lives in London and pays in pounds. */
+  /** get_config `time_zone` and `currency` (eink-ha-os#147); the stranger lives in London and pays in pounds. */
   timeZone: string;
   currency: string;
   prefs: unknown;
@@ -265,7 +267,7 @@ export class FakeHa {
   templateErrors: string[] = [];
   /** Test knob: answer the seed template with this ERROR event instead of a result (POST /__fake/seed-fail). */
   seedFail: string | null = null;
-  /** Recorder: statistics + history series and the request log (#266). */
+  /** Recorder: statistics + history series and the request log (eink-ha-os#266). */
   history = new FakeHistory();
   /** WebSocket sessions that got auth_ok since start (a reconnect after a fault adds one). */
   sessions = 0;
@@ -298,7 +300,7 @@ export class FakeHa {
   /** https connections accepted so far, per fault mode they met. */
   tlsAccepted: Record<TlsFault, number> = { ok: 0, hang: 0, slow: 0, reset: 0 };
 
-  /** The same HA (tokens, states) over https too: the QEMU contract suite's real TLS handshake on the device (#79). */
+  /** The same HA (tokens, states) over https too: the QEMU contract suite's real TLS handshake on the device (eink-ha-os#79). */
   async listenTls(port: number, tls: { key: string | Buffer; cert: string | Buffer }): Promise<string> {
     const s = createHttpsServer(tls, this.onRequest);
     s.on('upgrade', this.onUpgrade);
@@ -350,7 +352,7 @@ export class FakeHa {
     for (const c of this.conns) c.ws.close(1001);
     this.server.closeAllConnections();
     this.server.close();
-    // The https port goes down too, or a device linked over TLS never notices the restart (#123).
+    // The https port goes down too, or a device linked over TLS never notices the restart (eink-ha-os#123).
     const front = this.tlsFront?.listening ? this.tlsFront : undefined;
     const tlsPort = front ? (front.address() as AddressInfo).port : 0;
     if (front) { for (const s of this.tlsSockets) s.destroy(); front.close(); }
@@ -386,14 +388,14 @@ export class FakeHa {
   /** Revoke every refresh token (like deleting the X4 display's tokens in the HA profile page). */
   revokeAll() { this.refresh.clear(); this.access.clear(); for (const c of this.conns) c.ws.close(); }
 
-  /** Replace the generated `*.bulk_*` entities with `n` new ones (0 = remove them): the big house (#57). */
+  /** Replace the generated `*.bulk_*` entities with `n` new ones (0 = remove them): the big house (eink-ha-os#57). */
   bigHouse(n: number) {
     for (const id of [...this.states.keys()]) if (id.includes('.bulk_')) this.states.delete(id);
     for (const [id, state, attributes] of bigHouseEntities(n)) this.states.set(id, { entity_id: id, state, attributes, last_changed: nowIso(), last_updated: nowIso() });
   }
 
   /**
-   * A Frank Energie-like price sensor (#149): ~8.5 KB of JSON per 96 quarter-hour entries in `prices` (today and the
+   * A Frank Energie-like price sensor (eink-ha-os#149): ~8.5 KB of JSON per 96 quarter-hour entries in `prices` (today and the
    * following days) plus today's again in `prices_today`. Prices in €/kWh with 6 decimals, local offsets.
    */
   priceSensor(id = 'sensor.frank_energie_prices_current_electricity_price_all_in', days = 2): EntityState {
@@ -464,7 +466,7 @@ export class FakeHa {
     this.setState('sensor.home_power', String(home));
     this.setState('sensor.grid_power', String(home - solar - num('sensor.battery_power')));
     const rain = this.states.get('binary_sensor.rain_expected'), first = (rain?.attributes.forecast as { datetime?: string }[] | undefined)?.[0]?.datetime;
-    if (rain && Date.now() - Date.parse(String(first)) >= 2 * 3_600_000 + 5 * 60_000) this.setState(rain.entity_id, rain.state, { forecast: rainForecast(Date.now()) });   // #283: a new nowcast every 5 min
+    if (rain && Date.now() - Date.parse(String(first)) >= 2 * 3_600_000 + 5 * 60_000) this.setState(rain.entity_id, rain.state, { forecast: rainForecast(Date.now()) });   // eink-ha-os#283: a new nowcast every 5 min
     if (Math.random() < 0.3) {
       const z = ZONE_LIST[Math.floor(Math.random() * ZONE_LIST.length)];
       const st = this.states.get('climate.' + z.id)!;
@@ -683,7 +685,7 @@ export class FakeHa {
             const ids = [...this.states.keys()];
             result = JSON.stringify({ climate: ids.filter((id) => id.startsWith('climate.')), lights: ids.filter((id) => id.startsWith('light.')).map((id) => [id, this.areaOf.get(id) ?? '']) });
           } else if (t.includes('device_entities')) result = JSON.stringify(this.deviceDiscovery(t));
-          else if (t.includes('input_boolean')) {   // entity picker list (GET /api/v1/ha/entities, #150): {t, e: [[id, name, unit, state, area_id], …]}
+          else if (t.includes('input_boolean')) {   // entity picker list (GET /api/v1/ha/entities, eink-ha-os#150): {t, e: [[id, name, unit, state, area_id], …]}
             result = JSON.stringify(entityListAnswer(this.states.values(), (id) => this.areaOf.get(id) ?? ''));
           }
           else return err('template_error', 'Fake HA only renders the X4 discovery templates');
@@ -749,10 +751,10 @@ export class FakeHa {
     } else if (domain === 'scene' && service === 'turn_on') {   // like HA: a scene's state is when it last ran
       if (ids.includes('scene.all_off')) for (const l of LIGHT_LIST) if (this.states.get('light.' + l.id)?.state === 'on') this.setState('light.' + l.id, 'off', {});
       for (const id of ids) this.setState(id, nowIso(), {});
-    } else if (domain === 'script' && service === 'turn_on') {   // #146: script.good_night turns the demo lights off
+    } else if (domain === 'script' && service === 'turn_on') {   // eink-ha-os#146: script.good_night turns the demo lights off
       if (ids.includes('script.good_night')) for (const l of LIGHT_LIST) if (this.states.get('light.' + l.id)?.state === 'on') this.setState('light.' + l.id, 'off', {});
       for (const id of ids) this.setState(id, 'off', { last_triggered: nowIso() });
-    } else if (domain === 'media_player') {   // #319: the demo speaker steps through DEMO_MEDIA.queue; volume like HA (step 0.1)
+    } else if (domain === 'media_player') {   // eink-ha-os#319: the demo speaker steps through DEMO_MEDIA.queue; volume like HA (step 0.1)
       const q = DEMO_MEDIA.queue;
       for (const id of ids) {
         const cur = this.states.get(id)!, a = cur.attributes, at = Math.max(0, q.findIndex((x) => x.title === a.media_title));
@@ -766,12 +768,12 @@ export class FakeHa {
         else if (service === 'play_media') this.setState(id, 'playing', { media_title: String(data.media_content_id), media_artist: '', media_content_type: data.media_content_type, media_position: 0 });
         else return err('not_found', 'Service ' + domain + '.' + service + ' not found.');
       }
-    } else if (domain === 'weather' && service === 'get_forecasts') {   // #283: a service with a response, like HA
+    } else if (domain === 'weather' && service === 'get_forecasts') {   // eink-ha-os#283: a service with a response, like HA
       if (!m.return_response) return err('service_validation_error', 'Service call requires responses but caller did not ask for responses');
       const out: Record<string, { forecast: unknown[] }> = {};
       for (const id of ids) { const f = weatherForecast(String(data.type), Date.now()); if (!f) return err('service_validation_error', 'Weather entity does not support \'' + data.type + '\' forecast'); out[id] = { forecast: f }; }
       return ok({ context: { id: randomToken(12), parent_id: null, user_id: null }, response: out });
-    } else if (domain === 'calendar' && service === 'get_events') {   // #316: the demo calendars, events overlapping the window
+    } else if (domain === 'calendar' && service === 'get_events') {   // eink-ha-os#316: the demo calendars, events overlapping the window
       if (!m.return_response) return err('service_validation_error', 'Service call requires responses but caller did not ask for responses');
       const from = Date.parse(String(data.start_date_time ?? '')), to = Date.parse(String(data.end_date_time ?? ''));
       if (!Number.isFinite(from) || !Number.isFinite(to)) return err('invalid_format', 'start_date_time and end_date_time are required here');

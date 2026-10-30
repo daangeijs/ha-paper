@@ -1,4 +1,4 @@
-// Web console (`www` partition, www.bin) rewritten over the air (#350), so console and firmware never drift.
+// Web console (`www` partition, www.bin) rewritten over the air (eink-ha-os#350), so console and firmware never drift.
 //  * The console carries its version (/www/version.txt, scripts/build_ui.py = X4_FW_VERSION of the same build).
 //    version != firmwareVersion() → stale: the web server shows "console out of date" at / (old console one click on).
 //  * Sources: the release of the running version (net/ota.cpp, net task in steps, only once the image is confirmed so
@@ -18,7 +18,7 @@
 namespace x4::net {
 
 struct WwwInfo {
-  std::string version;   // "" = no version.txt (console older than #350) or not mounted
+  std::string version;   // "" = no version.txt (console older than eink-ha-os#350) or not mounted
   std::string sha256;    // of the whole partition; "" until known (hashed once per image, cached in userdata)
   std::string message;   // why the last write failed
   const char* state;     // current | stale | missing | updating | failed

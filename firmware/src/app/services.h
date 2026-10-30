@@ -28,16 +28,16 @@ struct NetStatus {
   int otaProgressPct = 0;
   std::vector<std::string> otaNotes;
   bool otaChecksOff = false;   // build has no release repo (X4_OTA_REPO placeholder): no checks, local upload only
-  // Settings › Updates status line (#250, core/ota_status.h)
+  // Settings › Updates status line (eink-ha-os#250, core/ota_status.h)
   bool otaChecking = false;         // a check is queued or running
   bool otaChecked = false;          // a check finished since boot (its time can be unknown: no clock yet)
   int64_t otaLastCheckEpoch = 0;    // last check GitHub answered (0 = never / clock unknown)
   OtaErr otaCheckErr = OtaErr::None;   // the last check failed: why
   std::string otaCheckMsg;          // … and the firmware's message (shown for OtaErr::Other)
   std::string pairingCode;   // shown on display while not linked (4 chars, 10 min)
-  std::string language;      // HA get_config `language` as "en" | "nl" (#98, core/strings.h); "" = not known yet (English)
-  std::string currency;      // HA get_config `currency` (ISO 4217, #147); "" = not known yet (€)
-  std::string numberFormat;  // HA profile number_format (#110, core numFormatOf); "" = unset/unknown: the language decides
+  std::string language;      // HA get_config `language` as "en" | "nl" (eink-ha-os#98, core/strings.h); "" = not known yet (English)
+  std::string currency;      // HA get_config `currency` (ISO 4217, eink-ha-os#147); "" = not known yet (€)
+  std::string numberFormat;  // HA profile number_format (eink-ha-os#110, core numFormatOf); "" = unset/unknown: the language decides
 };
 
 class Services {

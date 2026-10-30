@@ -30,7 +30,7 @@ void otaLoopAlive();                      // every App loop() pass (UI heartbeat
 void otaBegin();                          // boot: detect PENDING_VERIFY
 void otaLoop();                           // net task: daily auto check, verify deadlines
 bool otaCheck(std::string& err);          // blocking; updates Hub status (Available / UpToDate)
-// Settings › Updates › Check and POST /ota/check (#250): marks the Hub status checking at once (GET /ota right after
+// Settings › Updates › Check and POST /ota/check (eink-ha-os#250): marks the Hub status checking at once (GET /ota right after
 // the 202 says so, the display shows "Checking…") and queues otaCheck on the net task. false = checks off or one runs.
 bool otaRequestCheck();
 // Blocking download+install of the release found by otaCheck. Returns false (err) without touching the
@@ -48,7 +48,7 @@ double otaAvailableSizeMb();
 bool otaBatteryOk(std::string* why);      // ≥ 30 % (or charging)
 
 // Local upload (AsyncTCP task). sha256Hex optional ("" = rely on the image's own checksum + app header).
-// version: from ?version= or a manifest part sent first ("" = unknown); shown on the install face (#237)
+// version: from ?version= or a manifest part sent first ("" = unknown); shown on the install face (eink-ha-os#237)
 bool otaUploadBegin(size_t size, const std::string& version, std::string& err);
 void otaUploadSetVersion(const std::string& version);   // manifest part arrived after the image started
 std::string otaUploadVersion(const std::string& raw);    // printable, <= 64 chars, leading "v" dropped; else ""

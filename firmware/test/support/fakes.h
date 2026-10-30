@@ -70,7 +70,7 @@ inline bool writePng(const Framebuffer& fb, const std::string& path) {
   return true;
 }
 
-struct RefreshEvent { bool full; Rect r; bool fast = false; };   // full = clean; fast = navigation (#197)
+struct RefreshEvent { bool full; Rect r; bool fast = false; };   // full = clean; fast = navigation (eink-ha-os#197)
 
 class FakeDisplay : public Display {
  public:
@@ -115,7 +115,7 @@ class FakeBoard : public Board {
   void tap(int x, int y) { InputEvent e{}; e.kind = InputEvent::Kind::Tap; e.x = int16_t(x); e.y = int16_t(y); queue.push_back(e); }
   void key(Key k) { InputEvent e{}; e.kind = InputEvent::Kind::KeyDown; e.key = k; queue.push_back(e); }
   void swipe(int dir) { InputEvent e{}; e.kind = InputEvent::Kind::Swipe; e.dir = int8_t(dir); queue.push_back(e); }
-  void drag(int x, int y, int ex, int ey, bool fast = false) {   // fast: the board reports a swipe (#351)
+  void drag(int x, int y, int ex, int ey, bool fast = false) {   // fast: the board reports a swipe (eink-ha-os#351)
     InputEvent e{};
     e.kind = fast ? InputEvent::Kind::Swipe : InputEvent::Kind::Drag;
     e.x = int16_t(x); e.y = int16_t(y); e.ex = int16_t(ex); e.ey = int16_t(ey);

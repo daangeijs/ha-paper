@@ -3,7 +3,7 @@
 node_modules
 dist/
 dist-device-ui/
-backups/
+/backups
 *.bin
 !firmware/test/**/*.bin
 .DS_Store
@@ -25,4 +25,4 @@ __pycache__/
 *.pyc
 
 # soak collector output (make soak, firmware/tools/soak.py)
-/soak/
+/soak

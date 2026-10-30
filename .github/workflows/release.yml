@@ -26,7 +26,7 @@ jobs:
       - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
         with: { python-version: '3.12' }
       # The tag's section in RELEASE_NOTES.md: its bullets → manifest.json notes (the device's Updates screen) and the
-      # release body. Runs first: a missing section or a line the device would cut fails the release (#251).
+      # release body. Runs first: a missing section or a line the device would cut fails the release (eink-ha-os#251).
       - name: Release notes (RELEASE_NOTES.md section → manifest.json notes)
         run: python3 firmware/tools/release_notes.py --version "${GITHUB_REF_NAME#v}" --notes-out notes.txt --body-out notes-section.md
       - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
@@ -71,7 +71,7 @@ jobs:
           (cd dist/flasher && zip -r -X "../ha-paper-flasher-$v.zip" .)
           unzip -l "dist/ha-paper-flasher-$v.zip"
       # GitHub Pages: the site built above plus every published beta/stable release, so the page can install any of
-      # them (#239). Browsers can't fetch release assets (no CORS), so each version's files sit in firmware/<version>/
+      # them (eink-ha-os#239). Browsers can't fetch release assets (no CORS), so each version's files sit in firmware/<version>/
       # next to the page, listed in firmware/versions.json. This release isn't published yet: its files come from dist/.
       # Older releases missing an asset or failing SHA256SUMS are skipped with a warning.
       - name: Pages site (public repo, beta/stable)
@@ -213,7 +213,7 @@ jobs:
           body_path: body.md
           fail_on_unmatched_files: true
 
-  # Browser flasher on GitHub Pages (hapaper.daangeijs.nl); the private repo and alpha tags never deploy.
+  # Browser flasher on GitHub Pages (hapaper.daangeijs.nl); forks and alpha tags never deploy.
   pages:
     needs: release
     if: github.repository == 'daangeijs/ha-paper' && !contains(github.ref_name, 'alpha')

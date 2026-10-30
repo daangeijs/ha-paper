@@ -11,7 +11,7 @@ export const PRICES = [0.22, 0.21, 0.20, 0.20, 0.21, 0.23, 0.27, 0.33, 0.35, 0.3
 export const USAGE = [0.25, 0.2, 0.2, 0.2, 0.2, 0.25, 0.45, 0.8, 0.6, 0.4, 0.35, 0.4, 0.5, 0.4, 0.35, 0.4, 0.6, 1.1, 1.3, 0.9, 0.7, 0.6, 0.4, 0.3];
 export const SOLAR = Array.from({ length: 24 }, (_, h) => +(Math.max(0, Math.sin(((h + 0.5 - 8) / 10.5) * Math.PI)) * 2.4).toFixed(2));
 
-/** presets: HA `preset_modes` (tado: home / away); the garage's plain thermostat has none (#148). */
+/** presets: HA `preset_modes` (tado: home / away); the garage's plain thermostat has none (eink-ha-os#148). */
 export type Zone = { id: string; name: string; cur: number; set: number; presets: string[] };
 export const ZONE_LIST: Zone[] = ([
   ['living', 'Living room', 20.4, 21], ['kitchen', 'Kitchen', 20.1, 20], ['dining', 'Dining room', 19.6, 20], ['hall', 'Hallway', 17.5, 17],
@@ -100,7 +100,7 @@ export type Derived = HaData & { usedToday: number; solarToday: number; heatingC
 
 /** `label`: English (config defaults, HA names); the display shows tr(lang, lk). */
 type EntDef = { label: string; lk: StrKey; get: (d: Derived, lang?: Lang) => { v: string; u: string; sub: string } };
-/** Stat tile subtitle (issue #28, spec/test-vectors/stat-sub.json): a fact or nothing, never filler like "Right now".
+/** Stat tile subtitle (issue eink-ha-os#28, spec/test-vectors/stat-sub.json): a fact or nothing, never filler like "Right now".
  *  Power tiles add today's energy; grid/battery keep the direction because the value is unsigned (kw()). */
 const today = (kwh: number, lg: Lang) => tr(lg, 'kwhToday', fmtNum(kwh, 'kWh'));
 const cheapAvg = () => PRICES.slice(CHEAP, CHEAP + 3).reduce((a, b) => a + b, 0) / 3;
@@ -131,39 +131,39 @@ export const APPS: App[] = [
 export const APP: Record<string, App> = Object.fromEntries(APPS.map((a) => [a.id, a]));
 
 /** `label`: English (config, console defaults); the display and console show tr(lang, lk). */
-/** `info`: what the setting does (#190): the console's (i); the device tile shows title + value only (#310). */
+/** `info`: what the setting does (eink-ha-os#190): the console's (i); the device tile shows title + value only (eink-ha-os#310). */
 export type SettingDef = { label: string; lk: StrKey; info?: StrKey; fmt: (v: any, lang?: Lang) => string; step?: number; min?: number; max?: number; steps?: (string | number | boolean)[] };
 const SETTING_DEFS: Record<string, Omit<SettingDef, 'label'>> = {
   brightness: { lk: 'setBrightness', fmt: (v, lg = 'en') => (v === 0 ? tr(lg, 'off') : v + '%'), step: 10, min: 0, max: 100 },
   warmth: { lk: 'setWarmth', fmt: (v) => v + '%', step: 10, min: 0, max: 100 },
-  // Front light timeout (#220), seconds; 0 = never.
+  // Front light timeout (eink-ha-os#220), seconds; 0 = never.
   lightTimeout: { lk: 'setLightTimeout', info: 'infoLightTimeout', fmt: (v, lg = 'en') => (v === 0 ? tr(lg, 'never') : v < 60 ? tr(lg, 'afterSec', v) : tr(lg, 'afterMin', v / 60)), steps: [30, 60, 120, 300, 0] },
   returnHome: { lk: 'setReturnHome', fmt: (v, lg = 'en') => (v === 0 ? tr(lg, 'never') : tr(lg, 'afterMin', v)), steps: [0, 1, 5, 15] },
   standby: { lk: 'setStandby', info: 'infoStandby', fmt: (v, lg = 'en') => (v === 0 ? tr(lg, 'never') : tr(lg, 'afterMin', v)), steps: [0, 10, 30, 60] },
   clock: { lk: 'setClock', fmt: (v, lg = 'en') => tr(lg, v === '24' ? 'hour24' : 'hour12'), steps: ['24', '12'] },
   interval: { lk: 'setInterval', info: 'infoInterval', fmt: (v, lg = 'en') => tr(lg, 'everySec', v), steps: [5, 10, 30, 60] },
-  // Scheduled clean refresh (#26), minutes. Older screens.yaml files name the tile `fullEvery` (SETTING_CFG maps it here).
+  // Scheduled clean refresh (eink-ha-os#26), minutes. Older screens.yaml files name the tile `fullEvery` (SETTING_CFG maps it here).
   cleanEvery: { lk: 'setCleanEvery', info: 'infoCleanEvery', fmt: (v, lg = 'en') => (v === 60 ? tr(lg, 'hourly') : v === 120 ? tr(lg, 'every2h') : tr(lg, 'everyMin', v)), steps: [30, 60, 120] },
   style: { lk: 'setStyle', fmt: (v, lg = 'en') => tr(lg, v === 'sleek' ? 'styleSleek' : 'styleClassic'), steps: ['classic', 'sleek'] },
   typeface: { lk: 'setTypeface', fmt: (v) => ({ archivo: 'Archivo', bricolage: 'Bricolage', fraunces: 'Fraunces', geist: 'Geist' } as Record<string, string>)[v] || String(v), steps: ['archivo', 'bricolage', 'fraunces', 'geist'] },
   surface: { lk: 'setSurface', fmt: (v, lg = 'en') => tr(lg, v === 'dots' ? 'surfDots' : 'surfDither'), steps: ['dither', 'dots'] },
-  // Power (ROBUSTNESS_PLAN Phase 3, src/core/power.ts; glance #10). GET/PUT /settings `display`.
+  // Power (ROBUSTNESS_PLAN Phase 3, src/core/power.ts; glance eink-ha-os#10). GET/PUT /settings `display`.
   powerSave: { lk: 'setPowerSave', info: 'infoPowerSave', fmt: (v, lg = 'en') => { const k = ({ off: 'psOff', standby: 'psStandby', glance: 'psGlance' } as Record<string, StrKey>)[v]; return k ? tr(lg, k) : String(v); }, steps: ['glance', 'standby', 'off'] },
-  // Quiet hours (#295, core/quiet.ts): replaces Display › Night mode and the "Sleep at night" power mode.
+  // Quiet hours (eink-ha-os#295, core/quiet.ts): replaces Display › Night mode and the "Sleep at night" power mode.
   quiet: { lk: 'setQuiet', info: 'infoQuiet', fmt: (v, lg = 'en') => (v === 'off' ? tr(lg, 'off') : v.split('-').map((x: string) => pad(+x)).join('–')), steps: ['off', '22-06', '23-07', '00-06'] },
-  // Good morning page (#330, core/morning.ts): on / off, under Quiet hours.
+  // Good morning page (eink-ha-os#330, core/morning.ts): on / off, under Quiet hours.
   morning: { lk: 'setMorning', info: 'infoMorning', fmt: (v, lg = 'en') => tr(lg, v ? 'on' : 'off'), steps: [true, false] },
   wakeEvery: { lk: 'setWakeEvery', info: 'infoWakeEvery', fmt: (v) => v + ' min', steps: [15, 30, 60] },
   liveMin: { lk: 'setLiveMin', info: 'infoLiveMin', fmt: (v) => v + ' min', steps: [1, 3, 5, 10] },
 };
 export const SETTINGS: Record<string, SettingDef> = Object.fromEntries(Object.entries(SETTING_DEFS).map(([k, d]) => [k, { ...d, label: tr('en', d.lk) }]));
-/** Settings tile key (screens.yaml) → emulator cfg key, where they differ. Legacy `fullEvery` tiles step the clean interval (#26, #44). */
+/** Settings tile key (screens.yaml) → emulator cfg key, where they differ. Legacy `fullEvery` tiles step the clean interval (eink-ha-os#26, eink-ha-os#44). */
 export const SETTING_CFG: Record<string, string> = { fullEvery: 'cleanEvery' };
 SETTINGS.fullEvery = SETTINGS.cleanEvery;
 
 // ---------- Home Assistant entity registry (mock): what GET /api/v1/ha/entities lists for the console's entity picker.
-/** `state`: HA's state when the display read the list (absent from firmware before #84). `dp`: HA display_precision (#85). */
-/** One GET /ha/entities row; `area`: HA area id (entity or device area, #127), absent = none. */
+/** `state`: HA's state when the display read the list (absent from firmware before eink-ha-os#84). `dp`: HA display_precision (eink-ha-os#85). */
+/** One GET /ha/entities row; `area`: HA area id (entity or device area, eink-ha-os#127), absent = none. */
 export type HaEntity = { id: string; name: string; unit: string; state?: string; dp?: number; area?: string };
 /** Extra HA entities (beyond the logical sensors and the lights) with a mock state. `dc`: HA device_class. */
 export const EXTRA_ENTITIES: (HaEntity & { state: string; dc?: string })[] = [
@@ -179,30 +179,30 @@ export const EXTRA_ENTITIES: (HaEntity & { state: string; dc?: string })[] = [
   { id: 'switch.garden_pump', name: 'Garden pump', unit: '', state: 'off' },
   { id: 'input_boolean.guest_mode', name: 'Guest mode', unit: '', state: 'off' },
   { id: 'fan.attic', name: 'Attic fan', unit: '', state: 'on' },
-  { id: 'scene.movie_night', name: 'Movie night', unit: '', state: 'unknown' },   // scene tile (#146): unknown until it first runs
+  { id: 'scene.movie_night', name: 'Movie night', unit: '', state: 'unknown' },   // scene tile (eink-ha-os#146): unknown until it first runs
   { id: 'script.good_night', name: 'Good night', unit: '', state: 'off' },
-  { id: 'sensor.garden_temperature', name: 'Garden temperature', unit: '°C', state: 'unavailable' },   // a Zigbee sensor with a flat battery (#86)
-  // forecast series (#283): a rain nowcast with a `forecast` list of 5-minute {datetime, precipitation} entries ±2 h,
+  { id: 'sensor.garden_temperature', name: 'Garden temperature', unit: '°C', state: 'unavailable' },   // a Zigbee sensor with a flat battery (eink-ha-os#86)
+  // forecast series (eink-ha-os#283): a rain nowcast with a `forecast` list of 5-minute {datetime, precipitation} entries ±2 h,
   // and a weather entity answering weather.get_forecasts (fake HA; the emulator draws core demoForecast)
   { id: 'binary_sensor.rain_expected', name: 'Rain expected', unit: '', state: 'on' },
-  { id: 'sensor.rain_rate', name: 'Rain rate', unit: 'mm/h', state: '0.4' },   // #307: a rain gauge, the past of the nowcast
+  { id: 'sensor.rain_rate', name: 'Rain rate', unit: 'mm/h', state: '0.4' },   // eink-ha-os#307: a rain gauge, the past of the nowcast
   { id: 'weather.home', name: 'Home weather', unit: '', state: 'cloudy' },
-  { id: 'media_player.living_room', name: 'Living room speaker', unit: '', state: 'playing' },   // now playing tile (#319)
-  // agenda / next tiles (#316): calendars answering calendar.get_events (fake HA; the emulator draws core demoEvents)
+  { id: 'media_player.living_room', name: 'Living room speaker', unit: '', state: 'playing' },   // now playing tile (eink-ha-os#319)
+  // agenda / next tiles (eink-ha-os#316): calendars answering calendar.get_events (fake HA; the emulator draws core demoEvents)
   { id: 'calendar.family', name: 'Family', unit: '', state: 'off' },
   { id: 'calendar.work', name: 'Work', unit: '', state: 'off' },
-  // empty-house sleep (#331): persons in the Home zone (0 = nobody home), and an alarm for the Nobody home face
+  // empty-house sleep (eink-ha-os#331): persons in the Home zone (0 = nobody home), and an alarm for the Nobody home face
   { id: 'zone.home', name: 'Home', unit: '', state: '1' },
   { id: 'alarm_control_panel.house', name: 'House alarm', unit: '', state: 'disarmed' },
 ];
-/** The demo speaker's queue (#319): next / previous step through it; volume 0–1 like HA's volume_level; features = HA
- *  supported_features (has VOLUME_SET: the tile's volume slider, #351). */
+/** The demo speaker's queue (eink-ha-os#319): next / previous step through it; volume 0–1 like HA's volume_level; features = HA
+ *  supported_features (has VOLUME_SET: the tile's volume slider, eink-ha-os#351). */
 export const DEMO_MEDIA = { id: 'media_player.living_room', volume: 0.32, features: 152_511, queue: [
   { title: 'Evening Radio Hour', artist: 'Local station · live' },
   { title: 'Clair de lune', artist: 'Claude Debussy' },
   { title: 'So What', artist: 'Miles Davis' },
 ] };
-/** Bin day demo sensors (#317), `days` from today: afvalwijzer-style date states and waste_collection_schedule-style
+/** Bin day demo sensors (eink-ha-os#317), `days` from today: afvalwijzer-style date states and waste_collection_schedule-style
  *  days-to states (state = days, attribute daysTo). The emulator and the fake HA date them from now (demoBinState). */
 export const DEMO_BINS: { id: string; name: string; days: number; shape: 'date' | 'days' }[] = [
   { id: 'sensor.afval_papier', name: 'Afval papier', days: 1, shape: 'date' },
@@ -216,15 +216,47 @@ export function demoBinState(b: (typeof DEMO_BINS)[number], now: Date): { state:
   const d = new Date(now.getFullYear(), now.getMonth(), now.getDate() + b.days);
   return { state: d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0'), attrs: { device_class: 'date' } };
 }
+/** List from attributes demo (eink-ha-os#332): sensor.rare_birds_nearby as the ha-waarneming 0.2.0 integration fills it (eink-ha-os#375): the
+ *  recipe's fields (docs/recipes/rare-birds.md) plus display-ready `title`, `subtitle` and `ts` (epoch seconds).
+ *  Made-up places; `min` = minutes before now, `date` = a date without a time that many days back. */
+export const DEMO_BIRDS = { id: 'sensor.rare_birds_nearby', name: 'Rare birds nearby', radius_km: 10, min_rarity: 3, days: 3,
+  attribution: 'Data: waarneming.nl / observation.org', sightings: [
+    { species: 'Klapekster', scientific: 'Lanius excubitor', count: 1, place: 'Heideveld Oost', distance_km: 3.2, min: 95, rarity: 3, region: 'Rond huis' },
+    { species: 'Grote zilverreiger', scientific: 'Ardea alba', count: 2, place: 'Polder De Weide', distance_km: 5.8, min: 160, rarity: 3, region: 'Rond huis' },
+    { species: 'Roodkeelduiker', scientific: 'Gavia stellata', count: 1, place: 'Plas Noordhoek', distance_km: 7.4, min: 340, rarity: 4, region: 'Plassengebied' },
+    { species: 'Zwarte ooievaar ?', scientific: 'Ciconia nigra', count: 1, place: 'Beekdal Zuid', distance_km: 9.1, min: 1500, rarity: 4, region: 'Rond huis' },
+    { species: 'Taigaboomkruiper', scientific: 'Certhia familiaris', count: 1, place: 'Landgoed Ter Horst', distance_km: 6.0, date: 2, rarity: 3, region: 'Plassengebied' },
+    { species: 'Kleine zwaan', scientific: 'Cygnus columbianus', count: 6, place: 'Uiterwaard West', distance_km: 8.7, min: 3900, rarity: 3, region: 'Plassengebied' },
+    { species: 'Velduil', scientific: 'Asio flammeus', count: 1, place: 'Heideveld Oost', distance_km: 3.4, min: 4300, rarity: 4, region: 'Rond huis' },
+  ] as { species: string; scientific: string; count: number; place: string; distance_km: number; min?: number; date?: number; rarity: number; region: string }[] };
+const isoLocal = (t: Date, dateOnly: boolean): string => {
+  const p = (n: number) => String(n).padStart(2, '0');
+  const d = t.getFullYear() + '-' + p(t.getMonth() + 1) + '-' + p(t.getDate());
+  if (dateOnly) return d;
+  const off = -t.getTimezoneOffset();
+  return d + 'T' + p(t.getHours()) + ':' + p(t.getMinutes()) + ':00' + (off < 0 ? '-' : '+') + p(Math.floor(Math.abs(off) / 60)) + ':' + p(Math.abs(off) % 60);
+};
+/** The demo bird sensor's state and attributes at `now` (sightings dated back from now, newest first). */
+export function demoBirds(now: Date): { state: string; attrs: Record<string, unknown> } {
+  const sightings = DEMO_BIRDS.sightings.map(({ min, date, ...b }) => {
+    const t = date != null ? new Date(now.getFullYear(), now.getMonth(), now.getDate() - date) : new Date(now.getTime() - (min ?? 0) * 60_000);
+    return { ...b, certain: !b.species.endsWith('?'), observed_at: isoLocal(t, date != null), url: 'https://waarneming.nl/observation/0/',
+      title: (b.count > 1 ? b.count + '× ' : '') + b.species, subtitle: b.place + ' · ' + String(b.distance_km.toFixed(1)).replace('.', ',') + ' km',
+      ts: Math.floor(t.getTime() / 1000) };
+  });
+  return { state: String(sightings.length), attrs: { friendly_name: DEMO_BIRDS.name, icon: 'mdi:bird', unit_of_measurement: 'waarnemingen', radius_km: DEMO_BIRDS.radius_km, min_rarity: DEMO_BIRDS.min_rarity,
+    days: DEMO_BIRDS.days, attribution: DEMO_BIRDS.attribution, sightings } };
+}
 const ENT_UNIT: Record<string, string> = { 'sensor.living_temperature': '°C' };
 /** Everything the mock HA offers to the picker: logical sensors, lights, extras. */
 export const HA_ENTITIES: HaEntity[] = [
   ...Object.keys(ENT).map((id) => ({ id, name: ENT[id].label, unit: ENT_UNIT[id] || (/_today$/.test(id) ? 'kWh' : /_power$/.test(id) ? 'W' : '') })),
   { id: 'sensor.home_battery_soc', name: 'Home battery', unit: '%' },
   ...LIGHT_LIST.map((l) => ({ id: 'light.' + l.id, name: ROOM_NAME[l.room] + ' · ' + l.name, unit: '', area: l.room })),
-  ...ZONE_LIST.map((z) => ({ id: 'climate.' + z.id, name: z.name, unit: '°C', ...(ROOM_NAME[z.id] ? { area: z.id } : {}) })),   // zoneList picker (#127)
+  ...ZONE_LIST.map((z) => ({ id: 'climate.' + z.id, name: z.name, unit: '°C', ...(ROOM_NAME[z.id] ? { area: z.id } : {}) })),   // zoneList picker (eink-ha-os#127)
   ...EXTRA_ENTITIES.map(({ id, name, unit }) => ({ id, name, unit })),
-  ...DEMO_BINS.map(({ id, name }) => ({ id, name, unit: '' })),   // #317
+  ...DEMO_BINS.map(({ id, name }) => ({ id, name, unit: '' })),   // eink-ha-os#317
+  { id: DEMO_BIRDS.id, name: DEMO_BIRDS.name, unit: 'waarnemingen' },   // eink-ha-os#332
 ];
 
 /** Web console widget palette. Entity widgets ("Home Assistant") are added empty-handed: the console selects them so the user picks the entity. */
@@ -243,23 +275,24 @@ export const PALETTE = [
   { kind: 'gauge', label: 'Home battery', w: { type: 'gauge' } },
   { kind: 'price', label: 'Price now', w: { type: 'price' } },
   { kind: 'clock', label: 'Clock (2 wide)', w: { type: 'clock', cs: 2 } },
-  { kind: 'clock', label: 'Weather (full)', w: { type: 'weather', cs: 4, rs: 2 } },   // #318
+  { kind: 'clock', label: 'Weather (full)', w: { type: 'weather', cs: 4, rs: 2 } },   // eink-ha-os#318
   { kind: 'clock', label: 'Weather (top half)', w: { type: 'weather', cs: 4 } },
   { kind: 'chart', label: 'Prices (4 wide)', w: { type: 'bars', series: 'prices', cs: 4 } },
   { kind: 'chart', label: 'Usage (2 wide)', w: { type: 'bars', series: 'usage', cs: 2 } },
   { kind: 'chart', label: 'Solar (2 wide)', w: { type: 'bars', series: 'solar', cs: 2 } },
-  { kind: 'chart', label: 'History (4 wide)', w: { type: 'history', cs: 4 } },   // #267: any numeric sensor over a window
+  { kind: 'chart', label: 'History (4 wide)', w: { type: 'history', cs: 4 } },   // eink-ha-os#267: any numeric sensor over a window
   { kind: 'climate', label: 'All rooms (full)', w: { type: 'zoneList', cs: 4, rs: 2 } },
   { kind: 'climate', label: 'Room thermostat (tall)', w: { type: 'thermo', rs: 2 } },
   { kind: 'light', label: 'All lights (full)', w: { type: 'lightList', cs: 4, rs: 2 } },
-  { kind: 'light', label: 'Light', w: { type: 'switch' }, prefer: 'light' },   // lights first in the picker (#184)
+  { kind: 'light', label: 'Light', w: { type: 'switch' }, prefer: 'light' },   // lights first in the picker (eink-ha-os#184)
   { kind: 'scene', label: 'Scene or script', w: { type: 'scene', cs: 2 } },
   { kind: 'scene', label: 'All lights off', w: { type: 'scene', scene: 'all_off', cs: 2 } },
   { kind: 'travel', label: 'Route', w: { type: 'route', cs: 2 } },
-  { kind: 'media', label: 'Now playing', w: { type: 'media', cs: 2 } },   // #319
-  { kind: 'clock', label: 'Bin day', w: { type: 'bins', cs: 2 } },   // #317: the console selects it to pick the sensors
-  { kind: 'clock', label: 'Guest Wi-Fi', w: { type: 'guestWifi', cs: 2, rs: 2 } },   // #329: the console selects it for the network
-  { kind: 'calendar', label: 'Agenda (tall)', w: { type: 'agenda', cs: 2, rs: 2 } },   // #316: the console then asks for calendars
+  { kind: 'media', label: 'Now playing', w: { type: 'media', cs: 2 } },   // eink-ha-os#319
+  { kind: 'clock', label: 'Bin day', w: { type: 'bins', cs: 2 } },   // eink-ha-os#317: the console selects it to pick the sensors
+  { kind: 'ha', label: 'List from attributes', w: { type: 'attrList', cs: 2, rs: 2 } },   // eink-ha-os#332: the console selects it to pick the sensor
+  { kind: 'clock', label: 'Guest Wi-Fi', w: { type: 'guestWifi', cs: 2, rs: 2 } },   // eink-ha-os#329: the console selects it for the network
+  { kind: 'calendar', label: 'Agenda (tall)', w: { type: 'agenda', cs: 2, rs: 2 } },   // eink-ha-os#316: the console then asks for calendars
   { kind: 'calendar', label: 'Next event (2 wide)', w: { type: 'next', cs: 2 } },
 ];
 export const PAL_GROUPS: [string, string][] = [['ha', 'Home Assistant'], ['stat', 'Energy numbers'], ['price', 'Energy'], ['gauge', 'Energy'], ['chart', 'Charts'], ['clock', 'Basics'], ['travel', 'Travel'], ['light', 'Lights'], ['scene', 'Lights'], ['climate', 'Heating'], ['media', 'Media'], ['calendar', 'Calendar']];
@@ -271,6 +304,7 @@ export const SCHEMA: { type: string; fields: string }[] = [
   { type: 'switch', fields: 'entity: switch.… | light.… | input_boolean.… | fan.…' }, { type: 'zoneList', fields: 'all climate entities (full screen)' },
   { type: 'thermo', fields: 'zone: climate object id, label' }, { type: 'history', fields: 'entity: sensor.… | input_number.… | number.…, window, bucket, agg, style, min, max, label; attribute, value, time, ahead (a list in an attribute); weather.…, forecast: hourly | daily' }, { type: 'scene', fields: 'entity: scene.… | script.…, label; none = all lights off' }, { type: 'media', fields: 'entity: media_player.…, label, favorites: Name=type:id; Name=script.…' },
   { type: 'bins', fields: 'entities: sensor.… (one per bin), labels: sensor.…=Name; …, tonight: 17, label' },
+  { type: 'attrList', fields: 'entity: sensor.…, attribute: sightings, title: title, subtitle: subtitle, time: ts, empty, label' },
   { type: 'guestWifi', fields: 'ssid, password, security: WPA | WEP | nopass, hidden: true, password_entity: input_text.… | text.… | sensor.…' },
   { type: 'weather', fields: 'entity: weather.…, label; cs: 4, rs: 2 (full) | 1 (top half)' },
 ];

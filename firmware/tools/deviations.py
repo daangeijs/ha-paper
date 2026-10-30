@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Index of firmware/deviations/ and emulator/deviations/ in each DEVIATIONS.md (issue #117).
+"""Index of firmware/deviations/ and emulator/deviations/ in each DEVIATIONS.md (issue eink-ha-os#117).
 
 One file per topic, NNN-slug.md (NNN = issue number, 000 = none), so two PRs never edit the same lines. Everything
 below MARKER in DEVIATIONS.md is generated: one line per file, title from its first line. `make deviations` writes,

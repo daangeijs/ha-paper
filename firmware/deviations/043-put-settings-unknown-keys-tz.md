@@ -6,5 +6,5 @@
   (it used to reset to the default).
 - Unknown top-level or `display` keys are 422 `unknown key: <key>` / `unknown key: display.<key>`, checked before any
   value is applied. This is about API input only: stored files (`/settings.json`, NVS) still keep keys this build does
-  not know, so an OTA rollback loses nothing (#12, `core/migrate`). `entity_sources` is read-only: sending it back is 422.
+  not know, so an OTA rollback loses nothing (eink-ha-os#12, `core/migrate`). `entity_sources` is read-only: sending it back is 422.
 - New settings keys = one row in `core/settings_api.cpp` and in the emulator's `SETTINGS_KEYS` / `DISPLAY_KEYS`.

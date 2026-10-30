@@ -8,7 +8,7 @@ const v = JSON.parse(readFileSync(join(import.meta.dirname, '..', '..', '..', 's
   cases: { name: string; prefs: { energy_sources: any[] }; grid: unknown[]; statistic_ids: string[]; sources: Record<string, string> }[];
 };
 
-describe('energy prefs, legacy and flat grid (spec/test-vectors/energy-prefs.json, #274)', () => {
+describe('energy prefs, legacy and flat grid (spec/test-vectors/energy-prefs.json, eink-ha-os#274)', () => {
   for (const c of v.cases) it(c.name, () => {
     expect(c.prefs.energy_sources.filter((s) => s?.type === 'grid').map(gridFlows)).toEqual(c.grid);
     expect(statisticIds(c.prefs)).toEqual(c.statistic_ids);

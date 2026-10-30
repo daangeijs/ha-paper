@@ -11,4 +11,4 @@
 - The boot ring's RTC struct grew (`hw`, 16 B per boot): its magic changes, so the first boot of this image reloads
   the older boots from `/diag.json` instead of RTC memory.
 - Not done: excusing a reset after a browser flash as "not a crash". The post-flash TASK_WDT on 2026-10-26 was
-  followed by a second TASK_WDT 551 s later (#248), so it was most likely ours.
+  followed by a second TASK_WDT 551 s later (eink-ha-os#248), so it was most likely ours.

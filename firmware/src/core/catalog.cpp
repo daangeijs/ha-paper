@@ -6,8 +6,8 @@ namespace x4 {
 
 const std::vector<const char*>& widgetTypes() {
   static const std::vector<const char*> v = {"clock", "stat", "price", "gauge", "bars", "route", "lightList", "switch",
-                                             "light", "scene", "zoneList", "thermo", "history", "media", "bins", "weather", "guestWifi", "setting", "ota", "wifi", "ha", "about",
-                                             "agenda", "next"};   // #316
+                                             "light", "scene", "zoneList", "thermo", "history", "media", "bins", "weather", "guestWifi", "attrList", "setting", "ota", "wifi", "ha", "about",
+                                             "agenda", "next"};   // eink-ha-os#316
   return v;
 }
 
@@ -53,11 +53,11 @@ const std::vector<SettingDef>& settingDefs() {
   static const std::vector<SettingDef> v = {
       {"brightness", S::setBrightness}, {"warmth", S::setWarmth}, {"lightTimeout", S::setLightTimeout}, {"returnHome", S::setReturnHome},
       {"standby", S::setStandby}, {"clock", S::setClock}, {"interval", S::setInterval}, {"cleanEvery", S::setCleanEvery},
-      {"fullEvery", S::setCleanEvery},   // legacy tile key (#26, #44)
+      {"fullEvery", S::setCleanEvery},   // legacy tile key (eink-ha-os#26, eink-ha-os#44)
       {"style", S::setStyle}, {"typeface", S::setTypeface}, {"surface", S::setSurface},   // display styles (device setting)
-      {"powerSave", S::setPowerSave}, {"wakeEvery", S::setWakeEvery}, {"liveMin", S::setLiveMin},   // glance (#10)
-      {"quiet", S::setQuiet},   // quiet hours (#295)
-      {"morning", S::setMorning},   // Good morning page (#330)
+      {"powerSave", S::setPowerSave}, {"wakeEvery", S::setWakeEvery}, {"liveMin", S::setLiveMin},   // glance (eink-ha-os#10)
+      {"quiet", S::setQuiet},   // quiet hours (eink-ha-os#295)
+      {"morning", S::setMorning},   // Good morning page (eink-ha-os#330)
   };
   return v;
 }
@@ -97,8 +97,8 @@ std::string ghostLabel(const Widget& w, Lang l) {
   if (w.type == "gauge" && !f("entity").empty() && f("entity") != kGaugeDefaultEntity) return f("entity");
   static const struct { const char* type; S label; } M[] = {{"price", S::priceNow}, {"gauge", S::homeBattery}, {"bars", S::todayPerHour},
                                                          {"zoneList", S::rooms}, {"lightList", S::lights}, {"thermo", S::room}, {"scene", S::scene},
-                                                         {"bins", S::binsTitle}, {"guestWifi", S::guestTitle}, {"weather", S::wxWeather},
-                                                         {"agenda", S::agTitle}, {"next", S::agNext}};   // #316
+                                                         {"bins", S::binsTitle}, {"guestWifi", S::guestTitle}, {"attrList", S::listTitle}, {"weather", S::wxWeather},
+                                                         {"agenda", S::agTitle}, {"next", S::agNext}};   // eink-ha-os#316
   for (auto& m : M) if (w.type == m.type) return tr(l, m.label);
   return tr(l, S::data);
 }

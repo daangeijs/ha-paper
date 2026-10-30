@@ -39,7 +39,7 @@ The release workflow deploys that folder (plus a `CNAME`) to GitHub Pages of `da
 stable tag; alpha tags and the private repo never deploy. One-time setup: Settings → Pages → Source "GitHub Actions"
 and custom domain `hapaper.daangeijs.nl`; DNS `CNAME hapaper → daangeijs.github.io`.
 Development: `cd flasher && npm ci && npm test && npm run dev` (copy a `make flasher` `firmware/` folder into
-`flasher/public/firmware/` to have files to install). Not yet tried on a real X4 Pro (as of 2026-10-16; #20).
+`flasher/public/firmware/` to have files to install). Not yet tried on a real X4 Pro (as of 2026-10-16; eink-ha-os#20).
 
 ## Flash a release (no repo checkout)
 
@@ -90,8 +90,8 @@ Download mode needs no buttons: esptool resets the ESP32-S3 into the ROM bootloa
 connect"* / *"No serial data received"*: close other serial monitors, replug USB and run it again. Button fallback
 (not verified on our unit): Reset is the small button on the top edge next to the microSD slot; press Reset while
 holding Prev (left side, GPIO0, the boot strap), then release Prev: the chip should start in download mode. If the
-firmware hangs and USB won't connect, see [#225](https://github.com/daangeijs/eink-ha-os/issues/225) and
-[#244](https://github.com/daangeijs/eink-ha-os/issues/244).
+firmware hangs and USB won't connect, [open an issue](https://github.com/daangeijs/ha-paper/issues) with what the
+screen shows.
 
 ## 1. Check the unit is not locked
 
@@ -230,7 +230,7 @@ Equivalent manual command: `.venv/bin/esptool --chip esp32s3 -p PORT write-flash
    HA is linked or reachable. If it crashes or resets before that, the bootloader boots the previous image; if it hangs
    or gets no network within 10 minutes (hang guard 12 min, RTC watchdog ~13 min), a guard timer restarts it and the bootloader rolls back (the RTC watchdog is
    the backstop). Tested in QEMU: `make qemu-ota`.
-7. Web console (#350): `www.bin` carries `version.txt` (the build's version). Once the new image is confirmed (step 6,
+7. Web console (eink-ha-os#350): `www.bin` carries `version.txt` (the build's version). Once the new image is confirmed (step 6,
    never before, so a rolled-back app never keeps a newer console), a display whose console version differs from its
    firmware fetches release `v<version>`, checks `manifest.json` `www`, and streams `www.bin` into the `www` partition
    (0xC90000–0xFD0000 only; NVS and userdata are never touched) with SHA-256 and size checks. It tries right after the
@@ -247,7 +247,7 @@ a minute after the restart):
 (macOS: `shasum -a 256` instead of `sha256sum`; `http://<ip address>` works in place of the `.local` name). `make flash`
 and the web flasher write both as before; userdata (screens, settings) is never touched.
 
-**Renamed from X4 Home (#217).** A display that ran an X4 Home build gets the new names after the upgrade: mDNS/DHCP
+**Renamed from X4 Home (eink-ha-os#217).** A display that ran an X4 Home build gets the new names after the upgrade: mDNS/DHCP
 hostname `ha-paper-XXXX.local` (was `x4-home-XXXX.local`; same XXXX, the IP is unchanged), setup hotspot
 `HA-Paper-Setup`, and the health entities in Home Assistant become `sensor.ha_paper_XXXX_…` (the old
 `sensor.x4_home_XXXX_…` ones stop updating; delete them in HA). Wi-Fi, the HA link, API tokens, screens and settings
@@ -295,6 +295,6 @@ after every poll: resets by reason, minimum heap per 6 h, battery %/day on batte
 display did not answer, as *asleep* (it woke with reset reason `DEEPSLEEP`) or *down*. With a `.local` name in `URL` each poll
 also checks the name and the IP separately (`name_dns`, `ip_tcp`, `ip_http`, `name_http`; `IP=` sets a fallback
 address until the name resolves once), so "the name stopped resolving" is told apart from "nothing reaches the
-display" (#227); the column meanings are in the script's docstring. The same command works against
+display" (eink-ha-os#227); the column meanings are in the script's docstring. The same command works against
 `npm run device-sim` (`URL=http://127.0.0.1:8080`) and `make qemu`; `python3 firmware/tools/soak.py --summarize
 soak/<host>/soak.csv` re-prints the summaries.

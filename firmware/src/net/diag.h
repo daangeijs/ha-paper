@@ -3,7 +3,7 @@
 //    watchdog resets, and is copied to /diag.json on the userdata partition, which survives power loss and re-flash.
 //  * The panic message is caught in a --wrap of panic_abort (platformio.ini) into RTC memory; the next boot attaches
 //    it to its ring entry.
-//  * Each boot also keeps the chip's raw reset cause (esp_rom_get_reset_reason, #241): TASK_WDT is CORE_SW when the TWDT
+//  * Each boot also keeps the chip's raw reset cause (esp_rom_get_reset_reason, eink-ha-os#241): TASK_WDT is CORE_SW when the TWDT
 //    panic path reset the chip and CORE_MWDT0 when the watchdog's hardware stage did (interrupt starved).
 //  * A task-watchdog timeout is recorded by the TWDT interrupt (diagWdtFired) into RTC memory: tasks that did not feed,
 //    internal free / largest block / min DMA; the next boot adds the last line of the log tail (GET last_wdt).

@@ -15,7 +15,7 @@
 
 #include "Logging.h"
 
-// Critical-section tracer (#39). Linked with -Wl,--wrap=xPortEnterCriticalTimeout,--wrap=vPortExitCritical, so every
+// Critical-section tracer (eink-ha-os#39). Linked with -Wl,--wrap=xPortEnterCriticalTimeout,--wrap=vPortExitCritical, so every
 // call from another object file (FreeRTOS tasks.c/queue.c, newlib locks, drivers, our code) lands here. IRAM + DRAM
 // only: these run with the flash cache disabled and inside ISRs.
 extern "C" BaseType_t __real_xPortEnterCriticalTimeout(portMUX_TYPE* mux, BaseType_t timeout);

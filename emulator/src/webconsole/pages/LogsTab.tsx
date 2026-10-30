@@ -1,4 +1,4 @@
-// Advanced › Device log (#200): live tail of GET /api/v1/logs, level / tag filter, previous boot, download.
+// Advanced › Device log (eink-ha-os#200): live tail of GET /api/v1/logs, level / tag filter, previous boot, download.
 import { useEffect, useRef } from 'react';
 import type { ConsoleView } from '../useConsole.ts';
 

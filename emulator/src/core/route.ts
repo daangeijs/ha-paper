@@ -1,4 +1,4 @@
-// Route tile departures from an HA entity's attributes (spec/SCHEMA.md "Route sensors", #145, #275).
+// Route tile departures from an HA entity's attributes (spec/SCHEMA.md "Route sensors", eink-ha-os#145, eink-ha-os#275).
 // = firmware core/home.cpp routeState(); vectors: spec/test-vectors/route-departures.json.
 import { tr, type Lang } from './strings.ts';
 

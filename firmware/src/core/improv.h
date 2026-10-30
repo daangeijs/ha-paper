@@ -1,4 +1,4 @@
-// Improv Wi-Fi over serial (https://www.improv-wifi.com/serial/, #31): the web flasher sends Wi-Fi credentials over the
+// Improv Wi-Fi over serial (https://www.improv-wifi.com/serial/, eink-ha-os#31): the web flasher sends Wi-Fi credentials over the
 // USB console right after installing, so nobody has to join the setup hotspot. Pure frame parser/builder and the
 // device-side session; net/improv_serial.cpp moves the bytes. Frames share the port with log text: the parser skips
 // everything that is not "IMPROV" + version 1. Vectors: spec/test-vectors/improv.json (flasher/src/improv.ts too).

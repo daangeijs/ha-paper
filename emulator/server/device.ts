@@ -17,11 +17,12 @@ import { LOGICAL, formatSource, isLogicalId, mergeEntities, splitRef, type Entit
 import { decidePartial, decideNav } from '../src/core/refresh.ts';
 import { listCounts, type ListCount } from '../src/core/paging.ts';
 import { langOf, tr, type Lang } from '../src/core/strings.ts';
+import { capList, listRows, listSpec, listView } from '../src/core/attrList.ts';
 import { CPU_MHZ, powerDecision, powerSource, sleepNowCheck, type PowerDecision, type PowerInputs, type SleepNowCheck } from '../src/core/power.ts';
 import { sleptSeconds, tallySleep, tallyWake, TALLY_ZERO, type WakeTally } from '../src/core/glance.ts';
 import { LOG_TAIL_CAP, logPush, logRing, logSplit, logsQuery, logTail, type LogRing, type LogsQuery } from '../src/core/logs.ts';
 import { changedRegions, serializeRegion, type RegionMap } from '../src/core/regions.ts';
-import { attrSamples, bucketize, chartSpan, fromHistoryRows, fromSamples, fromStatistics, historyError, historyFallbackOk, historySpec, joinSeries, pastSpec, statsPeriod, statsType, type HistorySpec, type Point, type Series, type StatRow } from '../src/core/history.ts';
+import { attrSamples, bandSpecs, bucketize, chartSpan, compareSpec, fromHistoryRows, fromSamples, fromStatistics, historyError, historyFallbackOk, historySpec, joinSeries, pastSpec, seriesNow, statsPeriod, statsType, tileSpecs, type HistorySpec, type Point, type Series, type StatRow } from '../src/core/history.ts';
 import { chartKey, historyChart, joinState, type HistState } from '../src/core/historyChart.ts';
 import { parseHaAddress, resolveHaAddress, HA_PROBE_PATH, HA_PROBE_COOLDOWN_MS, HA_PROBE_BUSY, type HaResolved, type ProbeAnswer } from '../src/core/haAddress.ts';
 import { authorizeUrl, exchangeCode, HaHttpError, HaSocket, randomToken, refreshAccess, revokeToken } from './ha-client.ts';
@@ -42,7 +43,7 @@ const rand = () => randomInt(0, 2 ** 32) / 2 ** 32;
 /** What the firmware keeps in NVS / LittleFS (and what --state <file> stores). */
 export type Persisted = {
   name: string; installId: string; configRev: number; apps: AppDef[]; screens: Screen[]; setup: 'wifi' | 'web' | null;
-  /** /screens.yaml exists (firmware userdata). false = the first HA link seeds the screens from HA (#23, src/core/seed.ts). */
+  /** /screens.yaml exists (firmware userdata). false = the first HA link seeds the screens from HA (eink-ha-os#23, src/core/seed.ts). */
   screensSaved?: boolean;
   wifi: { connected: string | null; saved: string[] };
   ha: { linked: boolean; revoked: boolean; server: string; user: string; refreshToken: string | null; clientId: string | null; url: string;
@@ -53,16 +54,16 @@ export type Persisted = {
   ota: { fw: string; channel: 'stable' | 'beta'; auto: 'off' | 'notify' | 'night'; prev: string | null };
   /** GET /diagnostics (x-firmware): boot ring (RTC memory + LittleFS /diag.json) and the coredump partition. Survives factory reset. */
   diag?: { ring: DiagRing; coredump: SimCoredump | null };
-  /** GET /seed (x-firmware, #89): the first-link seed report, LittleFS /seed.json. Gone after a factory reset. */
+  /** GET /seed (x-firmware, eink-ha-os#89): the first-link seed report, LittleFS /seed.json. Gone after a factory reset. */
   seed?: SeedReport & { dismissed: boolean };
-  /** HA's language from get_config (#98), firmware userdata /lang. null/absent = unlinked or not known (English). */
+  /** HA's language from get_config (eink-ha-os#98), firmware userdata /lang. null/absent = unlinked or not known (English). */
   language?: Lang | null;
-  /** HA user profile number_format (frontend/get_user_data "language", #110), firmware userdata /numfmt. null/absent =
+  /** HA user profile number_format (frontend/get_user_data "language", eink-ha-os#110), firmware userdata /numfmt. null/absent =
    *  not set or not known: the language decides (core/format.ts numFormatOf). */
   numberFormat?: string | null;
-  /** HA's get_config `currency` (#147), firmware userdata /currency; null/absent = unlinked or not known (€). */
+  /** HA's get_config `currency` (eink-ha-os#147), firmware userdata /currency; null/absent = unlinked or not known (€). */
   currency?: string | null;
-  /** HA's get_config `time_zone` as last applied (#147), firmware userdata /tz_ha; a zone the display does not know is
+  /** HA's get_config `time_zone` as last applied (eink-ha-os#147), firmware userdata /tz_ha; a zone the display does not know is
    *  ignored. Kept on unlink: the clock stays right. */
   tzHa?: string | null;
   /** Schema versions (src/core/migrate.ts): `device` = NVS x4dev/schema, `settings` = /settings.json `schema`. Missing = 0. */
@@ -74,14 +75,14 @@ export type SimCoredump = { task: string; pc: string; backtrace: string[]; backt
 export type SimCrash = 'panic' | 'task_wdt' | 'brownout';
 /** One row of GET /api/v1/ha/entities. */
 type HaListed = { id: string; name: string; unit: string; state: string; area?: string };
-/** Where a history tile's series came from (#267, #283). */
+/** Where a history tile's series came from (eink-ha-os#267, eink-ha-os#283). */
 type HistFrom = 'statistics' | 'history' | 'attribute' | 'forecast' | '';
 type HaArea = { id: string; name: string };
 type HaLists = { climate: ListCount; lights: ListCount; entities?: ListCount };
 const SIM_PANIC = 'assert failed: xQueueSemaphoreTake queue.c:1709 (pxQueue->uxItemSize == 0)';
 /** Fixed simulated heap figures (bytes); the firmware reports heap_caps_* values. */
 const SIM_HEAP = { free_internal: 182_344, min_free_internal: 141_020, largest_free_internal: 110_592, free_psram: 7_864_320 };
-/** GET /diagnostics heap.low_point (#198): what the firmware records at its last internal-heap low point. */
+/** GET /diagnostics heap.low_point (eink-ha-os#198): what the firmware records at its last internal-heap low point. */
 const SIM_LOW_POINT = { min_free_internal: 141_020, min_dma: 139_812, min_8bit_int: 141_020, uptime_s: 42, where: 'tls handshake', ws: true, tls_slots: 2, ha_report: false, ota: false, web_open: 1, last_path: '/api/v1/console/state', rssi: -58 };   // = GET /status (http.ts)
 
 /** GET/PUT /settings (x-firmware): SPEC §8 display settings + OTA channel, time zone, name, logical id overrides
@@ -117,7 +118,7 @@ export const DEFAULT_DELAYS: Delays = { wifiMs: 2000, scanMs: 1500, otaCheckMs: 
 
 /** firmware/src/net/ota.h kOtaChecksOffMsg: X4_OTA_REPO left at the placeholder (no GitHub checks; upload still works). */
 export const OTA_CHECKS_OFF_MSG = 'Update checks are off in this build. Install new firmware by upload (POST /api/v1/ota/upload).';
-/** firmware net/ota.cpp: GET /ota message of a failed check, by `error` (#250) */
+/** firmware net/ota.cpp: GET /ota message of a failed check, by `error` (eink-ha-os#250) */
 export const OTA_CHECK_MSG: Record<OtaErr, string> = { memory: 'Not enough memory right now — try again in a minute', network: 'GitHub not reachable (HTTP -1)',
   busy: 'GitHub not reachable (HTTP 403)', none: 'No releases published yet', other: 'GitHub not reachable (HTTP 502)' };
 export const SIM_OTA_REPO = 'daangeijs/ha-paper (simulated)';
@@ -172,9 +173,9 @@ export function migrateState(p: Persisted, log: (m: string) => void = () => {}):
 export class DeviceSim {
   p: Persisted;
   battery: number;
-  /** GET /status battery_mv (#73, CW2017 VCELL); null = not read. 3950 matches the firmware's QEMU stub. */
+  /** GET /status battery_mv (eink-ha-os#73, CW2017 VCELL); null = not read. 3950 matches the firmware's QEMU stub. */
   batteryMv: number | null = 3950;
-  /** GET /diagnostics web (#227): finished HTTP responses (http.ts) and when the last one finished. */
+  /** GET /diagnostics web (eink-ha-os#227): finished HTTP responses (http.ts) and when the last one finished. */
   web = { served: 0, lastAt: 0 };
   failMode: 'ok' | 'hash' | 'boot' = 'ok';
   releases: SimRelease[];
@@ -186,7 +187,7 @@ export class DeviceSim {
 
   // RAM
   bootAt = Date.now();
-  /** Log ring of this boot and the tail of the previous one (firmware net/log.cpp: PSRAM + RTC memory, #200). */
+  /** Log ring of this boot and the tail of the previous one (firmware net/log.cpp: PSRAM + RTC memory, eink-ha-os#200). */
   logs: LogRing = logRing();
   logsPrev: LogRing = logRing(LOG_TAIL_CAP);
   /** esp_reset_reason() of the running boot. */
@@ -196,32 +197,32 @@ export class DeviceSim {
   discovered = '';
   /** Its own fake HA may sit on localhost; any other loopback / link-local address is refused like on the device. */
   haLocal = '';
-  /** One HA address probe at a time, then HA_PROBE_COOLDOWN_MS (#75). */
+  /** One HA address probe at a time, then HA_PROBE_COOLDOWN_MS (eink-ha-os#75). */
   probe = { busy: false, endMs: -Infinity };
   pending = new Map<string, { verifier: string; returnTo: string; clientId: string; redirectUri: string; exp: number }>();
   wifiRun: { state: 'idle' | 'connecting' | 'connected' | 'failed'; error?: string } = { state: 'idle' };
   otaRun: { status: string; avail: SimRelease | null; lastCheck: Date | null; message: string; error?: OtaErr | null } = { status: 'idle', avail: null, lastCheck: null, message: '' };
-  /** __sim/control ota_check_fail (#250): the next checks fail like this ('ok' = they work) */
+  /** __sim/control ota_check_fail (eink-ha-os#250): the next checks fail like this ('ok' = they work) */
   checkFail: 'ok' | OtaErr = 'ok';
-  /** POST /ota/upload is receiving an image (firmware otaUploadBegin … End/Abort); version '' = not known (#237). */
+  /** POST /ota/upload is receiving an image (firmware otaUploadBegin … End/Abort); version '' = not known (eink-ha-os#237). */
   upload: { version: string } | null = null;
-  /** The web console on the www partition (#350, firmware net/www_ota.h): its version.txt (null = older than #350 /
+  /** The web console on the www partition (eink-ha-os#350, firmware net/www_ota.h): its version.txt (null = older than eink-ha-os#350 /
    *  missing), the partition sha once known, and why the last write failed. Not persisted: a sim boot has a current one. */
   www: { version: string | null; sha256: string | null; failed: string } = { version: null, sha256: null, failed: '' };
   ha: { socket: HaSocket | null; access: string | null; accessExp: number; connected: boolean; entities: Map<string, { s: string; a: Record<string, any> }>; lastEvent: string | null; version: string; retry?: ReturnType<typeof setTimeout>; retryMs: number; areas: number;
     /** logical id → HA entity from the Energy dashboard (a small subset of firmware core/entity_map; no device discovery, no statistics) */
     alias: Record<string, string> } =
     { socket: null, access: null, accessExp: 0, connected: false, entities: new Map(), lastEvent: null, version: '', retryMs: 0, areas: 0, alias: {} };
-  /** Device health → HA states (#32, firmware net/ha_report). GET /status `ha_report` = reportStatus(). */
+  /** Device health → HA states (eink-ha-os#32, firmware net/ha_report). GET /status `ha_report` = reportStatus(). */
   report = { last: null as ReportLast | null, force: true, on: true, busy: false, status: 'waiting' as ReportPhase, pushedAt: 0, lastFullAt: 0, retried: false };
   private reportT: ReturnType<typeof setInterval> | null = null;
-  /** GET /diagnostics battery (#231): PSRAM on the device, so a reset or deep-sleep wake starts it over. */
+  /** GET /diagnostics battery (eink-ha-os#231): PSRAM on the device, so a reset or deep-sleep wake starts it over. */
   batt: BattState = BATT_ZERO;
   display = { mode: 'main' as 'main' | 'boot' | 'updating', idx: 0, full: 0, clean: 0, fast: 0, partial: 0, skipped: 0, sinceFull: 0, navSinceClean: 0, regions: {} as RegionMap, events: [] as DisplayEvent[], progress: null as null | { version: string; pct: number; step: string } };
   authFailures = new Map<string, number[]>();
   /** Power (ROBUSTNESS_PLAN Phase 3): USB plugged (= external power, charging below 100 %), deep sleep, last API request. */
   power = { usb: false, asleep: null as null | { wakeAt: number }, lastApi: null as number | null, wakeT: null as null | ReturnType<typeof setTimeout>, sleptAt: 0, plannedWake: 0 };
-  /** Wake counters since power-on (#178, firmware RTC glance::Tally). The simulator runs no glance wakes: redraws,
+  /** Wake counters since power-on (eink-ha-os#178, firmware RTC glance::Tally). The simulator runs no glance wakes: redraws,
    *  failedWakes and lastWake stay 0 / null; wakes, asleep / awake time and refreshes count. */
   tally: WakeTally = TALLY_ZERO;
   /** display counters when the running boot began (GET /status refreshes.boot). */
@@ -232,7 +233,7 @@ export class DeviceSim {
   constructor(o: DeviceOptions) {
     this.delays = { ...DEFAULT_DELAYS, ...(o.delays || {}) };
     const sink = o.log || (() => {});
-    // every line also goes into the log ring (GET /logs, #200), like the firmware's LOG_* lines
+    // every line also goes into the log ring (GET /logs, eink-ha-os#200), like the firmware's LOG_* lines
     this.log = (m: string) => {
       const { tag, msg } = logSplit(m);
       const level = tag === 'CRASH' ? 'E' : /\b(failed|refused|rejected|unreachable)\b/i.test(msg) ? 'W' : 'I';
@@ -247,7 +248,7 @@ export class DeviceSim {
     const fromFile = this.stateFile && !o.preset && existsSync(this.stateFile) ? (JSON.parse(readFileSync(this.stateFile, 'utf8')) as Persisted) : null;
     if (fromFile && !fromFile.settings) fromFile.settings = DEFAULT_SETTINGS();
     if (fromFile) migrateState(fromFile, this.log);
-    // quiet hours (#295): the firmware file keeps `night` for a rollback, its GET /settings does not show it
+    // quiet hours (eink-ha-os#295): the firmware file keeps `night` for a rollback, its GET /settings does not show it
     if (fromFile) delete (fromFile.settings.display as unknown as Record<string, unknown>).night;
     // State files from before display styles: fill in the new display fields with their defaults.
     if (fromFile) fromFile.settings.display = { ...DEFAULT_SETTINGS().display, ...fromFile.settings.display };
@@ -255,7 +256,7 @@ export class DeviceSim {
       const r = validateYaml(toYaml({ apps: fromFile.apps || DEFAULT_APPS, screens: fromFile.screens }));
       if (r.ok) { fromFile.apps = r.config.apps; fromFile.screens = r.config.screens; } else fromFile.apps = fromFile.apps || DEFAULT_APPS.map((a) => ({ ...a }));
     }
-    if (fromFile && fromFile.screensSaved === undefined) fromFile.screensSaved = true;   // state files from before #23
+    if (fromFile && fromFile.screensSaved === undefined) fromFile.screensSaved = true;   // state files from before eink-ha-os#23
     this.p = fromFile || presetState(o.preset || 'installed', o.haUrl, (o.preset || 'installed') === 'installed' ? this.presetLink() : null);
     // The HA URL comes from the command line (firmware: mDNS discovery `_home-assistant._tcp`).
     this.p.ha.url = o.haUrl; this.p.ha.server = new URL(o.haUrl).host; this.discovered = new URL(o.haUrl).origin; this.haLocal = new URL(o.haUrl).hostname;
@@ -281,7 +282,7 @@ export class DeviceSim {
   save() { if (this.stateFile) writeFileSync(this.stateFile, JSON.stringify(this.p, null, 2)); }
 
   // ------------------------------------------------------------------ display
-  /** What the display runs: the saved screens, then the built-in Settings pages (#159). display.idx indexes this. */
+  /** What the display runs: the saved screens, then the built-in Settings pages (eink-ha-os#159). display.idx indexes this. */
   get shown(): Screen[] { return withSettings({ apps: this.p.apps, screens: this.p.screens }).screens; }
   screenId(): string {
     if (this.display.mode === 'updating') return 'ota_progress';
@@ -293,13 +294,13 @@ export class DeviceSim {
     if (!this.p.ha.linked || this.p.ha.revoked) return '—';
     const m = this.mapOf()[id];
     const e = (m ? this.ha.entities.get(m.ha) : undefined) || this.ha.entities.get(id); if (!e) return '—';
-    const src = statSource(m?.ha || id, e.s, e.a); if (src.state === undefined) return '—';   // climate / weather: a temperature (#161)
+    const src = statSource(m?.ha || id, e.s, e.a); if (src.state === undefined) return '—';   // climate / weather: a temperature (eink-ha-os#161)
     const n = (m?.negate ? -1 : 1) * Number(src.state); const u = src.unit;
     if (Number.isNaN(n) || src.state === '') return src.state;
     if (u === 'W') { const k = kw(n); return k.v + ' ' + k.u; }
-    return /^[€$£]|^[A-Z]{3}\//.test(u) ? money(n, this.sym()) : n.toFixed(1) + (u ? ' ' + u : '');   // a price: HA's currency (#147)
+    return /^[€$£]|^[A-Z]{3}\//.test(u) ? money(n, this.sym()) : n.toFixed(1) + (u ? ' ' + u : '');   // a price: HA's currency (eink-ha-os#147)
   }
-  /** GET /screens/{id}/values (#122): one value per tile, like Emulator.tileValues but on the sim's HA states
+  /** GET /screens/{id}/values (eink-ha-os#122): one value per tile, like Emulator.tileValues but on the sim's HA states
    *  (stat / gauge / switch / thermo / price / clock, zoneList / lightList counts; '' for the rest). */
   tileValues(sc: Screen): string[] {
     const nf = numFormat(); setNumFormat(numFormatOf(this.p.numberFormat, this.p.language ?? 'en'));
@@ -317,7 +318,13 @@ export class DeviceSim {
         if (w.type === 'thermo') { const z = this.ha.entities.get('climate.' + w.zone); const c = z?.a.current_temperature;
           return c == null ? '—' : fmtNum(Number(c), '°C') + '°'; }
         if (w.type === 'price') { const v = this.fmtEntity(this.mapOf()['sensor.energy_prices']?.ha || 'sensor.electricity_price'); const c = this.sym(); return v.startsWith(c) ? c + ' ' + v.slice(c.length).trimStart() : v; }
-        if (w.type === 'zoneList' || w.type === 'lightList') {   // #161: a count, like the tile's header (entity picks only; areas = all)
+        if (w.type === 'attrList') {   // eink-ha-os#332: "Klapekster · 1 h ago", the list as the display keeps it (capList)
+          if (!e) return '—';
+          const sp = listSpec(w), now = Date.now();
+          const r = listView(capList(e.a[sp.attribute]), sp, now, -new Date(now).getTimezoneOffset(), lg, listRows(w.cs || 1, w.rs || 1).rows).rows[0];
+          return r ? r.title + (r.ago ? ' · ' + r.ago : '') : '—';
+        }
+        if (w.type === 'zoneList' || w.type === 'lightList') {   // eink-ha-os#161: a count, like the tile's header (entity picks only; areas = all)
           const rows = [...this.ha.entities.entries()].filter(([k]) => k.startsWith(w.type === 'zoneList' ? 'climate.' : 'light.'));
           const ids = listOf(w, 'entities'); const shown = ids.length && !listOf(w, 'areas').length ? rows.filter(([k]) => ids.includes(k)) : rows;
           if (!shown.length) return '—';
@@ -330,8 +337,8 @@ export class DeviceSim {
   }
   /** Text of each visible region (core/regions.ts): what the firmware would hash to decide what to redraw. */
   regions(): RegionMap {
-    const nf = numFormat(); setNumFormat(numFormatOf(this.p.numberFormat, this.p.language ?? 'en'));   // per device (#110)
-    const cur = currency(); setCurrency(this.sym());   // and currency (#147)
+    const nf = numFormat(); setNumFormat(numFormatOf(this.p.numberFormat, this.p.language ?? 'en'));   // per device (eink-ha-os#110)
+    const cur = currency(); setCurrency(this.sym());   // and currency (eink-ha-os#147)
     try { return this.regionsNow(); } finally { setNumFormat(nf); setCurrency(cur); }
   }
   private regionsNow(): RegionMap {
@@ -339,7 +346,7 @@ export class DeviceSim {
     if (this.display.mode !== 'main' || this.p.setup) return out;
     const sc = this.shown[this.display.idx]; if (!sc) return out;
     const ent = (prefix: string) => [...this.ha.entities.entries()].filter(([k]) => k.startsWith(prefix)).map(([k, v]) => [k, v.s, v.a.current_temperature ?? null, v.a.temperature ?? null, v.a.brightness ?? null]);
-    // #127: an entities-only pick narrows the hashed view; an area pick keeps every light (a superset only redraws more)
+    // eink-ha-os#127: an entities-only pick narrows the hashed view; an area pick keeps every light (a superset only redraws more)
     const picked = (w: Widget, rows: ReturnType<typeof ent>) => { const ids = listOf(w, 'entities'); return ids.length && !listOf(w, 'areas').length ? rows.filter((r) => ids.includes(r[0] as string)) : rows; };
     sc.widgets.forEach((w, i) => {
       let view: unknown = w.type;
@@ -359,14 +366,14 @@ export class DeviceSim {
     if (this.display.events.length > 50) this.display.events.shift();
     this.log('EPD ' + (kind === 'skip' ? 'no redraw' : kind) + ' (' + reason + (regions ? ' · ' + regions.length + ' region' + (regions.length === 1 ? '' : 's') : '') + ')');
   }
-  /** Panel-wide refresh with a flash (#197): a clean (one short flash) for everything the display does itself, the
+  /** Panel-wide refresh with a flash (eink-ha-os#197): a clean (one short flash) for everything the display does itself, the
    *  multi-flash full only for POST /display/refresh. `full` counts both, `clean` the cleans. */
   fullRefresh(reason: string, kind: 'clean' | 'full' = 'clean') {
     this.display.full++; if (kind === 'clean') this.display.clean++;
     this.display.sinceFull = 0; this.display.navSinceClean = 0; this.display.regions = this.regions(); this.report.lastFullAt = Date.now();
     this.event(kind, reason);
   }
-  /** Navigation (#197): a fast whole-frame refresh without a flash, every 10th one a clean (core decideNav). */
+  /** Navigation (eink-ha-os#197): a fast whole-frame refresh without a flash, every 10th one a clean (core decideNav). */
   navRefresh(reason: string) {
     const d = decideNav({ navSinceClean: this.display.navSinceClean, sinceFull: this.display.sinceFull, clockKnown: true });
     if (d.kind === 'clean') { this.fullRefresh(reason + ' · ' + d.reason); return; }
@@ -393,7 +400,7 @@ export class DeviceSim {
     const i = this.shown.findIndex((s) => s.id === id); if (i < 0) return false;
     this.display.idx = i; this.navRefresh('screen ' + id); this.histAppCheck(); return true;
   }
-  /** POST /debug/input (#214): keys and swipes page within the app shown (wrapping), Home goes to the first screen;
+  /** POST /debug/input (eink-ha-os#214): keys and swipes page within the app shown (wrapping), Home goes to the first screen;
    *  taps and Power are logged only (the browser emulator acts them out). */
   remoteInput(s: InputSpec) {
     this.log('INPUT remote ' + (s.kind === 'tap' ? 'tap=' + s.x + ',' + s.y : s.kind === 'key' ? 'key=' + s.key : 'swipe=' + s.dir));
@@ -405,7 +412,7 @@ export class DeviceSim {
     const next = page[(page.indexOf(cur) + step + page.length) % page.length];
     if (next && next !== cur) this.goTo(next.id);
   }
-  /** __sim/control {tap: n}: touch tile n of the screen shown. Only scene tiles act in the simulator (#146): the
+  /** __sim/control {tap: n}: touch tile n of the screen shown. Only scene tiles act in the simulator (eink-ha-os#146): the
    *  firmware's call (core sceneAction → call_service with service_data). Error text, or null when sent. */
   async tapTile(n: number): Promise<string | null> {
     const w = (this.shown[this.display.idx] || { widgets: [] }).widgets[n];
@@ -429,7 +436,7 @@ export class DeviceSim {
   get setupOpen(): boolean { return this.p.setup !== null || !this.p.ha.linked; }
 
   // ------------------------------------------------------------------ auth (API tokens + console session)
-  /** admin false = view-only session: a Home Assistant user who is not an admin (read scope, issue #22). */
+  /** admin false = view-only session: a Home Assistant user who is not an admin (read scope, issue eink-ha-os#22). */
   session(id: string | null): { user: string; admin: boolean } | null {
     if (!id) return null; const s = this.sessions.get(id);
     if (!s || s.exp < Date.now()) { if (s) this.sessions.delete(id); return null; }
@@ -469,16 +476,16 @@ export class DeviceSim {
     else void this.fetchHistory('config');
   }
 
-  // ------------------------------------------------------------------ history tiles (#267)
+  // ------------------------------------------------------------------ history tiles (eink-ha-os#267)
   /** Per tile (histKey): the fetched series, or why there is none. Only the current app's tiles are fetched (Daan,
-   *  #264); a tile not fetched yet draws its frame ('loading'). Refetched on connect, a config change, a new app and
-   *  every 10 min. The firmware's live append between fetches (#269) is not simulated. */
+   *  eink-ha-os#264); a tile not fetched yet draws its frame ('loading'). Refetched on connect, a config change, a new app and
+   *  every 10 min. The firmware's live append between fetches (eink-ha-os#269) is not simulated. */
   hist = new Map<string, { state: HistState; series: Series | null; at: number; source: HistFrom; bytes: number }>();
   private histBusy = false; private histAgain = false; private histApp = ''; private histAt = 0;
   static readonly HIST_EVERY_MS = 10 * 60_000;
   /** The firmware's WS frame cap (WsClient kMaxMessage): a bigger history answer = "Too many changes". */
   static readonly HIST_FRAME_CAP = 512 * 1024;
-  private histKey = (s: HistorySpec) => [s.entity, s.windowMs, s.bucketMs, s.agg, ...(s.source ? [s.aheadMs, s.source.attribute, s.source.value, s.source.time, s.source.forecast ?? ''] : [])].join('|');
+  private histKey = (s: HistorySpec) => [s.entity, s.windowMs, s.bucketMs, s.agg, ...(s.source ? [s.aheadMs, s.source.attribute, s.source.value, s.source.time, s.source.forecast ?? ''] : []), ...(s.shiftMs ? ['s' + s.shiftMs] : [])].join('|');
   /** UTC offset (minutes) of HA's time zone at `t` (the sim's own zone when HA has not said). */
   private tzMinutes(t: number): number {
     const zone = this.p.tzHa;
@@ -495,8 +502,8 @@ export class DeviceSim {
     const out = new Map<string, HistorySpec>();
     for (const sc of this.p.screens) if (sc.app === cur.app) for (const w of sc.widgets)
       if (w.type === 'history' && typeof w.entity === 'string' && !historyError(w)) {
-        const sp = historySpec(w); out.set(this.histKey(sp), sp);
-        if (sp.past) { const p = pastSpec(sp); out.set(this.histKey(p), p); }   // #307: the recorder before now
+        // eink-ha-os#307: the recorder of past before now; eink-ha-os#304 wave 2: band min / max, the compare window
+        for (const x of tileSpecs(historySpec(w))) out.set(this.histKey(x), x);
       }
     return [...out.values()];
   }
@@ -518,8 +525,8 @@ export class DeviceSim {
     const done = new Set<string>();
     const put = (sp: HistorySpec, v: { state: HistState; series: Series | null; source: HistFrom; bytes: number }) => { this.hist.set(this.histKey(sp), { ...v, at: now }); done.add(this.histKey(sp)); };
     try {
-      // #283: attribute series from one get_states, weather forecasts from weather.get_forecasts (return_response).
-      // The firmware (#292) parses the attribute from its entity mirror instead of a get_states.
+      // eink-ha-os#283: attribute series from one get_states, weather forecasts from weather.get_forecasts (return_response).
+      // The firmware (eink-ha-os#292) parses the attribute from its entity mirror instead of a get_states.
       const attrSpecs = specs.filter((sp) => sp.source?.kind === 'attribute');
       const states = attrSpecs.length ? await sock.command<{ entity_id: string; attributes: Record<string, unknown> }[]>({ type: 'get_states' }).catch(() => null) : null;
       for (const sp of attrSpecs) {
@@ -536,22 +543,22 @@ export class DeviceSim {
       for (const sp of specs) { if (sp.source) continue; const per = statsPeriod(sp.bucketMs); if (per) { const k = per + '|' + statsType(sp.agg); groups.set(k, [...(groups.get(k) || []), sp]); } }
       for (const [k, g] of groups) {
         const [period, type] = k.split('|');
-        const start = Math.min(...g.map((sp) => chartSpan(sp, now, tz).start));
+        const start = Math.min(...g.map((sp) => chartSpan(sp, seriesNow(sp, now), tz).start));
         const res = await sock.command<Record<string, StatRow[]>>({ type: 'recorder/statistics_during_period', start_time: iso(start), statistic_ids: [...new Set(g.map((sp) => sp.entity))], period, types: [type] }).catch(() => null);
         const bytes = res ? JSON.stringify(res).length : 0;
-        for (const sp of g) { const rows = res?.[sp.entity]; if (rows?.length) put(sp, { state: 'ok', series: fromStatistics(rows, sp, now, tz), source: 'statistics', bytes }); }
+        for (const sp of g) { const rows = res?.[sp.entity]; if (rows?.length) put(sp, { state: 'ok', series: fromStatistics(rows, sp, seriesNow(sp, now), tz), source: 'statistics', bytes }); }
       }
       for (const sp of specs) {
         if (done.has(this.histKey(sp))) continue;
         if (!historyFallbackOk(sp)) { put(sp, { state: 'needsStats', series: null, source: '', bytes: 0 }); continue; }
-        const { start } = chartSpan(sp, now, tz); const pts: Point[] = []; let bytes = 0, over = false;
-        for (let a = start; a < now && !over; a += 6 * 3600_000) {
-          const res = await sock.command<Record<string, { s: string; lu: number }[]>>({ type: 'history/history_during_period', start_time: iso(a), end_time: iso(Math.min(a + 6 * 3600_000, now)),
+        const t = seriesNow(sp, now), { start } = chartSpan(sp, t, tz); const pts: Point[] = []; let bytes = 0, over = false;
+        for (let a = start; a < t && !over; a += 6 * 3600_000) {
+          const res = await sock.command<Record<string, { s: string; lu: number }[]>>({ type: 'history/history_during_period', start_time: iso(a), end_time: iso(Math.min(a + 6 * 3600_000, t)),
             entity_ids: [sp.entity], minimal_response: true, no_attributes: true, significant_changes_only: false }).catch(() => null);
           const n = res ? JSON.stringify(res).length : 0; bytes += n;
           if (n > DeviceSim.HIST_FRAME_CAP) over = true; else if (res?.[sp.entity]) pts.push(...fromHistoryRows(res[sp.entity]));
         }
-        put(sp, over ? { state: 'tooMany', series: null, source: 'history', bytes } : { state: 'ok', series: bucketize(pts, sp, now, tz), source: 'history', bytes });
+        put(sp, over ? { state: 'tooMany', series: null, source: 'history', bytes } : { state: 'ok', series: bucketize(pts, sp, t, tz), source: 'history', bytes });
       }
       this.log('HISTORY ' + reason + ' · ' + specs.map((sp) => { const h = this.hist.get(this.histKey(sp)); return sp.entity + ' ' + (h?.source || '-') + ' ' + h?.state + ' ' + (h?.bytes ?? 0) + ' B'; }).join(', '));
     } finally { this.histBusy = false; }
@@ -563,14 +570,15 @@ export class DeviceSim {
     if (historyError(w) || typeof w.entity !== 'string') return 'invalid';
     const sp = historySpec(w); const h = this.hist.get(this.histKey(sp)); const now = h?.at ?? Date.now(), tz = this.tzMinutes(now);
     const lg = langOf(this.p.language ?? 'en');
-    // #307: a tile with `past` joins the recorder series of its past entity before now
+    // eink-ha-os#307: a tile with `past` joins the recorder series of its past entity before now
     const p = sp.past ? this.hist.get(this.histKey(pastSpec(sp))) : undefined;
     const series = sp.past ? joinSeries(sp, p?.series ?? null, h?.series ?? null, now, tz) : h?.series ?? null;
     const state = sp.past ? joinState(p?.state ?? 'loading', h?.state ?? 'loading') : h?.state ?? 'loading';
-    const c = historyChart(sp, series, state, now, tz, lg, (v) => fmtNum(v, ''));
+    const xs = (x: HistorySpec | null | undefined) => (x ? this.hist.get(this.histKey(x))?.series?.values ?? null : null), [bMin, bMax] = bandSpecs(sp);
+    const c = historyChart(sp, series, state, now, tz, lg, (v) => fmtNum(v, ''), { lo: xs(bMin), hi: xs(bMax), prev: xs(compareSpec(sp)) });
     return chartKey(c, series?.values ?? []);
   }
-  /** History tiles of the app shown, for __sim/state (like the firmware's /console/state history block, #269). */
+  /** History tiles of the app shown, for __sim/state (like the firmware's /console/state history block, eink-ha-os#269). */
   histState() {
     return this.histSpecs().map((sp) => { const h = this.hist.get(this.histKey(sp));
       return { entity: sp.entity, window_ms: sp.windowMs, bucket_ms: sp.bucketMs, agg: sp.agg, state: h?.state ?? 'loading', source: h?.source ?? '', buckets: h?.series?.values.length ?? 0,
@@ -611,7 +619,7 @@ export class DeviceSim {
       return { status: r.status, body: (await r.text()).slice(0, 4096), location: r.headers.get('location') || '' };
     } catch { return { status: -1 }; }
   }
-  /** Link page address (#54): typed, or the remembered / discovered one. Remembered only once it is Home Assistant. */
+  /** Link page address (eink-ha-os#54): typed, or the remembered / discovered one. Remembered only once it is Home Assistant. */
   async resolveHa(input: string): Promise<HaResolved> {
     const a = parseHaAddress(input, this.haLocal);
     if ('error' in a) return { status: 422, error: a.error };   // not an address: no probe, no cooldown
@@ -671,10 +679,10 @@ export class DeviceSim {
     this.ha.socket?.close(); this.ha.socket = null; clearTimeout(this.ha.retry); this.ha.connected = false; this.ha.entities.clear();
     if (rt) await revokeToken(this.p.ha.url, rt);
     this.p.ha = { ...this.p.ha, linked: false, revoked: false, refreshToken: null, clientId: null, longLived: null };
-    this.p.language = null;   // English on the display, the browser's language in the console (#98)
+    this.p.language = null;   // English on the display, the browser's language in the console (eink-ha-os#98)
     this.p.numberFormat = null;
-    this.p.currency = null;   // € again (#147); the HA time zone stays
-    this.report = { ...this.report, last: null, force: true, status: 'waiting', pushedAt: 0, retried: false };   // the next link starts over (#44)
+    this.p.currency = null;   // € again (eink-ha-os#147); the HA time zone stays
+    this.report = { ...this.report, last: null, force: true, status: 'waiting', pushedAt: 0, retried: false };   // the next link starts over (eink-ha-os#44)
     this.sessions.clear(); this.save();
     this.log('HA unlinked · POST /auth/revoke · key deleted · console sessions ended');
     this.fullRefresh('not linked');
@@ -771,7 +779,7 @@ export class DeviceSim {
     this.log('HA refresh → invalid_grant (' + why + ') · state "Key revoked" · re-link needed');
     this.fullRefresh('key revoked');
   }
-  /** get_config `language` → the display's (#98): one full refresh when it changes, = firmware HaClient::setLanguage. */
+  /** get_config `language` → the display's (eink-ha-os#98): one full refresh when it changes, = firmware HaClient::setLanguage. */
   private setLanguage(haLang: string | undefined) {
     const lang = langOf(haLang);
     if (this.p.language === lang) return;
@@ -779,9 +787,9 @@ export class DeviceSim {
     this.log('HA language ' + lang + ' (Home Assistant: ' + (haLang ?? '?') + ')');
     this.fullRefresh('language');
   }
-  /** The display's price currency symbol (#147). */
+  /** The display's price currency symbol (eink-ha-os#147). */
   sym(): string { return currencySymbol(this.p.ha.linked ? this.p.currency : null); }
-  /** get_config `time_zone` + `currency` (#147), = firmware HaClient::setLocale: a known zone is the clock's unless the
+  /** get_config `time_zone` + `currency` (eink-ha-os#147), = firmware HaClient::setLocale: a known zone is the clock's unless the
    *  `tz` setting overrides it; an unknown one keeps the current zone (logged once). A new currency is one full refresh. */
   private setLocale(zone: string | undefined, cur: string | undefined) {
     if (zone && zone !== this.p.tzHa) {
@@ -797,7 +805,7 @@ export class DeviceSim {
   private tzUnknown = '';
   /** The POSIX TZ the clock uses: override, else HA's zone, else Europe/Amsterdam (core/locale.ts tzFor). */
   tzActive(): string { return tzFor(this.p.settings.tz || '', this.p.tzHa || '') ?? DEFAULT_TZ; }
-  /** Profile number_format → the display's (#110): one full refresh when it changes, = firmware HaClient::setNumberFormat.
+  /** Profile number_format → the display's (eink-ha-os#110): one full refresh when it changes, = firmware HaClient::setNumberFormat.
    *  An HA without the frontend command, or a profile that never saved it, keeps the language's format. */
   private setNumberFormat(v: unknown) {
     const nf = typeof v === 'string' ? v : null;
@@ -837,7 +845,7 @@ export class DeviceSim {
   }
   /**
    * First link without saved screens: build them from what this HA has (src/core/seed.ts) and save them. A failed or
-   * unparseable template answer saves nothing (#58): the default screens stay, seed_pending stays true and the next
+   * unparseable template answer saves nothing (eink-ha-os#58): the default screens stay, seed_pending stays true and the next
    * HA connection tries again.
    */
   private async seed(sock: HaSocket, prefs: unknown) {
@@ -892,10 +900,10 @@ export class DeviceSim {
   wantedEntities(): string[] | null {
     const ids = new Set<string>(); let lists = false; const map = this.mapOf();
     for (const sc of this.p.screens) for (const w of sc.widgets) {
-      if ((w.type === 'stat' || w.type === 'switch' || w.type === 'scene' || w.type === 'history' || w.type === 'media') && typeof w.entity === 'string') ids.add(w.entity);
+      if ((w.type === 'stat' || w.type === 'switch' || w.type === 'scene' || w.type === 'history' || w.type === 'media' || w.type === 'attrList') && typeof w.entity === 'string') ids.add(w.entity);
       if (w.type === 'gauge') ids.add(typeof w.entity === 'string' ? w.entity : 'sensor.home_battery_soc');
       if (w.type === 'price') ids.add(map['sensor.energy_prices']?.ha || 'sensor.electricity_price');
-      if (w.type === 'thermo' && w.zone) ids.add('climate.' + w.zone);   // no zone yet (#148): nothing to watch
+      if (w.type === 'thermo' && w.zone) ids.add('climate.' + w.zone);   // no zone yet (eink-ha-os#148): nothing to watch
       if (w.type === 'zoneList' || w.type === 'lightList' || w.type === 'scene') lists = true;
     }
     for (const id of [...ids]) if (map[id]) ids.add(map[id].ha);
@@ -922,9 +930,9 @@ export class DeviceSim {
   private entityList: { at: number; entities: HaListed[]; areas: HaArea[]; lists: HaLists } | null = null;
   private entityFetch: Promise<void> | null = null;
   /** GET /api/v1/ha/entities: cached list (60 s); the first call starts the fetch and answers ready: false.
-   *  `state`: HA's state when the list was read (#84: the console's picker shows it next to the name). `area` and
-   *  `areas` (#127): the entity's area (its own, else its device's: #88) and HA's areas, for the lightList / zoneList picker (+ climate).
-   *  `lists` (#134): climate / lights in HA and what an unpicked list shows under the firmware's subscription cap (the
+   *  `state`: HA's state when the list was read (eink-ha-os#84: the console's picker shows it next to the name). `area` and
+   *  `areas` (eink-ha-os#127): the entity's area (its own, else its device's: eink-ha-os#88) and HA's areas, for the lightList / zoneList picker (+ climate).
+   *  `lists` (eink-ha-os#134): climate / lights in HA and what an unpicked list shows under the firmware's subscription cap (the
    *  device-sim subscribes to all of them; the counts follow the firmware). */
   haEntities(): { ready: boolean; entities: HaListed[]; areas: HaArea[]; lists?: HaLists } {
     const fresh = this.entityList && Date.now() - this.entityList.at < 60000;
@@ -936,11 +944,11 @@ export class DeviceSim {
         sock.command<{ area_id: string; name: string }[]>({ type: 'config/area_registry/list' }),
         sock.command<{ id: string; area_id: string | null }[]>({ type: 'config/device_registry/list' }).catch(() => []),
       ]).then(([all, reg, areas, devices]) => {
-          // like HA's area_id() (the firmware's template): the entity's own area, else its device's (#88)
+          // like HA's area_id() (the firmware's template): the entity's own area, else its device's (eink-ha-os#88)
           const devArea = new Map(devices.map((d) => [d.id, d.area_id]));
           const areaOf = new Map(reg.map((r) => [r.entity_id, r.area_id ?? (r.device_id ? devArea.get(r.device_id) : null)]));
           const n = (d: string) => all.filter((e) => e.entity_id.startsWith(d + '.')).length;
-          const list = entityListAnswer(all, (id) => areaOf.get(id) ?? '');   // the firmware's template rule (#150)
+          const list = entityListAnswer(all, (id) => areaOf.get(id) ?? '');   // the firmware's template rule (eink-ha-os#150)
           this.entityList = { at: Date.now(), areas: areas.map((a) => ({ id: a.area_id, name: a.name })),
             lists: { ...listCounts(n('climate'), n('light')), entities: { total: list.t, shown: list.e.length } },
             entities: list.e.map(([id, name, unit, state, area]) => ({ id, name, unit, state, ...(area ? { area } : {}) })) };
@@ -1030,7 +1038,7 @@ export class DeviceSim {
     this.upload = null; this.otaRun = { ...this.otaRun, status: 'error', message: msg };
     this.display.mode = 'main'; this.display.progress = null; this.fullRefresh('update failed');
   }
-  /** GET /ota `www` (#350) */
+  /** GET /ota `www` (eink-ha-os#350) */
   wwwState() {
     const w = this.www;
     const current = !w.failed && w.version === this.p.ota.fw;
@@ -1100,14 +1108,14 @@ export class DeviceSim {
       boots: bootsJson(ring), last_crash: lastCrash(ring), last_wdt: null, heap: { ...SIM_HEAP, low_point: SIM_LOW_POINT },
       panel: { controller: 'UC8179', source: 'probe', verdict: 'ultrachip', promoted: true, ver: '00 00 01 FF FF', flg: 0, nvs_screen_type: 1, failed: false, failure: null },
       coredump: d.coredump, touch_recoveries: 0, deep_sleep: { armed: true, boots_left: 0, armed_by: 'boots' }, battery: battHistory(this.battTick()),
-      power_trail: { before_boot: null, lines: ['awake'], empty_house_sleeps: 0, phases: { boot: null, wakes: [] } },   // #225: a fresh device marks itself awake on /power.txt
-      // #227 inbound path; served counts finished responses (http.ts), this request is still open
+      power_trail: { before_boot: null, lines: ['awake'], empty_house_sleeps: 0, phases: { boot: null, wakes: [] } },   // eink-ha-os#225: a fresh device marks itself awake on /power.txt
+      // eink-ha-os#227 inbound path; served counts finished responses (http.ts), this request is still open
       web: { open: 1, served: this.web.served, refused_503: 0, last_request_age_s: this.web.lastAt ? Math.floor((Date.now() - this.web.lastAt) / 1000) : null },
-      mdns: { up: !!this.p.wifi.connected, restarts: 0, last_restart_reason: null },
+      mdns: { up: !!this.p.wifi.connected, restarts: 0, last_restart_reason: null, hostname: null, v4: false, last_announce_age_s: null },   // eink-ha-os#376: no responder (as QEMU)
       wifi: { rssi, bssid: rssi === null ? null : '3fa2', idle_checks: 0, idle_reconnects: 0 },
     };
   }
-  /** GET /logs (x-firmware, #200) */
+  /** GET /logs (x-firmware, eink-ha-os#200) */
   logsGet(q: LogsQuery, previous: boolean) { return previous ? logsQuery(this.logsPrev, q, 'previous') : logsQuery(this.logs, q); }
   /** DELETE /diagnostics */
   diagnosticsClear() {
@@ -1122,7 +1130,7 @@ export class DeviceSim {
   }
   // ------------------------------------------------------------------ power
   /** GET /status `power` (3.0 instrumentation). The firmware reports getCpuFrequencyMhz() / esp_wifi_get_ps() as cpuMhz /
-   *  wifiPs, and in `applied` what the power rules set (#177). An OTA holds Wi-Fi power save off (net/health.cpp). */
+   *  wifiPs, and in `applied` what the power rules set (eink-ha-os#177). An OTA holds Wi-Fi power save off (net/health.cpp). */
   powerStatus() {
     const charging = this.power.usb && this.battery < 100;
     const d = this.powerCheck();
@@ -1132,7 +1140,7 @@ export class DeviceSim {
     return { source: powerSource(charging, this.power.usb), charging, cpuMhz: applied.cpuMhz, wifiPs: held ? 'none' : d.wifiPs, applied, mode: 'awake', nextWakeEpoch: null,
       wakes: t.wakes, redraws: t.redraws, failedWakes: t.failedWakes, awakeS: Math.floor((t.awakeMs + Date.now() - this.bootAt) / 1000), asleepS: t.asleepS, lastWake: t.last };
   }
-  /** GET /status `refreshes` (#178): since power-on (boots that ended in deep sleep + this one) and this boot. */
+  /** GET /status `refreshes` (eink-ha-os#178): since power-on (boots that ended in deep sleep + this one) and this boot. */
   refreshStatus() {
     const b = this.bootRefresh, d = this.display;
     const boot = { full: d.full - b.full, partial: d.partial - b.partial, fast: d.fast - b.fast, clean: d.clean - b.clean };
@@ -1156,7 +1164,7 @@ export class DeviceSim {
     this.enterSleep(d.wakeAtEpoch === null ? 0 : d.wakeAtEpoch * 1000, d.reason);
     return null;
   }
-  /** POST /api/v1/device/sleep {"seconds": N} (#178): checked now; 202 → deep sleep once the answer is out. */
+  /** POST /api/v1/device/sleep {"seconds": N} (eink-ha-os#178): checked now; 202 → deep sleep once the answer is out. */
   sleepNow(seconds: unknown): SleepNowCheck {
     const c = sleepNowCheck(seconds, this.powerInputs());
     if (c.status === 202) this.log('POWER sleep requested · ' + String(seconds) + ' s');
@@ -1219,7 +1227,7 @@ export class DeviceSim {
     this.report.busy = false;
     const ok = status === 200 || status === 201;
     if (ok) { this.report.last = { atMs: now, battery: this.battery, charging }; this.report.force = false; this.report.retried = false; this.report.status = 'ok'; this.report.pushedAt = now; this.log('HA report · ' + states.length + ' states'); return; }
-    // failed: try again after the minimum gap, without counting the values as reported; no HTTP answer → one early retry (#123)
+    // failed: try again after the minimum gap, without counting the values as reported; no HTTP answer → one early retry (eink-ha-os#123)
     const retry = typeof status === 'string' && !this.report.retried;
     this.report.retried ||= retry;
     this.report.last = { atMs: now, battery: this.report.last?.battery ?? this.battery, charging: this.report.last?.charging ?? charging, retry };

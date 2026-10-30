@@ -1,5 +1,5 @@
 {
-  "description": "Device health as Home Assistant entities (#32; emulator src/core/haReport.ts, firmware core/ha_report.h). states: what one push POSTs to /api/states/<entity_id>, in order (attribute order too). due: whether to push now. Times in ms since boot; epochs in seconds; an epoch before 1700000000 means the clock is not set.",
+  "description": "Device health as Home Assistant entities (eink-ha-os#32; emulator src/core/haReport.ts, firmware core/ha_report.h). states: what one push POSTs to /api/states/<entity_id>, in order (attribute order too). due: whether to push now. Times in ms since boot; epochs in seconds; an epoch before 1700000000 means the clock is not set.",
   "states": [
     {
       "name": "everything known, charging from USB",

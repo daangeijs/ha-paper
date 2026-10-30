@@ -1,4 +1,4 @@
-// Advanced (#191): a sidebar with full pages: Screens as YAML, API (was the Advanced and API access tabs), Device log (#200).
+// Advanced (eink-ha-os#191): a sidebar with full pages: Screens as YAML, API (was the Advanced and API access tabs), Device log (eink-ha-os#200).
 import type { ConsoleView } from '../useConsole.ts';
 import { YamlTab } from './YamlTab.tsx';
 import { ApiTab } from './ApiTab.tsx';

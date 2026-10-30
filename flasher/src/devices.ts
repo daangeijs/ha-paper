@@ -1,4 +1,4 @@
-// Devices the flasher offers (#239). Every release is tested on a real X4 Pro before it ships (Daan, 2026-10-26),
+// Devices the flasher offers (eink-ha-os#239). Every release is tested on a real X4 Pro before it ships (Daan, 2026-10-26),
 // so the tested line names the bundled release's version.
 
 export interface Device {

@@ -1,4 +1,4 @@
-// Schema versions + migrations of persisted state (issue #12), a 1:1 port of emulator/src/core/migrate.ts. Pure;
+// Schema versions + migrations of persisted state (issue eink-ha-os#12), a 1:1 port of emulator/src/core/migrate.ts. Pure;
 // checked against spec/test-vectors/migrations/*.json. Device glue (boot entry point, NVS): net/storage.cpp
 // Storage::migrate(); the map of what is stored where: net/storage.h.
 //

@@ -16,7 +16,7 @@ namespace ui {
 
 static int mid(int top, int h, Font f) { int ch = Canvas::capHeight(f); return top + (h - ch) / 2 + ch; }
 
-// #199 text scale: tile labels B20 (arm's length), sub lines R18; a sub line that does not fit at 18 steps down to
+// eink-ha-os#199 text scale: tile labels B20 (arm's length), sub lines R18; a sub line that does not fit at 18 steps down to
 // 16 before it ellipsizes ("Discharging 2.50 kW", "7 kamers verwarmen" on a 1-wide tile).
 static const int kLabel = 20, kLabelH = 24, kSubH = 22;
 static void subLine(Canvas& c, int x, int top, const std::string& s, int maxW, TextOpts o = C(Ink::Black)) {
@@ -33,7 +33,7 @@ static void valueUnit(Canvas& c, int x, int bl, const std::string& v, int vs, co
   if (!u.empty()) c.text(x + w + gap, bl, u, B(us));
 }
 
-// value + unit that fit maxW (#151, #162 core fitValue): drop decimals while 2 significant digits stay
+// value + unit that fit maxW (eink-ha-os#151, eink-ha-os#162 core fitValue): drop decimals while 2 significant digits stay
 // ("28.30 kWh" → "28.3 kWh", "0.2534" → "0.25"), then a smaller value size
 static void fitValueUnit(Canvas& c, std::string& v, int& vs, const std::string& u, int us, int maxW, int gap = 6) {
   const int uw = u.empty() ? 0 : gap + c.textWidth(u, B(us));
@@ -94,7 +94,7 @@ static void statTile(Canvas& c, I& a, const Widget& w, Rect r) {
   subLine(c, r.x + 14, k.subTop, s.sub, r.w - 28);
 }
 
-// The digits are their own region k<i> (clockTime), so the minute tick redraws only them (issue #38).
+// The digits are their own region k<i> (clockTime), so the minute tick redraws only them (issue eink-ha-os#38).
 static int clockTop(Rect r) { return r.y + (r.h - (87 + 4 + 24)) / 2; }
 static TextOpts clockOpts() { TextOpts t; t.tracking = -4; t.tabular = true; return t; }
 
@@ -102,7 +102,7 @@ static void clockTile(Canvas& c, I& a, Rect r) {
   TextOpts d; d.maxW = r.w - 36;
   const int bl = baseline(clockTop(r) + 87 + 4, B(20), 1.2);
   if (a.asleepAt.empty()) { c.text(r.x + 18, bl, a.now.date, B(20), d); return; }
-  // #333: asleep, no time of day: the day number above, weekday · month here, and the "Asleep" mark (Home has no bar clock)
+  // eink-ha-os#333: asleep, no time of day: the day number above, weekday · month here, and the "Asleep" mark (Home has no bar clock)
   const std::string mark = a.t(S::asleepBar);
   const int mw = c.textRight(r.x + r.w - 18, bl, mark, B(18));
   d.maxW = std::max(0, r.w - 36 - mw - 10);
@@ -125,18 +125,18 @@ void clockTime(Canvas& c, I& a, const Widget& w, Rect r) {
 static void priceTile(Canvas& c, I& a, const Widget& w, Rect r) {
   const auto& P = a.data.prices;
   Col3 k = col3(r, 50);
-  std::string lab = w.field("label").empty() ? std::string(a.t(S::price)) : w.field("label");   // #148
+  std::string lab = w.field("label").empty() ? std::string(a.t(S::price)) : w.field("label");   // eink-ha-os#148
   if (P.size() < 24 || !a.now.known) {
     tileLabel(c, r.x + 14, k.labelTop, lab, r.w - 28, 1);
     c.text(r.x + 14, k.valueBl, "—", B(50));
     return;
   }
   int h = a.now.h;
-  double p = a.data.priceAt(h, a.now.m);   // this quarter-hour's when the source has them (#151)
+  double p = a.data.priceAt(h, a.now.m);   // this quarter-hour's when the source has them (eink-ha-os#151)
   std::vector<double> s = P; std::sort(s.begin(), s.end());
   bool cheap = p <= s[7], dear = p >= s[16];
   std::string tag = utf8Upper(a.t(cheap ? S::cheap : dear ? S::high : S::normal));
-  // #199: tag B16, one step smaller per px it lacks beside the label (down to B13, "GOEDKOOP" next to "PRIJS")
+  // eink-ha-os#199: tag B16, one step smaller per px it lacks beside the label (down to B13, "GOEDKOOP" next to "PRIJS")
   TextOpts lo; lo.upper = true;
   int room = r.w - 28 - c.textWidth(lab, B(kLabel), lo) - 8, ts = 16;
   while (ts > 13 && c.textWidth(tag, B(ts)) + 14 > room) --ts;
@@ -222,7 +222,7 @@ static void barsTile(Canvas& c, I& a, const Widget& w, Rect r) {
   if (c.textWidth(lab, B(kLabel), lo) + sumW + 10 > x1 - x0) summary.clear(), sumW = 0;   // narrow tile: label wins
   label(c, x0, top, lab, kLabel, Ink::Black, x1 - x0 - sumW - 10);
   if (!summary.empty()) c.textRight(x1, baseline(top, B(kLabel), 1.2), summary, B(18));
-  // prices (#260): today's low / high under the axis, a caret over the hour now (room above the bars)
+  // prices (eink-ha-os#260): today's low / high under the axis, a caret over the hour now (room above the bars)
   const bool pr = series == "prices";
   int axisTop = bottom - 21 - (pr ? 27 : 0);
   int chartTop = top + kLabelH + 6 + (pr ? 14 : 0), chartBot = axisTop - 6 - 2;
@@ -235,7 +235,7 @@ static void barsTile(Canvas& c, I& a, const Widget& w, Rect r) {
     for (int j = 0; j < n; ++j) {
       int pct = mx > 0 ? std::max(2, int(jsRound(ser[j] / mx * 100))) : 2;
       int bh = H * pct / 100;
-      // now ink; cheapest 3 h (prices) / past hours: Hatch; the rest: Track. B/W patterns, issue #38
+      // now ink; cheapest 3 h (prices) / past hours: Hatch; the rest: Track. B/W patterns, issue eink-ha-os#38
       bool dark = series == "prices" ? (j >= ch && j < ch + 3) : j < h;
       int bx = x0 + int(j * (bw + gap));
       int bx2 = x0 + int(j * (bw + gap) + bw);
@@ -265,11 +265,13 @@ static void barsTile(Canvas& c, I& a, const Widget& w, Rect r) {
   }
 }
 
-// History tile (#270, emulator Device.tsx HistoryPlot, geometry core/history_chart): bars from zero or an auto-ranged
+// History tile (eink-ha-os#270, emulator Device.tsx HistoryPlot, geometry core/history_chart): bars from zero or an auto-ranged
 // line, gaps blank, the latest bucket with data solid ink (bar) or a dot (line), axis ticks, low / high with times.
-// #304: area (line over a Track-dithered fill), step, dots, a dashed threshold line, min / max / last on the plot.
-// #307 (past): the recorder of another entity before now, the forecast after it drawn lighter: past bars solid ink,
+// eink-ha-os#304: area (line over a Track-dithered fill), step, dots, a dashed threshold line, min / max / last on the plot.
+// eink-ha-os#307 (past): the recorder of another entity before now, the forecast after it drawn lighter: past bars solid ink,
 // forecast bars an ink outline, the forecast line / step dashed (no area fill), its dots hollow; a dotted Now marker.
+// eink-ha-os#304 wave 2: band = the mean line over Track between each bucket's min and max; compare = the same window a day / week
+// before, a 2 px level tick over each bar or a dashed 2 px line under the line / dots.
 // Classic: 2 px line, square bars, uppercase name; Modern (on its card): 3 px line, rounded bars. 1-bit: Hatch /
 // Track / Ink only. The redraw is the region signature: bar rects and line ends in pixels, so a value change below a pixel
 // draws nothing.
@@ -279,7 +281,7 @@ static void historyTile(Canvas& c, I& a, const Widget& w, Rect r) {
   const auto* slot = a.histOf(hist::seriesKey(sp));
   const hist::Series* ser = slot && slot->s.n ? &slot->s : nullptr;
   hist::State hs = slot ? slot->state : hist::State::Loading;
-  static hist::SeriesList joined;   // #307: past + forecast, one Series in PSRAM (render task only)
+  static hist::SeriesList joined;   // eink-ha-os#307: past + forecast, one Series in PSRAM (render task only)
   if (!sp.past.empty()) {
     if (joined.empty()) joined.resize(1);
     const auto* ps = a.histOf(hist::seriesKey(hist::pastSpec(sp)));
@@ -287,13 +289,21 @@ static void historyTile(Canvas& c, I& a, const Widget& w, Rect r) {
     hs = hist::joinState(ps ? ps->state : hist::State::Loading, hs);
     ser = &joined[0];
   }
+  // eink-ha-os#304 wave 2: band min / max and the compare window, more series of the same tile (none yet = not drawn)
+  auto other = [&](const hist::Spec& x) -> const hist::Series* {
+    const auto* o = a.histOf(hist::seriesKey(x));
+    return o && o->s.n && o->state == hist::State::Ok ? &o->s : nullptr;
+  };
+  const hist::Series* bLo = sp.style == hist::Style::Band ? other(hist::plainSpec(sp, hist::Agg::Min)) : nullptr;
+  const hist::Series* bHi = sp.style == hist::Style::Band ? other(hist::plainSpec(sp, hist::Agg::Max)) : nullptr;
+  const hist::Series* prev = sp.compareMs > 0 ? other(hist::compareSpec(sp)) : nullptr;
   hist::Chart ch;
-  hist::chart(sp, ser, hs, a.now.epochMs, a.now.tz, a.lang, ch);
+  hist::chart(sp, ser, hs, a.now.epochMs, a.now.tz, a.lang, ch, bLo, bHi, prev);
   const EntityValue* raw = a.store.get(sp.entity);
   StatText st = statText(sp.entity, a.data, a.now.h, a.statEntity(sp.entity), a.lang);
   std::string lab = !w.field("label").empty() ? w.field("label") : st.label;
   std::string sum = st.gap != EntityGap::None ? gapText(a, st.gap) : st.value + (st.unit.empty() || st.value == "—" ? "" : " " + st.unit);
-  // #292: an attribute / forecast series shows its value now (the bucket holding now) in its own unit, 1 decimal
+  // eink-ha-os#292: an attribute / forecast series shows its value now (the bucket holding now) in its own unit, 1 decimal
   const std::string srcUnit = hist::sourceUnit(sp);
   const bool src = sp.kind != hist::Kind::Recorder;
   if (src && st.gap == EntityGap::None) {
@@ -363,21 +373,44 @@ static void historyTile(Canvas& c, I& a, const Widget& w, Rect r) {
       else if (i == ch.latest || ch.split >= 0) c.box(b, rad, Ink::Black);
       else c.tone(b, rad, Tone::Hatch);
     }
+    for (int i = 0; ch.prev && i < n; ++i) {   // compare: a 2 px level tick in a 1 px paper halo over each bar
+      if (!ch.prevAt(i)) continue;
+      int bx = x0 + int(std::lround(i * (bw + gap))), bx2 = x0 + int(std::lround(i * (bw + gap) + bw)), yv = py(ch.y(ch.prev[i]));
+      c.fill(rc(bx - 1, yv - 2, std::max(1, bx2 - bx) + 2, 4), Ink::Paper);
+      c.fill(rc(bx, yv - 1, std::max(1, bx2 - bx), 2), Ink::Black);
+    }
     if (zeroLine) c.hline(x0, py(ch.zero) - 1, W, 2, Ink::Black);
   }
   auto vy = [&](int i) { return py(ch.y(ch.v[i])); };
-  if (ch.style == hist::Style::Area)   // under each run of 2+ points, down to the plot bottom (past only, #307)
+  if (ch.style == hist::Style::Area)   // under each run of 2+ points, down to the plot bottom (past only, eink-ha-os#307)
     for (int i = 0; i + 1 < ch.n; ++i)
       if (!ch.gap(i) && !ch.gap(i + 1) && !ch.ahead(i + 1)) c.toneUnder(px(ch.x(i)), vy(i), px(ch.x(i + 1)), vy(i + 1), aBot, Tone::Track);
+  if (ch.lo)   // band: between max and min over each run of 2+ buckets
+    for (int i = 0; i + 1 < ch.n; ++i)
+      if (ch.bandAt(i) && ch.bandAt(i + 1))
+        c.toneBetween(px(ch.x(i)), py(ch.y(ch.hi[i])), py(ch.y(ch.lo[i])), px(ch.x(i + 1)), py(ch.y(ch.hi[i + 1])), py(ch.y(ch.lo[i + 1])), Tone::Track);
   if (hist::has(ch.threshold)) c.dashedHLine(x0, py(ch.threshold) - 1, W, 2, 6, 4, Ink::Black);
   const int th = sl ? 3 : 2;
-  if (ch.split >= 0 && ch.split < ch.n) c.dottedVLine(px(ch.splitX()) - 1, pTop, aBot - pTop, 2, Ink::Black);   // Now (#307)
+  if (ch.prev && ch.style != hist::Style::Bars) {   // compare: dashed 2 px under the tile's own line / dots
+    int ph = 0;
+    auto py2 = [&](int i) { return py(ch.y(ch.prev[i])); };
+    for (int i = 0; i < ch.n; ++i) {
+      if (!ch.prevAt(i)) continue;
+      const bool next = i + 1 < ch.n && ch.prevAt(i + 1);
+      if (ch.style == hist::Style::Step) {
+        const int xr = px(ch.edge(i + 1));
+        ph = c.dashedLine(px(ch.edge(i)), py2(i), xr, py2(i), 2, 6, 4, Ink::Black, ph);
+        if (next) ph = c.dashedLine(xr, py2(i), xr, py2(i + 1), 2, 6, 4, Ink::Black, ph);
+      } else if (next) ph = c.dashedLine(px(ch.x(i)), py2(i), px(ch.x(i + 1)), py2(i + 1), 2, 6, 4, Ink::Black, ph);   // a lone point: none
+    }
+  }
+  if (ch.split >= 0 && ch.split < ch.n) c.dottedVLine(px(ch.splitX()) - 1, pTop, aBot - pTop, 2, Ink::Black);   // Now (eink-ha-os#307)
   int phase = 0;   // the forecast's dash pattern runs on across its pieces
   auto seg = [&](int xa, int ya, int xb, int yb, bool dashed) {
     if (dashed) phase = c.dashedLine(xa, ya, xb, yb, th, 6, 4, Ink::Black, phase);
     else c.line(xa, ya, xb, yb, th, Ink::Black);
   };
-  if (ch.style == hist::Style::Line || ch.style == hist::Style::Area) {   // a piece is forecast when its right end is
+  if (ch.style == hist::Style::Line || ch.style == hist::Style::Area || ch.style == hist::Style::Band) {   // a piece is forecast when its right end is
     int xPrev = 0, yPrev = 0;
     bool open = false;
     for (int i = 0; i < ch.n; ++i) {
@@ -419,7 +452,7 @@ static void historyTile(Canvas& c, I& a, const Widget& w, Rect r) {
   }
 }
 
-// Agenda and Next tiles (#316, emulator Device.tsx AgendaPlot / NextPlot, lines from core/agenda): a 25 px pitch, day
+// Agenda and Next tiles (eink-ha-os#316, emulator Device.tsx AgendaPlot / NextPlot, lines from core/agenda): a 25 px pitch, day
 // headers with a dotted rule between days, time column 70 px; Next = title on up to two lines, the times, an inverted
 // pill. Classic: uppercase name and day headers; Modern: sentence case on its card. Titles use FULL-charset sizes
 // (≤ 30 px) so é ë ü draw. The redraw is the region signature (text and pill), so the countdown redraws once a minute.
@@ -514,7 +547,7 @@ static void badge(Canvas& c, int right, int top, int lvl, bool car) {
 }
 
 static void routeTile(Canvas& c, I& a, const Widget& w, Rect r) {
-  // A user route (#145): label + mode + entity; the data is the entity's (spec/SCHEMA.md "Route sensors").
+  // A user route (eink-ha-os#145): label + mode + entity; the data is the entity's (spec/SCHEMA.md "Route sensors").
   std::string mode = w.field("mode"), id = w.field("entity");
   bool isCar = mode == "car";
   int x0 = r.x + 14, x1 = r.x + r.w - 14, top = r.y + 10, bottom = r.y + r.h - 9;
@@ -561,7 +594,7 @@ static void routeTile(Canvas& c, I& a, const Widget& w, Rect r) {
   TextOpts nt; nt.maxW = x1 - x0;
   c.text(x0, baseline(footTop + 5 - 2, lvl >= 3 ? B(15) : R(15), 1.2), note, lvl >= 3 ? B(15) : R(15), nt);
   int bodyTop = top + 34 + 4, bodyBot = footTop - 2 - 4;
-  if (gap != EntityGap::None) {   // #86: HA has the sensor but no value
+  if (gap != EntityGap::None) {   // eink-ha-os#86: HA has the sensor but no value
     c.dottedHLine(x0, bodyTop, x1 - x0, 1, Ink::Black);
     gapRing(c, x0, (bodyTop + bodyBot) / 2 + 14);
     return;
@@ -576,7 +609,7 @@ static void routeTile(Canvas& c, I& a, const Widget& w, Rect r) {
     x += c.text(x, bl, "min", B(20));
     std::string arrive = a.now.known ? hhmm(a.now.minuteOfDay + eta) : std::string("—");
     TextOpts ar = C(Ink::Black);
-    if (w.cs >= 3) {   // #303: the arrival time as a second big value, caption beside it
+    if (w.cs >= 3) {   // eink-ha-os#303: the arrival time as a second big value, caption beside it
       c.dottedVLine(x + 14, bl - 44, 52, 1, Ink::Black);
       x += 14 + 1 + 20;
       x += c.text(x, bl, arrive, B(52), vt) + 10;
@@ -612,7 +645,7 @@ static void thermoTile(Canvas& c, I& a, const Widget& w, Rect r) {
   int x0 = r.x + 14, x1 = r.x + r.w - 14, top = r.y + 12, bottom = r.y + r.h - 12;
   std::string name = !w.field("label").empty() ? w.field("label") : z ? z->name : id.empty() ? std::string(a.t(S::room)) : id;
   bool heat = z && z->heating();
-  int nameW = x1 - x0 - (heat ? 24 : 0);   // #162: keep the last word ("Slaapk… voor") and clear the flame
+  int nameW = x1 - x0 - (heat ? 24 : 0);   // eink-ha-os#162: keep the last word ("Slaapk… voor") and clear the flame
   c.text(x0, baseline(top, B(20), 1.2), fitKeepTail(name, nameW, [&c](const std::string& t) { return c.textWidth(t, B(20)); }), B(20));
   if (heat) c.icon(Icon::Flame18, x1 - 18, top + 3);
   int big = tall ? 76 : 40;
@@ -719,7 +752,7 @@ std::string sceneSub(I& a, const SceneAction& s) {
   return a.t(S::lightsOnOf, std::to_string(a.data.lightsOn()), std::to_string(a.data.lights.size()));
 }
 
-// scene tile (#146): a scene / script entity runs it; none = all lights off (with the lights-on count)
+// scene tile (eink-ha-os#146): a scene / script entity runs it; none = all lights off (with the lights-on count)
 static void sceneTile(Canvas& c, I& a, const Widget& w, Rect r) {
   SceneAction act = sceneAction(w);
   Col3 k = col3(r, 30);
@@ -734,22 +767,22 @@ std::string settingValue(const I& a, const std::string& key) {
   const DisplaySettings& s = a.set;
   if (key == "brightness") return s.brightness == 0 ? std::string(a.t(S::off)) : std::to_string(s.brightness) + "%";
   if (key == "warmth") return std::to_string(s.warmth) + "%";
-  if (key == "lightTimeout")   // #220
+  if (key == "lightTimeout")   // eink-ha-os#220
     return s.lightTimeout == 0 ? std::string(a.t(S::never)) : s.lightTimeout < 60 ? a.t(S::afterSec, std::to_string(s.lightTimeout))
                                                                                    : a.t(S::afterMin, std::to_string(s.lightTimeout / 60));
-  if (key == "quiet") {   // #295
+  if (key == "quiet") {   // eink-ha-os#295
     if (s.quiet == "off") return a.t(S::off);
     auto d = s.quiet.find('-');
     return pad2(std::atoi(s.quiet.substr(0, d).c_str())) + "–" + pad2(std::atoi(s.quiet.substr(d + 1).c_str()));
   }
-  if (key == "morning") return a.t(s.morning ? S::on : S::off);   // #330
+  if (key == "morning") return a.t(s.morning ? S::on : S::off);   // eink-ha-os#330
   if (key == "returnHome" || key == "standby") {
     int m = idleMinutes(key == "standby" ? s.standby : s.returnHome);
     return m == 0 ? std::string(a.t(S::never)) : a.t(S::afterMin, std::to_string(m));
   }
   if (key == "clock") return a.t(s.clock == "12" ? S::hour12 : S::hour24);
   if (key == "interval") return a.t(S::everySec, std::to_string(s.intervalSec));
-  if (key == "cleanEvery" || key == "fullEvery")   // #26
+  if (key == "cleanEvery" || key == "fullEvery")   // eink-ha-os#26
     return s.cleanEvery == 60 ? std::string(a.t(S::hourly)) : s.cleanEvery == 120 ? std::string(a.t(S::every2h)) : a.t(S::everyMin, std::to_string(s.cleanEvery));
   if (key == "style") return a.t(s.style == "sleek" ? S::styleSleek : S::styleClassic);
   if (key == "typeface") return s.typeface == "bricolage" ? "Bricolage" : s.typeface == "fraunces" ? "Fraunces" : s.typeface == "geist" ? "Geist" : "Archivo";
@@ -766,10 +799,10 @@ static void settingTile(Canvas& c, I& a, const Widget& w, Rect r) {
   const SettingDef* d = findSetting(key);
   int top = r.y + 12, bottom = r.y + r.h - 12;
   std::string lab = d ? a.t(d->label) : key;
-  int ll = labelLines(c, lab, r.w - 28);   // "TERUG NAAR START", "SCHERM VERVERSEN" wrap (#199)
+  int ll = labelLines(c, lab, r.w - 28);   // "TERUG NAAR START", "SCHERM VERVERSEN" wrap (eink-ha-os#199)
   tileLabel(c, r.x + 14, top, lab, r.w - 28, ll);
   top += (ll - 1) * kLabelH;
-  // title + value only (#310), spaced like the emulator's column
+  // title + value only (eink-ha-os#310), spaced like the emulator's column
   int g = ((bottom - top) - kLabelH - 31 - 46) / 2;
   TextOpts t; t.tabular = true; t.maxW = r.w - 28;
   c.text(r.x + 14, baseline(top + kLabelH + g, B(26), 1.2), settingValue(a, key), B(26), t);
@@ -786,7 +819,7 @@ static void settingTile(Canvas& c, I& a, const Widget& w, Rect r) {
 }
 
 void tile(Canvas& c, I& a, const Widget& w, int i, Rect r) {
-  if (w.type == "weather") { weatherTile(c, a, w, r); return; }   // #318
+  if (w.type == "weather") { weatherTile(c, a, w, r); return; }   // eink-ha-os#318
   if (sleek() && sleekTile(c, a, w, r, w.type == "setting" ? settingValue(a, w.field("key")) : std::string())) return;
   tileFrame(c, r);
   if (w.type == "stat") statTile(c, a, w, r);
@@ -795,15 +828,16 @@ void tile(Canvas& c, I& a, const Widget& w, int i, Rect r) {
   else if (w.type == "gauge") gaugeTile(c, a, w, r);
   else if (w.type == "bars") barsTile(c, a, w, r);
   else if (w.type == "history") historyTile(c, a, w, r);
-  else if (w.type == "agenda") agendaTile(c, a, w, r);   // #316
+  else if (w.type == "agenda") agendaTile(c, a, w, r);   // eink-ha-os#316
   else if (w.type == "next") nextTile(c, a, w, r);
   else if (w.type == "route") routeTile(c, a, w, r);
   else if (w.type == "bins") binsTile(c, a, w, r);
-  else if (w.type == "guestWifi") guestTile(c, a, w, r);   // #329
+  else if (w.type == "guestWifi") guestTile(c, a, w, r);   // eink-ha-os#329
+  else if (w.type == "attrList") listTile(c, a, w, r);   // eink-ha-os#332
   else if (w.type == "thermo") thermoTile(c, a, w, r);
   else if (w.type == "switch") switchTile(c, a, w, r);
   else if (w.type == "scene") sceneTile(c, a, w, r);
-  else if (w.type == "media") mediaTile(c, a, w, i, r);   // #319
+  else if (w.type == "media") mediaTile(c, a, w, i, r);   // eink-ha-os#319
   else if (w.type == "setting") settingTile(c, a, w, r);
   else {
     Col3 k = col3(r, 50);
@@ -813,11 +847,11 @@ void tile(Canvas& c, I& a, const Widget& w, int i, Rect r) {
   }
 }
 
-// Console Values view (#122, emulator tileValues): the tile's big value as drawn, on one line; "" = no single value.
+// Console Values view (eink-ha-os#122, emulator tileValues): the tile's big value as drawn, on one line; "" = no single value.
 std::string tileValue(I& a, const Widget& w) {
   std::string id = w.field("entity");
   if (w.type == "clock") return a.now.clock;
-  if (w.type == "zoneList") {   // #161: "3 of 9 heating" / "4 of 9 lights on", like the tile's header
+  if (w.type == "zoneList") {   // eink-ha-os#161: "3 of 9 heating" / "4 of 9 lights on", like the tile's header
     std::vector<ZoneState> zs = pickZones(a.data.zones, w);
     int heating = 0;
     for (auto& z : zs) heating += z.heating();
@@ -828,17 +862,18 @@ std::string tileValue(I& a, const Widget& w) {
     for (auto& g : pickLights(a.data.lightGroups, w)) for (auto& id : g.ids) if (const LightState* l = a.data.light(id)) { ++shown; lit += l->on; }
     return shown ? a.t(S::lightsOnOf, std::to_string(lit), std::to_string(shown)) : std::string("—");
   }
-  if (w.type == "guestWifi") {   // #329: the network name, never the password
+  if (w.type == "attrList") return listValue(a, w);   // eink-ha-os#332
+  if (w.type == "guestWifi") {   // eink-ha-os#329: the network name, never the password
     std::string n = guest::fieldDecode(w.field("ssid"));
     return n.empty() ? std::string("—") : n;
   }
-  if (w.type == "bins") {   // #317: "Paper · Tomorrow"
+  if (w.type == "bins") {   // eink-ha-os#317: "Paper · Tomorrow"
     bins::View v = bins::view(bins::inputs(w.field("entities"), w.field("labels"), a.store), a.now.epochMs, a.now.tz,
                               bins::tonightHour(w.field("tonight")), a.lang);
     return v.rows.empty() || !a.now.known ? std::string("—") : v.head + " · " + v.big;
   }
   if (w.type != "stat" && w.type != "price" && w.type != "gauge" && w.type != "thermo" && w.type != "switch") return "";
-  // an HA entity with no value: the word, not "—" (#86); logical ids and the light list have their own sources
+  // an HA entity with no value: the word, not "—" (eink-ha-os#86); logical ids and the light list have their own sources
   bool light = domainOf(id) == "light" && a.data.light(id.substr(6));
   const EntityValue* raw = !id.empty() && !findEntity(id) && id != kGaugeDefaultEntity && !light ? a.store.get(id) : nullptr;
   if (raw && (raw->state == "unavailable" || raw->state == "unknown")) return a.t(raw->state == "unavailable" ? S::gapUnavailable : S::gapUnknown);
@@ -907,8 +942,8 @@ void linkCard(Canvas& c, I& a, Rect r) {
 }
 
 // ---------------- lists (regions: frame + header + one per row) ----------------
-// #199: room names B20, or B18 for the whole page when one does not fit (then the ellipsis); NOW B20 vs SET B22
-// (weight and size, not gray, tell them apart; #38)
+// eink-ha-os#199: room names B20, or B18 for the whole page when one does not fit (then the ellipsis); NOW B20 vs SET B22
+// (weight and size, not gray, tell them apart; eink-ha-os#38)
 static const int kZoneSetW = 154, kZoneNowW = 52;
 static int zoneNameMax(const ZoneState& z, int colW) { return colW - kZoneSetW - 8 - kZoneNowW - 8 - (z.heating() ? 22 : 0); }
 static void zoneRow(Canvas& c, I& a, const ZoneState& z, Rect r, Font nf) {
@@ -938,7 +973,7 @@ static void lightHeaderRow(Canvas& c, I& a, const LightCell& it, const std::vect
   int bw = c.textWidth(tl, B(18)) + 24 + 4;
   int cy = r.y + r.h / 2;
   int bl = cy + Canvas::capHeight(B(18)) / 2;
-  TextOpts up; up.upper = true; up.maxW = r.w - bw - 100;   // #199: room B18, count R18 (were 15)
+  TextOpts up; up.upper = true; up.maxW = r.w - bw - 100;   // eink-ha-os#199: room B18, count R18 (were 15)
   int w = c.text(r.x, bl, room, B(18), up);
   TextOpts cnt = C(Ink::Black); cnt.maxW = r.w - bw - w - 16;
   c.text(r.x + w + 8, bl, a.t(S::onOf, std::to_string(on), std::to_string(n)), R(18), cnt);
@@ -946,7 +981,7 @@ static void lightHeaderRow(Canvas& c, I& a, const LightCell& it, const std::vect
   button(c, rc(r.x + r.w - bw, cy - 22, bw, 44), tl, B(18), false, [&a, area, ids] { a.roomLights(area, ids); });
 }
 
-// #199: name B20, or B18 for the whole page when one does not fit (then the ellipsis); value B20; "on / off only" R18
+// eink-ha-os#199: name B20, or B18 for the whole page when one does not fit (then the ellipsis); value B20; "on / off only" R18
 // on up to two lines (were B18 / R17 / R13). The name gets what the value leaves (emulator: a 52 px value column).
 static std::string lightRowValue(I& a, const LightState& l) { return l.on ? (l.dim ? std::to_string(l.pct) + "%" : a.t(S::on)) : a.t(S::off); }
 static int lightNameMax(Canvas& c, I& a, const LightState& l, int w) {
@@ -999,7 +1034,7 @@ void listRegions(I& a, const Widget& w, int i, Rect r, std::vector<RegionDef>& o
     tileFrame(c, r);
     if (!zones) return;
     TextOpts o = C(Ink::Black);
-    int bl = top + 48 + 4 + 19;   // column heads B20 (#199, was B13)
+    int bl = top + 48 + 4 + 19;   // column heads B20 (eink-ha-os#199, was B13)
     for (int k = 0; k < 2; ++k) {
       int cx = x0 + k * (colW + colGap);
       c.text(cx, bl, utf8Upper(a.t(S::room)), B(20), o);
@@ -1019,7 +1054,7 @@ void listRegions(I& a, const Widget& w, int i, Rect r, std::vector<RegionDef>& o
     std::string range = pages > 1 ? a.t(S::roomsRange, std::to_string(from + 1) + "–" + std::to_string(to), std::to_string(total))
                                   : a.t(S::nRooms, std::to_string(total));
     std::string summary = range + " · " + a.t(S::nHeating, std::to_string(heating)) + (a.data.away ? std::string(" · ") + a.t(S::away) : "");
-    bool away = a.data.away, awayOk = a.data.awayOk();   // #148: no away button when no zone offers the preset
+    bool away = a.data.away, awayOk = a.data.awayOk();   // eink-ha-os#148: no away button when no zone offers the preset
     out.push_back({"h" + ti, hdr, [&a, hdr, summary, away, awayOk](Canvas& c) {
       std::string bl = a.t(away ? S::setHome : S::setAway);
       int bw = awayOk ? c.textWidth(bl, B(18)) + 28 + 4 : 0;

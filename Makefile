@@ -10,7 +10,7 @@
 #   make monitor-pio PORT=…         PlatformIO monitor with the panic backtrace decoder
 #   make soak       URL=…           X4_TOKEN=x4_… poll /status + /diagnostics every 5 min → soak/<host>/ CSV + daily summary
 #                                   HOURS=… stop after (default: until Ctrl-C), INTERVAL=… seconds, OUT=… folder
-#   make logs       URL=…           X4_TOKEN=x4_… the device log over Wi-Fi (GET /api/v1/logs, no cable, no reset, #200)
+#   make logs       URL=…           X4_TOKEN=x4_… the device log over Wi-Fi (GET /api/v1/logs, no cable, no reset, eink-ha-os#200)
 #                                   FOLLOW=1 live tail, PREVIOUS=1 the boot before this one, LEVEL=W, TAG=HEAP,EPD
 #   make restore    PORT=… FILE=backups/x4pro_stock_YYYYMMDD.bin
 #   make dist                       release artifacts in dist/ (firmware, www, separate boot parts, manifests)
@@ -19,17 +19,17 @@
 #   make flasher-screens            re-render the UI and refresh the screen images on the flasher page (committed)
 #   make gen / gen-check            regenerate the committed fonts + icons (firmware/src/app/gen) / fail if they drift
 #   make deviations                 rewrite the index in firmware/ + emulator/DEVIATIONS.md from deviations/*.md
-#                                   (one file per topic, #117; make test fails when the index is stale)
+#                                   (one file per topic, eink-ha-os#117; make test fails when the index is stale)
 #   make qemu                       real firmware (env:x4qemu) in Espressif QEMU → http://127.0.0.1:8080 (FRESH=1 wipes flash)
 #   make qemu-contract              QEMU firmware + fake HA → emulator contract suite against the real firmware
 #                                   QEMU_ENV=x4qemu_debug: same suite on the debug image (heap + spinlock checks)
-#                                   CONTRACT_HA_TLS=1: the device links to the fake HA over https (TLS faults, #87)
+#                                   CONTRACT_HA_TLS=1: the device links to the fake HA over https (TLS faults, eink-ha-os#87)
 #   make qemu-ota                   QEMU firmware: OTA upload → PENDING_VERIFY → valid / rollback when HA is unreachable
 #   make qemu-wdt                   QEMU firmware: confirmed image hangs loop() → task watchdog reset → reason TASK_WDT
 #   make qemu-reflash               QEMU firmware: PUT screens.yaml, re-flash the five parts → userdata unchanged
 #   make qemu-glance                QEMU firmware on "battery": simulated deep sleep, timer wakes redraw only on change,
-#                                   an unconfirmed OTA image refuses to sleep, HA down → 20 s cap + backoff (#10)
-#   make qemu-linkdrop CYCLES=20    QEMU firmware: CYCLES monitor link drops (20-90 s off), each must recover (#108)
+#                                   an unconfirmed OTA image refuses to sleep, HA down → 20 s cap + backoff (eink-ha-os#10)
+#   make qemu-linkdrop CYCLES=20    QEMU firmware: CYCLES monitor link drops (20-90 s off), each must recover (eink-ha-os#108)
 #   make qemu-endurance HOURS=72    QEMU firmware + fake HA (big house) with a fault every 10 min, soak CSV → PASS/FAIL
 #                                   (HA restarts, WebSocket/link drops, clock jumps, config pushes; sim/qemu/endurance.sh)
 #   make worktree-setup N=115 BASE=<sha> PORTS=8100/8143
@@ -46,7 +46,7 @@ ESPTOOL ?= $(ROOT)/.venv/bin/esptool
 ENV ?= x4pro
 QEMU_ENV ?= x4qemu
 BAUD ?= 921600
-# git describe only for what ships or lands on a device: test/build/qemu targets run no git and keep one build cache (#116)
+# git describe only for what ships or lands on a device: test/build/qemu targets run no git and keep one build cache (eink-ha-os#116)
 RELEASE_GOALS := dist flasher flasher-site flash
 ifeq ($(origin VERSION),undefined)
 ifneq ($(filter $(RELEASE_GOALS),$(MAKECMDGOALS)),)
@@ -144,12 +144,12 @@ monitor: require-port
 monitor-pio: require-port
 	cd $(FW) && $(PIO) device monitor -e $(ENV) -p $(PORT)
 
-# firmware/tools/soak.py: one CSV row per poll + summary-YYYY-MM-DD.md (#46). The token comes from X4_TOKEN only.
+# firmware/tools/soak.py: one CSV row per poll + summary-YYYY-MM-DD.md (eink-ha-os#46). The token comes from X4_TOKEN only.
 soak:
 	@if [ -z "$(URL)" ]; then echo "Set URL, e.g. X4_TOKEN=x4_… make soak URL=http://ha-paper-a1b2.local [HOURS=168]"; exit 2; fi
 	$(PYTHON) $(FW)/tools/soak.py --url "$(URL)" $(if $(IP),--ip $(IP),) $(if $(HOURS),--hours $(HOURS),) $(if $(INTERVAL),--interval $(INTERVAL),) --out "$(if $(OUT),$(OUT),$(ROOT)/soak/$(shell echo '$(URL)' | sed -E 's#^[a-z]+://##; s#/.*##; s#:#-#'))"
 
-# firmware/tools/logs.py (#200). The token comes from X4_TOKEN only.
+# firmware/tools/logs.py (eink-ha-os#200). The token comes from X4_TOKEN only.
 logs:
 	@if [ -z "$(URL)" ]; then echo "Set URL, e.g. X4_TOKEN=x4_… make logs URL=http://ha-paper-a1b2.local [FOLLOW=1] [PREVIOUS=1]"; exit 2; fi
 	$(PYTHON) $(FW)/tools/logs.py --url "$(URL)" $(if $(FOLLOW),--follow,) $(if $(PREVIOUS),--previous,) $(if $(LEVEL),--level $(LEVEL),) $(if $(TAG),--tag $(TAG),)
@@ -231,7 +231,7 @@ clean:
 # ---- Espressif QEMU (docs/ESP32_EMULATION.md §5) ---------------------------------------------------------------
 # Debug hooks of the x4qemu image: GET /__qemu/framebuffer.pgm (what the panel shows), POST /__qemu/input?tap=x,y|key=next,
 # GET /__qemu/state. HA: run `cd emulator && npm run fake-ha` (the guest reaches it at http://10.0.2.2:8123) or a real one.
-# Own build dir under the state dir, like the sim/qemu/*.sh suites: a `pio run` in firmware/ can't swap the image (#118)
+# Own build dir under the state dir, like the sim/qemu/*.sh suites: a `pio run` in firmware/ can't swap the image (eink-ha-os#118)
 QEMU_STATE := $(ROOT)/sim/qemu/.state/x4qemu
 qemu-build:
 	cd $(FW) && export PLATFORMIO_BUILD_DIR=$(QEMU_STATE)/build && $(PIO) run -e x4qemu && $(PIO) run -e x4qemu -t buildfs

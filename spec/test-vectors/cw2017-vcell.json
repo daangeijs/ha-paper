@@ -1,5 +1,5 @@
 {
-  "description": "CW2017 VCELL decode (issue #73, firmware core/cw2017.h cw2017Millivolts). Registers 0x02 (hi) / 0x03 (lo), big-endian 14-bit, bits 15:14 reserved; 312.5 uV/LSB, rounded as the vendor/OEM formula (raw * 5 + 8) >> 4. GET /status battery_mv. Hardware unverified (docs/HARDWARE_ASSUMPTIONS.md A28).",
+  "description": "CW2017 VCELL decode (issue eink-ha-os#73, firmware core/cw2017.h cw2017Millivolts). Registers 0x02 (hi) / 0x03 (lo), big-endian 14-bit, bits 15:14 reserved; 312.5 uV/LSB, rounded as the vendor/OEM formula (raw * 5 + 8) >> 4. GET /status battery_mv. Hardware unverified (docs/HARDWARE_ASSUMPTIONS.md A28).",
   "cases": [
     { "name": "full cell, 4.20 V", "reg02": 52, "reg03": 128, "mv": 4200 },
     { "name": "external-power threshold, 4.15 V (0x33E0)", "reg02": 51, "reg03": 224, "mv": 4150 },

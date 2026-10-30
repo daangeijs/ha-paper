@@ -116,10 +116,10 @@ static void test_heap_threshold() {
   TEST_ASSERT_FALSE(heapOkForTls(20 * 1024 - 1, free));
   TEST_ASSERT_TRUE(heapOkForTls(20 * 1024, free));
   TEST_ASSERT_FALSE(heapOkForTls(40 * 1024, free - 1));
-  TEST_ASSERT_TRUE(heapOkForTls(40948, 120000));   // the device's largest internal region (#79): must pass
+  TEST_ASSERT_TRUE(heapOkForTls(40948, 120000));   // the device's largest internal region (eink-ha-os#79): must pass
 }
 
-// #149: record buffers from the TLS reserve (2 slots free) → a fragmented heap may still take a handshake
+// eink-ha-os#149: record buffers from the TLS reserve (2 slots free) → a fragmented heap may still take a handshake
 static void test_heap_threshold_pooled() {
   TEST_ASSERT_TRUE(heapOkForTls(7668, 40 * 1024, 2));    // the device's state after the price-source episode
   TEST_ASSERT_TRUE(heapOkForTls(4096, 40 * 1024, 3));
@@ -130,7 +130,7 @@ static void test_heap_threshold_pooled() {
   TEST_ASSERT_FALSE(heapOkForTls(20 * 1024, 64 * 1024 - 1, 0));
 }
 
-// #248: per-peer floor, DMA RAM counted too (numbers from the real X4 Pro)
+// eink-ha-os#248: per-peer floor, DMA RAM counted too (numbers from the real X4 Pro)
 static void test_tls_peer_for_host() {
   TEST_ASSERT_TRUE(tlsPeerFor("api.github.com") == TlsPeer::GitHub);
   TEST_ASSERT_TRUE(tlsPeerFor("github.com") == TlsPeer::GitHub);
@@ -144,7 +144,7 @@ static void test_tls_peer_for_host() {
 
 static void test_tls_floor_per_peer() {
   TlsFloor ha = tlsFloor(TlsPeer::Ha, 2), gh = tlsFloor(TlsPeer::GitHub, 2);
-  TEST_ASSERT_EQUAL_UINT32(40 * 1024, ha.freeInternal);   // unchanged (#149)
+  TEST_ASSERT_EQUAL_UINT32(40 * 1024, ha.freeInternal);   // unchanged (eink-ha-os#149)
   TEST_ASSERT_EQUAL_UINT32(28 * 1024, ha.freeDma);
   TEST_ASSERT_EQUAL_UINT32(4 * 1024, ha.largestDma);
   TEST_ASSERT_EQUAL_UINT32(56 * 1024, gh.freeInternal);   // ~47 KB handshake + margin
@@ -219,7 +219,7 @@ static void test_heap_starve_sheds_once_after_10s() {
   HeapStarve s;
   const uint32_t okI = 90 * 1024, okD = 70 * 1024;
   TEST_ASSERT_FALSE(s.sample(0, okI, okD));
-  TEST_ASSERT_FALSE(s.sample(2000, 22 * 1024, okD));    // device log #248: 22 KB internal
+  TEST_ASSERT_FALSE(s.sample(2000, 22 * 1024, okD));    // device log eink-ha-os#248: 22 KB internal
   TEST_ASSERT_FALSE(s.sample(10000, 22 * 1024, okD));   // low 8 s
   TEST_ASSERT_TRUE(s.sample(12000, 22 * 1024, okD));    // low 10 s → shed
   TEST_ASSERT_FALSE(s.sample(30000, 22 * 1024, okD));   // once per spell
@@ -260,7 +260,7 @@ static void test_same_origin_write() {
   TEST_ASSERT_FALSE(sameOriginWrite("http://", "", ""));                                  // no Host header
 }
 
-// #108: link "up" but every HA connect fails → one relink after 4 fails spanning 5 min; the wait doubles to a 60 min
+// eink-ha-os#108: link "up" but every HA connect fails → one relink after 4 fails spanning 5 min; the wait doubles to a 60 min
 // cap while HA stays unreachable; a success or a link drop starts over. Across the millis() wrap too.
 static void test_stale_link_relinks_after_fails_and_time() {
   StaleLink s;
@@ -301,7 +301,7 @@ static void test_stale_link_backoff_and_reset() {
   TEST_ASSERT_FALSE(s.poll(StaleLink::kStaleMs * 2));
 }
 
-// #227: idle alone never reconnects; the gateway check decides; served requests and each check restart the window
+// eink-ha-os#227: idle alone never reconnects; the gateway check decides; served requests and each check restart the window
 void test_inbound_watch() {
   InboundWatch w;
   const uint32_t idle = InboundWatch::kIdleMs, t0 = 0xFFFF0000u;   // wraps during the test
@@ -322,7 +322,7 @@ void test_inbound_watch() {
   TEST_ASSERT_FALSE(w.due(t0 + 11 * idle - 1));
 }
 
-// #326: the GOT_IP of the join that just started it is dropped; after stopMdns (Wi-Fi off) the next join inits again
+// eink-ha-os#326: the GOT_IP of the join that just started it is dropped; after stopMdns (Wi-Fi off) the next join inits again
 void test_mdns_plan() {
   MdnsPlan p;
   const uint32_t t0 = 0xFFFFF000u;   // wraps during the test
@@ -332,6 +332,32 @@ void test_mdns_plan() {
   TEST_ASSERT_TRUE(p.next(true, t0 + MdnsPlan::kSettleMs - 1) == MdnsStep::Skip);
   TEST_ASSERT_TRUE(p.next(true, t0 + MdnsPlan::kSettleMs) == MdnsStep::Rebind);
   TEST_ASSERT_TRUE(p.next(false, t0 + 200) == MdnsStep::Init);   // stopped inside the window: init, never a re-bind
+}
+
+// eink-ha-os#376: a re-bind whose ENABLE the full mdns queue dropped leaves IPv4 off; a lost tie-break renames the host
+void test_mdns_check() {
+  MdnsPlan p;
+  const uint32_t t0 = 0xFFFFF000u, S = MdnsPlan::kSettleMs, R = MdnsPlan::kReclaimMs;   // wraps during the test
+  p.lastMs = t0;                                                        // re-bind posted DISABLE, ENABLE dropped
+  TEST_ASSERT_TRUE(p.check(false, true, t0 + S - 1) == MdnsFix::None);   // the pair may still be in the queue
+  TEST_ASSERT_TRUE(p.check(false, true, t0 + S) == MdnsFix::Enable);
+  TEST_ASSERT_TRUE(p.check(false, false, t0 + S) == MdnsFix::Enable);   // off and renamed: enable first
+  p.did(MdnsFix::Enable, t0 + S);
+  TEST_ASSERT_TRUE(p.check(false, true, t0 + 2 * S - 1) == MdnsFix::None);   // one repair per settle window
+  TEST_ASSERT_TRUE(p.check(true, true, t0 + 2 * S) == MdnsFix::None);
+  // renamed: reclaim, then not again for kReclaimMs (a real twin on the LAN wins every probe)
+  const uint32_t t1 = t0 + 2 * S;
+  TEST_ASSERT_TRUE(p.check(true, false, t1) == MdnsFix::Reclaim);
+  p.did(MdnsFix::Reclaim, t1);
+  TEST_ASSERT_TRUE(p.check(true, false, t1 + S) == MdnsFix::None);
+  TEST_ASSERT_TRUE(p.check(true, false, t1 + R - 1) == MdnsFix::None);
+  TEST_ASSERT_TRUE(p.check(true, false, t1 + R) == MdnsFix::Reclaim);
+  TEST_ASSERT_TRUE(p.check(false, false, t1 + S) == MdnsFix::Enable);   // the reclaim limit never blocks an enable
+  // a re-bind inside the window holds every fix back
+  p.lastMs = t1 + R;
+  TEST_ASSERT_TRUE(p.check(false, false, t1 + R + 5) == MdnsFix::None);
+  p.did(MdnsFix::None, t1 + R + S);
+  TEST_ASSERT_TRUE(p.lastMs == t1 + R);
 }
 
 void test_bssid_tag() {
@@ -370,5 +396,6 @@ int main(int, char**) {
   RUN_TEST(test_inbound_watch);
   RUN_TEST(test_bssid_tag);
   RUN_TEST(test_mdns_plan);
+  RUN_TEST(test_mdns_check);
   return UNITY_END();
 }

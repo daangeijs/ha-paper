@@ -1,4 +1,4 @@
-// What is installed on the connected display, read-only (#239): partition table, otadata, and the app descriptor of
+// What is installed on the connected display, read-only (eink-ha-os#239): partition table, otadata, and the app descriptor of
 // the app the bootloader would start. A few KB of reads, no writes.
 
 import type { FlashReader } from "./backup.ts";
@@ -92,7 +92,7 @@ export interface Installed {
 }
 
 /**
- * Read what is installed. HA Paper builds since #242 carry project "ha-paper" and their version in the descriptor.
+ * Read what is installed. HA Paper builds since eink-ha-os#242 carry project "ha-paper" and their version in the descriptor.
  * Older builds carry the Arduino core's ("arduino-lib-builder"): `ours` (the bundled firmware.bin's descriptor) names
  * that exact build by its hash, other ones are recognised by the "www" partition HA Paper's table has.
  */

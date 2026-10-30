@@ -1,5 +1,5 @@
 {
-  "description": "First-run screens from the user's HA (#23): seedConfig(snapshot, tail = []) → toYaml. Reference: emulator/src/core/seed.ts; firmware core/seed.cpp. snapshot = energy/get_prefs (energy) + logical ids with a source (live) + the SEED_TEMPLATE answer (present, areas, climate, lights, sensors). report = the seed report (#89; firmware seedReportJson, compact JSON in this key order).",
+  "description": "First-run screens from the user's HA (eink-ha-os#23): seedConfig(snapshot, tail = []) → toYaml. Reference: emulator/src/core/seed.ts; firmware core/seed.cpp. snapshot = energy/get_prefs (energy) + logical ids with a source (live) + the SEED_TEMPLATE answer (present, areas, climate, lights, sensors). report = the seed report (eink-ha-os#89; firmware seedReportJson, compact JSON in this key order).",
   "cases": [
     {
       "name": "empty",
@@ -100,7 +100,7 @@
     },
     {
       "name": "stranger-house",
-      "description": "Fake HA --house stranger: P1 meter (grid only: stat_rate sensor.p1_meter_power becomes the home use tile), Nest thermostat, lights, room thermometers. NAS and phone temperatures are not rooms; \"Office: upstairs\" loses its colon in the label. Clutter of a real install (#58): sensors without device_class / unit / area, an unavailable hallway thermometer (no Hallway room), text states.",
+      "description": "Fake HA --house stranger: P1 meter (grid only: stat_rate sensor.p1_meter_power becomes the home use tile), Nest thermostat, lights, room thermometers. NAS and phone temperatures are not rooms; \"Office: upstairs\" loses its colon in the label. Clutter of a real install (eink-ha-os#58): sensors without device_class / unit / area, an unavailable hallway thermometer (no Hallway room), text states.",
       "snapshot": {
         "energy": {
           "energy_sources": [
@@ -772,7 +772,7 @@
     },
     {
       "name": "dutch-house",
-      "description": "Fake HA --house dutch (#82, shaped like the first real HA): no Energy dashboard. Names and units find SolarEdge (Zonproductie, not the Anker PV input), the P1 net power (not phase 1), Anker home load (Huisverbruik), Anker battery power and SOC % (not the kWh capacity, the phone, iPad, Zigbee, P1 Wi-Fi or tado heating %), Zon vandaag, Buienradar outside, tado rooms. No meters → no Energy screen, no charts.",
+      "description": "Fake HA --house dutch (eink-ha-os#82, shaped like the first real HA): no Energy dashboard. Names and units find SolarEdge (Zonproductie, not the Anker PV input), the P1 net power (not phase 1), Anker home load (Huisverbruik), Anker battery power and SOC % (not the kWh capacity, the phone, iPad, Zigbee, P1 Wi-Fi or tado heating %), Zon vandaag, Buienradar outside, tado rooms. No meters → no Energy screen, no charts.",
       "snapshot": {
         "energy": null,
         "live": [],
@@ -1476,7 +1476,7 @@
     },
     {
       "name": "real-house",
-      "description": "Fake HA --house real, the large example house (#88, #136): ~1100 entities. Zigbee chip temperatures (`…_device_temperature`) and one-phase power sensors are not in the answer; rooms and inside are real thermometers, outside the Shelly H&T \"Outdoor\". Envoy: stat_rate production = solar, current_power_consumption = home use, energy_production_today = solar today (`…_last_seven_days` has no day token). Energy dashboard grid flows have no today sensor and Envoy consumption is no grid import → no imported / exported tiles. The Tesla climate (its device has a device_tracker) is a vehicle: the zoneList names the 6 tado zones. #152 traps: a \"Forecast Max temperature today\" is no Outside; the dryer plug's \"Today consumption\" is no Imported / Used today (Used today = the \"Home energy usage today\" helper); the Better-Thermostat-style wrapper (same room and name, off) is no zone; lights: per room the Hue group (not the second HA group of the living room), bulbs where a room has no group, the two lights without an area left out.",
+      "description": "Fake HA --house real, the large example house (eink-ha-os#88, eink-ha-os#136): ~1100 entities. Zigbee chip temperatures (`…_device_temperature`) and one-phase power sensors are not in the answer; rooms and inside are real thermometers, outside the Shelly H&T \"Outdoor\". Envoy: stat_rate production = solar, current_power_consumption = home use, energy_production_today = solar today (`…_last_seven_days` has no day token). Energy dashboard grid flows have no today sensor and Envoy consumption is no grid import → no imported / exported tiles. The Tesla climate (its device has a device_tracker) is a vehicle: the zoneList names the 6 tado zones. eink-ha-os#152 traps: a \"Forecast Max temperature today\" is no Outside; the dryer plug's \"Today consumption\" is no Imported / Used today (Used today = the \"Home energy usage today\" helper); the Better-Thermostat-style wrapper (same room and name, off) is no zone; lights: per room the Hue group (not the second HA group of the living room), bulbs where a room has no group, the two lights without an area left out.",
       "snapshot": {
         "energy": {
           "energy_sources": [
@@ -3009,7 +3009,7 @@
     },
     {
       "name": "seed-lessons",
-      "description": "#152: no outdoor thermometer but forecast-like ones (max, min, feels, Today tokens) → Outside is the first weather entity with a temperature (rule found), the forecast sensors are no room either; an appliance's day counter is no Imported (needs a grid word) and no Used today (needs a house / total word); a grid-named one is; zones: duplicates by area (the one not off wins, in the first one's place) and by friendly name (case-insensitive), a lone off zone stays; lights: only area-less ones left out → `areas`.",
+      "description": "eink-ha-os#152: no outdoor thermometer but forecast-like ones (max, min, feels, Today tokens) → Outside is the first weather entity with a temperature (rule found), the forecast sensors are no room either; an appliance's day counter is no Imported (needs a grid word) and no Used today (needs a house / total word); a grid-named one is; zones: duplicates by area (the one not off wins, in the first one's place) and by friendly name (case-insensitive), a lone off zone stays; lights: only area-less ones left out → `areas`.",
       "snapshot": {
         "areas": [
           [
@@ -3249,7 +3249,7 @@
     },
     {
       "name": "light-groups",
-      "description": "#152: a group per area wins over its bulbs (the first group by order; a second group of the room is a duplicate), a room without a group keeps its bulbs in area order, a group without an area is left out; no light with an area at all → every light (no picks).",
+      "description": "eink-ha-os#152: a group per area wins over its bulbs (the first group by order; a second group of the room is a duplicate), a room without a group keeps its bulbs in area order, a group without an area is left out; no light with an area at all → every light (no picks).",
       "snapshot": {
         "areas": [
           [
@@ -3398,7 +3398,7 @@
     },
     {
       "name": "lights-no-areas",
-      "description": "#152: no light has an area → every light (the lightList default), not an empty pick.",
+      "description": "eink-ha-os#152: no light has an area → every light (the lightList default), not an empty pick.",
       "snapshot": {
         "lights": [
           [
@@ -3507,7 +3507,7 @@
     },
     {
       "name": "day-tokens-vehicle",
-      "description": "#136: day words as whole tokens (_day, Daily and vandaag count; _days, dagelijks and \"monday\" do not); a grid flow meter's today sensor (same 2-word prefix) beats an import-named one; a vehicle climate (`vehicles`) makes the zoneList name the others; only vehicles → no Heating screen.",
+      "description": "eink-ha-os#136: day words as whole tokens (_day, Daily and vandaag count; _days, dagelijks and \"monday\" do not); a grid flow meter's today sensor (same 2-word prefix) beats an import-named one; a vehicle climate (`vehicles`) makes the zoneList name the others; only vehicles → no Heating screen.",
       "snapshot": {
         "energy": {
           "energy_sources": [
@@ -3697,7 +3697,7 @@
     },
     {
       "name": "vehicle-only",
-      "description": "#136: the only climate is a car's → no Heating screen, report heating: none.",
+      "description": "eink-ha-os#136: the only climate is a car's → no Heating screen, report heating: none.",
       "snapshot": {
         "vehicles": [
           "climate.tesla"
@@ -3798,7 +3798,7 @@
     },
     {
       "name": "stale-logical",
-      "description": "#82: logical ids with a source (`live`) but no such sensor in HA's answer → no tile (the demo ids on a real house showed \"—\"). Price still comes from live.",
+      "description": "eink-ha-os#82: logical ids with a source (`live`) but no such sensor in HA's answer → no tile (the demo ids on a real house showed \"—\"). Price still comes from live.",
       "snapshot": {
         "energy": {
           "energy_sources": [
@@ -3912,7 +3912,7 @@
     },
     {
       "name": "solar-battery-routes",
-      "description": "Solar + battery: solar power from stat_rate (a name without solar words), battery power and SOC from the meters' prefix; a kW grid sensor by name; price via live; routes (#145) from every sensor.x4_route_* in the answer or mapped (live: car), sorted by id, at most 4, mode car when the sensor reports min; bad entity ids are skipped; rooms capped at 8.",
+      "description": "Solar + battery: solar power from stat_rate (a name without solar words), battery power and SOC from the meters' prefix; a kW grid sensor by name; price via live; routes (eink-ha-os#145) from every sensor.x4_route_* in the answer or mapped (live: car), sorted by id, at most 4, mode car when the sensor reports min; bad entity ids are skipped; rooms capped at 8.",
       "snapshot": {
         "energy": {
           "energy_sources": [
@@ -4370,7 +4370,7 @@
     },
     {
       "name": "flat-grid",
-      "description": "#274: HA 2025.12+ flat grid source (stat_energy_from / stat_energy_to / entity_energy_price / stat_rate, no flow_from / flow_to): grid power from stat_rate, imported / exported today by the meters' prefix, price from entity_energy_price, Energy screen with the usage chart.",
+      "description": "eink-ha-os#274: HA 2025.12+ flat grid source (stat_energy_from / stat_energy_to / entity_energy_price / stat_rate, no flow_from / flow_to): grid power from stat_rate, imported / exported today by the meters' prefix, price from entity_energy_price, Energy screen with the usage chart.",
       "snapshot": {
         "energy": {
           "energy_sources": [
@@ -4642,7 +4642,7 @@
     }
   ],
   "template": "{# x4_seed #}{% set ns = namespace(a=[], l=[], s=[], c=[], v=[], w=[], t=0, p=0, e=0, b=0) %}{% for a in areas() %}{% set ns.a = ns.a + [[a, area_name(a) or a]] %}{% endfor %}{% for s in states.light %}{% if ns.l | length < 150 %}{% set ns.l = ns.l + [[s.entity_id, area_id(s.entity_id) or '', 'g' if s.attributes.get('entity_id') or s.attributes.get('is_hue_group') or s.attributes.get('is_deconz_group') or s.attributes.get('lights') else '']] %}{% endif %}{% endfor %}{% for s in states.sensor %}{% set dc = s.attributes.get('device_class') or '' %}{% set u = s.attributes.get('unit_of_measurement') or '' %}{% set n = (s.entity_id ~ ' ' ~ (s.name | string)) | lower %}{% set k = 't' if dc == 'temperature' and not ('device_temperature' in n or 'device temperature' in n) else '' if dc == 'temperature' else 'p' if (dc == 'power' or u in ['W', 'kW']) and not ('phase' in n or 'fase' in n or '_l1' in n or '_l2' in n or '_l3' in n) else '' if dc == 'power' or u in ['W', 'kW'] else 'e' if (dc == 'energy' or u in ['kWh', 'Wh']) and n | regex_search('(^|[^a-z0-9])(today|vandaag|daily|dag|day)([^a-z0-9]|$)') else 'b' if u == '%' and dc in ['battery', ''] else 'r' if s.entity_id.startswith('sensor.x4_route_') else '' %}{% if k == 't' and (s.state in ['unknown', 'unavailable'] or ns.t >= 60) %}{% set k = '' %}{% endif %}{% if k == 't' %}{% set ns.t = ns.t + 1 %}{% elif k == 'p' %}{% if ns.p < 100 %}{% set ns.p = ns.p + 1 %}{% else %}{% set k = '' %}{% endif %}{% elif k == 'e' %}{% if ns.e < 40 %}{% set ns.e = ns.e + 1 %}{% else %}{% set k = '' %}{% endif %}{% elif k == 'b' %}{% if ns.b < 60 %}{% set ns.b = ns.b + 1 %}{% else %}{% set k = '' %}{% endif %}{% endif %}{% if k %}{% set ns.s = ns.s + [[s.entity_id, dc | string, (area_id(s.entity_id) or '') if k == 't' else '', s.name | string, u | string]] %}{% endif %}{% endfor %}{% for s in states.climate %}{% set d = device_id(s.entity_id) %}{% if d and device_entities(d) | select('match', 'device_tracker') | list %}{% set ns.v = ns.v + [s.entity_id] %}{% else %}{% set ns.c = ns.c + [[s.entity_id, s.name | string, area_id(s.entity_id) or '', s.state]] %}{% endif %}{% endfor %}{% for s in states.weather %}{% if s.attributes.get('temperature') is number %}{% set ns.w = ns.w + [s.entity_id] %}{% endif %}{% endfor %}{{ {'areas': ns.a, 'climate': ns.c, 'vehicles': ns.v, 'lights': ns.l, 'sensors': ns.s, 'weather': ns.w} | tojson }}",
-  "answers_description": "seedAnswerOk(text): only a JSON object is a seed answer; anything else saves nothing and retries on the next link (#58).",
+  "answers_description": "seedAnswerOk(text): only a JSON object is a seed answer; anything else saves nothing and retries on the next link (eink-ha-os#58).",
   "answers": [
     {
       "text": "{\"areas\":[],\"sensors\":[]}",
@@ -4677,7 +4677,7 @@
       "ok": false
     }
   ],
-  "events_description": "templateEventFinal(has_result, level): render_template with report_errors; a WARNING event (undefined attribute) is followed by the result (#58). level null = absent.",
+  "events_description": "templateEventFinal(has_result, level): render_template with report_errors; a WARNING event (undefined attribute) is followed by the result (eink-ha-os#58). level null = absent.",
   "events": [
     {
       "has_result": false,

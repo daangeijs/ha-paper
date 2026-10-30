@@ -24,12 +24,12 @@ info:
           (no session). Exchanges the code with PKCE (code_verifier), reads auth/current_user over the WebSocket;
           Set-Cookie x4_session (HttpOnly; SameSite=Lax; Max-Age=43200) + 302 return_to. An HA admin gets a full
           session; any other HA user a view-only one (read scope; writes and the session-only endpoints → 403
-          "Home Assistant admin required"). ConsoleState.session.admin tells the console which (issue #22).
+          "Home Assistant admin required"). ConsoleState.session.admin tells the console which (issue eink-ha-os#22).
     Reference implementation: emulator/server (npm run device-sim); contract tests: emulator/server/contract.test.ts.
 
     Auth: API clients use `Authorization: Bearer x4_…`. The web console uses the HttpOnly session
     cookie `x4_session` (12 h) created by the HA sign-in: full access for an HA admin, read scope for any
-    other HA user (issue #22). Endpoints marked
+    other HA user (issue eink-ha-os#22). Endpoints marked
     "setup-open" also work without auth while the display is in first-install setup
     (no Wi-Fi saved / reached through the SoftAP 192.168.4.1, or not linked to HA yet).
     Cookie-authenticated writes (any method but GET/HEAD) need an `Origin` header equal to
@@ -79,8 +79,8 @@ components:
         wifi: { type: string, example: HomeNet }
         home_assistant: { type: string, enum: [linked, not linked, revoked, offline] }
         screens: { type: integer, example: 13 }
-        language: { type: string, nullable: true, enum: [en, nl], description: "x-firmware: the display's UI language, from Home Assistant's get_config `language` (#98; spec/test-vectors/strings.json). null = not linked or not known yet (English)" }
-        currency: { type: string, nullable: true, example: EUR, description: "x-firmware: Home Assistant's currency (get_config `currency`, ISO 4217, #147), kept in userdata /currency. Price tiles show € for EUR, $ for USD, £ for GBP, else the code (SEK 0.31). null = not linked or not known yet (€)" }
+        language: { type: string, nullable: true, enum: [en, nl], description: "x-firmware: the display's UI language, from Home Assistant's get_config `language` (eink-ha-os#98; spec/test-vectors/strings.json). null = not linked or not known yet (English)" }
+        currency: { type: string, nullable: true, example: EUR, description: "x-firmware: Home Assistant's currency (get_config `currency`, ISO 4217, eink-ha-os#147), kept in userdata /currency. Price tiles show € for EUR, $ for USD, £ for GBP, else the code (SEK 0.31). null = not linked or not known yet (€)" }
         hostname: { type: string, example: ha-paper-a1b2.local, description: "mDNS name, ha-paper-<last 4 hex digits of the Wi-Fi MAC>.local" }
         uptime_s: { type: integer, format: int64, example: 5400, description: "x-firmware: seconds since boot (esp_timer, 64-bit: no 49.7-day wrap)" }
         free_heap: { type: integer, example: 182344, description: "internal RAM free, bytes" }
@@ -89,7 +89,7 @@ components:
         heap_min_free: { type: integer, example: 141020, description: "lowest internal RAM free since boot, bytes" }
         ha_report:
           type: object
-          description: "x-firmware: device health as Home Assistant entities (#32, settings display.haReport). Web console: Device tab, Home Assistant card."
+          description: "x-firmware: device health as Home Assistant entities (eink-ha-os#32, settings display.haReport). Web console: Device tab, Home Assistant card."
           properties:
             enabled: { type: boolean, description: "settings display.haReport" }
             state: { type: string, enum: [ok, off, waiting, not_admin, error], description: "ok = last push accepted; off = setting off; waiting = nothing pushed yet (not connected, toggled on again, or a reconnect after not_admin); not_admin = HA answered 401/403 (POST /api/states is admin-only), stopped until the next connect; error = last push failed, retried after 60 s" }
@@ -104,30 +104,30 @@ components:
             wifiPs: { type: string, nullable: true, enum: [none, min, max], description: "Wi-Fi modem sleep (esp_wifi_get_ps); null when the Wi-Fi driver is not running (QEMU)" }
             applied:
               type: object
-              description: "What the power rules set (#177, core/power powerDecision): full CPU and no modem sleep on external power, during an OTA or with the battery unknown (CPU) / in setup (Wi-Fi); 80 MHz and modem sleep min on battery. Applied once a second while live; a glance wake keeps the boot defaults (240 MHz, min). QEMU tracks it without touching clocks or radio."
+              description: "What the power rules set (eink-ha-os#177, core/power powerDecision): full CPU and no modem sleep on external power, during an OTA or with the battery unknown (CPU) / in setup (Wi-Fi); 80 MHz and modem sleep min on battery. Applied once a second while live; a glance wake keeps the boot defaults (240 MHz, min). QEMU tracks it without touching clocks or radio."
               properties:
                 cpuMhz: { type: integer, enum: [240, 80], description: "full = 240, auto = 80 (lowest clock with APB at 80 MHz; no esp_pm DFS in the Arduino libs)" }
                 wifiPs: { type: string, enum: [none, min], description: "modem sleep the rules want; power.wifiPs reads none while psOffHeld" }
                 psOffHeld: { type: boolean, description: "an OTA, HA token refresh or TLS handshake holds modem sleep off; the rules' wifiPs returns when it ends" }
             mode: { type: string, enum: [awake], description: "Only awake for now; asleep/night values come with deep sleep (Phase 3.3)" }
             nextWakeEpoch: { type: integer, nullable: true, description: "Planned timer wake (Unix seconds); null while awake" }
-            wakes: { type: integer, example: 64, description: "#178: deep-sleep wakes since power-on (timer, button, charger). Counters live in RTC memory: they survive deep sleep and restarts, power-on zeroes them (spec/test-vectors/glance.json tally)" }
-            redraws: { type: integer, example: 9, description: "#178: glance wakes that redrew the panel" }
-            failedWakes: { type: integer, example: 1, description: "#178: glance wakes without Home Assistant data within the 20 s cap" }
-            awakeS: { type: integer, format: int64, example: 1830, description: "#178: total awake seconds since power-on (boots that ended in deep sleep + this one; a restart without deep sleep loses that boot's time)" }
-            asleepS: { type: integer, example: 57600, description: "#178: total deep-sleep seconds since power-on (clock when known, else the planned timer)" }
+            wakes: { type: integer, example: 64, description: "eink-ha-os#178: deep-sleep wakes since power-on (timer, button, charger). Counters live in RTC memory: they survive deep sleep and restarts, power-on zeroes them (spec/test-vectors/glance.json tally)" }
+            redraws: { type: integer, example: 9, description: "eink-ha-os#178: glance wakes that redrew the panel" }
+            failedWakes: { type: integer, example: 1, description: "eink-ha-os#178: glance wakes without Home Assistant data within the 20 s cap" }
+            awakeS: { type: integer, format: int64, example: 1830, description: "eink-ha-os#178: total awake seconds since power-on (boots that ended in deep sleep + this one; a restart without deep sleep loses that boot's time)" }
+            asleepS: { type: integer, example: 57600, description: "eink-ha-os#178: total deep-sleep seconds since power-on (clock when known, else the planned timer)" }
             lastWake:
               type: object
               nullable: true
-              description: "#178: the last glance wake (null = none since power-on). Milliseconds since the reset"
+              description: "eink-ha-os#178: the last glance wake (null = none since power-on). Milliseconds since the reset"
               properties:
                 wifiMs: { type: integer, nullable: true, example: 1450, description: "Wi-Fi up; null = never" }
                 haMs: { type: integer, nullable: true, example: 2300, description: "Home Assistant WebSocket connected, after Wi-Fi; null = never" }
                 totalMs: { type: integer, example: 6120, description: "wake decided (redraw or not), then deep sleep" }
-        panel: { type: string, enum: [ok, failed], description: "x-firmware (#181): failed = the panel's BUSY line never released within 20 s (dead or unplugged panel); the display keeps serving the API and web console and skips every refresh until restart. Details: GET /diagnostics panel.failure" }
+        panel: { type: string, enum: [ok, failed], description: "x-firmware (eink-ha-os#181): failed = the panel's BUSY line never released within 20 s (dead or unplugged panel); the display keeps serving the API and web console and skips every refresh until restart. Details: GET /diagnostics panel.failure" }
         refreshes:
           type: object
-          description: "x-firmware (#178): panel refreshes since power-on (boots that ended in deep sleep + this one) and in this boot. full = refreshes with a flash (clean + the manual multi-flash full), partial = windowed partials. #197: boot.fast = navigations drawn without a flash, boot.clean = the one-flash cleans (part of full)"
+          description: "x-firmware (eink-ha-os#178): panel refreshes since power-on (boots that ended in deep sleep + this one) and in this boot. full = refreshes with a flash (clean + the manual multi-flash full), partial = windowed partials. eink-ha-os#197: boot.fast = navigations drawn without a flash, boot.clean = the one-flash cleans (part of full)"
           properties:
             full: { type: integer, example: 120 }
             partial: { type: integer, example: 840 }
@@ -169,7 +169,7 @@ components:
       description: |
         Everything the web console renders. Without a session only the setup fields are filled
         (screens and tokens are empty arrays; tokens also stay empty for a view-only session). Once the display is linked, home_assistant.server, .user and
-        .discovered are also empty without a session: anyone on the LAN can call this (issue #37). The console polls this (~3 s); it drops its local draft
+        .discovered are also empty without a session: anyone on the LAN can call this (issue eink-ha-os#37). The console polls this (~3 s); it drops its local draft
         when config_rev changes and all local state when install_id changes (factory reset).
       properties:
         name: { type: string, example: Living room display }
@@ -181,15 +181,15 @@ components:
         softap: { type: boolean, description: "this browser reached the display through its setup hotspot (192.168.4.1)" }
         wifi: { type: object, properties: { connected: { type: string, nullable: true }, saved: { type: array, items: { type: string } } } }
         networks: { type: array, items: { $ref: '#/components/schemas/Network' } }
-        home_assistant: { type: object, properties: { linked: { type: boolean }, revoked: { type: boolean }, server: { type: string, example: "http://homeassistant.local:8123", description: "Linked: the linked server. Not linked: the address a sign-in would use (typed or remembered, else the first discovered one)" }, user: { type: string, example: X4 display }, discovered: { type: array, items: { type: string }, description: "mDNS _home-assistant._tcp results. The console says \"Found on your network\" only when server is one of these; otherwise \"Home Assistant at <server>\" (#54)" } } }
-        offline: { type: boolean, description: "Home Assistant unreachable. The console shows one line under its header; the display shows its offline mark with \"since hh:mm\" (the last data, #86)" }
-        entity_gaps: { type: object, additionalProperties: { type: string, enum: [unavailable, unknown] }, example: { sensor.garden_temperature: unavailable }, description: "Signed in only (else {}). Entities of stat / gauge / switch tiles that Home Assistant has no value for right now (#86); the console names the reason on the tile, the display draws a ring. Our own logical sensors are never listed" }
-        language: { type: string, nullable: true, enum: [en, nl], description: "x-firmware: Home Assistant's language (WebSocket get_config `language` after every auth_ok, #98; any nl variant → nl, everything else → en), kept in userdata /lang. null = not linked or not known yet. The console uses it while linked, else the browser's language" }
+        home_assistant: { type: object, properties: { linked: { type: boolean }, revoked: { type: boolean }, server: { type: string, example: "http://homeassistant.local:8123", description: "Linked: the linked server. Not linked: the address a sign-in would use (typed or remembered, else the first discovered one)" }, user: { type: string, example: X4 display }, discovered: { type: array, items: { type: string }, description: "mDNS _home-assistant._tcp results. The console says \"Found on your network\" only when server is one of these; otherwise \"Home Assistant at <server>\" (eink-ha-os#54)" } } }
+        offline: { type: boolean, description: "Home Assistant unreachable. The console shows one line under its header; the display shows its offline mark with \"since hh:mm\" (the last data, eink-ha-os#86)" }
+        entity_gaps: { type: object, additionalProperties: { type: string, enum: [unavailable, unknown] }, example: { sensor.garden_temperature: unavailable }, description: "Signed in only (else {}). Entities of stat / gauge / switch tiles that Home Assistant has no value for right now (eink-ha-os#86); the console names the reason on the tile, the display draws a ring. Our own logical sensors are never listed" }
+        language: { type: string, nullable: true, enum: [en, nl], description: "x-firmware: Home Assistant's language (WebSocket get_config `language` after every auth_ok, eink-ha-os#98; any nl variant → nl, everything else → en), kept in userdata /lang. null = not linked or not known yet. The console uses it while linked, else the browser's language" }
         session: { type: object, properties: { signed_in: { type: boolean }, user: { type: string }, admin: { type: boolean, description: "HA admin: full access. false = view-only session (read scope)" } } }
         screens: { type: array, items: { $ref: '#/components/schemas/Screen' } }
         config_rev: { type: integer, description: increments on every applied config }
         install_id: { type: string, description: random, regenerated on factory reset }
-        seed_pending: { type: boolean, description: "x-firmware: no saved screens yet; the next Home Assistant connection builds them from HA (#23). false once seeded or a config was pushed. Clients that read the config after linking wait for false" }
+        seed_pending: { type: boolean, description: "x-firmware: no saved screens yet; the next Home Assistant connection builds them from HA (eink-ha-os#23). false once seeded or a config was pushed. Clients that read the config after linking wait for false" }
         tokens: { type: array, items: { $ref: '#/components/schemas/Token' } }
     OtaState:
       type: object
@@ -198,17 +198,17 @@ components:
         channel: { type: string, enum: [stable, beta] }
         auto: { type: string, enum: [off, notify, night], description: "off when the build has no release repository (repo empty)" }
         status: { type: string, enum: [idle, checking, uptodate, available, downloading, installing, updated, blocked, error, verifying], description: "downloading/installing: x-firmware" }
-        available: { type: object, nullable: true, description: "The release found by a check, or the version an upload in progress named (null when it named none, #237)", properties: { version: { type: string }, size_mb: { type: number }, notes: { type: array, items: { type: string } } } }
+        available: { type: object, nullable: true, description: "The release found by a check, or the version an upload in progress named (null when it named none, eink-ha-os#237)", properties: { version: { type: string }, size_mb: { type: number }, notes: { type: array, items: { type: string } } } }
         last_check: { type: string, format: date-time, nullable: true }
         message: { type: string, description: "With update checks off (repo empty): \"Update checks are off in this build. Install new firmware by upload (POST /api/v1/ota/upload).\"" }
-        error: { type: string, nullable: true, enum: [memory, network, busy, none, other, null], description: "x-firmware (#250): why the last check failed (status error); null otherwise, also for a failed install (message says why). memory = not enough RAM for the GitHub TLS handshake (try again in a minute); network = no Wi-Fi or no answer; busy = GitHub refused (403/429, rate limit); none = no releases published; other = any other answer (message has the HTTP status). status is checking from the moment POST /ota/check answers 202 until the result is in." }
+        error: { type: string, nullable: true, enum: [memory, network, busy, none, other, null], description: "x-firmware (eink-ha-os#250): why the last check failed (status error); null otherwise, also for a failed install (message says why). memory = not enough RAM for the GitHub TLS handshake (try again in a minute); network = no Wi-Fi or no answer; busy = GitHub refused (403/429, rate limit); none = no releases published; other = any other answer (message has the HTTP status). status is checking from the moment POST /ota/check answers 202 until the result is in." }
         progress: { type: integer, description: "x-firmware: download progress 0–100" }
         repo: { type: string, description: "x-firmware: GitHub owner/repo checked; empty = not configured in this build (alpha builds): update checks off, auto off, status idle, POST /ota → 409, POST /ota/check → 202 without a check; POST /ota/upload still works" }
         www:
           type: object
-          description: "x-firmware (#350): the web console on the www partition (www.bin). Its version.txt must equal installed; when it does not (stale), a confirmed firmware with update checks on downloads the www.bin of its own release (manifest.json `www`), on boot and after every check, else every 6 h (failed: every 10 min and on reconnect); or POST /ota/upload-www. A write interrupted by a power loss reads as failed after the reboot. While stale/updating/failed the device serves a status page at / instead of the console (the old console stays at /?console=old)"
+          description: "x-firmware (eink-ha-os#350): the web console on the www partition (www.bin). Its version.txt must equal installed; when it does not (stale), a confirmed firmware with update checks on downloads the www.bin of its own release (manifest.json `www`), on boot and after every check, else every 6 h (failed: every 10 min and on reconnect); or POST /ota/upload-www. A write interrupted by a power loss reads as failed after the reboot. While stale/updating/failed the device serves a status page at / instead of the console (the old console stays at /?console=old)"
           properties:
-            version: { type: string, nullable: true, description: "the console's version.txt; null = a console from before #350, or none" }
+            version: { type: string, nullable: true, description: "the console's version.txt; null = a console from before eink-ha-os#350, or none" }
             sha256: { type: string, nullable: true, description: "of the whole partition; null until known (hashed once per console)" }
             current: { type: boolean, description: "version == installed and the last write did not fail" }
             state: { type: string, enum: [current, stale, missing, updating, failed], description: "missing = no console in flash (setup fallback page); failed = the last write failed (message), the console is offline until a good www.bin is written" }
@@ -234,7 +234,7 @@ components:
               msg: { type: string, example: "free 182344 min 141020 largest 110592 psram 7864320 min_dma 139812 min_8bit_int 141020 · net stack 2100" }
     AwakePhases:
       type: object
-      description: "One boot's awake time (#327, GET /diagnostics power_trail.phases); see Diagnostics power_trail.phases"
+      description: "One boot's awake time (eink-ha-os#327, GET /diagnostics power_trail.phases); see Diagnostics power_trail.phases"
       required: [wake, epoch, boot_ms, wifi_ms, ha_ms, render_ms, panel_ms, idle_ms, total_ms, pct, raw, mv]
       properties:
         wake: { type: string, enum: [cold, timer, button, charger, other] }
@@ -266,7 +266,7 @@ components:
             type: object
             properties:
               reason: { type: string, enum: [UNKNOWN, POWERON, EXT, SW, PANIC, INT_WDT, TASK_WDT, WDT, DEEPSLEEP, BROWNOUT, SDIO, USB, JTAG, EFUSE, PWR_GLITCH, CPU_LOCKUP], description: "esp_reset_reason() at the start of this boot" }
-              hw: { type: string, nullable: true, example: CORE_SW, description: "raw chip reset cause (#241, esp_rom_get_reset_reason) behind reason: POWERON, CORE_SW, CPU_SW, DEEP_SLEEP, CORE_MWDT0 (timer-group 0 watchdog stage reset: TASK_WDT without the panic path), CORE_MWDT1, CORE_RTC_WDT, CPU_MWDT0, CPU_MWDT1, CPU_RTC_WDT, SYS_BROWNOUT, SYS_RTC_WDT, SYS_SUPER_WDT, SYS_CLK_GLITCH, EFUSE_CRC, USB_UART, USB_JTAG, PWR_GLITCH or 0xNN; null when unknown" }
+              hw: { type: string, nullable: true, example: CORE_SW, description: "raw chip reset cause (eink-ha-os#241, esp_rom_get_reset_reason) behind reason: POWERON, CORE_SW, CPU_SW, DEEP_SLEEP, CORE_MWDT0 (timer-group 0 watchdog stage reset: TASK_WDT without the panic path), CORE_MWDT1, CORE_RTC_WDT, CPU_MWDT0, CPU_MWDT1, CPU_RTC_WDT, SYS_BROWNOUT, SYS_RTC_WDT, SYS_SUPER_WDT, SYS_CLK_GLITCH, EFUSE_CRC, USB_UART, USB_JTAG, PWR_GLITCH or 0xNN; null when unknown" }
               crash: { type: boolean, description: "reason is PANIC, INT_WDT, TASK_WDT, WDT, BROWNOUT or CPU_LOCKUP" }
               version: { type: string, example: "0.3.0", description: firmware that ran this boot }
               uptime_s: { type: integer, description: "how long this boot ran (last update, every 10 s)" }
@@ -286,7 +286,7 @@ components:
         last_wdt:
           type: object
           nullable: true
-          description: "#241: the last task-watchdog timeout, written to RTC memory by the TWDT interrupt and reported by the boots after it (survives resets, not a power cut; cleared by DELETE)"
+          description: "eink-ha-os#241: the last task-watchdog timeout, written to RTC memory by the TWDT interrupt and reported by the boots after it (survives resets, not a power cut; cleared by DELETE)"
           properties:
             uptime_s: { type: integer, description: uptime of the boot that timed out, when it fired }
             tasks: { type: string, example: "loopTask (CPU 1)", description: "tasks/users that did not feed the watchdog in time" }
@@ -304,7 +304,7 @@ components:
             low_point:
               type: object
               nullable: true
-              description: "x-firmware (#198): snapshot at the last internal-heap low point (the minimum since boot dropped >= 512 B below the previous one; checked after TLS handshakes, HA report pushes, API requests and every 10 s). null until the first checkpoint. Each one is also a `[W][HEAP] low point …` line in GET /logs"
+              description: "x-firmware (eink-ha-os#198): snapshot at the last internal-heap low point (the minimum since boot dropped >= 512 B below the previous one; checked after TLS handshakes, HA report pushes, API requests and every 10 s). null until the first checkpoint. Each one is also a `[W][HEAP] low point …` line in GET /logs"
               properties:
                 min_free_internal: { type: integer }
                 min_dma: { type: integer, description: "heap_caps_get_minimum_free_size(MALLOC_CAP_DMA)" }
@@ -329,7 +329,7 @@ components:
             ver: { type: string, nullable: true, example: "00 00 01 FF FF" }
             flg: { type: integer, nullable: true }
             nvs_screen_type: { type: integer, nullable: true, description: "OEM hw_calib/screenType (diagnostic only, never decides); null = not set" }
-            failed: { type: boolean, description: "#181: the panel was given up this boot (a BUSY wait ran past 20 s); no panel I/O until the next restart. Same as /status panel" }
+            failed: { type: boolean, description: "eink-ha-os#181: the panel was given up this boot (a BUSY wait ran past 20 s); no panel I/O until the next restart. Same as /status panel" }
             failure: { type: string, nullable: true, example: "BUSY stuck 20 s (init)", description: "why the panel was given up (the SDK wait tag in parentheses); null while failed is false" }
         coredump:
           type: object
@@ -348,7 +348,7 @@ components:
         touch_recoveries: { type: integer, nullable: true, description: "GT911 rail power-cycles since boot; null without touch hardware" }
         deep_sleep:
           type: object
-          description: "First-boot safety (#10, #231): no deep sleep until this firmware version is armed on this device: 3 boots that confirmed with the network up (60 s, Wi-Fi connected), or 30 min of one boot with the network up and the OTA image confirmed valid, whichever comes first. Stored per version (userdata /arm.json), so a restart stays armed; a new version starts over. Console: \"Glance armed after N more boots or 30 min online\"."
+          description: "First-boot safety (eink-ha-os#10, eink-ha-os#231): no deep sleep until this firmware version is armed on this device: 3 boots that confirmed with the network up (60 s, Wi-Fi connected), or 30 min of one boot with the network up and the OTA image confirmed valid, whichever comes first. Stored per version (userdata /arm.json), so a restart stays armed; a new version starts over. Console: \"Glance armed after N more boots or 30 min online\"."
           properties:
             armed: { type: boolean }
             boots_left: { type: integer, example: 0, description: "0 when armed (also when armed by uptime)" }
@@ -371,18 +371,18 @@ components:
         power_trail:
           type: object
           description: |
-            x-firmware (#225): the power trail in /power.txt on userdata (32 lines max, survives a power loss), so a POWERON
+            x-firmware (eink-ha-os#225): the power trail in /power.txt on userdata (32 lines max, survives a power loss), so a POWERON
             shows what the previous boot was doing. Lines: `awake`, `sleep <reason>`, `key <ms> <mV> <usb 0/1>` (Power
             KeyDown, written before the display acts; mV -1 = not read), `standby drawn <ms>` (after the standby full
             refresh), `keyup <held ms>`. ms = uptime. The emulator has no power path: before_boot null, lines [].
-            empty_house_sleeps (#331): deep sleeps with reason `empty house` since power-on (RTC memory; the trail file
+            empty_house_sleeps (eink-ha-os#331): deep sleeps with reason `empty house` since power-on (RTC memory; the trail file
             keeps one `sleep empty house` line per run of them).
-            phases (#327): where awake time goes, as an energy proxy. The emulator has no power path: boot null, wakes [].
+            phases (eink-ha-os#327): where awake time goes, as an energy proxy. The emulator has no power path: boot null, wakes [].
           required: [before_boot, lines, empty_house_sleeps, phases]
           properties:
             before_boot: { type: string, nullable: true, example: "key 123456 3950 0", description: "last line when this boot started; null = no trail yet" }
             lines: { type: array, maxItems: 8, items: { type: string }, description: newest lines, oldest first, example: ["awake", "key 123456 3950 0", "standby drawn 125020", "keyup 1180", "awake"] }
-            empty_house_sleeps: { type: integer, minimum: 0, example: 3, description: "deep sleeps with reason `empty house` since power-on (#331)" }
+            empty_house_sleeps: { type: integer, minimum: 0, example: 3, description: "deep sleeps with reason `empty house` since power-on (eink-ha-os#331)" }
             phases:
               type: object
               description: |
@@ -400,7 +400,7 @@ components:
                 wakes: { type: array, maxItems: 12, items: { $ref: '#/components/schemas/AwakePhases' } }
         web:
           type: object
-          description: "x-firmware (#227): the web server since boot. Also in the minute `[I][NET] web open … served … 503 … last_req …` log line"
+          description: "x-firmware (eink-ha-os#227): the web server since boot. Also in the minute `[I][NET] web open … served … 503 … last_req …` log line"
           required: [open, served, refused_503, last_request_age_s]
           properties:
             open: { type: integer, description: "connections the cap of 8 counts as open (API requests leave it when their handler starts)" }
@@ -409,15 +409,18 @@ components:
             last_request_age_s: { type: integer, nullable: true, description: "seconds since served last went up; null = none since boot" }
         mdns:
           type: object
-          description: "x-firmware (#227): the ha-paper-XXXX.local responder. Restarted on every connect, on every DHCP lease event (also a renewal with the same IP), on a change of access point, and when no request came in for 30 min while the gateway answers"
-          required: [up, restarts, last_restart_reason]
+          description: "x-firmware (eink-ha-os#227): the ha-paper-XXXX.local responder. Restarted on every connect, on every DHCP lease event (also a renewal with the same IP), on a change of access point, and when no request came in for 30 min while the gateway answers"
+          required: [up, restarts, last_restart_reason, hostname, v4, last_announce_age_s]
           properties:
             up: { type: boolean, description: "false under QEMU (no multicast)" }
-            restarts: { type: integer, description: starts after the first one this boot }
-            last_restart_reason: { type: string, nullable: true, enum: [connect, got_ip, bssid, idle] }
+            restarts: { type: integer, description: "starts after the first one this boot, and repairs (eink-ha-os#376: v4_off, renamed)" }
+            last_restart_reason: { type: string, nullable: true, enum: [connect, got_ip, bssid, idle, v4_off, renamed] }
+            hostname: { type: string, nullable: true, example: ha-paper-9574, description: "eink-ha-os#376: the name the responder answers to, sampled once a minute; differs from ha-paper-XXXX after a lost probe tie-break (then reclaimed, at most every 10 min). null = not running (QEMU)" }
+            v4: { type: boolean, description: "eink-ha-os#376: the Wi-Fi station's IPv4 mDNS socket is joined, sampled once a minute; false with the link up is repaired (enable + announce)" }
+            last_announce_age_s: { type: integer, nullable: true, description: "eink-ha-os#376: seconds since the last probe + announce (start, re-bind or repair); null = none since boot" }
         wifi:
           type: object
-          description: "x-firmware (#227): the station link, sampled every 10 s. Inbound watch: no request for 30 min → 3 pings to the gateway; an answer restarts mDNS only, silence reconnects Wi-Fi (idle alone never does)"
+          description: "x-firmware (eink-ha-os#227): the station link, sampled every 10 s. Inbound watch: no request for 30 min → 3 pings to the gateway; an answer restarts mDNS only, silence reconnects Wi-Fi (idle alone never does)"
           required: [rssi, bssid, idle_checks, idle_reconnects]
           properties:
             rssi: { type: integer, nullable: true, description: "dBm; null off Wi-Fi (QEMU: Ethernet)" }
@@ -427,7 +430,7 @@ components:
     SeedReport:
       type: object
       description: |
-        x-firmware: what the first-link seed (#23) decided per tile (#89), saved as /seed.json on userdata next to the
+        x-firmware: what the first-link seed (eink-ha-os#23) decided per tile (eink-ha-os#89), saved as /seed.json on userdata next to the
         seeded screens.yaml. Reference: seedPlan in emulator/src/core/seed.ts; spec/test-vectors/seed.json `report`.
         Travel tiles are opt-in and not reported. A grid-only house reports no grid_power tile (its meter is home_power, rule grid).
       required: [filled, total, tiles, dismissed]
@@ -459,13 +462,13 @@ paths:
   /config:
     get:
       summary: All screens as YAML (JSON with Accept application/json) (read)
-      description: "Your own apps and screens only: the Settings app and its pages are built into the display (#159, spec/SCHEMA.md)."
+      description: "Your own apps and screens only: the Settings app and its pages are built into the display (eink-ha-os#159, spec/SCHEMA.md)."
       responses:
         "200": { description: OK, content: { application/yaml: { schema: { type: string } }, application/json: { schema: { type: object } } } }
         "401": { $ref: '#/components/responses/Unauthorized' }
     put:
       summary: Replace all screens; validated first, applied with one full redraw (write)
-      description: "A settings app, `app: settings` screens and system tiles (setting, ota, wifi, ha, about) from older files are accepted and dropped; the display keeps its built-in Settings app (#159)."
+      description: "A settings app, `app: settings` screens and system tiles (setting, ota, wifi, ha, about) from older files are accepted and dropped; the display keeps its built-in Settings app (eink-ha-os#159)."
       requestBody:
         required: true
         content: { application/yaml: { schema: { type: string } }, application/json: { schema: { type: object } } }
@@ -487,12 +490,12 @@ paths:
     get:
       summary: What the panel shows for a screen, 800 × 480 PNG (read)
       description: |
-        The screen's first page as the panel would show it now (#168). The device answers the screen the panel shows
+        The screen's first page as the panel would show it now (eink-ha-os#168). The device answers the screen the panel shows
         with the panel's own frame (header X-X4-Preview: current-panel); any other screen is drawn off-screen
         (X-X4-Preview: rendered), without touching or refreshing the panel. One off-screen draw at a time: 503 with
         Retry-After while another is in progress or the display loop is busy for 8 s.
         x-sim DEVIATION: the simulator draws the layout (top bar rule and tile frames), not the content.
-        The web console's Values view (#189) asks for it every 15 s and shows each tile cut from it at the tile's
+        The web console's Values view (eink-ha-os#189) asks for it every 15 s and shows each tile cut from it at the tile's
         grid rectangle (Classic or Sleek grid per display style); after a 503 it waits Retry-After seconds.
       parameters: [{ name: id, in: path, required: true, schema: { type: string } }]
       responses:
@@ -508,7 +511,7 @@ paths:
         One string per widget of the screen, in config order: the big value the tile draws (number format, display_precision
         and unit as on the panel; "—" when there is none; "Unavailable" / "Unknown" in the display language when Home
         Assistant has no value for the tile's entity). A zoneList / lightList gives a count of what it shows ("3 of 9 heating",
-        "4 of 9 lights on", #161; "—" when it shows nothing). "" for tiles without a single value (charts, settings).
+        "4 of 9 lights on", eink-ha-os#161; "—" when it shows nothing). "" for tiles without a single value (charts, settings).
         The web console's Values view polls this every 5 s with its session cookie and shows the value in place of the
         tile name. The firmware formats on its main loop, about once a second while asked: the first call (or the first
         after 30 s without one) answers ready: false with no values; ask again after a second.
@@ -527,7 +530,7 @@ paths:
         "404": { description: Unknown screen }
   /display/refresh:
     post:
-      summary: "Force one full refresh (write): the multi-flash waveform (SSD1677 0x22=F7), the deepest clean; the display itself only uses the one-flash clean (#197)"
+      summary: "Force one full refresh (write): the multi-flash waveform (SSD1677 0x22=F7), the deepest clean; the display itself only uses the one-flash clean (eink-ha-os#197)"
       responses: { "204": { description: Done }, "403": { $ref: '#/components/responses/Forbidden' } }
   /ota:
     get:
@@ -560,7 +563,7 @@ paths:
         (client_id http://<Host header>/, e.g. http://ha-paper-a1b2.local/; redirect_uri http://<Host>/auth/callback). The browser navigates there.
         On /auth/callback the device exchanges the code: if not linked yet it stores the refresh token (display linked);
         either way it creates the browser session (Set-Cookie x4_session, view-only unless the user is an HA admin) and 302s to return_to.
-        Not linked yet (#54): the device first checks the address (ha_url, else the remembered or discovered one) with
+        Not linked yet (eink-ha-os#54): the device first checks the address (ha_url, else the remembered or discovered one) with
         GET <address>/auth/providers, no redirects followed, and remembers it only when it answers as Home Assistant.
         No scheme typed: http://, port 8123 when none is given; if only https answers (or http redirects there), https is used.
         https typed but HA only answers on http: 422 (no silent downgrade). Rules and messages: spec/test-vectors/ha-address.json.
@@ -618,7 +621,7 @@ paths:
       responses: { "204": { description: Unlinked }, "401": { $ref: '#/components/responses/Unauthorized' } }
   /ha/entities:
     get:
-      summary: "Home Assistant entities a stat / gauge / switch tile can show, plus climate entities for a zoneList (console entity and list pickers, #127). At most 800: each domain first gets a budget of pickable entities (climate 50, weather 10, light 100, switch 100, input_boolean 30, input_number 30, fan 20, binary_sensor 60, number 30, sensor 370, by id), then the rest of the room goes to pickable entities past their budget, then to unavailable / unknown ones and sensors without a unit or measuring signal strength (#150; emulator src/core/entityList.ts). Read once from HA and kept 5 min (device-sim: 60 s); the first call starts the read and answers ready: false"
+      summary: "Home Assistant entities a stat / gauge / switch tile can show, plus climate entities for a zoneList (console entity and list pickers, eink-ha-os#127). At most 800: each domain first gets a budget of pickable entities (climate 50, weather 10, light 100, switch 100, input_boolean 30, input_number 30, fan 20, binary_sensor 60, number 30, sensor 370, by id), then the rest of the room goes to pickable entities past their budget, then to unavailable / unknown ones and sensors without a unit or measuring signal strength (eink-ha-os#150; emulator src/core/entityList.ts). Read once from HA and kept 5 min (device-sim: 60 s); the first call starts the read and answers ready: false"
       responses:
         "200":
           description: Entity list
@@ -630,7 +633,7 @@ paths:
                   ready: { type: boolean }
                   areas:
                     type: array
-                    description: "HA's areas in registry order (config/area_registry/list), for the lightList picker (#127); absent from older firmware"
+                    description: "HA's areas in registry order (config/area_registry/list), for the lightList picker (eink-ha-os#127); absent from older firmware"
                     items:
                       type: object
                       properties:
@@ -638,7 +641,7 @@ paths:
                         name: { type: string, example: Living room }
                   lists:
                     type: object
-                    description: "Climate and light entities in HA (total) and how many a zoneList / lightList with nothing picked shows (shown): the display subscribes to at most 80, climate first (#134). entities: entities HA has in the list's domains (total) and how many rows `entities` holds (shown, at most 800); shown < total = the list was cut (#150, absent from older firmware). Only with ready: true; absent from older firmware"
+                    description: "Climate and light entities in HA (total) and how many a zoneList / lightList with nothing picked shows (shown): the display subscribes to at most 80, climate first (eink-ha-os#134). entities: entities HA has in the list's domains (total) and how many rows `entities` holds (shown, at most 800); shown < total = the list was cut (eink-ha-os#150, absent from older firmware). Only with ready: true; absent from older firmware"
                     properties:
                       climate: { $ref: '#/components/schemas/ListCount' }
                       lights: { $ref: '#/components/schemas/ListCount' }
@@ -650,9 +653,9 @@ paths:
                       properties:
                         id: { type: string, example: sensor.outdoor_temperature }
                         name: { type: string, example: Outdoor temperature }
-                        unit: { type: string, example: °C, description: "unit_of_measurement, empty when none; °C for a climate (weather: its temperature_unit) with a temperature (#161)" }
-                        state: { type: string, example: "11.4", description: "HA's state when the list was read (#84); a climate's current_temperature / a weather's temperature when it has one (#161); absent from older firmware" }
-                        area: { type: string, example: living_room, description: "HA area id (the entity's, else its device's, #127); absent when none"
+                        unit: { type: string, example: °C, description: "unit_of_measurement, empty when none; °C for a climate (weather: its temperature_unit) with a temperature (eink-ha-os#161)" }
+                        state: { type: string, example: "11.4", description: "HA's state when the list was read (eink-ha-os#84); a climate's current_temperature / a weather's temperature when it has one (eink-ha-os#161); absent from older firmware" }
+                        area: { type: string, example: living_room, description: "HA area id (the entity's, else its device's, eink-ha-os#127); absent when none"
         "401": { $ref: '#/components/responses/Unauthorized' }
         "409": { description: "Home Assistant is not linked (device-sim; the firmware answers 200 with ready: false)" }
   /setup/finish:
@@ -709,22 +712,22 @@ paths:
               schema:
                 type: object
                 properties:
-                  display: { type: object, properties: { brightness: { type: integer }, warmth: { type: integer }, lightTimeout: { type: integer, enum: [30, 60, 120, 300, 0], default: 60, description: "seconds without a key or touch before the front light turns off (#220); 0 = never. The brightness setting is unchanged; the next key or tap (not Power) only turns the light back on. Home Assistant updates do not. 422: display.lightTimeout must be 0, 30, 60, 120 or 300" }, quiet: { type: string, enum: ["off", "22-06", "23-07", "00-06"], default: "23-07", description: "quiet hours (#295, replaces night and powerSave night): \"off\" or \"HH-HH\" (any whole hours; the display steps these four). In the window the display shows the quiet face (\"Back at 07:00\", the date, the first values of the Home page), draws no data and no clock; on battery it deep-sleeps to the window end (only a due 03:00 install wakes it); a key or tap shows the dashboard for 60 s. The front light follows lightTimeout. 422: display.quiet must be \"off\" or \"HH-HH\"" }, returnHome: { type: string, example: "5" }, standby: { type: string, example: never }, clock: { type: string, example: "24" }, intervalSec: { type: integer, example: 30 }, fullEvery: { type: integer, example: 8, description: "legacy (#26): stored and served, no effect" }, cleanEvery: { type: integer, enum: [30, 60, 120], example: 30, description: "minutes between scheduled clean (full) refreshes, at :00/:30; skipped on the quiet face (#26, #295)" },
-                    otaAuto: { type: string, enum: [off, notify, night], description: "automatic updates (Settings › Updates); the web console edits it with ota_channel (#159)" },
+                  display: { type: object, properties: { brightness: { type: integer }, warmth: { type: integer }, lightTimeout: { type: integer, enum: [30, 60, 120, 300, 0], default: 60, description: "seconds without a key or touch before the front light turns off (eink-ha-os#220); 0 = never. The brightness setting is unchanged; the next key or tap (not Power) only turns the light back on. Home Assistant updates do not. 422: display.lightTimeout must be 0, 30, 60, 120 or 300" }, quiet: { type: string, enum: ["off", "22-06", "23-07", "00-06"], default: "23-07", description: "quiet hours (eink-ha-os#295, replaces night and powerSave night): \"off\" or \"HH-HH\" (any whole hours; the display steps these four). In the window the display shows the quiet face (\"Back at 07:00\", the date, the first values of the Home page), draws no data and no clock; on battery it deep-sleeps to the window end (only a due 03:00 install wakes it); a key or tap shows the dashboard for 60 s. The front light follows lightTimeout. 422: display.quiet must be \"off\" or \"HH-HH\"" }, returnHome: { type: string, example: "5" }, standby: { type: string, example: never }, clock: { type: string, example: "24" }, intervalSec: { type: integer, example: 30 }, fullEvery: { type: integer, example: 8, description: "legacy (eink-ha-os#26): stored and served, no effect" }, cleanEvery: { type: integer, enum: [30, 60, 120], example: 30, description: "minutes between scheduled clean (full) refreshes, at :00/:30; skipped on the quiet face (eink-ha-os#26, eink-ha-os#295)" },
+                    otaAuto: { type: string, enum: [off, notify, night], description: "automatic updates (Settings › Updates); the web console edits it with ota_channel (eink-ha-os#159)" },
                     style: { type: string, enum: [classic, sleek], default: classic, description: "Display style (see docs/DISPLAY_STYLES_PLAN.md). A change is one full refresh. 422: style must be classic or sleek" },
                     typeface: { type: string, enum: [archivo, bricolage, fraunces, geist], default: archivo, description: "Sleek typeface (ignored in classic). 422: typeface must be archivo, bricolage, fraunces or geist" },
                     surface: { type: string, enum: [dither, dots], default: dither, description: "How the Sleek card gray is drawn on the panel (25 % level-2 dither, or 1-in-16 black dots that survive B/W partial refresh). Device only. 422: surface must be dither or dots" },
-                    haReport: { type: boolean, default: true, description: "Push device health to Home Assistant as entities (#32): POST /api/states/sensor.ha_paper_XXXX_battery, binary_sensor.…_charging, sensor.…_wifi_signal, …_last_full_refresh, …_last_boot, …_firmware, …_reset_reason (spec/test-vectors/ha-report.json). On connect, on a battery/charging change and every 10 min, never twice in 60 s. HA accepts it from admin users only. 422: haReport must be true or false" },
-                    powerSave: { type: string, enum: ["off", standby, glance], default: glance, description: "On battery (#10, #18, #356): glance = the sleep face (date, Asleep · press to wake, today's weather / event / bins) and deep sleep until a key or the charger; timer wakes only at transitions (midnight, quiet-hours start and end, the 03:00 install slot, at most every 8 h), redraw only when the face changed; a key press = the dashboard, live for liveMin minutes; standby = deep sleep while the standby face is on; off = always live. glance and standby also sleep through quiet hours. On USB always live. night (Sleep at night) was removed in #295: a stored night reads as glance. 422: display.powerSave must be off, standby or glance" },
-                    wakeEvery: { type: integer, enum: [15, 30, 60], default: 15, description: "minutes between standby timer wakes (glance wakes only at transitions since #356). 422: display.wakeEvery must be 15, 30 or 60" },
+                    haReport: { type: boolean, default: true, description: "Push device health to Home Assistant as entities (eink-ha-os#32): POST /api/states/sensor.ha_paper_XXXX_battery, binary_sensor.…_charging, sensor.…_wifi_signal, …_last_full_refresh, …_last_boot, …_firmware, …_reset_reason (spec/test-vectors/ha-report.json). On connect, on a battery/charging change and every 10 min, never twice in 60 s. HA accepts it from admin users only. 422: haReport must be true or false" },
+                    powerSave: { type: string, enum: ["off", standby, glance], default: glance, description: "On battery (eink-ha-os#10, eink-ha-os#18, eink-ha-os#356): glance = the sleep face (date, Asleep · press to wake, today's weather / event / bins) and deep sleep until a key or the charger; timer wakes only at transitions (midnight, quiet-hours start and end, the 03:00 install slot, at most every 8 h), redraw only when the face changed; a key press = the dashboard, live for liveMin minutes; standby = deep sleep while the standby face is on; off = always live. glance and standby also sleep through quiet hours. On USB always live. night (Sleep at night) was removed in eink-ha-os#295: a stored night reads as glance. 422: display.powerSave must be off, standby or glance" },
+                    wakeEvery: { type: integer, enum: [15, 30, 60], default: 15, description: "minutes between standby timer wakes (glance wakes only at transitions since eink-ha-os#356). 422: display.wakeEvery must be 15, 30 or 60" },
                     liveMin: { type: integer, enum: [1, 3, 5, 10], default: 3, description: "glance: minutes of live mode (WebSocket + touch) after a key press. 422: display.liveMin must be 1, 3, 5 or 10" },
-                    emptyHouse: { type: string, default: "", example: zone.home, description: "Empty-house sleep (#331): \"\" = off, else the presence entity (zone: state 0 = nobody home; binary_sensor / input_boolean / group: off = nobody home). In glance, while nobody is home, wakes every 2 h (cut at quiet hours) and the sleeping panel shows Nobody home. Web console only (Device › Power). 422: display.emptyHouse must be \"\" or a zone, binary_sensor, input_boolean or group entity id" },
-                    debugInput: { type: boolean, default: false, description: "Allow POST /debug/input (#214, measuring on hardware). API only, no tile. 422: display.debugInput must be true or false" },
-                    morning: { type: boolean, default: true, description: "Good morning page (#330): the first wake after quiet hours shows today's weather, events and bins for 20 min; a press shows the start page. No effect with quiet off. 422: display.morning must be true or false" } } }
+                    emptyHouse: { type: string, default: "", example: zone.home, description: "Empty-house sleep (eink-ha-os#331): \"\" = off, else the presence entity (zone: state 0 = nobody home; binary_sensor / input_boolean / group: off = nobody home). In glance, while nobody is home, wakes every 2 h (cut at quiet hours) and the sleeping panel shows Nobody home. Web console only (Device › Power). 422: display.emptyHouse must be \"\" or a zone, binary_sensor, input_boolean or group entity id" },
+                    debugInput: { type: boolean, default: false, description: "Allow POST /debug/input (eink-ha-os#214, measuring on hardware). API only, no tile. 422: display.debugInput must be true or false" },
+                    morning: { type: boolean, default: true, description: "Good morning page (eink-ha-os#330): the first wake after quiet hours shows today's weather, events and bins for 20 min; a press shows the start page. No effect with quiet off. 422: display.morning must be true or false" } } }
                   ota_channel: { type: string, enum: [stable, beta] }
-                  tz: { type: string, maxLength: 64, default: "", example: "Europe/London", description: "Clock time zone override (#147). \"\" = follow Home Assistant (get_config `time_zone`); a zone name from spec/test-vectors/locale.json `zones` (Europe/*, US, UK, AU, …); or a POSIX TZ string, newlib grammar. Other IANA names are rejected: the device has no zone database. The web console edits it under Settings › Home Assistant. 422: tz must be \"\", a known zone like Europe/Amsterdam or a POSIX TZ string like CET-1CEST,M3.5.0,M10.5.0/3 (spec/test-vectors/settings-put.json)" }
-                  tz_ha: { type: string, readOnly: true, example: "Europe/Amsterdam", description: "Home Assistant's time_zone as last applied (#147); a zone the display does not know is ignored (logged once) and the clock keeps its zone. \"\" = not known yet" }
-                  tz_active: { type: string, readOnly: true, example: "CET-1CEST,M3.5.0,M10.5.0/3", description: "The POSIX TZ the clock uses: tz, else tz_ha, else Europe/Amsterdam (#147)" }
+                  tz: { type: string, maxLength: 64, default: "", example: "Europe/London", description: "Clock time zone override (eink-ha-os#147). \"\" = follow Home Assistant (get_config `time_zone`); a zone name from spec/test-vectors/locale.json `zones` (Europe/*, US, UK, AU, …); or a POSIX TZ string, newlib grammar. Other IANA names are rejected: the device has no zone database. The web console edits it under Settings › Home Assistant. 422: tz must be \"\", a known zone like Europe/Amsterdam or a POSIX TZ string like CET-1CEST,M3.5.0,M10.5.0/3 (spec/test-vectors/settings-put.json)" }
+                  tz_ha: { type: string, readOnly: true, example: "Europe/Amsterdam", description: "Home Assistant's time_zone as last applied (eink-ha-os#147); a zone the display does not know is ignored (logged once) and the clock keeps its zone. \"\" = not known yet" }
+                  tz_active: { type: string, readOnly: true, example: "CET-1CEST,M3.5.0,M10.5.0/3", description: "The POSIX TZ the clock uses: tz, else tz_ha, else Europe/Amsterdam (eink-ha-os#147)" }
                   name: { type: string, example: HA Paper }
                   entities: { type: object, additionalProperties: { type: string }, example: { sensor.living_temperature: sensor.hall_temperature, sensor.battery_power: "-sensor.inverter_battery_power" }, description: "logical id (firmware/src/core/entities.h) → Home Assistant entity; a leading '-' negates. PUT merges; null or \"\" removes. Unknown logical id / malformed entity id → 422. Edited in the web console's Data sources page" }
                   entity_sources: { type: object, additionalProperties: { type: string }, readOnly: true, example: { sensor.solar_power: "sensor.solaredge_current_power (energy)" }, description: "resolved mapping (override | energy | device | identity), firmware/src/core/entity_map.h" }
@@ -732,7 +735,7 @@ paths:
       x-firmware: true
       summary: Partial update of the same object (write). display changes apply on the next loop; a change of display.style, typeface or surface is one full refresh.
       requestBody: { required: true, content: { application/json: { schema: { type: object } } } }
-      description: "Keys are checked before any value is applied: an unknown top-level or display key is 422 `unknown key: <key>` / `unknown key: display.<key>` and nothing changes (entity_sources is read-only). Input only: stored files keep keys a build does not know (#12)."
+      description: "Keys are checked before any value is applied: an unknown top-level or display key is 422 `unknown key: <key>` / `unknown key: display.<key>` and nothing changes (entity_sources is read-only). Input only: stored files keep keys a build does not know (eink-ha-os#12)."
       responses: { "200": { description: New settings }, "422": { description: "Unknown key, invalid value or tz (message names it)" } }
   /ha/token:
     post:
@@ -763,7 +766,7 @@ paths:
       summary: Install a local firmware.bin (write). Raw body (application/octet-stream) or multipart file.
       parameters:
         - { name: sha256, in: query, required: false, schema: { type: string }, description: "optional; also accepted as X-SHA256 header" }
-        - { name: version, in: query, required: false, schema: { type: string, maxLength: 64 }, description: "optional (#237): the version the update screen shows (\"Updating to / v…\") and GET /ota `available.version` reports while the image streams; a leading v is dropped, non-printable or longer values are ignored. A multipart manifest.json version wins. Neither: no version line, `available` null, the Updates page says a local file is installing" }
+        - { name: version, in: query, required: false, schema: { type: string, maxLength: 64 }, description: "optional (eink-ha-os#237): the version the update screen shows (\"Updating to / v…\") and GET /ota `available.version` reports while the image streams; a leading v is dropped, non-printable or longer values are ignored. A multipart manifest.json version wins. Neither: no version line, `available` null, the Updates page says a local file is installing" }
       requestBody: { required: true, content: { application/octet-stream: { schema: { type: string, format: binary } } } }
       responses:
         "202": { description: "Written and verified; the device restarts into it (confirmed after 60 s with network and a running UI loop; rolls back on a crash, no network within 10 min, or a hang). Body {status: rebooting, version?, sha256}. Multipart: field firmware (+ optional manifest.json {version, sha256, size})" }
@@ -772,7 +775,7 @@ paths:
   /ota/upload-www:
     post:
       x-firmware: true
-      summary: "Write a local www.bin (the web console) into the www partition (write, #350). Raw body only; the size must be the partition's (3407872 bytes); sha256 required. Refused while a firmware update runs or the new firmware is not confirmed yet (a rollback must not keep a newer console). Bounded to 0xC90000..0xFD0000: never NVS or userdata"
+      summary: "Write a local www.bin (the web console) into the www partition (write, eink-ha-os#350). Raw body only; the size must be the partition's (3407872 bytes); sha256 required. Refused while a firmware update runs or the new firmware is not confirmed yet (a rollback must not keep a newer console). Bounded to 0xC90000..0xFD0000: never NVS or userdata"
       parameters:
         - { name: sha256, in: query, required: true, schema: { type: string }, description: "SHA-256 of www.bin; also accepted as X-SHA256 header" }
       requestBody: { required: true, content: { application/octet-stream: { schema: { type: string, format: binary } } } }
@@ -802,11 +805,11 @@ paths:
   /seed:
     get:
       x-firmware: true
-      summary: "What the first-link seed filled and why it dropped the other tiles (#89; the console's \"N of M tiles filled\") (read)"
+      summary: "What the first-link seed filled and why it dropped the other tiles (eink-ha-os#89; the console's \"N of M tiles filled\") (read)"
       responses:
         "200": { description: OK, content: { application/json: { schema: { $ref: '#/components/schemas/SeedReport' } } } }
         "401": { $ref: '#/components/responses/Unauthorized' }
-        "404": { description: "No seed ran on this display (screens were pushed, or saved before #89)" }
+        "404": { description: "No seed ran on this display (screens were pushed, or saved before eink-ha-os#89)" }
     delete:
       x-firmware: true
       summary: Dismiss the report in the console (dismissed true; the report stays readable) (write)
@@ -826,7 +829,7 @@ paths:
   /logs:
     get:
       x-firmware: true
-      summary: The device log (read, #200)
+      summary: The device log (read, eink-ha-os#200)
       description: |
         Every `[I][TAG] message` line the firmware prints on Serial, from a 64 KB ring in PSRAM (~1000 lines; the oldest
         go first), plus the previous boot's last 2 KB from RTC memory (survives restart, panic, watchdog reset and deep
@@ -847,8 +850,8 @@ paths:
   /debug/input:
     post:
       x-firmware: true
-      summary: Remote touch / key input, for measuring on hardware (write, #214)
-      description: "One of tap=x,y | key=prev|next|home|power | swipe=-1|1 (-1 = left = next page). Goes into the same input queue as touch and the keys, so the display coalesces it like real input (last input wins, #212). Logged as `[I][INPUT] remote <spec>`. Off unless settings display.debugInput is true. x-sim: keys and swipes page within the app shown, Home goes to the first screen; taps and Power are only logged."
+      summary: Remote touch / key input, for measuring on hardware (write, eink-ha-os#214)
+      description: "One of tap=x,y | key=prev|next|home|power | swipe=-1|1 (-1 = left = next page). Goes into the same input queue as touch and the keys, so the display coalesces it like real input (last input wins, eink-ha-os#212). Logged as `[I][INPUT] remote <spec>`. Off unless settings display.debugInput is true. x-sim: keys and swipes page within the app shown, Home goes to the first screen; taps and Power are only logged."
       parameters:
         - { name: tap, in: query, schema: { type: string, example: "400,240" } }
         - { name: key, in: query, schema: { type: string, enum: [prev, next, home, power] } }
@@ -861,7 +864,7 @@ paths:
   /debug/framebuffer.png:
     get:
       x-firmware: true
-      summary: The frame on the glass, 800 × 480 PNG (read, #214)
+      summary: The frame on the glass, 800 × 480 PNG (read, eink-ha-os#214)
       description: "The framebuffer last pushed to the panel (2-bit gray), whatever it shows: a screen, a menu, a setup or standby face. x-sim: the layout of the screen shown, like preview.png."
       responses:
         "200": { description: PNG, content: { image/png: {} } }
@@ -874,7 +877,7 @@ paths:
   /device/sleep:
     post:
       x-firmware: true
-      summary: Deep sleep now, for power measurements (write, #178)
+      summary: Deep sleep now, for power measurements (write, eink-ha-os#178)
       description: "Skips liveMin and the 2-min API quiet; wakes by timer after `seconds`, or by the Power / Right key or the charger as usual (a timer wake in powerSave glance is a glance wake). Answers first, sleeps about a second later. Not refused while first-boot safety is still counting or the battery is unknown. QEMU: simulated sleep of at most 8 s, then a reset with the wake cause. spec/test-vectors/sleep-now.json"
       requestBody:
         required: true

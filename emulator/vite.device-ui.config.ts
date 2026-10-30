@@ -3,7 +3,7 @@ import react from '@vitejs/plugin-react';
 import { fileURLToPath } from 'node:url';
 
 // Standalone web console for the real device (served from flash at http://ha-paper.local/).
-// Talks to /api/v1 with fetch (src/webconsole/httpApi.ts). Output: index.html + app.js + app.css + the IBM Plex woff2 files (#42).
+// Talks to /api/v1 with fetch (src/webconsole/httpApi.ts). Output: index.html + app.js + app.css + the IBM Plex woff2 files (eink-ha-os#42).
 export default defineConfig({
   root: fileURLToPath(new URL('./device-ui', import.meta.url)),
   base: './',

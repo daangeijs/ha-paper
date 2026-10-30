@@ -17,7 +17,7 @@ struct Boot {
   char reason[kReasonLen];     // esp_reset_reason() name: POWERON, SW, PANIC, TASK_WDT, …
   char version[kVersionLen];   // firmware that ran this boot
   char panic[kPanicLen];       // panic message that caused this boot ("" = none)
-  char hw[kHwLen];             // raw chip reset cause (#241): CORE_SW, CORE_MWDT0, USB_UART, … ("" = unknown)
+  char hw[kHwLen];             // raw chip reset cause (eink-ha-os#241): CORE_SW, CORE_MWDT0, USB_UART, … ("" = unknown)
   uint32_t uptimeS;            // last update while this boot ran
   uint32_t minFreeHeap;        // lowest free internal heap seen
   int64_t lastSeen;            // Unix time of the last update, 0 = clock unknown
@@ -46,7 +46,7 @@ std::string bootsJson(const Ring& r);       // the API "boots" array
 std::string lastCrashJson(const Ring& r);   // the API "last_crash" object or null
 
 // Everything else GET /diagnostics reports (filled by net/diag.cpp from IDF / the panel driver).
-// heap.low_point (#198): what was going on when the internal minimum last dropped (net/health.h heapCheckpoint)
+// heap.low_point (eink-ha-os#198): what was going on when the internal minimum last dropped (net/health.h heapCheckpoint)
 struct LowPoint {
   bool set = false;   // false → null
   uint32_t minFreeInternal = 0, minDma = 0, min8bitInt = 0, uptimeS = 0;
@@ -68,7 +68,7 @@ struct Panel {
   uint8_t verBytes = 0;
   uint8_t flg = 0;
   int nvsScreenType = -1;            // OEM hw_calib/screenType, -1 = not set
-  std::string failure;               // "" = fine; else why the panel was given up (core/panel_guard, #181)
+  std::string failure;               // "" = fine; else why the panel was given up (core/panel_guard, eink-ha-os#181)
 };
 struct Coredump {
   bool present = false;
@@ -80,14 +80,14 @@ struct Coredump {
   std::string elfSha256;
   uint32_t size = 0;
 };
-// last_wdt (#241): the last task-watchdog timeout, recorded by the TWDT interrupt (net/diag.cpp)
+// last_wdt (eink-ha-os#241): the last task-watchdog timeout, recorded by the TWDT interrupt (net/diag.cpp)
 struct Wdt {
   bool set = false;   // false → null
   uint32_t uptimeS = 0, freeInternal = 0, largestInternal = 0, minDma = 0;
   std::string tasks, lastLog;   // lastLog "" → null
 };
 std::string wdtJson(const Wdt& w);
-// #227: inbound path (web server, mDNS name, Wi-Fi AP) to tell "name gone" from "device unreachable"
+// eink-ha-os#227: inbound path (web server, mDNS name, Wi-Fi AP) to tell "name gone" from "device unreachable"
 struct Net {
   int webOpen = 0;
   uint32_t served = 0, refused503 = 0;
@@ -95,6 +95,9 @@ struct Net {
   bool mdnsUp = false;
   uint32_t mdnsRestarts = 0;
   const char* mdnsReason = nullptr;   // nullptr → null
+  std::string mdnsHost;               // eink-ha-os#376: the name the responder holds; "" → null (not running)
+  bool mdnsV4 = false;                // eink-ha-os#376: STA IPv4 pcb joined and answering
+  int64_t mdnsAnnounceAgeS = -1;      // eink-ha-os#376: since the last probe + announce; -1 → null
   bool rssiKnown = false;
   int rssi = 0;
   std::string bssid;              // core bssidTag(); "" → null
@@ -109,13 +112,13 @@ struct Report {
   Panel panel;
   Coredump core;
   int64_t touchRecoveries = -1;   // -1 = no touch hardware → null
-  int sleepBootsLeft = 0;         // first-boot safety (#10): confirmed boots still needed before deep sleep
-  const char* sleepArmedBy = nullptr;   // #231: "uptime" | "boots" | nullptr (not armed)
-  std::string batteryJson;        // #231 core/battery_history.h History::json(); empty = null
-  std::string trailBeforeBoot;    // #225 power trail: last line when this boot started; empty = null
-  uint32_t emptyHouseSleeps = 0;  // #331 power_trail.empty_house_sleeps: "empty house" deep sleeps since power-on
-  std::string phasesJson;         // #327 power_trail.phases (core/phases.h json()); empty = null
-  std::vector<std::string> trail; // #225 newest lines of /power.txt, oldest first
+  int sleepBootsLeft = 0;         // first-boot safety (eink-ha-os#10): confirmed boots still needed before deep sleep
+  const char* sleepArmedBy = nullptr;   // eink-ha-os#231: "uptime" | "boots" | nullptr (not armed)
+  std::string batteryJson;        // eink-ha-os#231 core/battery_history.h History::json(); empty = null
+  std::string trailBeforeBoot;    // eink-ha-os#225 power trail: last line when this boot started; empty = null
+  uint32_t emptyHouseSleeps = 0;  // eink-ha-os#331 power_trail.empty_house_sleeps: "empty house" deep sleeps since power-on
+  std::string phasesJson;         // eink-ha-os#327 power_trail.phases (core/phases.h json()); empty = null
+  std::vector<std::string> trail; // eink-ha-os#225 newest lines of /power.txt, oldest first
   Net net;
 };
 std::string reportJson(const Ring& r, const Report& rep);

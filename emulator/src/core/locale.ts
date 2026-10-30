@@ -1,4 +1,4 @@
-// Clock time zone and price currency from Home Assistant (#147; spec/test-vectors/locale.json = firmware core/locale).
+// Clock time zone and price currency from Home Assistant (eink-ha-os#147; spec/test-vectors/locale.json = firmware core/locale).
 // HA's get_config gives an IANA `time_zone` and an ISO 4217 `currency`. The device has no zone database, so a table
 // maps the zones HA users pick most to newlib POSIX TZ strings; an unknown zone keeps the current one.
 import { fmtNum } from './format.ts';

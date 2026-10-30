@@ -1,4 +1,4 @@
-// Today's energy from the recorder (#308): recorder/statistics_during_period (period hour, types [change], from local
+// Today's energy from the recorder (eink-ha-os#308): recorder/statistics_during_period (period hour, types [change], from local
 // midnight) → the *_today totals and the 24-hour series of sensor.solar_hourly / sensor.energy_usage_hourly, plus the
 // local day change that restarts them. Pure; firmware EntityAdapter::setHourlyStatistics / rollDay in
 // core/entity_map.cpp must match spec/test-vectors/energy-hourly.json. Times are epoch ms, `tz` the local UTC offset in
@@ -65,7 +65,7 @@ export function hourlyStatistics(stats: unknown, m: Meters, now: number, tz: num
   return out;
 }
 
-/** Day change (#308): `lastDay` = local day of the last statistics answer (null = none yet). Another local day now →
+/** Day change (eink-ha-os#308): `lastDay` = local day of the last statistics answer (null = none yet). Another local day now →
  * every id the statistics fed restarts at 0 (series: 24 zeros) and the device asks the recorder again right away,
  * instead of drawing yesterday's 24 bars against today's hours until the next 10-minute refresh. Also after a deep
  * sleep across midnight. now 0 = clock unknown: no roll. */

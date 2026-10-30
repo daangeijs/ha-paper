@@ -70,12 +70,14 @@ class Canvas {
   void vline(int x, int y, int h, int th, Ink c) { fill(Rect{int16_t(x), int16_t(y), int16_t(th), int16_t(h)}, c); }
   void dottedHLine(int x, int y, int w, int th, Ink c);
   void dottedVLine(int x, int y, int h, int th, Ink c);
-  void dashedHLine(int x, int y, int w, int th, int dash, int gapLen, Ink c);   // one record (history threshold, #304)
-  // the tone under the segment (xa, ya)–(xb, yb) down to yBase, one 1 px column per x (history area fill, #304)
+  void dashedHLine(int x, int y, int w, int th, int dash, int gapLen, Ink c);   // one record (history threshold, eink-ha-os#304)
+  // the tone under the segment (xa, ya)–(xb, yb) down to yBase, one 1 px column per x (history area fill, eink-ha-os#304)
   void toneUnder(int xa, int ya, int xb, int yb, int yBase, Tone t);
+  // the tone between two segments over the same x run: top (xa, ta)–(xb, tb), bottom (xa, ba)–(xb, bb) (history band, eink-ha-os#304)
+  void toneBetween(int xa, int ta, int ba, int xb, int tb, int bb, Tone t);
   void line(int x0, int y0, int x1, int y1, int th, Ink c);   // th×th pen along a Bresenham path, no anti-aliasing (1-bit safe)
   // line() in dashes of `dash` path steps, `gapLen` off; `phase` = steps already walked (dashes run on across joints). One
-  // record (history forecast, #307). Returns the phase at the end.
+  // record (history forecast, eink-ha-os#307). Returns the phase at the end.
   int dashedLine(int x0, int y0, int x1, int y1, int th, int dash, int gapLen, Ink c, int phase = 0);
   void circle(int cx, int cy, int r, Ink fillC, int bw = 0, Ink border = Ink::Black);
   // palette entries without a native level (gfx/style.h Tone): rounded rect / circle / pill filled with the pattern
@@ -86,7 +88,7 @@ class Canvas {
   void invert(Rect r);
   void icon(Icon i, int x, int y, Ink c = Ink::Black);
   void qr(int x, int y, int px, const std::string& text);   // px = target size; modules are integer-scaled
-  // modules of `m` at (x, y), `scale` px each; records a hash of the modules, never the text (guest Wi-Fi, #329)
+  // modules of `m` at (x, y), `scale` px each; records a hash of the modules, never the text (guest Wi-Fi, eink-ha-os#329)
   void qrModules(int x, int y, int scale, const QrMatrix& m);
 
   // text (baseline positioning); returns advance width
@@ -101,9 +103,9 @@ class Canvas {
   int paragraph(int x, int top, int w, int lineH, const std::string& s, Font f, const TextOpts& o = TextOpts(), int maxLines = 0);
 
   void hit(Rect r, std::function<void()> fn);
-  void slider(Rect r, std::function<void()> fn);   // a hit that also takes drags (#351)
+  void slider(Rect r, std::function<void()> fn);   // a hit that also takes drags (eink-ha-os#351)
 
-  // Pixels drawn in G1/G2 (outside the Sleek card surface) since start: the B/W-only lint (issue #38, test_app).
+  // Pixels drawn in G1/G2 (outside the Sleek card surface) since start: the B/W-only lint (issue eink-ha-os#38, test_app).
   static uint32_t grayPuts;
 
  private:
@@ -126,7 +128,7 @@ class Canvas {
   Rect clip_{0, 0, kScreenW, kScreenH};
   bool surf_ = false;
   struct SurfArea { Rect r; int radius; };
-  std::vector<SurfArea> surfs_;   // Tone::Surf fills on this canvas: small text knocks their texture out (issue #28)
+  std::vector<SurfArea> surfs_;   // Tone::Surf fills on this canvas: small text knocks their texture out (issue eink-ha-os#28)
 };
 
 // UTF-8 → code points

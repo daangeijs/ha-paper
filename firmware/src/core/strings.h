@@ -1,4 +1,4 @@
-// UI strings, English and Dutch (#98) = emulator src/core/strings.ts, spec/test-vectors/strings.json. The keys and
+// UI strings, English and Dutch (eink-ha-os#98) = emulator src/core/strings.ts, spec/test-vectors/strings.json. The keys and
 // texts live in the generated core/strings_gen.h (emulator `npm run vectors`). Language: HA's get_config `language`.
 #pragma once
 #include <string>

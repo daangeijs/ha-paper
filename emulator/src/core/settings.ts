@@ -24,24 +24,24 @@ export const LOOK_KEYS = ['style', 'typeface', 'surface'] as const;
 
 export type DisplaySettings = { brightness: number; warmth: number; quiet: string; returnHome: string; standby: string; clock: string; intervalSec: number; fullEvery: number; cleanEvery: number;
   style: DisplayStyle; typeface: Typeface; surface: Surface;
-  /** Push device health to Home Assistant as entities (#32, core/haReport.ts). Default on. */
+  /** Push device health to Home Assistant as entities (eink-ha-os#32, core/haReport.ts). Default on. */
   haReport: boolean;
-  /** Power saving (#10): `glance` by default (#18) — on battery it deep-sleeps between wakes; on USB it is always live.
+  /** Power saving (eink-ha-os#10): `glance` by default (eink-ha-os#18) — on battery it deep-sleeps between wakes; on USB it is always live.
    *  New keys with defaults (migrate.ts rules): a firmware without them ignores them. */
   powerSave: PowerSave; wakeEvery: number; liveMin: number;
-  /** Empty-house sleep (#331, core/emptyHouse.ts): '' = off, else the presence entity. Missing = off. */
+  /** Empty-house sleep (eink-ha-os#331, core/emptyHouse.ts): '' = off, else the presence entity. Missing = off. */
   emptyHouse?: string;
-  /** Front light off after this many seconds without input, 0 = never (#220). Missing = DEFAULT_LIGHT_TIMEOUT. */
+  /** Front light off after this many seconds without input, 0 = never (eink-ha-os#220). Missing = DEFAULT_LIGHT_TIMEOUT. */
   lightTimeout?: number;
-  /** Good morning page on the first wake after quiet hours (#330, core/morning.ts). Missing = on. */
+  /** Good morning page on the first wake after quiet hours (eink-ha-os#330, core/morning.ts). Missing = on. */
   morning?: boolean;
   /** Settings › Updates › Automatic (firmware key; the device keeps it with the OTA state). */
   otaAuto?: OtaAutoMode;
-  /** POST /api/v1/debug/input allowed (#214, measuring on hardware). API only, no tile; missing = false. */
+  /** POST /api/v1/debug/input allowed (eink-ha-os#214, measuring on hardware). API only, no tile; missing = false. */
   debugInput?: boolean };
 export type OtaAutoMode = 'off' | 'notify' | 'night';
 /** `entities`: logical id → HA entity overrides ("-" = negate); `entity_sources`: resolved mapping (core/entityMap.ts). */
-/** `tz`: clock override ("" = follow Home Assistant, #147); `tz_ha`: HA's time_zone; `tz_active`: the POSIX TZ in use. */
+/** `tz`: clock override ("" = follow Home Assistant, eink-ha-os#147); `tz_ha`: HA's time_zone; `tz_active`: the POSIX TZ in use. */
 export type DeviceSettings = { display: DisplaySettings; name: string; ota_channel?: OtaChannel; tz?: string; tz_ha?: string; tz_active?: string;
   entities?: Record<string, string>; entity_sources?: Record<string, string> };
 export type SettingsPatch = { display?: Partial<DisplaySettings>; name?: string; ota_channel?: OtaChannel; tz?: string; entities?: Record<string, string | null> };
@@ -50,7 +50,7 @@ export type OtaChannel = 'stable' | 'beta';
 /** Emulator-internal cfg (Settings tiles): minutes as numbers, 0 = never. */
 export type DisplayCfg = { brightness: number; warmth: number; lightTimeout: number; quiet: string; fullEvery: number; cleanEvery: number; interval: number; returnHome: number; standby: number; clock: string;
   style: DisplayStyle; typeface: Typeface; surface: Surface; haReport: boolean; morning: boolean } & PowerCfg;
-/** Power saving (Settings › Power, #10). On the wire in `display`. */
+/** Power saving (Settings › Power, eink-ha-os#10). On the wire in `display`. */
 export type PowerCfg = { powerSave: PowerSave; wakeEvery: number; liveMin: number; emptyHouse: string };
 export const DEFAULT_POWER: PowerCfg = { powerSave: 'glance', wakeEvery: 15, liveMin: DEFAULT_LIVE_MIN, emptyHouse: '' };
 export type Cfg = DisplayCfg;
@@ -92,17 +92,17 @@ export const DISPLAY_FIELDS: { key: keyof DisplaySettings; label: StrKey; info?:
   { key: 'liveMin', label: SETTINGS.liveMin.lk, info: SETTINGS.liveMin.info, values: LIVE_MIN, fmt: (v, lg) => SETTINGS.liveMin.fmt(v, lg) },
 ];
 
-/** A setting the browser's Settings page edits (#159): `display.<key>`, or a top-level key when `top`. */
+/** A setting the browser's Settings page edits (eink-ha-os#159): `display.<key>`, or a top-level key when `top`. */
 export type SettingField = { key: string; top?: boolean; label: StrKey; info?: StrKey; values: (string | number | boolean)[]; fmt: (v: string | number | boolean, lang: Lang) => string };
 /** Settings › Updates on the device: channel (top-level `ota_channel`) and automatic updates (`display.otaAuto`). */
 export const OTA_FIELDS: SettingField[] = [
   { key: 'ota_channel', top: true, label: 'otaChannel', values: ['stable', 'beta'], fmt: (v, lg) => tr(lg, v === 'beta' ? 'chanBeta' : 'chanStable') },
   { key: 'otaAuto', label: 'otaAutomatic', values: ['off', 'notify', 'night'], fmt: (v, lg) => tr(lg, v === 'night' ? 'autoNight' : v === 'notify' ? 'autoNotify' : 'off') },
 ];
-/** Clock time zone (#147): "" follows Home Assistant's, else a zone from the table (a POSIX string set over the API
+/** Clock time zone (eink-ha-os#147): "" follows Home Assistant's, else a zone from the table (a POSIX string set over the API
  *  shows as itself in the console). */
 export const TZ_FIELD: SettingField = { key: 'tz', top: true, label: 'timeZone', values: ['', ...TZ_ZONES], fmt: (v, lg) => (v === '' ? tr(lg, 'tzFromHa') : String(v)) };
-/** Settings › Power in the browser only (#331): the presence source. Values: off and the default source; the console
+/** Settings › Power in the browser only (eink-ha-os#331): the presence source. Values: off and the default source; the console
  *  adds HA's zone / on-off entities and the current value. */
 export const EMPTY_FIELD: SettingField = { key: 'emptyHouse', label: 'setEmptyHouse', info: 'infoEmptyHouse', values: ['', DEFAULT_EMPTY_SOURCE], fmt: (v, lg) => (v === '' ? tr(lg, 'off') : String(v)) };
 /** Console-only fields appended to a page (no tile: the device's Power page is full). */
@@ -112,7 +112,7 @@ const WIRE_KEY: Record<string, string> = { interval: 'intervalSec' };
 /** Fields behind a fixed system tile; haReport and tz have no tile on the device, they sit with Home Assistant. */
 const TILE_FIELDS: Record<string, string[]> = { ota: ['ota_channel', 'otaAuto'], ha: ['haReport', 'tz'] };
 /**
- * The browser's Settings page (#159): the device's fixed Settings pages that hold settings, in menu order, each with
+ * The browser's Settings page (eink-ha-os#159): the device's fixed Settings pages that hold settings, in menu order, each with
  * the fields of its tiles. Derived from settingsScreens(), so a setting added to the device menu shows up here.
  */
 export function settingsPages(): { id: string; title: StrKey; fields: SettingField[] }[] {
@@ -136,7 +136,7 @@ export function displayError(d: DisplaySettings): string | null {
   if (!['never', '10', '30', '60'].includes(String(d.standby))) return 'display.standby must be never, 10, 30 or 60';
   if (!['24', '12'].includes(String(d.clock))) return 'display.clock must be "24" or "12"';
   if (![5, 10, 30, 60].includes(d.intervalSec)) return 'display.intervalSec must be 5, 10, 30 or 60';
-  if (!int(d.fullEvery, 1, 30)) return 'display.fullEvery must be 1–30';   // legacy (#26): stored, unused
+  if (!int(d.fullEvery, 1, 30)) return 'display.fullEvery must be 1–30';   // legacy (eink-ha-os#26): stored, unused
   if (!(CLEAN_EVERY as readonly unknown[]).includes(d.cleanEvery)) return 'display.cleanEvery must be 30, 60 or 120';
   // Shared contract with the firmware (firmware/src/net/storage.cpp): these three messages are exact.
   if (!(STYLES as unknown[]).includes(d.style)) return 'style must be classic or sleek';
@@ -156,7 +156,7 @@ export function displayError(d: DisplaySettings): string | null {
 }
 export const nameError = (name: unknown): string | null => (typeof name !== 'string' || !name.trim() || name.length > 40 ? 'name must be 1–40 characters' : null);
 
-/** PUT /settings key tables (#43). A new setting = one row here and one in firmware core/settings_api.cpp. */
+/** PUT /settings key tables (eink-ha-os#43). A new setting = one row here and one in firmware core/settings_api.cpp. */
 export const SETTINGS_KEYS = ['display', 'ota_channel', 'tz', 'name', 'entities'] as const;
 export const DISPLAY_KEYS = ['brightness', 'warmth', 'lightTimeout', 'quiet', 'returnHome', 'standby', 'clock', 'intervalSec', 'fullEvery', 'cleanEvery', 'otaAuto',
   'style', 'typeface', 'surface', 'haReport', 'powerSave', 'wakeEvery', 'liveMin', 'emptyHouse', 'debugInput', 'morning'] as const;
@@ -166,7 +166,7 @@ export const TZ_ERROR = 'tz must be "", a known zone like Europe/Amsterdam or a 
 
 
 /** PUT /settings key + tz check, before any value rule (422 message, or null); = firmware settings_api::putError().
- * Input only: stored files keep keys this build does not know (#12 rollback rule, core/migrate.ts). */
+ * Input only: stored files keep keys this build does not know (eink-ha-os#12 rollback rule, core/migrate.ts). */
 export function settingsPutError(body: Record<string, unknown>): string | null {
   for (const k of Object.keys(body)) if (!(SETTINGS_KEYS as readonly string[]).includes(k)) return 'unknown key: ' + k;
   const d = body.display;

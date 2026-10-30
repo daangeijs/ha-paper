@@ -1,5 +1,5 @@
 {
-  "description": "POST /api/v1/device/sleep {\"seconds\": N} (#178; emulator src/core/power.ts sleepNowCheck, firmware core/power.cpp). seconds: the JSON value (null = missing); integers 60..86400. input: overrides of base (power/09-glance.json base). status 202 = deep sleep now (timer N s, button / charger as usual), 422 bad seconds, 409 refused with the powerDecision word.",
+  "description": "POST /api/v1/device/sleep {\"seconds\": N} (eink-ha-os#178; emulator src/core/power.ts sleepNowCheck, firmware core/power.cpp). seconds: the JSON value (null = missing); integers 60..86400. input: overrides of base (power/09-glance.json base). status 202 = deep sleep now (timer N s, button / charger as usual), 422 bad seconds, 409 refused with the powerDecision word.",
   "base": {
     "nowEpoch": 1800000000,
     "localSec": 43200,

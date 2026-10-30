@@ -74,27 +74,27 @@ export const matches = (q: string, ...fields: string[]): boolean => {
 };
 
 /** Domains of the console's single-entity picker: the entity widgets, and a thermo's zone (a climate entity whose
- *  object id goes in `zone:`, #148). undefined = the tile has no picker. */
+ *  object id goes in `zone:`, eink-ha-os#148). undefined = the tile has no picker. */
 export const pickDomains = (widgetType: string, w?: Widget): string[] | undefined =>
-  (widgetType === 'history' && w ? historyDomains(w) : ENTITY_DOMAINS[widgetType]) || (widgetType === 'thermo' ? ['climate'] : undefined);   // #283: a history tile's source
+  (widgetType === 'history' && w ? historyDomains(w) : ENTITY_DOMAINS[widgetType]) || (widgetType === 'thermo' ? ['climate'] : undefined);   // eink-ha-os#283: a history tile's source
 /** The entity a tile's picker has selected: `entity`, a thermo's climate.<zone>, '' = none. */
 export const pickedEntity = (w: Widget): string => (w.type === 'thermo' ? (w.zone ? 'climate.' + w.zone : '') : typeof w.entity === 'string' ? w.entity : '');
-/** Tiles with a name field: the entity widgets plus price, bars and thermo (#148: the panel draws the label). */
+/** Tiles with a name field: the entity widgets plus price, bars and thermo (eink-ha-os#148: the panel draws the label). */
 export const hasLabelField = (widgetType: string): boolean => !!pickDomains(widgetType) || widgetType === 'price' || widgetType === 'bars' || widgetType === 'bins';
 
 const NUMERIC = /^-?\d+(\.\d+)?([eE][-+]?\d+)?$/;
-/** A history tile charts numbers (#267): a state that is text ("sunny", "on") rules the entity out; no state yet,
+/** A history tile charts numbers (eink-ha-os#267): a state that is text ("sunny", "on") rules the entity out; no state yet,
  *  unknown or unavailable keeps it. */
 const numericOk = (e: HaEntity): boolean => e.state == null || e.state === '' || e.state === 'unknown' || e.state === 'unavailable' || NUMERIC.test(e.state);
 /** HA entities a widget type can show (pickDomains), filtered by the search text. `w`: the tile, for a history tile's
- *  source (#283: an attribute / forecast series is not the entity's state, so its state need not be a number). */
+ *  source (eink-ha-os#283: an attribute / forecast series is not the entity's state, so its state need not be a number). */
 export function entitiesFor(list: HaEntity[], widgetType: string, q: string, w?: Widget): HaEntity[] {
   const doms = pickDomains(widgetType, w) || [], recorder = widgetType === 'history' && (!w || historySource(w) === 'recorder');
   return list.filter((e) => doms.includes(e.id.split('.')[0]) && (!recorder || numericOk(e)) && matches(q, e.name, e.id));
 }
 
 /** Widget values live in one-line flow maps: no , { } : and no surrounding spaces. Spaces, %, accents are fine.
- *  `typing`: the input is cleaned on every keystroke, so keep a trailing space (issue #80: "Batterij %" became "Batterij%"). */
+ *  `typing`: the input is cleaned on every keystroke, so keep a trailing space (issue eink-ha-os#80: "Batterij %" became "Batterij%"). */
 export const cleanLabel = (s: string, typing = false): string => {
   const v = s.replace(/[,{}:#"]/g, ' ').replace(/\s+/g, ' ');
   return typing ? v.trimStart() : v.trim();
@@ -149,17 +149,17 @@ export function resizeTile(ws: Widget[], i: number, k: 'cs' | 'rs', n: number): 
 }
 
 /** Swap the entity a tile shows. */
-/** Pick the tile's entity; a scene tile drops `scene: all_off` (the entity wins, #146). */
+/** Pick the tile's entity; a scene tile drops `scene: all_off` (the entity wins, eink-ha-os#146). */
 export function setTileEntity(ws: Widget[], i: number, id: string): Widget[] {
   const out = cloneWs(ws);
-  if (out[i].type === 'thermo') { out[i].zone = id.slice(id.indexOf('.') + 1); return out; }   // #148: zone = climate object id
+  if (out[i].type === 'thermo') { out[i].zone = id.slice(id.indexOf('.') + 1); return out; }   // eink-ha-os#148: zone = climate object id
   out[i].entity = id; if (out[i].type === 'scene') delete out[i].scene; return out;
 }
-/** A bar chart's series (#148). */
+/** A bar chart's series (eink-ha-os#148). */
 export function setBarsSeries(ws: Widget[], i: number, series: string): Widget[] { const out = cloneWs(ws); out[i].series = series; return out; }
-// ---- history tile (#267): window, bucket, agg, style, min / max. Choices come from core/history.ts, so a tile built
+// ---- history tile (eink-ha-os#267): window, bucket, agg, style, min / max. Choices come from core/history.ts, so a tile built
 // here always passes historyError except for typed min / max.
-/** A media tile's favorites (#319), written back as the YAML value; none = no key. */
+/** A media tile's favorites (eink-ha-os#319), written back as the YAML value; none = no key. */
 export function setFavorites(ws: Widget[], i: number, fs: Favorite[]): Widget[] {
   const out = cloneWs(ws); if (fs.length) out[i].favorites = favoritesText(fs); else delete out[i].favorites; return out;
 }
@@ -168,23 +168,23 @@ export const HISTORY_WINDOWS = ['1h', '6h', '24h', '7d'];
 /** Bucket choices for a window: the ladder steps that divide it into 2–96 bars. */
 export const bucketsFor = (window: string, h?: Widget): string[] => {
   const w = parseSpan(window); if (w === null) return [];
-  const min = h && historySource(h) === 'forecast' ? (String(h.forecast ?? 'hourly') === 'daily' ? 86_400_000 : 3_600_000) : 0;   // a forecast's own step (#283)
+  const min = h && historySource(h) === 'forecast' ? (String(h.forecast ?? 'hourly') === 'daily' ? 86_400_000 : 3_600_000) : 0;   // a forecast's own step (eink-ha-os#283)
   return BUCKETS.filter((b) => { const ms = parseSpan(b) as number; return ms >= min && w % ms === 0 && w / ms >= MIN_BARS && w / ms <= MAX_BARS; });
 };
 /** Set (or with undefined / '' clear) one history key. A new window drops a bucket that no longer fits it. */
-export function setHistoryKey(ws: Widget[], i: number, key: 'window' | 'bucket' | 'agg' | 'style' | 'min' | 'max' | 'threshold' | 'labels' | (typeof SOURCE_KEYS)[number], v: string | undefined): Widget[] {
+export function setHistoryKey(ws: Widget[], i: number, key: 'window' | 'bucket' | 'agg' | 'style' | 'min' | 'max' | 'threshold' | 'labels' | 'compare' | (typeof SOURCE_KEYS)[number], v: string | undefined): Widget[] {
   const out = cloneWs(ws); const w = out[i]; const t = v?.trim();
   if (t) w[key] = t; else delete w[key];
   if ((key === 'window' || key === 'forecast') && w.bucket !== undefined && !bucketsFor(String(w.window ?? WINDOW_DEFAULT), w).includes(String(w.bucket))) delete w.bucket;
   if (key === 'window' && w.ahead !== undefined && w.ahead !== '0' && w.ahead !== 0) delete w.ahead;   // "around now" was half the old window
-  // #307: a past entity needs a past part: ahead half the window unless it already leaves one
+  // eink-ha-os#307: a past entity needs a past part: ahead half the window unless it already leaves one
   const win = parseSpan(w.window ?? WINDOW_DEFAULT) ?? 0, a = w.ahead === undefined ? win : String(w.ahead) === '0' ? 0 : parseSpan(w.ahead) ?? win;
   if (w.past !== undefined && (a === 0 || a >= win)) w.ahead = win / 2 % 3_600_000 === 0 ? win / 7_200_000 + 'h' : win / 120_000 + 'm';
   return out;
 }
-/** Window choices by source (#283): a nowcast is hours, a forecast up to a week. */
+/** Window choices by source (eink-ha-os#283): a nowcast is hours, a forecast up to a week. */
 export const historyWindows = (src: HistorySource): string[] => (src === 'attribute' ? ['1h', '2h', '6h', '24h'] : src === 'forecast' ? ['24h', '48h', '7d'] : HISTORY_WINDOWS);
-/** Switch a history tile's source (#283): recorder drops the source keys; attribute starts on `forecast` over 2 h;
+/** Switch a history tile's source (eink-ha-os#283): recorder drops the source keys; attribute starts on `forecast` over 2 h;
  *  forecast needs a weather entity. An entity of a domain the new source can't read is dropped (pick again). */
 export function setHistorySource(ws: Widget[], i: number, src: HistorySource): Widget[] {
   const out = cloneWs(ws); const w = out[i];
@@ -196,7 +196,7 @@ export function setHistorySource(ws: Widget[], i: number, src: HistorySource): W
   if (typeof w.entity === 'string' && !doms.includes(domainOf(w.entity))) delete w.entity;
   return out;
 }
-/** An agenda / next tile's own rule broken (#316: no calendar, more than 4), as a hard issue. */
+/** An agenda / next tile's own rule broken (eink-ha-os#316: no calendar, more than 4), as a hard issue. */
 export function agendaIssue(w: Widget): Issue | null {
   if (!AGENDA_TYPES.includes(w.type)) return null;
   const e = agendaError(w); return e ? { msg: e.replace(/^\w+: /, ''), hard: true } : null;
@@ -206,10 +206,10 @@ export function historyIssue(w: Widget): Issue | null {
   if (w.type !== 'history') return null;
   const e = historyError(w); return e ? { msg: e.replace(/^history: /, ''), hard: true } : null;
 }
-/** A scene tile back to the built-in all lights off (#146). */
+/** A scene tile back to the built-in all lights off (eink-ha-os#146). */
 export function setSceneAllOff(ws: Widget[], i: number): Widget[] { const out = cloneWs(ws); delete out[i].entity; out[i].scene = 'all_off'; return out; }
 
-// ---- list picks (#127): lightList areas / entities, zoneList entities (space-separated, order = pick order) ----
+// ---- list picks (eink-ha-os#127): lightList areas / entities, zoneList entities (space-separated, order = pick order) ----
 /** Add `id` to the tile's `key` list (at the end) or take it out; an empty list removes the key (= show all). */
 export function togglePick(ws: Widget[], i: number, key: string, id: string): Widget[] {
   const out = cloneWs(ws); const cur = listOf(out[i], key);
@@ -222,7 +222,7 @@ export function clearPicks(ws: Widget[], i: number): Widget[] {
   const out = cloneWs(ws); for (const k of Object.keys(LIST_PICKS[out[i].type] || {})) delete out[i][k];
   return out;
 }
-/** An unpicked lightList / zoneList the display's subscription cap cuts short (#134): [shown, total], else null. */
+/** An unpicked lightList / zoneList the display's subscription cap cuts short (eink-ha-os#134): [shown, total], else null. */
 export function capHides(w: Widget, lists: { climate: ListCount; lights: ListCount } | undefined): [number, number] | null {
   if (!lists || (w.type !== 'lightList' && w.type !== 'zoneList') || Object.keys(LIST_PICKS[w.type]).some((k) => listOf(w, k).length)) return null;
   const c = w.type === 'lightList' ? lists.lights : lists.climate;
@@ -236,7 +236,7 @@ export type PickGroup = { area: string; name: string; on: boolean; rows: PickRow
  * name, entity id or area name; an area whose name matches keeps all its lights.
  */
 export function pickGroups(list: HaEntity[], areas: { id: string; name: string }[], w: Widget, q: string, noArea: string): PickGroup[] {
-  const lights = w.type === 'lightList'; const dom = LIST_PICKS[w.type]?.entities || 'climate';   // #316: calendars
+  const lights = w.type === 'lightList'; const dom = LIST_PICKS[w.type]?.entities || 'climate';   // eink-ha-os#316: calendars
   const ents = listOf(w, 'entities'), picked = listOf(w, 'areas');
   const mine = list.filter((e) => e.id.split('.')[0] === dom);
   if (!lights) return [{ area: '', name: '', on: false, rows: mine.filter((e) => matches(q, e.name, e.id)).map((e) => ({ id: e.id, name: e.name, on: ents.includes(e.id), viaArea: false })) }];
@@ -287,7 +287,7 @@ export type Issue = { msg: string; hard: boolean };
 export const titleIssue = (title: string): Issue | null => (title.trim() ? null : { msg: 'Give the screen a name.', hard: true });
 /** Entity field of a stat / gauge / switch tile. `list`: HA's entity list once loaded (null = not loaded yet). */
 export function entityIssue(w: Widget, list: HaEntity[] | null): Issue | null {
-  if (w.type === 'thermo') {   // #148: the zone picker
+  if (w.type === 'thermo') {   // eink-ha-os#148: the zone picker
     if (!w.zone) return { msg: 'Pick an entity below.', hard: true };
     const id = 'climate.' + w.zone;
     return list && !list.some((x) => x.id === id) ? { msg: 'Home Assistant’s entity list does not have “' + id + '”. The tile shows “—” until Home Assistant reports it.', hard: false } : null;

@@ -72,7 +72,7 @@ console uses the browser's language. Card names the user typed, HA friendly name
 never translated. Emulator: `?lang=nl` or *HA language* in the side panel; fake HA: the Dutch houses answer `nl`,
 `POST /__fake/language {"language":"nl"}` changes it (the display picks it up on its next connect).
 
-Adding a string (also for #86 / #91):
+Adding a string (also for eink-ha-os#86 / eink-ha-os#91):
 
 1. Add one line to `STRINGS` in `src/core/strings.ts`: `myKey: ['English', 'Nederlands'],`. The key must be a C++
    identifier; `{}` is a placeholder filled in order (`tr(lang, 'myKey', value)`). Keep the Dutch plain and short
@@ -135,11 +135,11 @@ npm run device-sim -- --help
   energy/get_prefs, config/area_registry/list, config/entity_registry/list, render_template for the firmware's
   discovery and first-run seed templates, recorder/statistics_during_period and history/history_during_period with
   seeded series for sensor.outdoor_temperature, rain_rate, rain_total, train_delay and an opt-in 1 Hz
-  sensor.chatty_power, `server/fake-ha-history.ts`, #266) with entities from `src/core/data.ts`
+  sensor.chatty_power, `server/fake-ha-history.ts`, eink-ha-os#266) with entities from `src/core/data.ts`
   that drift every `--ha-tick` ms. `--house stranger` swaps in somebody else's HA (`server/fake-ha-stranger.ts`: P1
-  meter, Nest thermostat, a few lights and thermometers) to see the first-run screens (#23); `--house dutch` /
+  meter, Nest thermostat, a few lights and thermometers) to see the first-run screens (eink-ha-os#23); `--house dutch` /
   `dutch-energy` is a SolarEdge + P1 + Anker battery + tado house with Dutch names, without / with an Energy dashboard
-  (#82). Start with `--state-preset never-linked` and link.
+  (eink-ha-os#82). Start with `--state-preset never-linked` and link.
 - **Real HA**: `--ha-url http://<ha>:8123`. Open the simulator by the host name you want as `client_id`
   (e.g. `http://<laptop-ip>:8080/`); HA accepts the redirect because it is on the same host.
 - **OTA**: `POST /ota/check` reads the mock releases (default: 0.4.0 stable / 0.5.0-beta.1, or `--releases-file`, a
@@ -182,7 +182,7 @@ node scripts/device-signin.ts [device] [fakeHa] [haAsSeenByDevice]   # prints an
 ```
 
 (`make qemu-contract` does all of it; `CONTRACT_HA_TLS=1 make qemu-contract` links the device over https instead, with
-`POST /__fake/tls {mode: hang|slow|reset}` and `/__fake/tls-reset` for a stalled, slow or reset handshake, #87.) `X4_SESSION` (copy the `x4_session` cookie after signing in) enables the token lifecycle tests and lets the suite
+`POST /__fake/tls {mode: hang|slow|reset}` and `/__fake/tls-reset` for a stalled, slow or reset handshake, eink-ha-os#87.) `X4_SESSION` (copy the `x4_session` cookie after signing in) enables the token lifecycle tests and lets the suite
 create and revoke its own temporary read/write tokens; without it give `X4_TOKEN_RW` (and `X4_TOKEN_RO` for the 403 checks).
 PUT /config and settings changes are restored afterwards.
 

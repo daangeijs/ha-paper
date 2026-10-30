@@ -9,7 +9,7 @@
     - Worst case. The partial waveform is differential: pixels whose B/W value did not change vs. the last frame are
       probably not driven, so an untouched light-gray pixel may keep its overlay gray on the glass. Dark gray always
       flips to black (white → black in the B/W plane). Untested on hardware (M0).
-    - Since #38 the emulator draws the firmware's 1-bit patterns (TRACK, HATCH in `src/core/panel.ts`) instead of
+    - Since eink-ha-os#38 the emulator draws the firmware's 1-bit patterns (TRACK, HATCH in `src/core/panel.ts`) instead of
       flat grays; only the Sleek card surface SURF is still flat (#DEDCD5 → paper). Compare with
       `firmware/test/out/*_bw.png` (`tools/render.sh`).
     - Press feedback (the firmware's inverted-rect partial on tap) is not simulated.

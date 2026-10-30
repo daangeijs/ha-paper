@@ -195,8 +195,8 @@ std::string toFixed(double v, int digits) {
   bool neg = v < 0;
   double a = neg ? -v : v;
   if (a >= 1e21) return jsNumber(v);
-  // exact decimal expansion of the double, then round half up by hand
-  char buf[400];
+  // exact decimal expansion of the double, then round half up by hand: a < 1e21 → ≤ 21 + 1 + 60 chars
+  char buf[96];
   std::snprintf(buf, sizeof buf, "%.60f", a);
   std::string s = buf;
   size_t dot = s.find('.');

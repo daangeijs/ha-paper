@@ -1,7 +1,7 @@
-// First-run checklist (#91): linked → seeded → preview checked → done, one "fix it" link per open step. Shown with
-// the seed report (GET /api/v1/seed, #89) until it is dismissed; finishing all steps dismisses it on the display
+// First-run checklist (eink-ha-os#91): linked → seeded → preview checked → done, one "fix it" link per open step. Shown with
+// the seed report (GET /api/v1/seed, eink-ha-os#89) until it is dismissed; finishing all steps dismisses it on the display
 // (DELETE /api/v1/seed), so a second browser does not show it again. "Preview checked" is per browser (localStorage).
-// #184: the count is of tiles the house can fill; tiles it has nothing for (solar, battery, prices, …) are one calm
+// eink-ha-os#184: the count is of tiles the house can fill; tiles it has nothing for (solar, battery, prices, …) are one calm
 // "left out" line, and the "done" step only shows once it is done.
 import type { StrKey } from '../core/strings.ts';
 import type { SeedTile } from '../core/seed.ts';

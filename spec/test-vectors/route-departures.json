@@ -1,5 +1,5 @@
 {
-  "description": "Route tile departures (spec/SCHEMA.md route, #275). `departures` [{time HH:MM, delay, cancelled, info}] wins; else `upcoming` [{planned, actual, delay, track, direction, status}] with ISO timestamps (the NS departures integration): time = local HH:MM of actual, else planned; delay = `delay`, else max(0, round(actual − planned in minutes)); cancelled = status \"cancelled\" (the integration's statuses: on_time, delayed, cancelled); info = \"Track ‹track› · ‹direction›\" (strings routeTrack). Timestamps without an offset are local.",
+  "description": "Route tile departures (spec/SCHEMA.md route, eink-ha-os#275). `departures` [{time HH:MM, delay, cancelled, info}] wins; else `upcoming` [{planned, actual, delay, track, direction, status}] with ISO timestamps (the NS departures integration): time = local HH:MM of actual, else planned; delay = `delay`, else max(0, round(actual − planned in minutes)); cancelled = status \"cancelled\" (the integration's statuses: on_time, delayed, cancelled); info = \"Track ‹track› · ‹direction›\" (strings routeTrack). Timestamps without an offset are local.",
   "cases": [
     {
       "name": "departures-shape",

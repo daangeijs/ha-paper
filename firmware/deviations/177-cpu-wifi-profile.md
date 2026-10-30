@@ -9,7 +9,7 @@
 - Applied by `net/power.cpp` once a second in live mode only. A glance wake keeps the boot defaults (240 MHz, modem
   sleep `min`): it lasts seconds and is mostly TLS.
 - Wi-Fi PS goes through `wifiPsSet` (`net/health.cpp`). A `WifiPsOff` hold (OTA, HA token refresh, TLS handshake)
-  wins; the rules' mode is stored and set when the last hold ends (before #177 the hold restored the mode from before
+  wins; the rules' mode is stored and set when the last hold ends (before eink-ha-os#177 the hold restored the mode from before
   it). Re-applied every check, because a Wi-Fi restart resets the driver to Arduino's default `min`.
 - `/status` `power.applied {cpuMhz, wifiPs, psOffHeld}` (new) shows what the rules set; `power.cpuMhz` / `power.wifiPs`
   stay the readings. QEMU has no clocks or radio: `applied` is tracked and logged (`[qemu] CPU auto · 80 MHz …`), the

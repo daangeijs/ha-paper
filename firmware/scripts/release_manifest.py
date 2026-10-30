@@ -3,7 +3,7 @@
 
 manifest.json  — read by the device OTA (src/net/ota.cpp): {version, sha256, size, notes[]} for firmware.bin and
                  www {path, size, sha256} for www.bin, the web console the device writes after the new app is confirmed
-                 (src/net/www_ota.h, #350)
+                 (src/net/www_ota.h, eink-ha-os#350)
 """
 import argparse
 import hashlib

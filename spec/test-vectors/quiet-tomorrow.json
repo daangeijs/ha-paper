@@ -1,5 +1,5 @@
 {
- "_doc": "Quiet face \"Tomorrow\" row (#328): emulator src/core/quiet.ts (quietSources, quietTomorrow), firmware core/tomorrow.h (test_core test_quiet_tomorrow_vectors). sources: the config's screens → [screen, widget] of the first weather / agenda-or-next / bins tile with a pick, null = none. items: the row from what the device keeps (no fetch): times epoch ms, tz = local UTC offset in minutes, endHour = the window's end hour (24 = always today, the glance sleep face #356), events not over (end > now), daily / hourly = kept forecast entries (weather.json entries), events = kept agenda events (agenda.ts CalEvent), bins = {label, days to the next collection or null}, tonight = the bins tile's hour; null = no source. out.head = Tomorrow / Today / '', out.items = [{kind, icon, bold, text}] in the order weather, event, bins.",
+ "_doc": "Quiet face \"Tomorrow\" row (eink-ha-os#328): emulator src/core/quiet.ts (quietSources, quietTomorrow), firmware core/tomorrow.h (test_core test_quiet_tomorrow_vectors). sources: the config's screens → [screen, widget] of the first weather / agenda-or-next / bins tile with a pick, null = none. items: the row from what the device keeps (no fetch): times epoch ms, tz = local UTC offset in minutes, endHour = the window's end hour (24 = always today, the glance sleep face eink-ha-os#356), events not over (end > now), daily / hourly = kept forecast entries (weather.json entries), events = kept agenda events (agenda.ts CalEvent), bins = {label, days to the next collection or null}, tonight = the bins tile's hour; null = no source. out.head = Tomorrow / Today / '', out.items = [{kind, icon, bold, text}] in the order weather, event, bins.",
  "sources": [
   {
    "name": "spread over pages",
@@ -3381,7 +3381,7 @@
   },
   {
    "name": "today-glance",
-   "description": "Glance sleep face (#356): endHour TODAY_END (24) at 13:00 Thu = today. The rain at 08:00 / 09:00 is over (no text); Dentist (08:30–09:15) is over: Call at 14:00; Paper collected today.",
+   "description": "Glance sleep face (eink-ha-os#356): endHour TODAY_END (24) at 13:00 Thu = today. The rain at 08:00 / 09:00 is over (no text); Dentist (08:30–09:15) is over: Call at 14:00; Paper collected today.",
    "in": {
     "now": 1793275200000,
     "tz": 60,
@@ -3599,7 +3599,7 @@
   },
   {
    "name": "today-glance",
-   "description": "Glance sleep face (#356): endHour TODAY_END (24) at 13:00 Thu = today. The rain at 08:00 / 09:00 is over (no text); Dentist (08:30–09:15) is over: Call at 14:00; Paper collected today.",
+   "description": "Glance sleep face (eink-ha-os#356): endHour TODAY_END (24) at 13:00 Thu = today. The rain at 08:00 / 09:00 is over (no text); Dentist (08:30–09:15) is over: Call at 14:00; Paper collected today.",
    "in": {
     "now": 1793275200000,
     "tz": 60,

@@ -1,5 +1,5 @@
 {
-  "description": "Power deadband (issue #85; emulator src/core/refresh.ts powerMoved/holdPower, firmware core/logic.cpp powerMoved/PowerHold). Formatting shows every watt (format.json); a power tile only takes a new value when it moved >= 50 W and >= 5 % of the shown value (the larger of the two), or when |W| crosses 1000 (the W <-> kW boundary). Otherwise it keeps the last shown value and the region diff sees no change. Values are signed W. Other units: a change of the formatted text redraws.",
+  "description": "Power deadband (issue eink-ha-os#85; emulator src/core/refresh.ts powerMoved/holdPower, firmware core/logic.cpp powerMoved/PowerHold). Formatting shows every watt (format.json); a power tile only takes a new value when it moved >= 50 W and >= 5 % of the shown value (the larger of the two), or when |W| crosses 1000 (the W <-> kW boundary). Otherwise it keeps the last shown value and the region diff sees no change. Values are signed W. Other units: a change of the formatted text redraws.",
   "moved": [
     { "name": "small step stays", "shown": 400, "now": 410, "moved": false },
     { "name": "49 W stays", "shown": 400, "now": 449, "moved": false },

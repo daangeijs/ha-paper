@@ -1,4 +1,4 @@
-// x4qemu only: TLS also trusts the test CA of sim/qemu/tls (#79), so the contract suite's https fake HA at
+// x4qemu only: TLS also trusts the test CA of sim/qemu/tls (eink-ha-os#79), so the contract suite's https fake HA at
 // https://10.0.2.2 runs a real handshake, certificate check included. `-Wl,--wrap=esp_crt_bundle_attach`
 // (platformio.ini) routes NetworkClientSecure's bundle attach here: the IDF bundle as usual, then a verify callback
 // that accepts a certificate signed by the test CA and hands everything else to the bundle's own callback.

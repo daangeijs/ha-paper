@@ -1,6 +1,6 @@
 # First flash runbook (X4 Pro)
 
-The script for the first time HA Paper goes onto a real X4 Pro (#45). Nothing in this repo has run on the hardware
+The script for the first time HA Paper goes onto a real X4 Pro (eink-ha-os#45). Nothing in this repo has run on the hardware
 yet, so every step says what we expect, how to tell it worked, and when to stop. Each step points at the assumptions
 it checks in [HARDWARE_ASSUMPTIONS.md](HARDWARE_ASSUMPTIONS.md) (A1, A2, …). Current measurements have their own plan:
 [POWER_BUDGET.md](POWER_BUDGET.md).
@@ -207,7 +207,7 @@ reason, try once more, then SoftAP.
 
 ## 9b. The display finds Home Assistant by mDNS (A39)
 
-QEMU has no multicast, so this is the only test of the real `_home-assistant._tcp` browse (#90). Laptop on the same
+QEMU has no multicast, so this is the only test of the real `_home-assistant._tcp` browse (eink-ha-os#90). Laptop on the same
 Wi-Fi/VLAN as the X4; HA's zeroconf integration on (it is part of `default_config`). Do it before signing in.
 
 ```sh
@@ -233,7 +233,7 @@ dns-sd -B _http._tcp local.               # the X4 itself: expect ha-paper-XXXX
    Expect `→ 0 found`, `discovered: []`; the link page asks for the address and a typed one works.
 
 Pass: step 1 shows HA's `internal_url` and the link page offers it. The address is stored only after sign-in starts
-and it answered as HA (#54). Record, don't abort: `→ 0 found` while `dns-sd` on the laptop sees HA means multicast
+and it answered as HA (eink-ha-os#54). Record, don't abort: `→ 0 found` while `dns-sd` on the laptop sees HA means multicast
 doesn't reach the X4 (AP isolation, IGMP snooping, mesh nodes). Note the router model at A39 and type the URL in
 step 10.
 
@@ -291,13 +291,13 @@ Check and photograph:
 - Minute tick: the clock changes with a partial refresh (no full flash), only the clock area redraws.
 - After 30+ minutes: one scheduled "clean screen" full refresh at :00 or :30.
 - Ghosting after ~10 page turns: faint traces of the previous page?
-- Grays: anything that was gray (boot face) and later got a partial — did it stay gray or go black/white? (#38
+- Grays: anything that was gray (boot face) and later got a partial — did it stay gray or go black/white? (eink-ha-os#38
   assumes it breaks; the rule holds either way, but we want to know.)
-- 2-bit text and the Sleek card surface from 2 m: compare `dither` and `dots` (Settings › Display style, #29).
+- 2-bit text and the Sleek card surface from 2 m: compare `dither` and `dots` (Settings › Display style, eink-ha-os#29).
 - Partials that look smeared or low-contrast → note it: the SDK sets SSD1677 VCOM 0x10, crosspoint uses 0x30 (A10).
 
 Pass: clock partials clean, no ghosting you'd notice from 2 m. This step has no abort; it produces photos and
-notes for #29 and A10-A12.
+notes for eink-ha-os#29 and A10-A12.
 
 ## 13. Touch (A16-A19)
 
@@ -305,7 +305,7 @@ notes for #29 and A10-A12.
    (tap feedback). A tap that hits the mirrored control means `swapXY`/`flipY` is wrong.
 2. Swipe left/right: a short, slightly diagonal swipe (about 100 × 60 px) should page.
 3. The capacitive Home key returns to Home.
-4. 20 warm restarts (#4, ROBUSTNESS_PLAN 0.3):
+4. 20 warm restarts (eink-ha-os#4, ROBUSTNESS_PLAN 0.3):
 
 ```sh
 for i in $(seq 1 20); do
@@ -317,7 +317,7 @@ done | tee backups/firstflash/13-restarts.jsonl
 After every few restarts, tap something. Pass: touch works after all 20; `touch_recoveries` is 0 or 1 per boot and
 every recovery logs `GT911 recovered`. Abort: `GT911 still absent after rail cycle` and dead touch → 100 ms on GPIO2
 is not a real power cycle (A17, maybe the I2C pull-ups back-power the GT911). Power off and on: if touch returns, the
-finding is confirmed. File it on #4; keys still work, so continue.
+finding is confirmed. File it on eink-ha-os#4; keys still work, so continue.
 
 ## 14. Buttons and latency on battery (A20-A23)
 
@@ -355,7 +355,7 @@ what stock showed, and it moves by at most a point or two between reads. Abort: 
 jumps → the CW2017 profile or recovery is off (A26). Don't trust the 30 % OTA guard until fixed: do step 18 on USB.
 A full battery on a wall charger reading `battery` is known (no VBUS pin, A24): note it, not a failure.
 `battery_mv` (A28): 3300-4250 and rising on a charger; ~4150-4200 when full. `null` or a value outside that → the
-VCELL decode is off: note the raw value and leave glance mode off until #73 is reopened.
+VCELL decode is off: note the raw value and leave glance mode off until eink-ha-os#73 is reopened.
 
 ## 16. Front light (A30, A31)
 
@@ -473,6 +473,6 @@ instead, finish the run.
 - Fill the *Status* column in [HARDWARE_ASSUMPTIONS.md](HARDWARE_ASSUMPTIONS.md): `confirmed`, `wrong` (with what is
   true) or still `unverified`.
 - One issue per failure, with the step number and the files from `backups/firstflash/`.
-- Not on day one: brownout during OTA (#8) and the current measurements in [POWER_BUDGET.md](POWER_BUDGET.md).
+- Not on day one: brownout during OTA (eink-ha-os#8) and the current measurements in [POWER_BUDGET.md](POWER_BUDGET.md).
 - Day two (optional): Power save back to *glance*, on battery. Check deep sleep and wake on a key (A21, A32) and pogo
   unplug while asleep (A34); [POWER_BUDGET.md](POWER_BUDGET.md) has the plan.

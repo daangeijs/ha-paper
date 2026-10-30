@@ -1,4 +1,4 @@
-// Weather tile (#318): a weather.* entity's condition and temperature, today's high / low / wind / "rain from", and a
+// Weather tile (eink-ha-os#318): a weather.* entity's condition and temperature, today's high / low / wind / "rain from", and a
 // 5-day strip, from the entity's attributes and weather.get_forecasts (daily + hourly, asked once an hour). Pure; the
 // firmware port is core/weather.cpp, vectors spec/test-vectors/weather.json.
 import { entityGap, fmtNum, pad, type EntityGap } from './format.ts';
@@ -63,7 +63,7 @@ export type WxDay = { name: string; icon: WxIcon; hi: string; lo: string; mm: st
 export type WxView = { gap: EntityGap | null; icon: WxIcon; temp: string; cond: string; feels: string; high: string; low: string; wind: string; rain: string; days: WxDay[]; forecast: boolean };
 export type WxInput = { state?: string | null; attrs: Record<string, unknown>; daily: WxEntry[] | null; hourly: WxEntry[] | null; now: number; tz: number; lang: Lang };
 
-/** A temperature as the tile shows it: "12°", "—" when absent (also the quiet face, #328). */
+/** A temperature as the tile shows it: "12°", "—" when absent (also the quiet face, eink-ha-os#328). */
 export const wxDeg = (v: number | null): string => (v === null ? '—' : fmtNum(Math.round(v), '', 0) + '°');
 /** Wet hour: precipitation > 0, or without precipitation a rain / snow / thunder drawing. */
 export const wxWet = (e: WxEntry): boolean => (e.mm !== null ? e.mm > 0 : WET.includes(e.icon));

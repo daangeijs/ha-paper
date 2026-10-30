@@ -12,11 +12,19 @@
 #include "core/json.h"
 #ifndef X4_NATIVE
 #include <esp_heap_caps.h>
+#include "net/psram.h"
 #endif
 
 namespace x4 {
 
 namespace {
+// The App's long-lived state (log lines, HomeData, region map, draw closures, Settings screens) is built on loopTask.
+// Device: under this scope it goes to PSRAM, not the internal heap (eink-ha-os#289). Only pure computation: never a panel call.
+#ifdef X4_NATIVE
+struct PsramScope { PsramScope() {} ~PsramScope() {} };   // host: one heap
+#else
+using PsramScope = net::PsramScope;
+#endif
 const Screen& setupScreen(Setup s) {
   static Screen wifi, web;
   if (wifi.widgets.empty()) {
@@ -28,7 +36,7 @@ const Screen& setupScreen(Setup s) {
   return s == Setup::Wifi ? wifi : web;
 }
 bool after(uint32_t now, uint32_t t) { return int32_t(now - t) >= 0; }
-constexpr uint32_t kStandbyLightMs = 50;   // Power → standby: frontlight off, this pause, then the full refresh (#225)
+constexpr uint32_t kStandbyLightMs = 50;   // Power → standby: frontlight off, this pause, then the full refresh (eink-ha-os#225)
 }  // namespace
 
 // ======================= construction =======================
@@ -43,15 +51,19 @@ App::Impl::Impl(Display& d, Board& b, Services& s) : display(d), board(b), svc(s
   if (fb.data) std::memset(fb.data, 0xFF, Framebuffer::kBytes);
 }
 
-App::App(Display& display, Board& board, Services& services) : impl_(new Impl(display, board, services)) {}
+App::App(Display& display, Board& board, Services& services)
+    : impl_([&] { PsramScope ps; return new Impl(display, board, services); }()) {}   // ~2 KB of state (eink-ha-os#289)
 App::~App() { std::free(impl_->fb.data); delete impl_; }
 
 void App::begin(const Config& config, const DisplaySettings& settings) {
-  impl_->cfg = withSettings(config.screens.empty() ? defaultConfig() : config);   // + the built-in Settings pages (#159)
+  {
+    PsramScope ps;
+    impl_->cfg = withSettings(config.screens.empty() ? defaultConfig() : config);   // + the built-in Settings pages (eink-ha-os#159)
+  }
   impl_->set = settings;
   impl_->policy.setCleanEvery(settings.cleanEvery);
   impl_->lastTick = impl_->ms();
-  impl_->bootDark = !lightOnBoot(impl_->bootWake);   // #357: a timer wake (glance) has nobody to light for
+  impl_->bootDark = !lightOnBoot(impl_->bootWake);   // eink-ha-os#357: a timer wake (glance) has nobody to light for
   impl_->applyFrontlight();
   if (impl_->bootDark) impl_->note("boot (timer) · front light off until a key or tap");
   auto& st = impl_->svc.status();
@@ -73,7 +85,7 @@ void App::setDisplayConfig(Config display) {
   for (int i = 0; i < int(I->cfg.screens.size()); ++i) if (I->cfg.screens[i].id == curId) { idx = i; break; }
   I->idx = idx; I->sub = 0; I->menu = Menu::None;
   I->fullRefresh("new config");
-  I->expectData(300, 15000);   // newly subscribed entities: drawn when their state lands (#151)
+  I->expectData(300, 15000);   // newly subscribed entities: drawn when their state lands (eink-ha-os#151)
 }
 
 void App::expectData() { impl_->expectData(300, 15000); }
@@ -102,8 +114,9 @@ bool App::setHistory(const std::string& key, const hist::Series* series, hist::S
       for (auto& sc : I->cfg.screens)
         for (auto& w : sc.widgets) {
           if (w.type != "history") continue;
-          const hist::Spec s = hist::specOf(w);
-          if (hist::seriesKey(s) == h.key || (!s.past.empty() && hist::seriesKey(hist::pastSpec(s)) == h.key)) return false;
+          bool used = false;
+          hist::tileSpecs(hist::specOf(w), [&](const hist::Spec& s) { used = used || hist::seriesKey(s) == h.key; });
+          if (used) return false;
         }
       return true;
     }), I->hist.end());
@@ -199,8 +212,8 @@ void App::Impl::panelPartial(Rect r) {
   stats.panelMs += panelMs;
   stats.partialRefreshes++;
 }
-// " · 1234 ms · render 40 ms" after a refresh line (#197 panel ms, #212 framebuffer draw); "· held" on a glance wake
-// " (build 2 · record 3 · paint 20 · slow home.clock 9, home.weather 6)" when the render took ≥ 1 ms (#213)
+// " · 1234 ms · render 40 ms" after a refresh line (eink-ha-os#197 panel ms, eink-ha-os#212 framebuffer draw); "· held" on a glance wake
+// " (build 2 · record 3 · paint 20 · slow home.clock 9, home.weather 6)" when the render took ≥ 1 ms (eink-ha-os#213)
 std::string App::Impl::panelNote() const {
   std::string s = (held ? std::string(" · held") : " · " + std::to_string(panelMs) + " ms") + " · render " +
                   std::to_string(renderMs) + " ms";
@@ -223,7 +236,7 @@ void App::settle() {
   if (!I->held || I->mode != Mode::Main) return;
   I->ambient = I->setup == Setup::None;   // the glance face: ambient chrome, as live mode leaves it
   I->snap.taken = false;                  // quiet face: values as of now, not as of the boot screen
-  I->asleepAt = I->localTime().clock;             // #299: the glance face goes back to sleep, so its clocks say so
+  I->asleepAt = I->localTime().clock;             // eink-ha-os#299: the glance face goes back to sleep, so its clocks say so
   I->fullRefresh("glance · render");
 }
 void App::redraw(const std::string& reason) {
@@ -236,7 +249,7 @@ void App::prepareSleep() {
   const bool away = I->idx != 0 || I->sub != 0 || I->menu != Menu::None || I->sleeping || I->peekUntil || !I->ambient;
   I->idx = 0; I->sub = 0; I->menu = Menu::None; I->sleeping = false; I->peekUntil = 0; I->ambient = true;
   I->applyFrontlight();
-  // #356: in glance a whole face follows (markAsleep), so no dashboard refresh first; quiet hours and the morning page stay
+  // eink-ha-os#356: in glance a whole face follows (markAsleep), so no dashboard refresh first; quiet hours and the morning page stay
   const bool face = I->set.powerSave == "glance" && !I->quietActive() && !I->morningActive();
   if (away && !face) I->fullRefresh("sleep · home");
 }
@@ -249,7 +262,7 @@ void App::markAsleep(bool on) {
   if (I->mode != Mode::Main) return;
   const int is = I->sleepKind();
   static const char* const kUp[] = {"", "nobody home", "sleep face"};
-  if (is != was) I->fullRefresh(is ? kUp[is] : std::string(kUp[was]) + " · end");   // #331, #356: a whole other face
+  if (is != was) I->fullRefresh(is ? kUp[is] : std::string(kUp[was]) + " · end");   // eink-ha-os#331, eink-ha-os#356: a whole other face
   else I->commit("asleep", true);
 }
 std::vector<std::string> App::clockRegions() const {
@@ -296,7 +309,7 @@ void App::loop() {
   uint32_t now = I->ms();
   // Hardware-key factory reset and Power + Prev restart (core/recovery.h): one sample per pass = keys held now + keys pressed since the last
   // pass. Input goes to the reset screen, not the UI, while a hold or the screen is in progress.
-  // The whole queue is drained each pass; only the last event is handled (#212, coalesceInput): taps made while a
+  // The whole queue is drained each pass; only the last event is handled (eink-ha-os#212, coalesceInput): taps made while a
   // refresh ran are not replayed one by one.
   InputEvent ev{}, e{};
   int n = 0;
@@ -315,7 +328,7 @@ void App::loop() {
   if (I->mode != Mode::Updating) {
     const bool was = I->recovery.phase != RecoveryPhase::Idle;
     RecoveryAction a = recoveryStep(I->recovery, now, keys);
-    // #258: a Power KeyDown already released (remote input, or shorter than a pass) is a press and its release
+    // eink-ha-os#258: a Power KeyDown already released (remote input, or shorter than a pass) is a press and its release
     if (a == RecoveryAction::None && I->recovery.phase == RecoveryPhase::PowerHold && !(held & kKeyPower))
       a = recoveryStep(I->recovery, now, held);
     swallow = was || I->recovery.phase != RecoveryPhase::Idle || a != RecoveryAction::None;
@@ -324,10 +337,10 @@ void App::loop() {
   if (I->poweredOff) return;   // QEMU / host only: the board stays up; Power (a Press) restarts it
   if (n > 1 && !swallow) I->note("input · " + std::to_string(n - 1) + " stale dropped · last wins");
   if (coalesceInput(n) >= 0 && !swallow) {
-    // ambient (#27): the first touch or key (not Power) brings the chrome back and does nothing else
-    // light timeout (#220): the same for the first input after the front light went off
+    // ambient (eink-ha-os#27): the first touch or key (not Power) brings the chrome back and does nothing else
+    // light timeout (eink-ha-os#220): the same for the first input after the front light went off
     const bool pwr = ev.kind == InputEvent::Kind::KeyDown && ev.key == Key::Power;
-    // #330: a press on the Good morning page always reaches it (one press = the start page)
+    // eink-ha-os#330: a press on the Good morning page always reaches it (one press = the start page)
     const bool main = I->mode == Mode::Main, quiet = main && (I->quietActive() || I->morningActive());
     const bool light = main && lightWakeConsumes(I->set.brightness, I->sleeping, quiet, I->lightOut, pwr);
     bool consume = light || (I->ambient && main && !I->sleeping && !quiet && !pwr);
@@ -338,12 +351,12 @@ void App::loop() {
         if (ev.key == Key::Prev) I->nav(-1, "BTN_PREV");
         else if (ev.key == Key::Next) I->nav(1, "BTN_NEXT");
         else if (ev.key == Key::Home) I->home("KEY_HOME");
-        else if (I->mode != Mode::Updating) I->note("BTN_POWER ignored · a key is still down");   // #258: recoveryStep Press / Off
+        else if (I->mode != Mode::Updating) I->note("BTN_POWER ignored · a key is still down");   // eink-ha-os#258: recoveryStep Press / Off
         break;
       case InputEvent::Kind::Tap: I->tap(ev.x, ev.y); break;
       case InputEvent::Kind::Swipe:
         if (I->mode == Mode::Main && I->quietActive()) I->doPeek("SWIPE");
-        else if (I->slide(ev.x, ev.y, ev.ex)) {}   // #351: a fast drag along a volume bar, not a page swipe
+        else if (I->slide(ev.x, ev.y, ev.ex)) {}   // eink-ha-os#351: a fast drag along a volume bar, not a page swipe
         else if (I->menu == Menu::None) I->nav(ev.dir < 0 ? 1 : -1, ev.dir < 0 ? "SWIPE ←" : "SWIPE →");
         break;
       case InputEvent::Kind::Drag: I->slide(ev.x, ev.y, ev.ex); break;
@@ -371,9 +384,12 @@ void App::loop() {
 
 // ======================= helpers =======================
 void App::Impl::note(const std::string& s) {
-  log.push_back(s);
+  {
+    PsramScope ps;   // up to 200 lines: ~6 KB of internal RAM at 55 lines in QEMU (eink-ha-os#289)
+    log.push_back(s);
+    if (log.size() > 200) log.erase(log.begin(), log.begin() + 100);
+  }
   if (onLog) onLog(s);
-  if (log.size() > 200) log.erase(log.begin(), log.begin() + 100);
 }
 
 LocalTime App::Impl::localTime() {
@@ -461,7 +477,7 @@ bool App::Impl::glanceFaceActive() const {
 }
 int App::Impl::sleepKind() const { return emptyActive() ? 1 : glanceFaceActive() ? 2 : 0; }
 bool App::Impl::morningActive() const {
-  if (offscreen || mode != Mode::Main || setup != Setup::None || quietActive() || emptyActive()) return false;   // #331: Nobody home wins
+  if (offscreen || mode != Mode::Main || setup != Setup::None || quietActive() || emptyActive()) return false;   // eink-ha-os#331: Nobody home wins
   return morning::up(morningSt, const_cast<Board&>(board).epochSeconds() * 1000);
 }
 bool App::Impl::clockOnPage() const {
@@ -511,7 +527,7 @@ void App::Impl::build(std::vector<RegionDef>& out) {
   if (mode == Mode::Boot) { out.push_back({"boot", screen, [this](Canvas& c) { ui::bootFace(c, *this); }}); return; }
   if (mode == Mode::Updating) { out.push_back({"upd", screen, [this](Canvas& c) { ui::updatingFace(c, *this); }}); return; }
   // the clock text of the faces and the top bar is region "time", drawn on top (z 1): the minute tick redraws only it
-  // quiet hours (#295): before standby, which shows the same face inside the window; no "time" region (no clock)
+  // quiet hours (eink-ha-os#295): before standby, which shows the same face inside the window; no "time" region (no clock)
   if (quietActive()) {
     if (!snap.taken) captureSnap();   // booted or woke in the window: values as of now
     out.push_back({"quiet", screen, [this](Canvas& c) {
@@ -520,11 +536,11 @@ void App::Impl::build(std::vector<RegionDef>& out) {
     }});
     return;
   }
-  if (emptyActive()) {   // #331 Nobody home: the sleeping panel in glance; no clock, no touch (asleep)
+  if (emptyActive()) {   // eink-ha-os#331 Nobody home: the sleeping panel in glance; no clock, no touch (asleep)
     out.push_back({"empty", screen, [this](Canvas& c) { ui::emptyFace(c, *this); }});
     return;
   }
-  // Good morning page (#330): one full-screen region, before standby; a tap anywhere = the start page
+  // Good morning page (eink-ha-os#330): one full-screen region, before standby; a tap anywhere = the start page
   if (morningActive()) {
     out.push_back({"morning", screen, [this](Canvas& c) {
       ui::morningFace(c, *this);
@@ -532,7 +548,7 @@ void App::Impl::build(std::vector<RegionDef>& out) {
     }});
     return;
   }
-  if (glanceFaceActive()) {   // #356: the sleeping panel in glance: one calm face, no dashboard, no clock, no touch
+  if (glanceFaceActive()) {   // eink-ha-os#356: the sleeping panel in glance: one calm face, no dashboard, no clock, no touch
     out.push_back({"sleep", screen, [this](Canvas& c) { ui::glanceFace(c, *this); }});
     return;
   }
@@ -545,7 +561,7 @@ void App::Impl::build(std::vector<RegionDef>& out) {
   const GridMetrics& gm = sleek() ? kSleekGrid : kClassicGrid;
   int barH = sleek() ? kSleekBarH : kTopBarH + kTopRule;
   chr = chromeFor(ambient && menu == Menu::None && setup == Setup::None, board.power().batteryPct, clockOnPage());
-  if (setup != Setup::None) chr.pager = false;   // "Step N of 2" in the title instead (#183)
+  if (setup != Setup::None) chr.pager = false;   // "Step N of 2" in the title instead (eink-ha-os#183)
   out.push_back({"bar", rc(0, 0, kScreenW, barH), [this](Canvas& c) { ui::topBar(c, *this); }});
   if (chr.clock) out.push_back({"time", ui::barTimeRect(*this), [this](Canvas& c) { ui::barTime(c, *this); }, 1});
   Rect content = rc(0, barH, kScreenW, kScreenH - barH);
@@ -585,7 +601,7 @@ void App::Impl::build(std::vector<RegionDef>& out) {
       if (w.type == "ota") out.push_back({"s" + std::to_string(i), ui::otaStatusRect(r), [this, r](Canvas& c) { ui::otaStatus(c, *this, r); }, 1});
     } else {
       out.push_back({key, r, [this, &w, i, r](Canvas& c) { ui::tile(c, *this, w, i, r); }});
-      if (w.type == "media") {   // #351: the volume slider is its own region, so a level change refreshes only the bar
+      if (w.type == "media") {   // eink-ha-os#351: the volume slider is its own region, so a level change refreshes only the bar
         Rect v = ui::mediaVolumeRect(*this, w, i, r);
         if (v.w > 0) out.push_back({"v" + std::to_string(i), v, [this, &w, r, v](Canvas& c) { ui::mediaVolume(c, *this, w, r, v); }, 1});
       }
@@ -619,7 +635,7 @@ static std::vector<const RegionDef*> zOrder(const std::vector<RegionDef>& ds) {
   return v;
 }
 
-// times (optional): ms per region, for the slowest-regions note on the refresh line (#213)
+// times (optional): ms per region, for the slowest-regions note on the refresh line (eink-ha-os#213)
 static void paint(const std::vector<RegionDef>& ds, Framebuffer& out, Board* board = nullptr,
                   std::vector<std::pair<uint32_t, std::string>>* times = nullptr) {
   if (out.data) std::memset(out.data, 0xFF, Framebuffer::kBytes);
@@ -634,7 +650,7 @@ static void paint(const std::vector<RegionDef>& ds, Framebuffer& out, Board* boa
 
 void App::Impl::drawAll() { paintMs.clear(); paint(defs, fb, &board, &paintMs); }
 
-// preview.png (#168): the screen as its first page would look now, drawn into `out`. The panel, its framebuffer, the
+// preview.png (eink-ha-os#168): the screen as its first page would look now, drawn into `out`. The panel, its framebuffer, the
 // drawn regions and hits stay as they are; the view state is borrowed and put back.
 bool App::renderScreen(const std::string& screenId, Framebuffer& out) {
   auto* I = impl_;
@@ -675,13 +691,17 @@ std::string App::shownScreen() const {
 
 void App::Impl::renderAll() {
   const uint32_t t0 = ms();
-  std::vector<Hit> hs;
-  build(defs);
-  const uint32_t t1 = ms();
-  regions = signatures(defs, &hs);
-  const uint32_t t2 = ms();
+  uint32_t t1, t2;
+  {
+    PsramScope ps;
+    std::vector<Hit> hs;
+    build(defs);
+    t1 = ms();
+    regions = signatures(defs, &hs);
+    t2 = ms();
+    hits = std::move(hs);
+  }
   buildMs = t1 - t0; recordMs = t2 - t1;
-  hits = std::move(hs);
   drawAll();
   drawnLook = lookKey();
   renderMs = ms() - t0;
@@ -699,7 +719,7 @@ void App::Impl::fullRefresh(const std::string& reason) {
 }
 
 void App::Impl::navRefresh(const std::string& reason) {
-  mediaPick.clear();   // #319: a page change closes the favorites picker
+  mediaPick.clear();   // eink-ha-os#319: a page change closes the favorites picker
   if (policy.requestNav(board.epochSeconds() > 0) == RefreshPolicy::Kind::Clean) {
     fullRefresh(reason + (policy.navSinceClean() + 1 >= kNavClean ? " · nav clean" : " · ghosting limit"));
     return;
@@ -717,7 +737,10 @@ void App::Impl::partialRefresh(const std::string& reason, const RegionMap& next,
   paintMs.clear();
   std::vector<std::string> draw = keys;
   RegionMap prev = regions;
-  regions = next;
+  {
+    PsramScope ps;
+    regions = next;
+  }
   // overlays (z > 0) intersecting a redrawn region are redrawn on top
   for (auto& d : defs) {
     if (d.z <= 0 || std::find(draw.begin(), draw.end(), d.key) != draw.end()) continue;
@@ -743,7 +766,7 @@ void App::Impl::partialRefresh(const std::string& reason, const RegionMap& next,
   std::vector<std::string> all = draw;
   for (auto& k : removed) { u[k] = prev.at(k); all.push_back(k); }
   Rect r = unionRect(u, all);
-  renderMs = buildMs + recordMs + (ms() - t0);   // build + record: commit() just before (#213)
+  renderMs = buildMs + recordMs + (ms() - t0);   // build + record: commit() just before (eink-ha-os#213)
   stats.renderMs += renderMs;
   panelPartial(r);
   lastChanged = keys;
@@ -753,16 +776,21 @@ void App::Impl::partialRefresh(const std::string& reason, const RegionMap& next,
 
 void App::Impl::commit(const std::string& reason, bool quiet) {
   if (mode == Mode::Boot) return;
-  if (quietActive()) { if (reason != "clock") note("quiet hours · redraw skipped (" + reason + ")"); return; }   // #295: no clock either
+  if (quietActive()) { if (reason != "clock") note("quiet hours · redraw skipped (" + reason + ")"); return; }   // eink-ha-os#295: no clock either
   if (sleeping && reason != "clock" && reason != "asleep") return;
   // display style / typeface / card surface changed: every region looks different → one full refresh, no partial
   if (lookKey() != drawnLook) { fullRefresh("style"); return; }
   std::vector<RegionDef> nd;
   std::vector<Hit> nh;
+  RegionMap next;
   const uint32_t t0 = ms();
-  build(nd);
-  const uint32_t t1 = ms();
-  RegionMap next = signatures(nd, &nh);
+  uint32_t t1;
+  {
+    PsramScope ps;   // nd/nh become defs/hits, next becomes regions
+    build(nd);
+    t1 = ms();
+    next = signatures(nd, &nh);
+  }
   buildMs = t1 - t0; recordMs = ms() - t1;
   auto keys = changedRegions(regions, next);
   auto removed = removedRegions(regions, next);
@@ -783,7 +811,7 @@ void App::Impl::input() {
 }
 
 void App::Impl::boot(const std::string& msg) {
-  const bool dark = bootDark;   // #357: the boot itself is no key or tap
+  const bool dark = bootDark;   // eink-ha-os#357: the boot itself is no key or tap
   bootDark = false;
   input();
   bootDark = dark;
@@ -799,13 +827,13 @@ void App::Impl::finishBoot() {
   setup = noWifi ? Setup::Wifi : (st.wifi == WifiState::Connected && st.ha == HaState::NeverLinked) ? Setup::Web : Setup::None;
   mode = Mode::Main; idx = 0; sub = 0; wview = WifiView::List;
   quietKnown = false;
-  // quiet hours (#295): a boot that a timer did not cause opens on the dashboard. Set whatever the hour: after a
+  // quiet hours (eink-ha-os#295): a boot that a timer did not cause opens on the dashboard. Set whatever the hour: after a
   // power-on the clock is often not known yet, and a peek outside the window changes nothing.
   if (setup == Setup::None && peekOnBoot(bootWake)) {
     peekUntil = ms() + kPeekMs; if (!peekUntil) peekUntil = 1;
     note("boot (" + bootWake + ") · quiet hours show the dashboard for 60 s");
   }
-  if (peekOnBoot(bootWake) && morningSt.until) {   // #330: the wake press was the one press
+  if (peekOnBoot(bootWake) && morningSt.until) {   // eink-ha-os#330: the wake press was the one press
     morning::State m = morningSt; m.until = 0; saveMorning(m);
     note("boot (" + bootWake + ") · Good morning page closed");
   }
@@ -885,12 +913,12 @@ void App::Impl::power() {
   if (sleeping) { wake("BTN_POWER"); return; }
   sleeping = true; menu = Menu::None; peekUntil = 0;   // standby ends a peek: in quiet hours it shows the quiet face
   applyFrontlight();
-  board.pause(kStandbyLightMs);   // #225: frontlight off settles before the refresh load, not both at once
+  board.pause(kStandbyLightMs);   // eink-ha-os#225: frontlight off settles before the refresh load, not both at once
   fullRefresh("standby");
   if (onPowerStage) onPowerStage("standby drawn");
 }
 
-// #258: Power held 2 s. The face first (the panel keeps it without power), the panel asleep, the trail line, then the
+// eink-ha-os#258: Power held 2 s. The face first (the panel keeps it without power), the panel asleep, the trail line, then the
 // board switches off (hardware: latch released, no return).
 void App::Impl::powerOff() {
   note("BTN_POWER held " + std::to_string(kPowerOffHoldMs / 1000) + " s · turned off");
@@ -927,7 +955,7 @@ void App::Impl::tap(int x, int y) {
     policy.countPartial();
     if (onLog) onLog(std::string("EPD partial (press feedback · ") + what + " " + hit.region + ")" + panelNote());
   };
-  // The action runs first (#212): a navigation's fast refresh or a partial that redraws the control is the feedback, so
+  // The action runs first (eink-ha-os#212): a navigation's fast refresh or a partial that redraws the control is the feedback, so
   // no separate ~565 ms partial goes before it. Only an action with no visible change (scene, script) flashes the control.
   uint32_t fulls = stats.fullRefreshes + stats.fastRefreshes, partials = stats.partialRefreshes;
   hit.fn();
@@ -955,7 +983,7 @@ void App::Impl::tap(int x, int y) {
   flash("restore");
 }
 
-// #351: a drag (or a swipe) that starts on a slider ends there: its hit runs with the lift x. No press feedback: the
+// eink-ha-os#351: a drag (or a swipe) that starts on a slider ends there: its hit runs with the lift x. No press feedback: the
 // slider redraws at the new level.
 bool App::Impl::slide(int x, int y, int ex) {
   if (mode != Mode::Main || sleeping) return false;
@@ -975,7 +1003,11 @@ void App::Impl::tick() {
   uint32_t t = ms();
   // acknowledgements (entity state caught up with our optimistic value)
   if (store.revision() != lastRev) {
-    HomeData raw = deriveHome(store);
+    HomeData raw;
+    {
+      PsramScope ps;
+      raw = deriveHome(store);
+    }
     bool changed = false;
     for (auto it = setOverride.begin(); it != setOverride.end();) {
       const ZoneState* z = raw.zone(it->first);
@@ -1020,13 +1052,13 @@ void App::Impl::tick() {
   if (lt.known && lt.m != lastMinute) {
     bool first = lastMinute == -1;
     lastMinute = lt.m;
-    // scheduled clean (#26): at :00/:30 the minute tick becomes one full refresh if anything was partially drawn
+    // scheduled clean (eink-ha-os#26): at :00/:30 the minute tick becomes one full refresh if anything was partially drawn
     if (!first && policy.cleanDue(board.epochSeconds() / 60, quietActive())) fullRefresh("clean screen");
     else if (!first) commit("clock", true);
   }
   // first data after (re)connecting: the "linked · live data" redraw happens at auth_ok, before subscribe_entities
   // answered — draw the snapshot once it has landed instead of showing "—" for a whole Live data interval (QEMU find).
-  // The same after a new config or data source (#151): the new entity's state arrives a moment after the redraw.
+  // The same after a new config or data source (eink-ha-os#151): the new entity's state arrives a moment after the redraw.
   if (fresh && after(t, freshAt) && !quietActive() && !sleeping) {   // quiet face / standby: keep it pending
     if (after(t, freshUntil)) fresh = false;
     else if (store.revision() != lastRev) {
@@ -1056,7 +1088,7 @@ void App::Impl::idleCheck() {
   bool away = homeIdx >= 0 && (idx != homeIdx || sub != 0 || menu != Menu::None);
   uint32_t idle = ms() - lastInput;
   if (!lightOut && lightTimedOut(idle, set.lightTimeout)) { lightOut = true; applyFrontlight(); note("IDLE → front light off"); }
-  if (morningActive()) return;   // #330: the page stays until its timeout or a press
+  if (morningActive()) return;   // eink-ha-os#330: the page stays until its timeout or a press
   bool amb = !ambient && ambientDue(idle, menu != Menu::None, false) && !quietActive();
   IdleDecision d = ::x4::idleCheck(idle, idleMinutes(set.standby), idleMinutes(set.returnHome), idleHomed, away);
   if (d.standby) { sleeping = true; menu = Menu::None; peekUntil = 0; applyFrontlight(); note("IDLE → standby"); fullRefresh("standby"); return; }
@@ -1081,20 +1113,20 @@ void App::Impl::checkQuiet() {
       fullRefresh("quiet face");
     } else if (!(peekUntil && int32_t(peekUntil - ms()) > 0)) {
       snap = QuietSnap();
-      if (!morningActive()) fullRefresh("quiet end");   // #330: checkMorning drew the Good morning page
+      if (!morningActive()) fullRefresh("quiet end");   // eink-ha-os#330: checkMorning drew the Good morning page
     }
   }
   prevQuiet = n; quietKnown = true;
 }
 
-// Good morning page (#330, core/morning.h): armed inside the window, up for 20 min at the first loop after it (a wake
+// Good morning page (eink-ha-os#330, core/morning.h): armed inside the window, up for 20 min at the first loop after it (a wake
 // from deep sleep included: the state is in RTC memory), then the start page.
 void App::Impl::checkMorning() {
   if (mode != Mode::Main) return;
   now = localTime();
   morning::Step st = morning::step(morningSt, {now.epochMs, now.h, now.known, set.quiet, set.morning});
   if (st.s.armed == morningSt.armed && st.s.until == morningSt.until) return;
-  if (st.start && houseEmptyNow() && set.powerSave == "glance") {   // #331: nobody home → no page, empty-house sleep
+  if (st.start && houseEmptyNow() && set.powerSave == "glance") {   // eink-ha-os#331: nobody home → no page, empty-house sleep
     st.s.until = 0; st.start = false;
     note("MORNING skipped · nobody home");
   }
@@ -1149,7 +1181,7 @@ void App::Impl::netChanged() {
   const Lang l = langOf(st.language);
   const NumFmt nf = numFormatOf(st.numberFormat, l == Lang::Nl);
   const std::string c = locale::currencySymbol(st.currency);
-  // HA told us its language (#98), number format (#110) or currency (#147): redraw all
+  // HA told us its language (eink-ha-os#98), number format (eink-ha-os#110) or currency (eink-ha-os#147): redraw all
   const bool langChanged = l != lang || nf != numFmt || c != cur;
   lang = l;
   numFmt = nf;
@@ -1248,7 +1280,7 @@ void App::Impl::setZone(const std::string& id, double delta) {
 void App::Impl::toggleAway() {
   if (offline()) return;
   std::string ids;
-  for (auto& z : data.zones) if (z.awayOk) ids += (ids.empty() ? "" : ",") + jsonQuote("climate." + z.id);   // #148
+  for (auto& z : data.zones) if (z.awayOk) ids += (ids.empty() ? "" : ",") + jsonQuote("climate." + z.id);   // eink-ha-os#148
   if (ids.empty()) return;
   bool away = !data.away;
   awayOv = away; awayOvUntil = ms() + 10000;
@@ -1292,7 +1324,7 @@ void App::Impl::dimLight(const std::string& id, int step) {
   commit("lights");
 }
 
-// A room header's All on / All off: the lights the tile shows there (#127: a pick may show only some of the area).
+// A room header's All on / All off: the lights the tile shows there (eink-ha-os#127: a pick may show only some of the area).
 void App::Impl::roomLights(const std::string& area, const std::vector<std::string>& ids) {
   if (offline()) return;
   bool anyOn = false;
@@ -1317,14 +1349,14 @@ void App::Impl::allOff() {
   commit("lights");
 }
 
-// Scene tile (#146): scene.turn_on / script.turn_on; nothing on the panel changes. No entity: all lights off.
+// Scene tile (eink-ha-os#146): scene.turn_on / script.turn_on; nothing on the panel changes. No entity: all lights off.
 void App::Impl::runScene(const SceneAction& s) {
   if (s.entityId == "all") { allOff(); return; }
   if (offline()) { note(s.entityId + " not sent — offline"); return; }
   sendService(s.domain, s.service, "{\"entity_id\":" + jsonQuote(s.entityId) + "}");
 }
 
-// Now playing tile (#319): one HA call (core media::action); a favorite also closes the picker, which redraws the tile.
+// Now playing tile (eink-ha-os#319): one HA call (core media::action); a favorite also closes the picker, which redraws the tile.
 void App::Impl::mediaRun(const media::Action& act, bool pick) {
   if (!act.ok) return;
   if (offline()) { note(act.domain + "." + act.service + " not sent — offline"); return; }
@@ -1332,7 +1364,7 @@ void App::Impl::mediaRun(const media::Action& act, bool pick) {
   if (pick && !mediaPick.empty()) { mediaPick.clear(); commit("media"); }
 }
 
-// Volume slider (#351): one volume_set; the bar shows the level at once (its own region: a partial of the bar only).
+// Volume slider (eink-ha-os#351): one volume_set; the bar shows the level at once (its own region: a partial of the bar only).
 void App::Impl::mediaVolume(const Widget& w, int pct) {
   media::Action act = media::action(w, media::Target::Set, pct);
   if (offline()) { note(act.domain + "." + act.service + " not sent — offline"); return; }
@@ -1359,13 +1391,13 @@ void App::Impl::setCfg(const std::string& key, int dir) {
   if (key == "brightness") { int v = std::max(0, std::min(100, set.brightness + dir * 10)); ch = v != set.brightness; set.brightness = uint8_t(v); }
   else if (key == "warmth") { int v = std::max(0, std::min(100, set.warmth + dir * 10)); ch = v != set.warmth; set.warmth = uint8_t(v); }
   else if (key == "lightTimeout") { std::string c = std::to_string(set.lightTimeout); ch = stepList({"30", "60", "120", "300", "0"}, c); if (ch) set.lightTimeout = std::atoi(c.c_str()); }
-  else if (key == "quiet") ch = stepList({"off", "22-06", "23-07", "00-06"}, set.quiet);   // #295
-  else if (key == "morning") { std::string c = set.morning ? "on" : "off"; ch = stepList({"on", "off"}, c); if (ch) set.morning = c == "on"; }   // #330
+  else if (key == "quiet") ch = stepList({"off", "22-06", "23-07", "00-06"}, set.quiet);   // eink-ha-os#295
+  else if (key == "morning") { std::string c = set.morning ? "on" : "off"; ch = stepList({"on", "off"}, c); if (ch) set.morning = c == "on"; }   // eink-ha-os#330
   else if (key == "returnHome") { std::string c = std::to_string(idleMinutes(set.returnHome)); ch = stepList({"0", "1", "5", "15"}, c); if (ch) set.returnHome = c == "0" ? "never" : c; }
   else if (key == "standby") { std::string c = std::to_string(idleMinutes(set.standby)); ch = stepList({"0", "10", "30", "60"}, c); if (ch) set.standby = c == "0" ? "never" : c; }
   else if (key == "clock") ch = stepList({"24", "12"}, set.clock);
   else if (key == "interval") { std::string c = std::to_string(set.intervalSec); ch = stepList({"5", "10", "30", "60"}, c); if (ch) set.intervalSec = std::atoi(c.c_str()); }
-  else if (key == "cleanEvery" || key == "fullEvery") { std::string c = std::to_string(set.cleanEvery); ch = stepList({"30", "60", "120"}, c); if (ch) set.cleanEvery = std::atoi(c.c_str()); }   // fullEvery: legacy tile key (#26)
+  else if (key == "cleanEvery" || key == "fullEvery") { std::string c = std::to_string(set.cleanEvery); ch = stepList({"30", "60", "120"}, c); if (ch) set.cleanEvery = std::atoi(c.c_str()); }   // fullEvery: legacy tile key (eink-ha-os#26)
   else if (key == "style") ch = stepList({"classic", "sleek"}, set.style);
   else if (key == "typeface") ch = stepList({"archivo", "bricolage", "fraunces", "geist"}, set.typeface);
   else if (key == "surface") ch = stepList({"dither", "dots"}, set.surface);
@@ -1455,13 +1487,13 @@ void App::Impl::recoveryDone(RecoveryAction a) {
   input();
   if (a == RecoveryAction::Show) { note(recovery.crash ? "CRASH LOOP · reset screen" : "BTN_POWER+BTN_NEXT 5 s · reset screen"); fullRefresh("factory reset?"); return; }
   if (a == RecoveryAction::Reset) { note("BTN_NEXT · FACTORY RESET"); svc.factoryReset(); return; }
-  if (a == RecoveryAction::Press) {   // #258: a short Power press
+  if (a == RecoveryAction::Press) {   // eink-ha-os#258: a short Power press
     if (poweredOff) { note("BTN_POWER · power on (restart)"); board.restart(); return; }
     power();
     return;
   }
   if (a == RecoveryAction::Off) { powerOff(); return; }
-  if (a == RecoveryAction::Restart) {   // #226: the panel says so first (a blocking full refresh), then the touch path
+  if (a == RecoveryAction::Restart) {   // eink-ha-os#226: the panel says so first (a blocking full refresh), then the touch path
     note("BTN_POWER+BTN_PREV 5 s · restart");
     boot(t(S::bootRestarting));
     board.restart();

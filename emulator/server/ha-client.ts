@@ -108,7 +108,7 @@ export class HaSocket {
 
   /**
    * render_template: the first rendered result (string), then unsubscribe (one-shot, like the firmware). With
-   * report_errors HA sends {error, level} events: WARNING ones (e.g. an undefined attribute, #58) come before the
+   * report_errors HA sends {error, level} events: WARNING ones (e.g. an undefined attribute, eink-ha-os#58) come before the
    * result and are passed to onWarning; an ERROR one means no result.
    */
   async renderTemplate(template: string, timeoutMs = 8000, onWarning?: (msg: string) => void): Promise<string> {

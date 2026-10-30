@@ -1,6 +1,6 @@
 // The flashing sequence, independent of the DOM and of Web Serial so it can be tested with a fake loader.
 // Order is enforced here, not in the UI: chip check -> (optional backup) -> verify files -> check partition tables ->
-// write. The backup became optional on 2026-10-26 (Daan, #239): the install never writes NVS or userdata.
+// write. The backup became optional on 2026-10-26 (Daan, eink-ha-os#239): the install never writes NVS or userdata.
 
 import { backupFileName, type FlashReader, looksLikeFlashImage, readFullFlash } from "./backup.ts";
 import { sha256Hex, verifyRelease } from "./checksums.ts";

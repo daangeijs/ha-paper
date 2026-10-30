@@ -1,4 +1,4 @@
-// core/power_profile (#249): the CPU / Wi-Fi profile follows a USB unplug, settled over 2 s.
+// core/power_profile (eink-ha-os#249): the CPU / Wi-Fi profile follows a USB unplug, settled over 2 s.
 #include <unity.h>
 
 #include "core/power_profile.h"
@@ -24,7 +24,7 @@ static void test_usb_unplug_forgets_the_recent_charge() {
   PowerInputs i = battery();
   i.voltage = 4.18;
   i.chargedAgoMin = m.agoMin(5000);
-  TEST_ASSERT_TRUE(powerDecision(i).external);   // pre-#249: still external after the unplug for 30 min
+  TEST_ASSERT_TRUE(powerDecision(i).external);   // pre-eink-ha-os#249: still external after the unplug for 30 min
   m.step(false, false, 6000); // unplugged
   i.chargedAgoMin = m.agoMin(6000);
   TEST_ASSERT_TRUE(i.chargedAgoMin < 0);

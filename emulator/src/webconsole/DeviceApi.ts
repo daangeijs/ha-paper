@@ -12,17 +12,17 @@ import type { ReportStatus } from '../core/haReport.ts';
 import type { SeedReport } from '../core/seed.ts';
 import type { OtaErr } from '../core/otaStatus.ts';
 
-/** GET /api/v1/seed (#89): what the first-link seed filled and dropped. */
+/** GET /api/v1/seed (eink-ha-os#89): what the first-link seed filled and dropped. */
 export type SeedReportView = SeedReport & { dismissed: boolean };
 
 /** GET /api/v1/ha/entities: HA entities the widgets can show (ready: false while the device is still asking HA). */
-/** `areas`: HA's areas in registry order (#127, lightList picker); absent from older firmware. `lists` (#134): climate /
+/** `areas`: HA's areas in registry order (eink-ha-os#127, lightList picker); absent from older firmware. `lists` (eink-ha-os#134): climate /
  *  lights in HA vs what an unpicked zoneList / lightList shows under the display's subscription cap. */
 export type EntityList = { ready: boolean; entities: HaEntity[]; areas?: { id: string; name: string }[]; lists?: EntityLists };
-/** `entities` (#150): entities HA has in the list's domains vs rows sent (at most 800); absent from older firmware. */
+/** `entities` (eink-ha-os#150): entities HA has in the list's domains vs rows sent (at most 800); absent from older firmware. */
 export type EntityLists = { climate: ListCount; lights: ListCount; entities?: ListCount };
 
-/** GET /api/v1/screens/{id}/values (#122). */
+/** GET /api/v1/screens/{id}/values (eink-ha-os#122). */
 export type ScreenValues = { ready: boolean; values: string[] };
 
 export type NetworkInfo = { ssid: string; rssi: number; secure: boolean };
@@ -42,12 +42,12 @@ export type DeviceSnapshot = {
   softAp: boolean;
   wifi: { connected: string | null; saved: string[] };
   networks: NetworkInfo[];
-  /** server: the HA address in use (typed or found). discovered: what mDNS found (#54: "Found on your network" only then). */
+  /** server: the HA address in use (typed or found). discovered: what mDNS found (eink-ha-os#54: "Found on your network" only then). */
   ha: { linked: boolean; revoked: boolean; server: string; user: string; discovered: string[] };
   offline: boolean;
-  /** Tile entities Home Assistant has no value for right now (#86): id → 'unavailable' | 'unknown'. Signed in only. */
+  /** Tile entities Home Assistant has no value for right now (eink-ha-os#86): id → 'unavailable' | 'unknown'. Signed in only. */
   entityGaps: Record<string, 'unavailable' | 'unknown'>;
-  /** Home Assistant's language as the display learned it (get_config, #98); null = not linked or not known yet.
+  /** Home Assistant's language as the display learned it (get_config, eink-ha-os#98); null = not linked or not known yet.
    *  The console follows it while linked, else the browser's language. */
   language: 'en' | 'nl' | null;
   /** Browser session created by "Sign in with Home Assistant". admin false = view-only (HA user who is not an admin). */
@@ -101,10 +101,10 @@ export interface DeviceApi {
   /** POST /api/v1/config/validate. */
   validateConfig(yaml: string): Promise<{ ok: true } | { ok: false; error: string }>;
 
-  /** GET /api/v1/screens/{id}/values (#122): each tile's main value as the display formats it, in widget order
+  /** GET /api/v1/screens/{id}/values (eink-ha-os#122): each tile's main value as the display formats it, in widget order
    *  ('' = no single value). ready: false while the display has not formatted this screen yet (ask again shortly). */
   screenValues(id: string): Promise<ScreenValues>;
-  /** GET /api/v1/screens/{id}/preview.png (#168, #189): the screen as the panel draws it, 800 × 480. Rejects
+  /** GET /api/v1/screens/{id}/preview.png (eink-ha-os#168, eink-ha-os#189): the screen as the panel draws it, 800 × 480. Rejects
    *  ApiError(503) with retryAfter while the display is busy. Absent = this device can't draw one (emulator). */
   screenPreview?(id: string): Promise<Blob>;
 
@@ -122,19 +122,19 @@ export interface DeviceApi {
 
   // ---- diagnostics (GET/DELETE /api/v1/diagnostics) ----
   getDiagnostics(): Promise<Diagnostics>;
-  /** GET /api/v1/status `ha_report` (#32). */
+  /** GET /api/v1/status `ha_report` (eink-ha-os#32). */
   getHaReport(): Promise<ReportStatus>;
   clearDiagnostics(): Promise<void>;
-  /** GET /api/v1/logs (#200): lines after `since`; previous = the boot before this one. */
+  /** GET /api/v1/logs (eink-ha-os#200): lines after `since`; previous = the boot before this one. */
   getLogs(since: number, previous: boolean): Promise<LogsResponse>;
 
-  // ---- seed report (GET/DELETE /api/v1/seed, #89) ----
+  // ---- seed report (GET/DELETE /api/v1/seed, eink-ha-os#89) ----
   /** null = no seed ran on this display (404). */
   getSeedReport(): Promise<SeedReportView | null>;
   dismissSeedReport(): Promise<void>;
 
   // ---- OTA ----
-  /** GET /api/v1/ota (#250: the web console's Updates card). */
+  /** GET /api/v1/ota (eink-ha-os#250: the web console's Updates card). */
   getOta(): Promise<OtaView>;
   otaCheck(): Promise<void>;
   otaInstall(): Promise<void>;
@@ -150,7 +150,7 @@ export type OtaView = {
   installed: string; channel: 'stable' | 'beta'; status: string;
   available: { version: string; size_mb?: number; notes?: string[] } | null;
   last_check: string | null; message: string;
-  /** #250: why the last check failed; null = it did not (or an install failed: message says why) */
+  /** eink-ha-os#250: why the last check failed; null = it did not (or an install failed: message says why) */
   error?: OtaErr | null;
   /** "" = update checks off in this build */
   repo?: string;

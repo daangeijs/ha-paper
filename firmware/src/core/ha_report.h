@@ -1,4 +1,4 @@
-// Device health as Home Assistant entities (#32), a 1:1 port of emulator/src/core/haReport.ts. Pure; checked against
+// Device health as Home Assistant entities (eink-ha-os#32), a 1:1 port of emulator/src/core/haReport.ts. Pure; checked against
 // spec/test-vectors/ha-report.json. Device glue (POST /api/states/<id> with the display's HA key): net/ha_report.cpp.
 #pragma once
 #include <cstdint>
@@ -8,7 +8,7 @@
 namespace x4::ha_report {
 
 constexpr uint32_t kMinGapMs = 60000;    // never two pushes within a minute
-constexpr uint32_t kRetryMs = 10000;     // except one early retry after a network failure (#123)
+constexpr uint32_t kRetryMs = 10000;     // except one early retry after a network failure (eink-ha-os#123)
 constexpr uint32_t kEveryMs = 600000;    // full push every 10 min (HA forgets these states on restart)
 
 struct Health {

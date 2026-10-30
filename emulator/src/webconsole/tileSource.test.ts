@@ -1,4 +1,4 @@
-// Tile source in the screen editor (#191): which tiles read a logical id, the provenance line, the shared warning,
+// Tile source in the screen editor (eink-ha-os#191): which tiles read a logical id, the provenance line, the shared warning,
 // and picks that apply at once (PUT /settings `entities`).
 import { describe, expect, it } from 'vitest';
 import type { Config } from '../core/config.ts';
@@ -21,7 +21,7 @@ function source(st: DeviceSettings, flip = false, q = '') {
   return { v, puts };
 }
 
-describe('tile source (#191)', () => {
+describe('tile source (eink-ha-os#191)', () => {
   it('which logical id a tile reads; tiles with their own entity read none', () => {
     expect(cfg.screens[0].widgets.map(tileLogical)).toEqual(['sensor.solar_power', 'sensor.solar_hourly', null, 'sensor.solar_power']);
     expect(cfg.screens[1].widgets.map(tileLogical)).toEqual(['sensor.energy_prices', 'sensor.energy_prices', 'sensor.home_battery_soc', 'sensor.solar_power']);

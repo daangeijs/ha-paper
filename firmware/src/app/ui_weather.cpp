@@ -1,4 +1,4 @@
-// Weather tile (#318, emulator Device.tsx WeatherTile, text from core/weather.cpp view): the hero row (120 px drawing,
+// Weather tile (eink-ha-os#318, emulator Device.tsx WeatherTile, text from core/weather.cpp view): the hero row (120 px drawing,
 // temperature, condition · feels, high / low / wind / rain on the right) and, full screen (rs 2), the 5-day strip with
 // 44 px drawings, high / low and a rain bar (solid from half the scale, else hatched). Classic: one frame with a 2 px
 // rule; Modern: two surface cards. 1-bit: Ink / Hatch only.

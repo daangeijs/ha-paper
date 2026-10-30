@@ -9,7 +9,7 @@
 - The tile shows "Scene" or "Script", the label (else HA's name) and "Tap to run"; nothing changes on the panel after
   a tap (no state to show). All lights off keeps its lights-on count.
 - Scene tiles are never in `entity_gaps`: a scene is "unknown" in HA until it first runs.
-- The entity list (#150) gives scene and script 30 places each (sensor 370 → 310); a never-run (unknown) scene counts
+- The entity list (eink-ha-os#150) gives scene and script 30 places each (sensor 370 → 310); a never-run (unknown) scene counts
   as pickable, an unavailable one does not.
 - Web console: the palette adds "Scene or script"; the picker lists HA's scenes and scripts after a built-in
   "All lights off" row (which removes the entity again). The label field works like on the other entity tiles.

@@ -1,5 +1,5 @@
 {
-  "_doc": "Today's energy from recorder/statistics_during_period (#308): cases = hourlyStatistics(stats, metersOf(prefs), now, tz) (emulator src/core/energyHourly.ts = firmware EntityAdapter::setHourlyStatistics after setEnergyPrefs, setNow(now/1000)); out = logical id → state kWh and `today` (24 × kWh) for the hourly series. rolls = statsDayRoll after an answer to `stats` at answeredAt (firmware EntityAdapter::rollDay after setNow(now/1000)): roll = ask the recorder again now, out = what the roll emits (every id the answer fed, at 0).",
+  "_doc": "Today's energy from recorder/statistics_during_period (eink-ha-os#308): cases = hourlyStatistics(stats, metersOf(prefs), now, tz) (emulator src/core/energyHourly.ts = firmware EntityAdapter::setHourlyStatistics after setEnergyPrefs, setNow(now/1000)); out = logical id → state kWh and `today` (24 × kWh) for the hourly series. rolls = statsDayRoll after an answer to `stats` at answeredAt (firmware EntityAdapter::rollDay after setNow(now/1000)): roll = ask the recorder again now, out = what the roll emits (every id the answer fed, at 0).",
   "cases": [
     {
       "name": "today-only",

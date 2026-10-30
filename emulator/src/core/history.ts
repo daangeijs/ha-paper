@@ -1,14 +1,17 @@
-// History tile (#264, #265): config rules, time-weighted bucketing from HA statistics or history rows, low/high, axis.
-// Pure; firmware core/history.cpp (#268) must match spec/test-vectors/history.json. Times are epoch ms, `tz` is the
+// History tile (eink-ha-os#264, eink-ha-os#265): config rules, time-weighted bucketing from HA statistics or history rows, low/high, axis.
+// Pure; firmware core/history.cpp (eink-ha-os#268) must match spec/test-vectors/history.json. Times are epoch ms, `tz` is the
 // local UTC offset in minutes at `now` (DST changes inside the window are ignored).
 import { tr, type Lang, type StrKey } from './strings.ts';
 
 export const HISTORY_DOMAINS = ['sensor', 'input_number', 'number'];
 export const HISTORY_AGGS = ['mean', 'max', 'min', 'last', 'change'] as const;
 export type HistoryAgg = (typeof HISTORY_AGGS)[number];
-export const HISTORY_STYLES = ['bars', 'line', 'area', 'step', 'dots', 'auto'] as const;
-/** area: a line with a dithered fill under it; step: a step line (setpoints, prices); dots: one dot per bucket (#304). */
-export type HistoryStyle = 'bars' | 'line' | 'area' | 'step' | 'dots';
+export const HISTORY_STYLES = ['bars', 'line', 'area', 'step', 'dots', 'band', 'auto'] as const;
+/** area: a line with a dithered fill under it; step: a step line (setpoints, prices); dots: one dot per bucket (eink-ha-os#304).
+ *  band (eink-ha-os#304 wave 2): the mean as a line over a dithered min–max band per bucket. */
+export type HistoryStyle = 'bars' | 'line' | 'area' | 'step' | 'dots' | 'band';
+/** `compare` (eink-ha-os#304 wave 2): the same window this long before, drawn behind the tile's own series. */
+export const COMPARES = ['1d', '7d'];
 export const MAX_HISTORY_TILES = 6;
 export const MIN_BARS = 2, MAX_BARS = 96, BARS_PER_COL = 12;
 const MIN = 60_000, HOUR = 60 * MIN, DAY = 24 * HOUR;
@@ -27,7 +30,7 @@ export function parseSpan(v: unknown): number | null {
 
 /** Default bucket for a window on a tile `cs` columns wide: the smallest ladder step that divides the window into at
  *  most 12 × cs bars; else the dividing step with the fewest bars still in 2–96; else null (window needs a bucket).
- *  `minMs`: the data's own step (a forecast's hour or day, #283); shorter steps are skipped. */
+ *  `minMs`: the data's own step (a forecast's hour or day, eink-ha-os#283); shorter steps are skipped. */
 export function defaultBucket(windowMs: number, cs = 1, minMs = 0): number | null {
   const fits = BUCKETS.map((b) => parseSpan(b) as number).filter((b) => b >= minMs && windowMs % b === 0 && windowMs / b >= MIN_BARS && windowMs / b <= MAX_BARS);
   return fits.find((b) => windowMs / b <= BARS_PER_COL * cs) ?? fits[fits.length - 1] ?? null;
@@ -36,7 +39,7 @@ export function defaultBucket(windowMs: number, cs = 1, minMs = 0): number | nul
 const NUM = /^-?\d+(\.\d+)?$/;
 export const numOf = (v: unknown): number | null => (typeof v === 'number' ? v : typeof v === 'string' && NUM.test(v) ? Number(v) : null);
 
-// ---------- source (#283) ----------
+// ---------- source (eink-ha-os#283) ----------
 /** Where the series comes from: the recorder (statistics / history), a list in an attribute of the entity, or a
  *  weather entity's forecast (weather.get_forecasts). Implied by the keys: `attribute` wins, then a weather.* entity. */
 export type HistorySource = 'recorder' | 'attribute' | 'forecast';
@@ -48,12 +51,12 @@ export const SOURCE_KEYS = ['attribute', 'value', 'time', 'ahead', 'forecast', '
 type W = Record<string, string | number | undefined>;
 export const historySource = (w: W): HistorySource =>
   (w.attribute !== undefined ? 'attribute' : String(w.entity ?? '').startsWith('weather.') ? 'forecast' : 'recorder');
-/** Entity domains a history widget accepts for its source (the recorder keeps the #265 list and message). */
+/** Entity domains a history widget accepts for its source (the recorder keeps the eink-ha-os#265 list and message). */
 export const historyDomains = (w: W): string[] => ({ recorder: HISTORY_DOMAINS, attribute: ATTR_DOMAINS, forecast: ['weather'] })[historySource(w)];
 const FIELD = /^[A-Za-z_][A-Za-z0-9_]*$/;
 /** `ahead`: 0 or a span; null = not a valid value. */
 const aheadOf = (v: unknown): number | null => (v === 0 || v === '0' ? 0 : parseSpan(v));
-/** `past` (#307): a recorder entity (HISTORY_DOMAINS) whose history fills the part of the window before now. */
+/** `past` (eink-ha-os#307): a recorder entity (HISTORY_DOMAINS) whose history fills the part of the window before now. */
 const PAST_ID = /^(sensor|input_number|number)\.[a-z0-9_]+$/;
 
 /** A history widget's own rules (entity is checked by the shared domain rule first, historyDomains). null = valid. */
@@ -84,7 +87,10 @@ export function historyError(w: W): string | null {
     if (a === 0 || a >= win) return 'history: past needs ahead shorter than the window';
   }
   if (w.agg !== undefined && !(HISTORY_AGGS as readonly string[]).includes(String(w.agg))) return 'history: agg must be ' + HISTORY_AGGS.join(', ');
-  if (w.style !== undefined && !(HISTORY_STYLES as readonly string[]).includes(String(w.style))) return 'history: style must be bars, line, area, step, dots or auto';
+  if (w.style !== undefined && !(HISTORY_STYLES as readonly string[]).includes(String(w.style))) return 'history: style must be bars, line, area, step, dots, band or auto';
+  if ((w.style === 'band' || w.compare !== undefined) && src !== 'recorder') return 'history: band and compare need a recorder series (no attribute or forecast)';
+  if (w.style === 'band' && (w.agg ?? 'mean') !== 'mean') return 'history: style band needs agg mean';
+  if (w.compare !== undefined && (!COMPARES.includes(String(w.compare)) || (parseSpan(w.compare) as number) < win)) return 'history: compare must be 1d or 7d, at least the window';
   const lo = w.min === undefined ? undefined : numOf(w.min), hi = w.max === undefined ? undefined : numOf(w.max);
   if (lo === null || hi === null) return 'history: min and max must be numbers';
   if (lo !== undefined && hi !== undefined && lo >= hi) return 'history: min must be below max';
@@ -93,22 +99,26 @@ export function historyError(w: W): string | null {
   return null;
 }
 
-/** Where an attribute / forecast series is read (#283). value / time: the entry's fields (a list of plain numbers has
+/** Where an attribute / forecast series is read (eink-ha-os#283). value / time: the entry's fields (a list of plain numbers has
  *  neither); forecast: weather.get_forecasts type, forecast source only. */
 export type SourceSpec = { kind: 'attribute' | 'forecast'; attribute: string; value: string; time: string; forecast?: 'hourly' | 'daily' };
 export type HistorySpec = {
   entity: string; windowMs: number; bucketMs: number; n: number; agg: HistoryAgg; style: HistoryStyle;
   min: number | null; max: number | null;
-  /** #304: a dashed reference line at this value; min / max / last values on the chart. Set only when configured. */
+  /** eink-ha-os#304: a dashed reference line at this value; min / max / last values on the chart. Set only when configured. */
   threshold?: number; labels?: true;
-  /** Part of the window after now (#283): 0 / absent = the bucket holding now is the last one (recorder); > 0 = it
+  /** Part of the window after now (eink-ha-os#283): 0 / absent = the bucket holding now is the last one (recorder); > 0 = it
    *  starts the last `aheadMs` of the window. Only attribute / forecast series; set only for them. */
   aheadMs?: number; source?: SourceSpec;
-  /** #307: a recorder entity drawn before now (the buckets before the one holding now); the source fills the rest,
+  /** eink-ha-os#307: a recorder entity drawn before now (the buckets before the one holding now); the source fills the rest,
    *  drawn lighter. Set only with an attribute / forecast source and 0 < aheadMs < windowMs. */
   past?: string;
+  /** eink-ha-os#304 wave 2 `compare`: the same series this long before (1d / 7d), drawn behind. Recorder only; set when configured. */
+  compareMs?: number;
+  /** A compare series (compareSpec): bucketed at now − shiftMs, so its bucket i is the tile's bucket i that long ago. */
+  shiftMs?: number;
 };
-/** Auto style: a line for means, bars for max / min / last / change (Daan, #264). Other styles as written (#304). */
+/** Auto style: a line for means, bars for max / min / last / change (Daan, eink-ha-os#264). Other styles as written (eink-ha-os#304). */
 export const resolveStyle = (agg: HistoryAgg, style?: unknown): HistoryStyle =>
   (style !== 'auto' && (HISTORY_STYLES as readonly unknown[]).includes(style) ? (style as HistoryStyle) : agg === 'mean' ? 'line' : 'bars');
 /** A validated history widget with every default filled in. */
@@ -120,6 +130,7 @@ export function historySpec(w: W): HistorySpec {
   const out: HistorySpec = { entity: String(w.entity), windowMs, bucketMs, n: windowMs / bucketMs, agg, style: resolveStyle(agg, w.style), min: w.min === undefined ? null : numOf(w.min), max: w.max === undefined ? null : numOf(w.max) };
   if (w.threshold !== undefined) out.threshold = numOf(w.threshold) as number;
   if (w.labels === 'true') out.labels = true;
+  if (w.compare !== undefined) out.compareMs = parseSpan(w.compare) as number;
   if (src === 'recorder') return out;
   // an attribute or forecast series looks ahead by default (a nowcast, a forecast): the whole window from now
   out.aheadMs = w.ahead !== undefined ? (aheadOf(w.ahead) as number) : windowMs;
@@ -128,7 +139,7 @@ export function historySpec(w: W): HistorySpec {
   return out;
 }
 
-// ---------- past and future in one chart (#307) ----------
+// ---------- past and future in one chart (eink-ha-os#307) ----------
 
 /** Buckets before the one holding now: filled from the `past` entity's recorder history. */
 export const pastBuckets = (s: Pick<HistorySpec, 'windowMs' | 'bucketMs' | 'aheadMs'>): number => (s.windowMs - (s.aheadMs ?? 0)) / s.bucketMs;
@@ -146,6 +157,23 @@ export function joinSeries(s: HistorySpec, past: Series | null, ahead: Series | 
   return { start, bucketMs: s.bucketMs, values: Array.from({ length: s.n }, (_, i) => at(i < split ? past : ahead, start + i * s.bucketMs)) };
 }
 
+// ---------- band and compare (eink-ha-os#304 wave 2) ----------
+
+/** A plain recorder series of the tile's entity and buckets (no style extras). */
+const plainSpec = (s: HistorySpec, agg: HistoryAgg): HistorySpec =>
+  ({ entity: s.entity, windowMs: s.windowMs, bucketMs: s.bucketMs, n: s.n, agg, style: 'line', min: null, max: null });
+/** band: the min and the max series of the same buckets (agg min / max), fetched next to the tile's mean. */
+export const bandSpecs = (s: HistorySpec): HistorySpec[] => (s.style === 'band' ? [plainSpec(s, 'min'), plainSpec(s, 'max')] : []);
+/** compare: the tile's series `compareMs` earlier (same agg), bucketed at now − shiftMs. */
+export const compareSpec = (s: HistorySpec): HistorySpec | null => (s.compareMs ? { ...plainSpec(s, s.agg), shiftMs: s.compareMs } : null);
+/** The `now` a series is bucketed at: a compare series runs shiftMs behind. */
+export const seriesNow = (s: Pick<HistorySpec, 'shiftMs'>, now: number): number => now - (s.shiftMs ?? 0);
+/** Every series a tile reads: its own, then past (eink-ha-os#307), band min / max, compare. */
+export function tileSpecs(s: HistorySpec): HistorySpec[] {
+  const c = compareSpec(s);
+  return [s, ...(s.past ? [pastSpec(s)] : []), ...bandSpecs(s), ...(c ? [c] : [])];
+}
+
 // ---------- data source ----------
 
 /** recorder/statistics_during_period `period` for a bucket; null = below 5 min, history rows only. */
@@ -161,7 +189,7 @@ export const bucketStart = (t: number, bucketMs: number, tz: number): number => 
   return Math.floor((t + off) / bucketMs) * bucketMs - off;
 };
 export type SpanOpts = Pick<HistorySpec, 'windowMs' | 'bucketMs' | 'aheadMs'>;
-/** The chart's span: `n` buckets. Without `aheadMs` the last one is open and holds `now`; with it (#283) the bucket
+/** The chart's span: `n` buckets. Without `aheadMs` the last one is open and holds `now`; with it (eink-ha-os#283) the bucket
  *  holding `now` starts the last `aheadMs` of the window (aheadMs = windowMs: the first bucket holds now). */
 export function chartSpan(s: SpanOpts, now: number, tz: number): { start: number; end: number } {
   const b = bucketStart(now, s.bucketMs, tz);
@@ -233,7 +261,7 @@ export function bucketize(points: Point[], o: BucketOpts, now: number, tz: numbe
   }
   return { start, bucketMs: o.bucketMs, values };
 }
-// ---------- attribute / forecast series (#283) ----------
+// ---------- attribute / forecast series (eink-ha-os#283) ----------
 
 const ISO = /^(\d{4})-(\d{2})-(\d{2})(?:[T ](\d{2}):(\d{2})(?::(\d{2})(?:\.\d+)?)?)?(Z|[+-]\d{2}:?\d{2})?$/;
 /** An entry's time → epoch ms: ISO 8601 ("2026-10-26T14:05:00+01:00", "…Z", "2026-10-26 14:05", "2026-10-26"; no
@@ -288,7 +316,7 @@ function firstHeld(pts: Point[], a: number, e: number): number | null {
 // ---------- chart ----------
 
 /** Y range. Bars start from zero (the range always holds 0); other styles auto-range over the data with 10 % padding.
- *  A threshold (#304) counts as data when there is data. A configured min / max replaces its side. No data: 0–1. A
+ *  A threshold (eink-ha-os#304) counts as data when there is data. A configured min / max replaces its side. No data: 0–1. A
  *  flat line: value ± 1. */
 export function yScale(values: (number | null)[], style: HistoryStyle, min: number | null = null, max: number | null = null, threshold: number | null = null): { lo: number; hi: number } {
   const d = values.filter((v): v is number => v !== null);
@@ -327,14 +355,14 @@ export function lowHigh(s: Series, windowMs: number, tz: number, lang: Lang): { 
   return { low: ex(lo), high: ex(hi) };
 }
 
-/** Low / high of one day in n equal buckets from local midnight (the price chart, #260): times "03:00" / "03:15". */
+/** Low / high of one day in n equal buckets from local midnight (the price chart, eink-ha-os#260): times "03:00" / "03:15". */
 export function dayLowHigh(values: (number | null)[], lang: Lang): { low: Extreme; high: Extreme } | null {
   return values.length ? lowHigh({ start: 0, bucketMs: Math.floor(DAY / values.length), values }, DAY, 0, lang) : null;
 }
 
 export type Tick = { x: number; text: string };
 /** X axis labels, x = 0…1 across the chart span. Windows ≤ 3 h: minutes before now ("-60 -30 Now"), and with
- *  `aheadMs` (#283) also after it ("Now +30 +60"), the smallest step with ≤ 5 ticks; ≤ 48 h: round local hours
+ *  `aheadMs` (eink-ha-os#283) also after it ("Now +30 +60"), the smallest step with ≤ 5 ticks; ≤ 48 h: round local hours
  *  ("06 12 18"); longer: each local midnight with the day it starts ("Mo Tu …"). */
 export function axisTicks(s: SpanOpts, now: number, tz: number, lang: Lang): Tick[] {
   const { start, end } = chartSpan(s, now, tz), w = s.windowMs, x = (t: number) => (t - start) / w;

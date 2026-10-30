@@ -1,4 +1,4 @@
-// Port of emulator src/core/history.ts attrSamples (#283) as a streaming scan (#292).
+// Port of emulator src/core/history.ts attrSamples (eink-ha-os#283) as a streaming scan (eink-ha-os#292).
 #include "core/history_series.h"
 
 #include <algorithm>
@@ -112,7 +112,7 @@ void ListScanner::scalar(bool str) {
     return;
   }
   if (depth_ == 1 && succKey_) success_ = !str && !std::strcmp(tok_, "true");
-  if (fields_ && inRow_ && depth_ == L + 1 && !over_ && fkey_[0]) fields_->rowField(fkey_, tok_, tokN_, str);   // #318
+  if (fields_ && inRow_ && depth_ == L + 1 && !over_ && fkey_[0]) fields_->rowField(fkey_, tok_, tokN_, str);   // eink-ha-os#318
   if (inList_ && depth_ == L) {   // a plain entry: one per step from t0
     const double v = over_ ? kNone : numOf(tok_, tokN_, str);
     if (has(v)) push(t0_ + idx_ * step_, v);

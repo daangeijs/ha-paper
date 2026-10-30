@@ -29,7 +29,7 @@ async function site(base: string, version: string, extra: Record<string, string>
   return { fetchFn, asked };
 }
 
-describe("selectable versions (#239)", () => {
+describe("selectable versions (eink-ha-os#239)", () => {
   it("parses versions.json newest first and labels each by its release name", () => {
     const v = parseVersions(LIST);
     expect(v.map((e) => e.version)).toEqual(["0.3.0", "0.2.0-beta.1"]);

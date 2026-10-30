@@ -1,0 +1,10 @@
+{
+  "name": "332c-attr-list-bad-field",
+  "description": "Rule: attribute / title / time are field names (letters, digits, _).",
+  "input": "# HA Paper display config\nversion: 1\nscreens:\n  - id: a\n    widgets:\n      - {type: attrList, entity: sensor.rare_birds_nearby, title: species-name, cs: 2}\n",
+  "expect": {
+    "ok": false,
+    "line": 6,
+    "message": "attrList: title must be a field name (letters, digits, _)"
+  }
+}

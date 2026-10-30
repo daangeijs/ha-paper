@@ -1,11 +1,11 @@
-// Panel preview: what the X4 panel actually shows after partial refreshes (issue #25).
+// Panel preview: what the X4 panel actually shows after partial refreshes (issue eink-ha-os#25).
 //
 // firmware/src/hw/x4_display.cpp: a full refresh draws B/W and then the 4-gray overlay. A partial refresh sends the
 // B/W plane only (2-bit level ≥ 2 → white, else black: gray2 #A8A8A8 → white, gray1 #555 → black) for ONE window:
 // the bounding box of every redrawn region (core/logic.cpp unionRect), x widened to 8 px. If that box covers half the
 // screen or more, the driver does a whole-frame FAST refresh instead, so the whole screen goes B/W.
-// The B/W area only grows until the next full refresh restores 4 gray. A navigation's fast refresh (#197, whole frame)
-// is B/W only since #212 (no gray pass): it leaves the whole screen B/W until the next clean ({ kind: 'fast' }).
+// The B/W area only grows until the next full refresh restores 4 gray. A navigation's fast refresh (eink-ha-os#197, whole frame)
+// is B/W only since eink-ha-os#212 (no gray pass): it leaves the whole screen B/W until the next clean ({ kind: 'fast' }).
 import type { Rect } from './paging.ts';
 
 export const SCREEN_W = 800;
@@ -30,7 +30,7 @@ export function partialWindow(rects: readonly Rect[]): Rect {
   return { x: x0, y: y0, w: x1 - x0, h: y1 - y0 };
 }
 
-// ---------- B/W-only rule (issue #38) ----------
+// ---------- B/W-only rule (issue eink-ha-os#38) ----------
 // A partial refresh thresholds its window to black/white, and every region on this screen can be redrawn by one (data
 // tick, tap, sub-page turn, the minute tick, the night/standby clock). So the screen is drawn in INK and PAPER only:
 // values, text, live bars, separators, the clock. Gray (G1 #555, G2 #A8A8A8) stays only on the boot face (full refresh

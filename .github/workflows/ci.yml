@@ -1,24 +1,27 @@
-# Pull requests (not drafts), merges to main and manual runs: core + emulator tests, device firmware + www.bin build,
-# and the real firmware (env:x4pro code + X4_QEMU seams) in Espressif QEMU: contract suite + OTA/rollback.
-# Cost caps: feature PRs get test-and-build only (the coordinator runs the QEMU suites locally); the QEMU job (contract http +
-# https + OTA, ~16-21 min) runs on each merge to main (newer merges cancel the running one), on a PR labelled
-# `release`, or by hand. No runs on draft PRs, no in-job retries, docs-only changes run nothing.
+# Pull requests into main and release/* (not drafts), pushes to main and manual runs: core + emulator tests, device
+# firmware + www.bin build, and the real firmware (env:x4pro code + X4_QEMU seams) in Espressif QEMU: contract suite
+# + OTA/rollback. Both jobs run on every PR: GitHub-hosted runners are free for public repos, so the old
+# "QEMU only with the release label" gate is gone. A newer push to the same ref cancels the running workflow.
 #
-# Runners: GitHub-hosted ubuntu-24.04 by default; the repo variable CI_RUNNER or the workflow_dispatch input
-# `runner` picks another runs-on label (e.g. a self-hosted runner). .github/actions/host-deps installs the few host
-# packages a minimal runner image lacks.
+# Docs-only changes (docs/**, *.md outside the deviation records) skip the jobs from inside the workflow: the
+# `changes` job decides and the two jobs are skipped by `if:`. A job skipped by `if:` reports success, so
+# `test-and-build` and `qemu-firmware` can be required checks; a workflow-level paths-ignore would leave a required
+# check pending forever on a docs-only PR.
+#
+# Runners: GitHub-hosted ubuntu-24.04. The workflow_dispatch input `runner` (one run) or the repo variable CI_RUNNER
+# picks another runs-on label (e.g. ubuntu-24.04-arm). Never a self-hosted runner: this repo takes fork PRs.
+# .github/actions/host-deps installs the few host packages a minimal runner image lacks.
 name: ci
 on:
   pull_request:
-    types: [opened, synchronize, reopened, ready_for_review, labeled]
-    paths-ignore: ['docs/**', '**/*.md']
+    types: [opened, synchronize, reopened, ready_for_review]
+    branches: [main, 'release/**']
   push:
     branches: [main]
-    paths-ignore: ['docs/**', '**/*.md']
   workflow_dispatch:
     inputs:
       runner:
-        description: 'runs-on label for this run (empty = vars.CI_RUNNER or ubuntu-24.04; e.g. ubuntu-24.04)'
+        description: 'runs-on label for this run (empty = vars.CI_RUNNER or ubuntu-24.04; e.g. ubuntu-24.04-arm)'
         required: false
         default: ''
 permissions:
@@ -29,10 +32,35 @@ concurrency:
 # Node version: .node-version (24; emulator/server/*.ts and scripts/*.ts run directly with `node`, native type
 # stripping needs Node ≥ 23.6). Python tools: firmware/requirements.txt (exact pins, same file developers install).
 jobs:
+  # code=false when every changed file is docs (docs/**, *.md); deviation records count as code (make test checks the
+  # DEVIATIONS.md index). Manual runs and anything it can't diff run everything.
+  changes:
+    if: github.event_name != 'pull_request' || !github.event.pull_request.draft
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    outputs:
+      code: ${{ steps.diff.outputs.code }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with: { fetch-depth: 0 }
+      - id: diff
+        env:
+          BASE: ${{ github.event_name == 'pull_request' && github.event.pull_request.base.sha || github.event.before }}
+        run: |
+          code=true
+          if [ "$GITHUB_EVENT_NAME" != workflow_dispatch ] && [ -n "$BASE" ] && git cat-file -e "$BASE^{commit}" 2>/dev/null; then
+            files=$(git diff --name-only "$BASE" "$GITHUB_SHA")
+            if [ -n "$files" ] && ! printf '%s\n' "$files" | grep -qvE '^docs/|\.md$' \
+                && ! printf '%s\n' "$files" | grep -qE '(^|/)deviations/|DEVIATIONS\.md$'; then
+              code=false
+            fi
+          fi
+          echo "code=$code" | tee -a "$GITHUB_OUTPUT"
+
   test-and-build:
-    # Not on draft PRs (builder WIP pushes) and not again when a label is added (same commit, already tested).
-    if: github.event_name != 'pull_request' || (!github.event.pull_request.draft && github.event.action != 'labeled')
-    runs-on: ${{ (github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name != github.repository) && 'ubuntu-24.04' || inputs.runner || vars.CI_RUNNER || 'ubuntu-24.04' }}
+    needs: changes
+    if: needs.changes.outputs.code == 'true'
+    runs-on: ${{ inputs.runner || vars.CI_RUNNER || 'ubuntu-24.04' }}
     timeout-minutes: 15
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -57,7 +85,7 @@ jobs:
       - name: Emulator lint (Biome)
         run: cd emulator && npm run lint
       # The committed fonts come from the arm64 reference rasteriser; x86_64 runners differ in a few edge pixels, so
-      # drift is reported (artifact below) but does not fail the build.
+      # drift is reported (artifact below) but does not fail the build. On ubuntu-24.04-arm it could fail hard again.
       - name: Generated fonts + icons match their generators (firmware/src/app/gen)
         id: gen
         continue-on-error: true
@@ -100,11 +128,11 @@ jobs:
           retention-days: 3
 
   qemu-firmware:
-    # On every merge to main (a newer merge cancels the running one), a PR labelled `release`, or by hand.
-    # Feature PRs are gated by the coordinator's local QEMU runs.
-    if: github.event_name != 'pull_request' || (!github.event.pull_request.draft && contains(github.event.pull_request.labels.*.name, 'release') && (github.event.action != 'labeled' || github.event.label.name == 'release'))
-    runs-on: ${{ (github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name != github.repository) && 'ubuntu-24.04' || inputs.runner || vars.CI_RUNNER || 'ubuntu-24.04' }}
-    timeout-minutes: 100   # setup ~3 + http 35 + https 35 + OTA 20 (#193, 2026-10-26)
+    # Every non-draft PR, every push to main, and by hand.
+    needs: changes
+    if: needs.changes.outputs.code == 'true'
+    runs-on: ${{ inputs.runner || vars.CI_RUNNER || 'ubuntu-24.04' }}
+    timeout-minutes: 100   # setup ~3 + http 35 + https 35 + OTA 20 (eink-ha-os#193)
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with: { submodules: recursive }
@@ -125,7 +153,8 @@ jobs:
           key: esp-qemu-${{ runner.os }}-${{ hashFiles('sim/qemu/run.sh') }}
       - run: pip install -r firmware/requirements.txt
       - run: cd emulator && npm ci
-      # timeouts ~2× the slowest runs seen on this runner (#193): http 13.4 min, https 11.3 min (Oct 26, 88 tests)
+      # timeouts ~2× the slowest runs seen on a self-hosted runner (eink-ha-os#193): http 13.4 min, https 11.3 min (88
+      # tests); recheck on the hosted runners after the first runs
       - name: Contract suite against the QEMU firmware (OAuth2 + PKCE + WebSocket through the fake HA)
         timeout-minutes: 35
         run: make qemu-contract PIO=pio

@@ -1,4 +1,4 @@
-// core/power_trail (#225): what the previous boot was doing when the X4 Pro lost power, and when the marker is written.
+// core/power_trail (eink-ha-os#225): what the previous boot was doing when the X4 Pro lost power, and when the marker is written.
 #include <unity.h>
 
 #include "core/phases.h"
@@ -18,7 +18,7 @@ static void test_poweron_after_running_is_lost_awake() {
   TEST_ASSERT_TRUE(verdict(kAwake, "POWERON") == Verdict::LostAwake);
 }
 
-// #258: turned off by a Power hold, then switched on again: asked for, not a loss
+// eink-ha-os#258: turned off by a Power hold, then switched on again: asked for, not a loss
 static void test_poweron_after_off_is_not_a_loss() {
   const std::string t = append(append(kAwake, keyLine(9000, 4100, false)), offLine(11200));
   TEST_ASSERT_EQUAL_STRING("off 11200", lastLine(t).c_str());
@@ -50,7 +50,7 @@ static void test_boot_marks_awake_once() {
   TEST_ASSERT_EQUAL_STRING("sleep ?", sleepMarker(nullptr).c_str());
 }
 
-// Power key stages (#225): which stage the board reached before a POWERON tells the hardware path from the load spike
+// Power key stages (eink-ha-os#225): which stage the board reached before a POWERON tells the hardware path from the load spike
 static void test_key_stages_are_lost_awake() {
   std::string t = awakeWrite("");
   t = append(t, keyLine(123456, 3950, false));
@@ -76,10 +76,10 @@ static void test_trail_is_capped() {
   TEST_ASSERT_EQUAL_STRING("keyup 68", all.front().c_str());
   TEST_ASSERT_EQUAL_STRING("keyup 99", all.back().c_str());
   TEST_ASSERT_EQUAL_STRING("", lastLine("").c_str());
-  TEST_ASSERT_EQUAL_STRING("sleep standby", lastLine("sleep standby").c_str());   // pre-#225 single marker
+  TEST_ASSERT_EQUAL_STRING("sleep standby", lastLine("sleep standby").c_str());   // pre-eink-ha-os#225 single marker
 }
 
-// ---------- awake phases (#327, core/phases.h) ----------
+// ---------- awake phases (eink-ha-os#327, core/phases.h) ----------
 static void test_phases_cut_in_order() {
   x4::phases::Marks m;
   m.bootMs = 800; m.wifiMs = 2300; m.haMs = 4500; m.drawAtHaMs = 1500;

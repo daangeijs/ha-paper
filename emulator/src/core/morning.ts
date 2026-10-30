@@ -1,4 +1,4 @@
-// Good morning page (#330): the first wake after Quiet hours end shows today's weather, events and bins on one page for
+// Good morning page (eink-ha-os#330): the first wake after Quiet hours end shows today's weather, events and bins on one page for
 // MORNING_MS; one press (key, tap, swipe) or the timeout hands over to the start page. Built from the data the tiles
 // already keep (weather forecast, agenda events, bin sensors): no fetch of its own. A row without a source is left out.
 // Pure; firmware core/morning.cpp must match spec/test-vectors/morning.json.
@@ -40,7 +40,7 @@ export function morningStep(s: MorningState, i: MorningTick): MorningStep {
 export const morningUp = (s: MorningState, now: number): boolean => s.until !== 0 && now < s.until;
 
 // ---------- what ----------
-/** The tiles the page reads: the quiet face's Tomorrow row sources (#328, quiet.ts quietSources). */
+/** The tiles the page reads: the quiet face's Tomorrow row sources (eink-ha-os#328, quiet.ts quietSources). */
 export const morningSources = quietSources;
 
 export type MorningIn = {

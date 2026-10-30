@@ -1,4 +1,4 @@
-// The 12 weather drawings (#318), one source for the emulator (SVG) and the firmware bitmaps: `npm run vectors` writes
+// The 12 weather drawings (eink-ha-os#318), one source for the emulator (SVG) and the firmware bitmaps: `npm run vectors` writes
 // firmware/assets/weather-icons.json, tools/icongen.py rasterises it at 44 px (strip) and 120 px (hero).
 // 48-unit square; layers in order: fill (ink), stroke (ink, round caps / joins), erase (paper: the shape filled, and
 // stroked `w` wide, so a cloud in front of the sun keeps a gap). Stroke widths are for the 44 px size; the hero draws

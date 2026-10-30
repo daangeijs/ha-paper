@@ -12,6 +12,6 @@ class WebServer {
 };
 
 WebServer& webServer();
-void setRemoteInput(Board* board);   // POST /api/v1/debug/input pushes into board->pushInput() (#214)
+void setRemoteInput(Board* board);   // POST /api/v1/debug/input pushes into board->pushInput() (eink-ha-os#214)
 
 }  // namespace x4::net

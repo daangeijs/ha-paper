@@ -1,4 +1,4 @@
-// Guest Wi-Fi tile (#329, core/guestWifi.ts): the QR code in its white quiet zone, the network and password in large
+// Guest Wi-Fi tile (eink-ha-os#329, core/guestWifi.ts): the QR code in its white quiet zone, the network and password in large
 // type. Positions come from guestLayout (tile-relative, the 2 px Classic border included), so the firmware's
 // app/ui_guest.cpp draws the same geometry. Pure black / white modules, integer px per module, no smoothing.
 

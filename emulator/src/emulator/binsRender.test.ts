@@ -1,4 +1,4 @@
-// Bin day tile (#317): demo bin sensors (data.ts DEMO_BINS) through the display, both looks, the console editor.
+// Bin day tile (eink-ha-os#317): demo bin sensors (data.ts DEMO_BINS) through the display, both looks, the console editor.
 import { describe, expect, it } from 'vitest';
 import { renderToString } from 'react-dom/server';
 import { Emulator, type EmuState } from './Emulator.tsx';
@@ -20,7 +20,7 @@ function at(hour: number, look: 'classic' | 'geist', lang: 'en' | 'nl' = 'en') {
   return { h: h.slice(h.indexOf('data-x4-screen')), vals: e.tileValues('bins')! };
 }
 
-describe('bins tile renders (#317)', () => {
+describe('bins tile renders (eink-ha-os#317)', () => {
   for (const look of ['classic', 'geist'] as const) it(look + ': tonight from 17:00, tomorrow before, 1-wide, no sensors', () => {
     const eve = at(19, look);
     expect(eve.h).toContain('data-x4-pill'); expect(eve.h).toContain('Tonight'); expect(eve.h).toContain('put out tonight');
@@ -32,7 +32,7 @@ describe('bins tile renders (#317)', () => {
   });
 });
 
-describe('bins console editor (#317)', () => {
+describe('bins console editor (eink-ha-os#317)', () => {
   it('lists likely bins first, ticks, names, unticks', () => {
     const rows = binRows(HA_ENTITIES, { type: 'bins' }, '');
     expect(rows.slice(0, 4).map((r) => r.id)).toEqual(['sensor.afval_papier', 'sensor.afval_pmd', 'sensor.waste_gft', 'sensor.waste_restafval']);

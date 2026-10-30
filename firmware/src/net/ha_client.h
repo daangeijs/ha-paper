@@ -1,7 +1,7 @@
 // Home Assistant WebSocket client (net task). Auth → subscribe_entities (filtered, chunked) +
 // energy/get_prefs + area registry + climate/light discovery → EntityStore (via Hub::entityOut).
 // First connection without /screens.yaml (Hub::seedPending): one more render_template (core seedTemplate()), then
-// core/seed builds the screens from what this HA has and DeviceServices::applyConfig saves them (#23).
+// core/seed builds the screens from what this HA has and DeviceServices::applyConfig saves them (eink-ha-os#23).
 //
 // Every HA entity goes through core/entity_map (EntityAdapter) first: Energy dashboard sources, device-discovered
 // power/battery sensors, recorder statistics (today / hourly) and the settings `entities` overrides become the logical
@@ -37,32 +37,35 @@ class HaClient : private WsStream {
   void stop();                       // unlink / factory reset
   // Close the WebSocket so a second TLS session gets its heap; reconnects on the next loop(). False: nothing open.
   bool yieldTls();
-  // Internal RAM under the floor (#248): close the WebSocket and stay off for waitMs (the TLS guard then decides).
+  // Internal RAM under the floor (eink-ha-os#248): close the WebSocket and stay off for waitMs (the TLS guard then decides).
   bool shedHeap(uint32_t waitMs);
   void callService(const std::string& domain, const std::string& service, const std::string& jsonData);
   void setConfigEntities(const std::set<std::string>& ids, const LightSubs& lights);   // from the active config
   void setEntityOverrides(const std::map<std::string, std::string>& o);   // settings `entities` (net task)
-  void setPresenceEntity(const std::string& id);   // #331 settings emptyHouse: watched with the config ("" = none, net task)
+  void setPresenceEntity(const std::string& id);   // eink-ha-os#331 settings emptyHouse: watched with the config ("" = none, net task)
   bool ready() const { return state_ == St::Ready; }
   // One render_template listing pickable entities (GET /api/v1/ha/entities) → hub().haEntities. Net task.
   void requestEntityList();
   // Access token for the current link (refreshing if needed). Blocking. "" if unavailable.
   std::string accessToken(bool* revoked = nullptr);
-  // History tiles of the config (#269); active = on the current app's screens, the only ones fetched. Net task.
+  // History tiles of the config (eink-ha-os#269); active = on the current app's screens, the only ones fetched. Net task.
   void setHistoryTiles(const std::vector<hist::Fetcher::Want>& want, bool configChanged);
-  // Weather tiles of the config (#318): their entities' forecasts, kept in RTC memory across deep sleep. Net task.
+  // Weather tiles of the config (eink-ha-os#318): their entities' forecasts, kept in RTC memory across deep sleep. Net task.
   void setWeatherTiles(const std::vector<std::string>& entities);
-  // Calendar sets of the config's agenda / next tiles (#316, agenda::keyOf). Net task.
+  // Calendar sets of the config's agenda / next tiles (eink-ha-os#316, agenda::keyOf). Net task.
   void setAgendaTiles(const std::vector<std::string>& keys);
+  // List tiles of the config (eink-ha-os#332, alist::attrKeys): their attribute kept capped per entity. Net task.
+  void setListTiles(const std::vector<std::pair<std::string, std::string>>& keys);
 
  private:
+  void askAttrsAgain(const std::vector<std::pair<std::string, std::string>>& keys, const char* tag);   // eink-ha-os#292 / eink-ha-os#332
   enum class St : uint8_t { Idle, Connecting, AuthWait, Ready, Backoff, Revoked };
   void connect();
   void onMessage(const std::string& msg);
   void onReady();
   void subscribeAll();
   void resubscribeFor(const char* why);   // the watched set may have changed: check it on the next loop
-  void rediscover();   // discoveredIds_ from the discovery answer + lightSubs_ (#127)
+  void rediscover();   // discoveredIds_ from the discovery answer + lightSubs_ (eink-ha-os#127)
   void handleCompressed(const char* kind, void* obj);   // JsonObject*
   void push(const std::string& id, const EntityValue& v);   // raw HA entity → adapter → store
   void pushOut(const EntityUpdates& u);
@@ -70,11 +73,11 @@ class HaClient : private WsStream {
   void requestStatistics();
   void maybeSeed(bool force = false);   // all seed inputs in (or timed out) → build + save the screens
   void setHaState(int s);   // HaState
-  void setLanguage(const char* haLang);   // get_config `language` → NetStatus.language + userdata /lang (#98)
-  void setCurrency(const char* code);     // get_config `currency` → NetStatus.currency + userdata /currency (#147)
-  void setNumberFormat(const char* nf);   // profile number_format → NetStatus.numberFormat + userdata /numfmt (#110)
+  void setLanguage(const char* haLang);   // get_config `language` → NetStatus.language + userdata /lang (eink-ha-os#98)
+  void setCurrency(const char* code);     // get_config `currency` → NetStatus.currency + userdata /currency (eink-ha-os#147)
+  void setNumberFormat(const char* nf);   // profile number_format → NetStatus.numberFormat + userdata /numfmt (eink-ha-os#110)
   void fail(const char* why);
-  // history answers stream past the message buffer (#269)
+  // history answers stream past the message buffer (eink-ha-os#269)
   bool want(uint32_t id) override;
   void begin(uint32_t id, uint64_t len) override;
   void chunk(const char* p, size_t n) override;
@@ -82,10 +85,10 @@ class HaClient : private WsStream {
   void dropped(uint32_t id, uint64_t len) override;
   void historyLoop();
   void historyPublish();
-  void historyAttr(const std::string& entity);   // #292: feed an attribute tile from the mirror
+  void historyAttr(const std::string& entity);   // eink-ha-os#292: feed an attribute tile from the mirror
   void weatherLoop();
   void weatherPublish();
-  void agendaLoop();                             // #316
+  void agendaLoop();                             // eink-ha-os#316
   void agendaPublish();
 
   St state_ = St::Idle;
@@ -97,15 +100,15 @@ class HaClient : private WsStream {
   bool restartRequested_ = false;
 
   std::set<std::string> configIds_, discoveredIds_;
-  std::string presenceId_;                                         // #331
+  std::string presenceId_;                                         // eink-ha-os#331
   std::vector<std::string> climateIds_;                            // discovery answer, HA order
   std::vector<std::pair<std::string, std::string>> lightAreas_;   // discovery answer: light entity_id, area_id
   LightSubs lightSubs_;
   std::vector<uint32_t> entitySubs_;   // subscription ids of subscribe_entities chunks
-  std::set<uint32_t> idRegistry_;      // pending config/entity_registry/get_entries (display_precision, #85)
+  std::set<uint32_t> idRegistry_;      // pending config/entity_registry/get_entries (display_precision, eink-ha-os#85)
   uint32_t idPrefs_ = 0, idAreas_ = 0, idTemplate_ = 0, idUser_ = 0, idDevices_ = 0, idStats_ = 0, idList_ = 0, idConfig_ = 0, idUserData_ = 0;
   uint32_t lastStatsMs_ = 0, lastDayCheckMs_ = 0;
-  // first-run seed (#23): template answer + energy prefs; device discovery must be done (idDevices_ == 0)
+  // first-run seed (eink-ha-os#23): template answer + energy prefs; device discovery must be done (idDevices_ == 0)
   uint32_t idSeed_ = 0, seedAskMs_ = 0;
   uint32_t listFree_ = 0, listLargest_ = 0;   // internal heap when the entity list was asked (log only)
   uint32_t listAskMs_ = 0;
@@ -114,15 +117,15 @@ class HaClient : private WsStream {
   EntityAdapter adapter_;
   bool resubscribe_ = false;
   const char* resubWhy_ = "connect";
-  std::set<std::string> subscribed_;   // what entitySubs_ cover (#81: an unchanged set is not sent again)
+  std::set<std::string> subscribed_;   // what entitySubs_ cover (eink-ha-os#81: an unchanged set is not sent again)
   std::vector<std::string> outbox_;              // service calls queued while offline (dropped after 30 s)
   uint32_t outboxMs_ = 0;
   hist::Fetcher* hist_ = nullptr;   // PSRAM, made with the first history tile
   uint32_t histLow0_ = 0;           // internal low-water when an answer began (HEAP log)
   bool histInfo_ = false;           // tile states changed: refresh Hub::historyInfo
-  wx::Fetcher* wx_ = nullptr;       // #318: PSRAM, made with the first weather tile
+  wx::Fetcher* wx_ = nullptr;       // eink-ha-os#318: PSRAM, made with the first weather tile
   bool streamWx_ = false;           // the answer streaming now is a forecast
-  agenda::Fetcher* agenda_ = nullptr;   // PSRAM, made with the first agenda / next tile (#316)
+  agenda::Fetcher* agenda_ = nullptr;   // PSRAM, made with the first agenda / next tile (eink-ha-os#316)
   bool agStream_ = false;               // the answer streaming now is a calendar.get_events one
 };
 

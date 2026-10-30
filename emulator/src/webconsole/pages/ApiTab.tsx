@@ -1,4 +1,4 @@
-// Advanced › API (#191): tokens on top (create, list, revoke), the OpenAPI description and the endpoints below.
+// Advanced › API (eink-ha-os#191): tokens on top (create, list, revoke), the OpenAPI description and the endpoints below.
 import type { ConsoleView } from '../useConsole.ts';
 
 export function ApiTab({ v }: { v: ConsoleView }) {

@@ -1,4 +1,4 @@
-// First-run screens from the user's own Home Assistant (#23). Port of emulator/src/core/seed.ts (rules there);
+// First-run screens from the user's own Home Assistant (eink-ha-os#23). Port of emulator/src/core/seed.ts (rules there);
 // parity: spec/test-vectors/seed.json. Runs once on the first link when userdata has no /screens.yaml
 // (net/ha_client.cpp builds the snapshot, net/device_services applies + saves the result).
 #pragma once
@@ -11,13 +11,13 @@ namespace x4 {
 
 // The render_template the first link sends (SEED_TEMPLATE in the emulator; spec/test-vectors/seed.json `template`).
 const char* seedTemplate();
-// The template answer is a JSON object. Anything else = the seed failed: save nothing, retry on the next link (#58).
+// The template answer is a JSON object. Anything else = the seed failed: save nothing, retry on the next link (eink-ha-os#58).
 bool seedAnswerOk(const std::string& text);
 // render_template event with report_errors: HA sends {error, level: "WARNING"} for e.g. an undefined attribute and
 // keeps rendering; the result (or an ERROR) follows. level nullptr = absent.
 bool templateEventFinal(bool hasResult, const char* level);
 
-// Seed report (#89): per tile (SEED_TILES in the emulator) the entity + rule that filled it, or why it was dropped.
+// Seed report (eink-ha-os#89): per tile (SEED_TILES in the emulator) the entity + rule that filled it, or why it was dropped.
 // rule: id | energy | device | name | area | grid | found. why: no_energy | no_meter | no_sensor | none | few_rooms |
 // overview_full. Saved as /seed.json on userdata, served by GET /api/v1/seed.
 struct SeedTile { std::string tile, screen, entity, rule, why; };
@@ -31,7 +31,7 @@ std::string seedReportJson(const SeedReport& r);
 // snapshot JSON: {"energy": <energy/get_prefs> | null, "live": [logical ids with a source: price, routes],
 //                 "areas": [[id, name]], "climate": [[id, name, area, state] | id], "vehicles": [ids], "lights": [[id, area, "g" | ""]],
 //                 "sensors": [[id, class, area, name, unit]], "weather": [ids]}
-// Every stat / gauge entity it writes is one of `sensors` (#82). Unparseable or empty → clock-only overview + tail.
+// Every stat / gauge entity it writes is one of `sensors` (eink-ha-os#82). Unparseable or empty → clock-only overview + tail.
 Config seedConfig(const std::string& snapshotJson, const std::vector<Screen>& tail, SeedReport* report = nullptr);
 struct Json;
 Config seedConfig(const Json& snapshot, const std::vector<Screen>& tail, SeedReport* report = nullptr);

@@ -1,4 +1,4 @@
-// The fake HA's "Dutch house" (#82), shaped like the first real HA the display met (2026-10-16, ~800 entities):
+// The fake HA's "Dutch house" (eink-ha-os#82), shaped like the first real HA the display met (2026-10-16, ~800 entities):
 // a SolarEdge inverter, a HomeWizard P1 meter, an Anker Solix battery (SOC %, and a kWh capacity that is not a
 // charge), tado zones, a Buienradar temperature, Dutch friendly names, plus the sensors that look alike: phone and
 // Zigbee batteries, P1 per-phase power, Wi-Fi strength and tado heating in %, a NAS, plugs. No logical ids
@@ -16,7 +16,7 @@ const C = (name: string) => ({ friendly_name: name, unit_of_measurement: '°C', 
 const pct = (name: string, dc?: string) => ({ friendly_name: name, unit_of_measurement: '%', ...(dc ? { device_class: dc } : {}) });
 
 export const DUTCH_ENTITIES: Raw[] = [
-  // Anker Solix (home battery): SOC in %, capacity in kWh (the gauge got this one before #82)
+  // Anker Solix (home battery): SOC in %, capacity in kWh (the gauge got this one before eink-ha-os#82)
   { id: 'sensor.anker_solix_battery_capacity', state: '1.6', attrs: { friendly_name: 'Batterijcapaciteit', unit_of_measurement: 'kWh', device_class: 'energy_storage' }, area: 'meterkast' },
   { id: 'sensor.anker_solix_battery_power', state: '-220', attrs: W('Batterijvermogen'), area: 'meterkast' },
   { id: 'sensor.anker_solix_charged_energy', state: '412.8', attrs: kWh('Batterij geladen'), area: 'meterkast' },

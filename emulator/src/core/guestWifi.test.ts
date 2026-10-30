@@ -1,9 +1,9 @@
-// Guest Wi-Fi tile (#329): payload escaping, the screens.yaml field codec, states, QR capacity, layout.
+// Guest Wi-Fi tile (eink-ha-os#329): payload escaping, the screens.yaml field codec, states, QR capacity, layout.
 import { describe, expect, it } from 'vitest';
 import { fieldDecode, fieldEncode, guestError, guestLayout, guestPayload, guestQr, guestView, wifiEscape } from './guestWifi.ts';
 import { parseYaml, toYaml } from './config.ts';
 
-describe('guest Wi-Fi payload (#329)', () => {
+describe('guest Wi-Fi payload (eink-ha-os#329)', () => {
   it('escapes \\ ; , : " in the name and password', () => {
     expect(wifiEscape('a\\b;c,d:e"f')).toBe('a\\\\b\\;c\\,d\\:e\\"f');
     expect(guestPayload('Cafe Guest', 'p;a:ss', 'WPA', false)).toBe('WIFI:T:WPA;S:Cafe Guest;P:p\\;a\\:ss;;');

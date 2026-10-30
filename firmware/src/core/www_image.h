@@ -1,4 +1,4 @@
-// Web console update over the air (#350): the `www` partition (partitions.csv, www.bin) rewritten in place.
+// Web console update over the air (eink-ha-os#350): the `www` partition (partitions.csv, www.bin) rewritten in place.
 // Pure: bounds, the sequential erase-then-write order, the sha256 verdict, the console version file and the
 // manifest.json `www` entry. net/www_ota.cpp drives it with esp_partition_* and mbedtls.
 #pragma once
@@ -12,7 +12,7 @@ constexpr uint32_t kStart = 0xC90000;   // partitions.csv `www`
 constexpr uint32_t kEnd = 0xFD0000;     // userdata starts here; nothing at or past it is ever written
 // One 4 KB sector at a time: erase, then one aligned 4 KB write from an internal staging buffer, like Arduino Update
 // (the firmware upload). The first device run erased 64 KB blocks and wrote TCP-sized chunks straight from the
-// pbuf: three uploads failed with "flash write failed" and one stalled (#350, 0.2.0-beta.5.n7).
+// pbuf: three uploads failed with "flash write failed" and one stalled (eink-ha-os#350, 0.2.0-beta.5.n7).
 constexpr uint32_t kErase = 0x1000;     // sector (partition offset and size are multiples of it)
 
 // Partition (flash address, size) and the image size: the partition must lie inside [kStart, kEnd) and the image

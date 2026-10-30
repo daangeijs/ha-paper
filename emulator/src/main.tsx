@@ -1,11 +1,11 @@
 // Emulator entry. Views: ?view=emulator (default) | topbar | halink (the two static design artboards).
 // Optional query: ?state=installed (boot straight to Home), ?look=classic|archivo|bricolage|fraunces|geist, ?battery=15, ?body=White, ?name=…, ?lang=nl
-// (Home Assistant's language, #98)
+// (Home Assistant's language, eink-ha-os#98)
 import { createRoot } from 'react-dom/client';
 import './styles.css';
 import './fonts/plex.css';
 import './fonts/dashboard.css';  // the firmware's own TTFs (firmware/assets/fonts)
-import './plain-zero.css';   // generated: Atkinson's zero without the slash, as on the device (issue #28)
+import './plain-zero.css';   // generated: Atkinson's zero without the slash, as on the device (issue eink-ha-os#28)
 import { Emulator } from './emulator/Emulator.tsx';
 import { LOOKS, type Look } from './core/skin.ts';
 import { TopBarArtboard } from './artboards/TopBarArtboard.tsx';

@@ -4,7 +4,7 @@
 
 namespace x4::net {
 
-// POSIX TZ the clock uses (#147): the `tz` setting (userdata /tz; before #147 NVS x4dev/tz, read only) wins, else
+// POSIX TZ the clock uses (eink-ha-os#147): the `tz` setting (userdata /tz; before eink-ha-os#147 NVS x4dev/tz, read only) wins, else
 // Home Assistant's time_zone (userdata /tz_ha, core/locale.h table), else Europe/Amsterdam.
 std::string timezone();
 std::string timezoneSetting();   // PUT /api/v1/settings {"tz": …}: "" = follow Home Assistant, a zone name or POSIX

@@ -1,4 +1,4 @@
-// Weather tile (#318), a port of emulator src/core/weather.ts (vectors spec/test-vectors/weather.json): HA condition →
+// Weather tile (eink-ha-os#318), a port of emulator src/core/weather.ts (vectors spec/test-vectors/weather.json): HA condition →
 // drawing, weather.get_forecasts lists → compact entries (streamed through hist::ListScanner, no DOM), and the tile's
 // text. Plus the fetch plan (daily + hourly per weather entity, asked again after an hour) and the RTC_NOINIT record
 // that carries the forecasts across deep sleep, so a glance wake does not ask again. Pure; the net task drives Fetcher

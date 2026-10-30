@@ -1,4 +1,4 @@
-// Tile source in the screen editor (#191; replaces the Data sources tab, #24). A tile reads either its own HA entity
+// Tile source in the screen editor (eink-ha-os#191; replaces the Data sources tab, eink-ha-os#24). A tile reads either its own HA entity
 // (`entity`, picked in the editor, saved with Push) or a logical id (core/entityMap.ts) that the display maps to an HA
 // entity: auto from the Energy dashboard, or an override saved right away with PUT /settings `entities`.
 // Logical ids stay hidden: the editor shows the HA entity, where it comes from, and which other tiles share it.

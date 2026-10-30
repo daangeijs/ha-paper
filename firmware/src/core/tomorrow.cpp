@@ -1,4 +1,4 @@
-// Port of emulator src/core/quiet.ts quietSources / quietTomorrow (#328).
+// Port of emulator src/core/quiet.ts quietSources / quietTomorrow (eink-ha-os#328).
 #include "core/tomorrow.h"
 
 #include "core/bins.h"

@@ -1,4 +1,4 @@
-// core/morning (#330) against spec/test-vectors/morning.json (emulator src/core/morning.ts).
+// core/morning (eink-ha-os#330) against spec/test-vectors/morning.json (emulator src/core/morning.ts).
 #include <unity.h>
 #include <cmath>
 #include <cstring>

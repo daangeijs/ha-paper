@@ -1,5 +1,5 @@
 {
-  "_doc": "Device log ring (GET /api/v1/logs, #200): emulator src/core/logs.ts = firmware core/log_ring.{h,cpp}. ops push lines in order into a ring of `cap` bytes (16 + tag + message bytes per line, oldest dropped; tag cut to 15 and message to 239 UTF-8 bytes after redaction; seq from 1; epoch 0 → null). queries: since / level (E|W|I and worse) / tags (case-insensitive) / limit → the response. tail: a ring of tail_cap bytes fed the same lines = the newest lines that fit (on the device the RTC copy is 2048 bytes, boot=previous). redact: in → out.",
+  "_doc": "Device log ring (GET /api/v1/logs, eink-ha-os#200): emulator src/core/logs.ts = firmware core/log_ring.{h,cpp}. ops push lines in order into a ring of `cap` bytes (16 + tag + message bytes per line, oldest dropped; tag cut to 15 and message to 239 UTF-8 bytes after redaction; seq from 1; epoch 0 → null). queries: since / level (E|W|I and worse) / tags (case-insensitive) / limit → the response. tail: a ring of tail_cap bytes fed the same lines = the newest lines that fit (on the device the RTC copy is 2048 bytes, boot=previous). redact: in → out.",
   "cases": [
     {
       "name": "fits: every line kept",

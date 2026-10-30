@@ -5,7 +5,7 @@
 // Where a logical id gets its value, highest priority first:
 //   1. Overrides: settings `entities` {"<logical id>": "<HA entity id>"} (PUT /api/v1/settings). A leading "-" flips
 //      the sign ("-sensor.inverter_battery_power"). The only way to map sensor.living_temperature (no HA convention).
-//      Older settings may still map sensor.x4_route_<id>; route tiles read their own `entity` (#145).
+//      Older settings may still map sensor.x4_route_<id>; route tiles read their own `entity` (eink-ha-os#145).
 //   2. The Energy dashboard (energy/get_prefs):
 //        solar   power ← source.stat_rate (HA ≥ 2025.12 power sensors) or a power sensor on the device of
 //                        stat_energy_from (device discovery template); today ← recorder change of stat_energy_from
@@ -33,7 +33,7 @@ namespace x4 {
 using EntityUpdates = std::vector<std::pair<std::string, EntityValue>>;
 struct Json;
 
-// One energy/get_prefs grid source (#274): legacy flow_from[] / flow_to[] (stat_energy_from / stat_energy_to,
+// One energy/get_prefs grid source (eink-ha-os#274): legacy flow_from[] / flow_to[] (stat_energy_from / stat_energy_to,
 // entity_energy_price) and HA 2025.12+ flat stat_energy_from / stat_energy_to / entity_energy_price /
 // entity_energy_price_export. Legacy first, a meter once, first price wins. = gridFlows() in emulator core/energyPrefs.ts.
 struct GridFlows {
@@ -67,7 +67,7 @@ class EntityAdapter {
   // recorder/statistics_during_period (period "hour", types ["change"], from local midnight) result JSON.
   // Rows outside the local day of setNow() are dropped. Stamps that day for rollDay().
   void setHourlyStatistics(const std::string& json, EntityUpdates& out);
-  // #308: the local day of setNow() differs from the last statistics answer's → every id the statistics fed goes to 0
+  // eink-ha-os#308: the local day of setNow() differs from the last statistics answer's → every id the statistics fed goes to 0
   // (series: 24 zeros) and true: ask the recorder again now. Emulator statsDayRoll (core/energyHourly.ts).
   bool rollDay(EntityUpdates& out);
   std::vector<std::string> statisticIds() const;   // energy meters to ask the recorder about
@@ -80,7 +80,7 @@ class EntityAdapter {
   void ingest(const std::string& haId, const EntityValue& v, EntityUpdates& out);
   // Mapping changed: recompute every logical value from the cached HA states.
   void remapAll(EntityUpdates& out);
-  // HA entity registry display_precision (#85, core/ha_stream registryPrecision): added to the entity's values as
+  // HA entity registry display_precision (eink-ha-os#85, core/ha_stream registryPrecision): added to the entity's values as
   // attribute "display_precision" unless HA sends one itself. Re-emits the entity when its state is known.
   void setPrecision(const std::string& haId, int dp, EntityUpdates& out);
   // Last HA state of every entity seen. HaClient applies subscribe_entities diffs to it (core/ha_stream.h) instead of
@@ -123,7 +123,7 @@ class EntityAdapter {
 // Missing hours (DST, partial data) are filled from the previous hour. Empty when nothing usable.
 std::vector<double> hourlyPrices(const EntityValue& v, int64_t nowEpoch);
 // The same, plus the 96 quarter-hour prices when the source is quarter-hourly (96 numbers, or entries starting at
-// :15/:30/:45); `quarters` empty otherwise. The tiles' "now" is the current quarter (#151), the bars stay hourly.
+// :15/:30/:45); `quarters` empty otherwise. The tiles' "now" is the current quarter (eink-ha-os#151), the bars stay hourly.
 struct PriceSeries { std::vector<double> hourly, quarters; };
 PriceSeries priceSeries(const EntityValue& v, int64_t nowEpoch);
 

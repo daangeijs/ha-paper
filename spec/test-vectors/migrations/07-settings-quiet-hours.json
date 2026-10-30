@@ -1,6 +1,6 @@
 {
   "name": "07-settings-quiet-hours",
-  "description": "Step 1 → 2 (#295): quiet hours replace night mode and the \"Sleep at night\" power mode. New key quiet, appended: the night window when one was set, else the default 23-07 (on for existing installs too). night stays for an OTA rollback. powerSave night becomes glance. A quiet key already there (written by a newer firmware) wins.",
+  "description": "Step 1 → 2 (eink-ha-os#295): quiet hours replace night mode and the \"Sleep at night\" power mode. New key quiet, appended: the night window when one was set, else the default 23-07 (on for existing installs too). night stays for an OTA rollback. powerSave night becomes glance. A quiet key already there (written by a newer firmware) wins.",
   "cases": [
     {
       "name": "night window kept",

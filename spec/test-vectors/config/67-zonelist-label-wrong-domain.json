@@ -1,6 +1,6 @@
 {
   "name": "67-zonelist-label-wrong-domain",
-  "description": "Rule: a zoneList labels item names a climate.* entity (#151).",
+  "description": "Rule: a zoneList labels item names a climate.* entity (eink-ha-os#151).",
   "input": "# HA Paper display config\nversion: 1\nscreens:\n  - id: a\n    widgets:\n      - {type: zoneList, labels: sensor.bathroom=Bathroom}\n",
   "expect": {
     "ok": false,

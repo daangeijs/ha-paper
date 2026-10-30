@@ -1,5 +1,5 @@
 {
-  "description": "Guest Wi-Fi tile (spec/SCHEMA.md guestWifi, #329). payload: guestPayload(ssid, password, security, hidden) = WIFI:T:<sec>;S:<ssid>;P:<pw>;H:true;; with \\ ; , : \" backslash-escaped, no P for nopass, H only when hidden. fields: fieldEncode(value) and fieldDecode back. views: guestView(widget, pwState) (pwState null = the entity has no state). qr: guestQr(text) rows, \"1\" = dark, null = too long for version 6. layout: guestLayout(w, h, cs, rs, n) for n = 21..41 modules and 0 (no code).",
+  "description": "Guest Wi-Fi tile (spec/SCHEMA.md guestWifi, eink-ha-os#329). payload: guestPayload(ssid, password, security, hidden) = WIFI:T:<sec>;S:<ssid>;P:<pw>;H:true;; with \\ ; , : \" backslash-escaped, no P for nopass, H only when hidden. fields: fieldEncode(value) and fieldDecode back. views: guestView(widget, pwState) (pwState null = the entity has no state). qr: guestQr(text) rows, \"1\" = dark, null = too long for version 6. layout: guestLayout(w, h, cs, rs, n) for n = 21..41 modules and 0 (no code).",
   "payload": [
     {
       "ssid": "Harbor Guest",

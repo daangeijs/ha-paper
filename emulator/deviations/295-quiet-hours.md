@@ -1,6 +1,6 @@
 # Quiet hours replace night mode and "Sleep at night" (issue #295)
 
-Daan's decision on #294 (option B). The handoff's night mode (SPEC §8: Display › Night mode, a night face with a big
+Daan's decision on eink-ha-os#294 (option B). The handoff's night mode (SPEC §8: Display › Night mode, a night face with a big
 clock and Inside / Battery / Cheapest frozen at night start, front light off, a key = 60 s peek) and the Phase 3
 power mode "Sleep at night" are one setting now: Settings › Power › **Quiet hours** (`display.quiet`: off / 22–06 /
 23–07 / 00–06, default 23–07). Rules: `src/core/quiet.ts`, vectors `spec/test-vectors/quiet.json`, `power/07-quiet-end.json`,

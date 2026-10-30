@@ -29,22 +29,22 @@ describe('region diff', () => {
 
 describe('refresh policy', () => {
   const base = { reason: 'HA update', sleeping: false, quiet: false, sinceFull: 0, clockKnown: true };
-  it('minute tick redraws only the clock windows (#38); the whole clock tile when the date changes', () => {
+  it('minute tick redraws only the clock windows (eink-ha-os#38); the whole clock tile when the date changes', () => {
     expect(minuteKeys(['t0'], false)).toEqual(['time', 'k0']);
     expect(minuteKeys(['t0', 't3'], true)).toEqual(['time', 'k0', 'k3', 't0', 't3']);
   });
-  it('clock known: partials never force a full; clock unset: CLEAN_CAP (#26)', () => {
+  it('clock known: partials never force a full; clock unset: CLEAN_CAP (eink-ha-os#26)', () => {
     expect(decidePartial(base)).toEqual({ kind: 'partial', sinceFull: 1 });
     expect(decidePartial({ ...base, sinceFull: CLEAN_CAP - 1 })).toEqual({ kind: 'partial', sinceFull: CLEAN_CAP });
     expect(decidePartial({ ...base, sinceFull: CLEAN_CAP - 1, clockKnown: false })).toEqual({ kind: 'clean', reason: 'ghosting limit' });
   });
-  it('no data redraws in standby or on the quiet face; only standby keeps its clock (#295)', () => {
+  it('no data redraws in standby or on the quiet face; only standby keeps its clock (eink-ha-os#295)', () => {
     expect(decidePartial({ ...base, sleeping: true })).toEqual({ kind: 'skip', why: 'standby' });
     expect(decidePartial({ ...base, sleeping: true, reason: 'clock' }).kind).toBe('partial');
     expect(decidePartial({ ...base, quiet: true })).toEqual({ kind: 'skip', why: 'quiet' });
     expect(decidePartial({ ...base, quiet: true, reason: 'clock' })).toEqual({ kind: 'skip', why: 'quiet' });
   });
-  it('navigation: fast, every NAV_CLEAN-th a clean (#197)', () => {
+  it('navigation: fast, every NAV_CLEAN-th a clean (eink-ha-os#197)', () => {
     let st = { navSinceClean: 0, sinceFull: 0, clockKnown: true }; const kinds: string[] = [];
     for (let i = 0; i < 2 * NAV_CLEAN; i++) {
       const d = decideNav(st); kinds.push(d.kind);
@@ -104,7 +104,7 @@ describe('paging', () => {
     expect(stepPage(house, climate, 1, 1)).toEqual(house[0]);
     expect(flatPages(sc, 'home', pagesOf).length).toBe(4);
   });
-  it('list picks (#127): order follows the pick, unknown ids skipped, nothing picked = all', () => {
+  it('list picks (eink-ha-os#127): order follows the pick, unknown ids skipped, nothing picked = all', () => {
     const groups = lightGroupsOf(ROOMS, LIGHT_LIST);
     expect(pickLights(groups, { type: 'lightList' })).toBe(groups);
     expect(pickLights(groups, { type: 'lightList', areas: 'kitchen nowhere living' }).map((g) => g.area)).toEqual(['kitchen', 'living']);
@@ -115,12 +115,12 @@ describe('paging', () => {
     expect(listPages({ type: 'lightList', entities: 'light.office_desk' }, zones, groups)).toBe(1);
     expect(listPages({ type: 'zoneList', entities: 'climate.x' }, zones, groups)).toBe(0);
   });
-  it('list counts (#134): climate first, then lights, the cap in total', () => {
+  it('list counts (eink-ha-os#134): climate first, then lights, the cap in total', () => {
     expect(listCounts(14, 149, 80)).toEqual({ climate: { total: 14, shown: 14 }, lights: { total: 149, shown: 66 } });
     expect(listCounts(90, 5, 80)).toEqual({ climate: { total: 90, shown: 80 }, lights: { total: 5, shown: 0 } });
     expect(listCounts(3, 12)).toEqual({ climate: { total: 3, shown: 3 }, lights: { total: 12, shown: 12 } });
   });
-  it('stat-raw.json is in sync (#161)', () => {
+  it('stat-raw.json is in sync (eink-ha-os#161)', () => {
     expect(JSON.parse(readFileSync(join(import.meta.dirname, '../../../spec/test-vectors/stat-raw.json'), 'utf8'))).toEqual(statRawVectors());
   });
   it('scene-action.json is in sync', () => {
@@ -132,7 +132,7 @@ describe('paging', () => {
   it('grid placement → fixed rects', () => {
     expect(rects(defaultScreens()[0].widgets)[0]).toEqual({ x: 14, y: 72, w: 380, h: 191 });
     expect(rects([{ type: 'lightList', cs: 4, rs: 2 }, { type: 'clock' }])[1]).toBeNull();
-    // Sleek (firmware kSleekGrid, gridSpan rounds the 185.5 px columns): #189 crops the preview with these
+    // Sleek (firmware kSleekGrid, gridSpan rounds the 185.5 px columns): eink-ha-os#189 crops the preview with these
     expect(rects([{ type: 'clock' }, { type: 'bars', cs: 2 }, { type: 'zoneList', rs: 2 }], SLEEK_GRID))
       .toEqual([{ x: 14, y: 66, w: 186, h: 195 }, { x: 210, y: 66, w: 381, h: 195 }, { x: 601, y: 66, w: 185, h: 400 }]);
   });

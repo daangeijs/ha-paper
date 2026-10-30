@@ -55,12 +55,12 @@ int tzMinutesNow() {   // local UTC offset now (no tm_gmtoff on newlib)
   return days * 1440 + (l.tm_hour - u.tm_hour) * 60 + (l.tm_min - u.tm_min);
 }
 
-// Entities the web console can put on a stat / gauge / switch / scene / media (#319) / agenda (#316) widget (core/config.cpp entityDomains) or pick
-// for a zoneList (climate, #127), with the HA area (entity or device) for the lightList picker. At most 800, cut fairly
-// (#150, emulator core/entityList.ts, the fake HA renders it there): per domain a budget of pickable entities first
+// Entities the web console can put on a stat / gauge / switch / scene / media (eink-ha-os#319) / agenda (eink-ha-os#316) widget (core/config.cpp entityDomains) or pick
+// for a zoneList (climate, eink-ha-os#127), with the HA area (entity or device) for the lightList picker. At most 800, cut fairly
+// (eink-ha-os#150, emulator core/entityList.ts, the fake HA renders it there): per domain a budget of pickable entities first
 // (budgets add up to 800), then pickable ones past their budget, then unavailable / unknown ones and sensors that are no
-// reading (no unit, signal strength); a never-run scene is "unknown" and still pickable (#146). A climate / weather row
-// carries its temperature as the state (#161, core/home.cpp statSource).
+// reading (no unit, signal strength); a never-run scene is "unknown" and still pickable (eink-ha-os#146). A climate / weather row
+// carries its temperature as the state (eink-ha-os#161, core/home.cpp statSource).
 // Answer: {"t": entities in these domains, "e": [[id, name, unit, state, area], …]}.
 constexpr int kMaxListed = 800;
 const char* kEntityListTemplate =
@@ -148,7 +148,7 @@ void HaClient::pushOut(const EntityUpdates& u) {
 void HaClient::push(const std::string& id, const EntityValue& v) {
   const time_t now = time(nullptr);
   adapter_.setNow(now > 1700000000 ? static_cast<int64_t>(now) : 0);
-  PsramScope ps;   // a price source's attributes parse into ~16 KB of small blocks (#149)
+  PsramScope ps;   // a price source's attributes parse into ~16 KB of small blocks (eink-ha-os#149)
   EntityUpdates out;
   adapter_.ingest(id, v, out);
   pushOut(out);
@@ -252,6 +252,7 @@ bool HaClient::shedHeap(uint32_t waitMs) {
 }
 
 void HaClient::setConfigEntities(const std::set<std::string>& ids, const LightSubs& lights) {
+  PsramScope ps;   // the config's entity ids and light picks, kept until the next config (eink-ha-os#289)
   if (!(lights == lightSubs_)) {
     lightSubs_ = lights;
     rediscover();
@@ -263,14 +264,15 @@ void HaClient::setConfigEntities(const std::set<std::string>& ids, const LightSu
 }
 
 // Climate first, then the lights lightSubs_ asks for (all, or those of picked areas), kMaxWatched in total. A big
-// house used to lose every light past the cap in HA's entity_id order (#127: 14 climate + 149 lights → 66 lights).
+// house used to lose every light past the cap in HA's entity_id order (eink-ha-os#127: 14 climate + 149 lights → 66 lights).
 void HaClient::rediscover() {
+  PsramScope ps;   // discoveredIds_: up to kMaxWatched ids (eink-ha-os#289)
   std::set<std::string> ids;
   for (auto& c : climateIds_) if (ids.size() < kMaxWatched) ids.insert(c);
   for (auto& l : lightsToWatch(lightAreas_, lightSubs_, kMaxWatched - ids.size())) ids.insert(l);
   {
     std::lock_guard<std::recursive_mutex> l(hub().mu);
-    hub().haLists = listCounts(climateIds_.size(), lightAreas_.size());   // console: "Showing 66 of 149 lights" (#134)
+    hub().haLists = listCounts(climateIds_.size(), lightAreas_.size());   // console: "Showing 66 of 149 lights" (eink-ha-os#134)
   }
   if (ids == discoveredIds_) return;
   discoveredIds_ = std::move(ids);
@@ -410,7 +412,7 @@ void HaClient::loop() {
     // signed: poll() above may have stamped lastRxMs() after `now` was taken (unsigned wrap → false "silent")
     if (static_cast<int32_t>(millis() - ws_.lastRxMs()) > 90000) return fail("silent for 90 s");
     if (resubscribe_) subscribeAll();
-    if (idPrefs_ == 0 && millis() - lastDayCheckMs_ >= 5000) {   // #308: midnight → today's bars restart at 0, ask now
+    if (idPrefs_ == 0 && millis() - lastDayCheckMs_ >= 5000) {   // eink-ha-os#308: midnight → today's bars restart at 0, ask now
       lastDayCheckMs_ = millis();
       const time_t t = time(nullptr);
       adapter_.setNow(t > 1700000000 ? static_cast<int64_t>(t) : 0);
@@ -441,7 +443,7 @@ void HaClient::loop() {
 }
 
 void HaClient::requestEntityList() {
-  // an answer lost on the way (bad JSON, #57) must not block the list until the next reconnect: re-ask after 30 s
+  // an answer lost on the way (bad JSON, eink-ha-os#57) must not block the list until the next reconnect: re-ask after 30 s
   if (state_ != St::Ready || (idList_ && millis() - listAskMs_ < 30000)) {
     if (state_ != St::Ready) { std::lock_guard<std::recursive_mutex> l(hub().mu); hub().haEntitiesAskMs = 0; }
     return;
@@ -470,7 +472,7 @@ void HaClient::maybeSeed(bool force) {
     LOG_WRN("HA", "seed: no answer from HA in %u s · retry on reconnect", static_cast<unsigned>(kSeedWaitMs / 1000));
     return;
   }
-  if (seedFailed_) {   // #58: energy prefs alone are not the user's house; keep the default, unsaved
+  if (seedFailed_) {   // eink-ha-os#58: energy prefs alone are not the user's house; keep the default, unsaved
     LOG_WRN("HA", "seed: template failed · default screens kept unsaved · retry on reconnect");
     seedTpl_.clear();
     prefsJson_.clear();
@@ -485,8 +487,8 @@ void HaClient::maybeSeed(bool force) {
   SeedReport rep;
   ParseResult r;
   {
-    PsramScope ps;   // the seed answer's DOM: ~80 KB of small blocks on a big house (#137)
-    Config c = seedConfig(seedSnapshot(prefsJson_, live, seedTpl_), {}, &rep);   // no tail: Settings is built in (#159)
+    PsramScope ps;   // the seed answer's DOM: ~80 KB of small blocks on a big house (eink-ha-os#137)
+    Config c = seedConfig(seedSnapshot(prefsJson_, live, seedTpl_), {}, &rep);   // no tail: Settings is built in (eink-ha-os#159)
     r = parseConfig(toYaml(c));   // save only what the parser reads back
   }
   seedTpl_.clear();
@@ -500,7 +502,7 @@ void HaClient::maybeSeed(bool force) {
   LOG_INF("HA", "screens from HA%s: %s · %d of %u tiles filled", force ? " (timed out waiting)" : "", ids.c_str(),
           rep.filled(), static_cast<unsigned>(rep.tiles.size()));
   DeviceServices::applyConfig(r.config);
-  std::string j = seedReportJson(rep);   // GET /api/v1/seed (#89)
+  std::string j = seedReportJson(rep);   // GET /api/v1/seed (eink-ha-os#89)
   j.insert(j.size() - 1, ",\"dismissed\":false");
   storage().writeFile("/seed.json", j);
 }
@@ -517,9 +519,9 @@ void HaClient::onReady() {
 
   idUser_ = nextId_++;
   ws_.sendText("{\"id\":" + std::to_string(idUser_) + ",\"type\":\"auth/current_user\"}");
-  idConfig_ = nextId_++;   // HA's language → the display's (#98)
+  idConfig_ = nextId_++;   // HA's language → the display's (eink-ha-os#98)
   ws_.sendText("{\"id\":" + std::to_string(idConfig_) + ",\"type\":\"get_config\"}");
-  idUserData_ = nextId_++;   // the auth user's profile number_format (#110); the HA frontend saves it under key "language"
+  idUserData_ = nextId_++;   // the auth user's profile number_format (eink-ha-os#110); the HA frontend saves it under key "language"
   ws_.sendText("{\"id\":" + std::to_string(idUserData_) + ",\"type\":\"frontend/get_user_data\",\"key\":\"language\"}");
   lastStatsMs_ = millis();
   idPrefs_ = nextId_++;
@@ -580,11 +582,15 @@ void HaClient::resubscribeFor(const char* why) {
 
 void HaClient::subscribeAll() {
   resubscribe_ = false;
-  std::set<std::string> all(configIds_.begin(), configIds_.end());
-  all.insert(discoveredIds_.begin(), discoveredIds_.end());
-  for (auto& w : adapter_.watchIds()) all.insert(w);
-  if (!presenceId_.empty()) all.insert(presenceId_);   // #331 empty-house sleep
-  // #81: a real HA re-ran the full subscribe (and HA re-sent every state) every ~5 min with the same 67 ids
+  std::set<std::string> all;
+  {
+    PsramScope ps;   // kept as subscribed_: ~2 KB of internal RAM on the demo house (eink-ha-os#289)
+    all.insert(configIds_.begin(), configIds_.end());
+    all.insert(discoveredIds_.begin(), discoveredIds_.end());
+    for (auto& w : adapter_.watchIds()) all.insert(w);
+    if (!presenceId_.empty()) all.insert(presenceId_);   // eink-ha-os#331 empty-house sleep
+  }
+  // eink-ha-os#81: a real HA re-ran the full subscribe (and HA re-sent every state) every ~5 min with the same 67 ids
   if (!resubscribeNeeded(subscribed_, entitySubs_.size(), all)) {
     LOG_INF("HA", "subscribe_entities: %u entities unchanged (%08x) after %s · kept", unsigned(all.size()),
             unsigned(idSetHash(all)), resubWhy_);
@@ -611,7 +617,7 @@ void HaClient::subscribeAll() {
     serializeJson(d, s);
     ws_.sendText(s);
     entitySubs_.push_back(id);
-    // display_precision lives in the entity registry, not in the state (#85)
+    // display_precision lives in the entity registry, not in the state (eink-ha-os#85)
     uint32_t rid = nextId_++;
     d["id"] = rid;
     d["type"] = "config/entity_registry/get_entries";
@@ -687,19 +693,22 @@ void HaClient::onMessage(const std::string& msg) {
     } else if (id == idConfig_) {
       idConfig_ = 0;
       setLanguage(r["language"] | "");
-      setHaTimezone(r["time_zone"] | "");   // the clock zone unless the tz setting overrides it (#147)
+      setHaTimezone(r["time_zone"] | "");   // the clock zone unless the tz setting overrides it (eink-ha-os#147)
       setCurrency(r["currency"] | "");
     } else if (id == idUserData_) {
       idUserData_ = 0;
       setNumberFormat(r["value"]["number_format"] | "");   // null value: never saved in the profile → the language decides
     } else if (id == idPrefs_) {
-      EntityValue v;
-      v.state = "ok";
       std::string json;
-      serializeJson(r, json);
-      v.attrs["json"] = json;
-      push("x4.energy_prefs", v);
-      prefsJson_ = json;
+      {
+        PsramScope ps;   // prefsJson_ is kept for the seed (eink-ha-os#289)
+        EntityValue v;
+        v.state = "ok";
+        serializeJson(r, json);
+        v.attrs["json"] = json;
+        push("x4.energy_prefs", v);
+        prefsJson_ = json;
+      }
       prefsDone_ = true;
       idPrefs_ = 0;
       bool prefsChanged;
@@ -726,7 +735,7 @@ void HaClient::onMessage(const std::string& msg) {
     } else if (id == idStats_) {
       std::string text;
       serializeJson(r, text);
-      const time_t t = time(nullptr);   // rows of another local day are dropped (#308): an answer that crossed midnight
+      const time_t t = time(nullptr);   // rows of another local day are dropped (eink-ha-os#308): an answer that crossed midnight
       adapter_.setNow(t > 1700000000 ? static_cast<int64_t>(t) : 0);
       PsramScope ps;
       EntityUpdates out;
@@ -757,7 +766,7 @@ void HaClient::onMessage(const std::string& msg) {
   }
   if (!strcmp(type, "event")) {
     JsonVariantConst ev = d["event"];
-    // report_errors: a WARNING event (e.g. an undefined attribute) comes before the result; keep waiting for it (#58)
+    // report_errors: a WARNING event (e.g. an undefined attribute) comes before the result; keep waiting for it (eink-ha-os#58)
     if (id && (id == idDevices_ || id == idSeed_ || id == idList_) &&
         !templateEventFinal(!ev["result"].isNull(), ev["level"].as<const char*>())) {
       LOG_WRN("HA", "template %u warning: %s", (unsigned)id, (const char*)(ev["error"] | "?"));
@@ -784,11 +793,11 @@ void HaClient::onMessage(const std::string& msg) {
     }
     if (id && id == idSeed_) {
       JsonVariantConst res = ev["result"];
-      if (res.is<const char*>()) seedTpl_ = res.as<const char*>();
-      else if (res.is<JsonObjectConst>()) serializeJson(res, seedTpl_);
       bool ok;
       {
-        PsramScope ps;
+        PsramScope ps;   // the template answer waits here for the seed (eink-ha-os#289)
+        if (res.is<const char*>()) seedTpl_ = res.as<const char*>();
+        else if (res.is<JsonObjectConst>()) serializeJson(res, seedTpl_);
         ok = seedAnswerOk(seedTpl_);
       }
       if (!ok) {
@@ -827,10 +836,10 @@ void HaClient::onMessage(const std::string& msg) {
           text += jsonEscape(e[1] | "");
           text += "\",\"unit\":\"";
           text += jsonEscape(e[2] | "");
-          text += "\",\"state\":\"";   // HA's state when the list was read (#84, console entity picker)
+          text += "\",\"state\":\"";   // HA's state when the list was read (eink-ha-os#84, console entity picker)
           text += jsonEscape(e[3] | "");
           const char* area = e[4] | "";
-          if (*area) {   // lightList picker (#127); absent = no area
+          if (*area) {   // lightList picker (eink-ha-os#127); absent = no area
             text += "\",\"area\":\"";
             text += jsonEscape(area);
           }
@@ -866,26 +875,29 @@ void HaClient::onMessage(const std::string& msg) {
         res = parsed.as<JsonVariantConst>();
       }
       if (res.isNull()) return;
-      EntityValue climate, lights;
-      std::string ids;
-      serializeJson(res["climate"], ids);
-      climate.state = std::to_string(res["climate"].size());
-      climate.attrs["ids"] = ids;
-      climateIds_.clear();
-      for (JsonVariantConst c : res["climate"].as<JsonArrayConst>()) climateIds_.push_back(c | "");
-      lights.state = std::to_string(res["lights"].size());
-      lightAreas_.clear();
-      for (JsonVariantConst p : res["lights"].as<JsonArrayConst>()) {
-        const char* eid = p[0] | "";
-        lights.attrs[eid] = p[1] | "";
-        lightAreas_.emplace_back(eid, p[1] | "");
+      {
+        PsramScope ps;   // climateIds_, lightAreas_, discoveredIds_: kept until the next discovery (eink-ha-os#289)
+        EntityValue climate, lights;
+        std::string ids;
+        serializeJson(res["climate"], ids);
+        climate.state = std::to_string(res["climate"].size());
+        climate.attrs["ids"] = ids;
+        climateIds_.clear();
+        for (JsonVariantConst c : res["climate"].as<JsonArrayConst>()) climateIds_.push_back(c | "");
+        lights.state = std::to_string(res["lights"].size());
+        lightAreas_.clear();
+        for (JsonVariantConst p : res["lights"].as<JsonArrayConst>()) {
+          const char* eid = p[0] | "";
+          lights.attrs[eid] = p[1] | "";
+          lightAreas_.emplace_back(eid, p[1] | "");
+        }
+        rediscover();
+        LOG_INF("HA", "discovery: %u climate, %u lights · %u subscribed (%s)", unsigned(climateIds_.size()),
+                unsigned(lightAreas_.size()), unsigned(discoveredIds_.size()),
+                lightSubs_.all ? "all lights" : "lights of picked areas");
+        push("x4.climate", climate);
+        push("x4.lights", lights);
       }
-      rediscover();
-      LOG_INF("HA", "discovery: %u climate, %u lights · %u subscribed (%s)", unsigned(climateIds_.size()),
-              unsigned(lightAreas_.size()), unsigned(discoveredIds_.size()),
-              lightSubs_.all ? "all lights" : "lights of picked areas");
-      push("x4.climate", climate);
-      push("x4.lights", lights);
       // one-shot discovery: drop the template listener (it would re-render on every light change)
       ws_.sendText("{\"id\":" + std::to_string(nextId_++) + ",\"type\":\"unsubscribe_events\",\"subscription\":" +
                    std::to_string(idTemplate_) + "}");
@@ -896,22 +908,22 @@ void HaClient::onMessage(const std::string& msg) {
     for (uint32_t s : entitySubs_) ours |= (s == id);
     if (!ours) return;
     // compressed state stream: a = added (full), c = changed (diff), r = removed. Diffs apply to the adapter's copy
-    // of the HA states (one mirror, not two) and only attributes a reader uses are kept (#76).
+    // of the HA states (one mirror, not two) and only attributes a reader uses are kept (eink-ha-os#76).
     const uint32_t low0 = heapMinFree();
-    PsramScope ps;   // attribute text (scalarText) and the price DOM (hourlyPrices) stay out of internal RAM (#149)
+    PsramScope ps;   // attribute text (scalarText) and the price DOM (hourlyPrices) stay out of internal RAM (eink-ha-os#149)
     EntityUpdates touched;
     applyEntityEvent(ev.as<JsonObjectConst>(), adapter_.raw(), touched);
     for (auto& t : touched) {
-      if (hist_ && hist_->watches(t.first)) {   // live append to the open bucket (#269)
+      if (hist_ && hist_->watches(t.first)) {   // live append to the open bucket (eink-ha-os#269)
         const auto& st = t.second.state;
         int64_t at = t.second.updatedEpoch * 1000;
         if (at <= 0) at = epochMs();
         hist_->live(t.first, hist::pointOf(st.data(), st.size(), 0).v, at);
       }
-      if (hist_ && hist_->wantsAttr(t.first)) historyAttr(t.first);   // #292: an attribute list changed
+      if (hist_ && hist_->wantsAttr(t.first)) historyAttr(t.first);   // eink-ha-os#292: an attribute list changed
       push(t.first, t.second);
     }
-    if (heapMinFree() < low0 && heapMinFree() < 48 * 1024)   // #149: which message took the internal low-water down
+    if (heapMinFree() < low0 && heapMinFree() < 48 * 1024)   // eink-ha-os#149: which message took the internal low-water down
       LOG_WRN("HEAP", "entity event (%u B, %u entities): internal low-water %u → %u B, largest block %u B",
               unsigned(msg.size()), unsigned(touched.size()), unsigned(low0), unsigned(heapMinFree()), unsigned(heapLargestFree()));
     static uint32_t events = 0;
@@ -931,7 +943,7 @@ void HaClient::onMessage(const std::string& msg) {
   }
 }
 
-// ---- agenda / next tiles (#316, core/agenda.h) ----
+// ---- agenda / next tiles (eink-ha-os#316, core/agenda.h) ----
 void HaClient::setAgendaTiles(const std::vector<std::string>& keys) {
   if (!agenda_ && keys.empty()) return;
   PsramScope ps;
@@ -981,7 +993,7 @@ void HaClient::agendaPublish() {
   });
 }
 
-// ---- history tiles (#269, core/history_fetch.h) ----
+// ---- history tiles (eink-ha-os#269, core/history_fetch.h) ----
 void HaClient::setHistoryTiles(const std::vector<hist::Fetcher::Want>& want, bool configChanged) {
   if (!hist_ && want.empty()) return;
   PsramScope ps;
@@ -991,10 +1003,18 @@ void HaClient::setHistoryTiles(const std::vector<hist::Fetcher::Want>& want, boo
   }
   hist_->setTiles(want, configChanged);
   histInfo_ = true;
-  // #292: keep each attribute tile's attribute for its entity; one already mirrored without it is asked again
+  // eink-ha-os#292: keep each attribute tile's attribute for its entity; one already mirrored without it is asked again
   // (subscribe_entities sends its full state first)
   const auto keys = hist_->attrKeys();
-  if (!setExtraAttrs(keys) || state_ != St::Ready || entitySubs_.empty()) return;
+  if (setExtraAttrs(keys)) askAttrsAgain(keys, "HIST");
+}
+
+void HaClient::setListTiles(const std::vector<std::pair<std::string, std::string>>& keys) {
+  if (setListAttrs(keys)) askAttrsAgain(keys, "LIST");
+}
+
+void HaClient::askAttrsAgain(const std::vector<std::pair<std::string, std::string>>& keys, const char* tag) {
+  if (state_ != St::Ready || entitySubs_.empty()) return;
   std::string ids;
   for (auto& k : keys) {
     auto it = adapter_.raw().find(k.first);
@@ -1005,7 +1025,7 @@ void HaClient::setHistoryTiles(const std::vector<hist::Fetcher::Want>& want, boo
   const uint32_t id = nextId_++;
   ws_.sendText("{\"id\":" + std::to_string(id) + ",\"type\":\"subscribe_entities\",\"entity_ids\":[" + ids + "]}");
   entitySubs_.push_back(id);   // dropped with the others at the next resubscribe
-  LOG_INF("HIST", "attribute tiles: subscribe %s again for their attribute", ids.c_str());
+  LOG_INF(tag, "attribute tiles: subscribe %s again for their attribute", ids.c_str());
 }
 
 void HaClient::historyAttr(const std::string& entity) {
@@ -1029,7 +1049,7 @@ void HaClient::historyLoop() {
   hist_->tick(now);
   {
     PsramScope ps;
-    for (auto& e : hist_->pendingAttr()) historyAttr(e);   // #292: new tiles, a bucket boundary
+    for (auto& e : hist_->pendingAttr()) historyAttr(e);   // eink-ha-os#292: new tiles, a bucket boundary
   }
   if (!hist_->inFlight()) {
     std::string j;
@@ -1067,7 +1087,7 @@ void HaClient::historyPublish() {
   histInfo_ = false;
   std::string j = "[";
   for (auto& t : hist_->info()) {
-    char b[112];   // the key apart: an attribute tile's key is ~90 chars (#292)
+    char b[112];   // the key apart: an attribute tile's key is ~90 chars (eink-ha-os#292)
     j += std::string(j.size() > 1 ? "," : "") + "{\"key\":\"" + jsonEscape(t.key) + "\"";
     snprintf(b, sizeof b, ",\"active\":%s,\"state\":\"%s\",\"source\":\"%s\",\"fetched\":%lld,\"bytes\":%u,\"points\":%u}",
              t.active ? "true" : "false", hist::fetchStateName(t.state), hist::sourceName(t.source),
@@ -1079,7 +1099,7 @@ void HaClient::historyPublish() {
   hub().historyInfo = j;
 }
 
-// ---- weather tiles (#318, core/weather.h) ----
+// ---- weather tiles (eink-ha-os#318, core/weather.h) ----
 namespace {
 RTC_NOINIT_ATTR wx::Rtc g_wxRtc;   // forecasts across deep sleep: a glance wake within the hour asks nothing
 }
@@ -1160,7 +1180,7 @@ void HaClient::end(uint32_t id, uint64_t len) {
     weatherPublish();
     return;
   }
-  if (agStream_) {   // #316: events taken → the cache, so a wake from deep sleep does not ask again
+  if (agStream_) {   // eink-ha-os#316: events taken → the cache, so a wake from deep sleep does not ask again
     agStream_ = false;
     PsramScope ps;
     const bool took = agenda_->end(epochMs());
@@ -1185,7 +1205,7 @@ void HaClient::dropped(uint32_t id, uint64_t len) {
     LOG_WRN("WX", "forecast %u over the frame cap (%llu B)", unsigned(id), static_cast<unsigned long long>(len));
     return;
   }
-  if (agenda_ && agenda_->owns(id)) {   // #316: over the frame cap; asked again in 5 min
+  if (agenda_ && agenda_->owns(id)) {   // eink-ha-os#316: over the frame cap; asked again in 5 min
     agenda_->abandon();
     LOG_WRN("AGENDA", "answer %u over the frame cap (%llu B)", unsigned(id), static_cast<unsigned long long>(len));
     return;

@@ -19,7 +19,7 @@ function slowLoad() {
 }
 const flush = () => new Promise((r) => setImmediate(r));
 
-describe('Values view poller (#83)', () => {
+describe('Values view poller (eink-ha-os#83)', () => {
   afterEach(() => { vi.useRealTimers(); });
 
   it('fetches at once, then every 5 s; stops when the view is off', async () => {
@@ -62,7 +62,7 @@ describe('Values view poller (#83)', () => {
   });
 });
 
-describe('screen values (#122)', () => {
+describe('screen values (eink-ha-os#122)', () => {
   it('HTTP: same-origin JSON GET of /screens/{id}/values', async () => {
     let seen: [string, RequestInit | undefined] | null = null;
     const f = (async (u: string, init?: RequestInit) => { seen = [u, init];
@@ -87,7 +87,7 @@ describe('screen values (#122)', () => {
     expect(e.tileValues('nope')).toBeNull();
     for (const s of e.state.screens) expect(e.tileValues(s.id)!.length, s.id).toBe(s.widgets.length);
   });
-  it('emulator: decimal comma in Dutch, a word for an entity HA has no value for, counts for lists (#161), "" for charts', () => {
+  it('emulator: decimal comma in Dutch, a word for an entity HA has no value for, counts for lists (eink-ha-os#161), "" for charts', () => {
     const e = new Emulator({});
     const ws = [{ type: 'stat', entity: 'input_number.target_temp' }, { type: 'stat', entity: 'sensor.outdoor_temperature' },
       { type: 'switch', entity: 'switch.garden_pump' }, { type: 'lightList', cs: 2 }, { type: 'zoneList', entities: 'climate.living climate.office', cs: 2 },
@@ -108,7 +108,7 @@ describe('tileValueFor', () => {
   });
 });
 
-describe('tile crops from preview.png (#189)', () => {
+describe('tile crops from preview.png (eink-ha-os#189)', () => {
   afterEach(() => { vi.useRealTimers(); });
   const ws = [{ type: 'clock', cs: 2 }, { type: 'zoneList', cs: 2, rs: 2 }, { type: 'bars', series: 'solar', cs: 2 }];
 
@@ -148,7 +148,7 @@ describe('tile crops from preview.png (#189)', () => {
   });
 });
 
-describe('panelPlace (#360: Values cells keep their crop shape at any width)', () => {
+describe('panelPlace (eink-ha-os#360: Values cells keep their crop shape at any width)', () => {
   const f = (s: string) => Number.parseFloat(s) / 100;
   for (const g of [CLASSIC_GRID, SLEEK_GRID]) {
     it(`a span's box is its panel rectangle (= the crop), header cut (top ${g.top})`, () => {

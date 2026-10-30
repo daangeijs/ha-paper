@@ -1,8 +1,8 @@
-// core/epd_sequence (#201, #197): a model of the SSD1677's BW (0x24) and RED (0x26) RAM planes, following the vendored
+// core/epd_sequence (eink-ha-os#201, eink-ha-os#197): a model of the SSD1677's BW (0x24) and RED (0x26) RAM planes, following the vendored
 // Ssd1677Driver in single-buffer mode, plus the glass. A FAST or window partial compares 0x24 with 0x26 over the whole
 // panel and drives every pixel where they differ, even when only a window was written; HALF/FULL drive every pixel.
 // After any sequence both planes hold the base (a window partial drives nothing outside its window), and the glass
-// shows the 2-bit frame: a gray from the last frame neither stays nor gets the overlay twice. A Fast is B/W only (#212):
+// shows the 2-bit frame: a gray from the last frame neither stays nor gets the overlay twice. A Fast is B/W only (eink-ha-os#212):
 // the glass shows the frame thresholded (dark gray black, light gray white) and the next Clean brings the grays back.
 #include <unity.h>
 
@@ -132,7 +132,7 @@ struct Frame {
   }
 };
 
-// The #201/#197 rule: both RAM planes = the glass, grays counted as white.
+// The eink-ha-os#201/eink-ha-os#197 rule: both RAM planes = the glass, grays counted as white.
 bool planesMatchGlass(const FakeSsd1677& p) {
   if (p.bw != p.red) return false;
   for (int i = 0; i < kW * kH; i++)
@@ -140,7 +140,7 @@ bool planesMatchGlass(const FakeSsd1677& p) {
   return true;
 }
 
-// What X4Display::show does per refresh: Fast sends the frame thresholded without a gray pass (#212), with the RED seed
+// What X4Display::show does per refresh: Fast sends the frame thresholded without a gray pass (eink-ha-os#212), with the RED seed
 // when grays are on the glass; Clean / Full send the base (grays white) and the overlay.
 struct Panel {
   FakeSsd1677 p;
@@ -179,7 +179,7 @@ static void test_gray_full_then_window_drives_nothing_outside() {
 }
 
 static void test_without_resync_the_window_drives_the_whole_screen() {
-  // the #201 bug: 0x24 still holds the LSB plane, so white background and light-gray edges flip outside the window
+  // the eink-ha-os#201 bug: 0x24 still holds the LSB plane, so white background and light-gray edges flip outside the window
   TEST_ASSERT_GREATER_THAN_INT32(kW * kH / 2, windowAfterFull(true, false));
 }
 
@@ -202,7 +202,7 @@ static void test_second_window_still_clean() {
   TEST_ASSERT_TRUE(p.bw == p.red);
 }
 
-// ---- #197: fast and clean sequences ----
+// ---- eink-ha-os#197: fast and clean sequences ----
 static void test_clean_shows_the_frame_and_leaves_the_base_in_both_planes() {
   Frame a;
   Panel x;
@@ -233,7 +233,7 @@ static void test_fast_after_gray_page_shows_the_new_page() {
   TEST_ASSERT_TRUE(planesMatchGlass(x.p));
 }
 
-// #212: a Fast never runs the gray pass; the glass is B/W after it and the next Clean restores the grays
+// eink-ha-os#212: a Fast never runs the gray pass; the glass is B/W after it and the next Clean restores the grays
 static void test_fast_is_bw_and_clean_restores_grays() {
   Frame a(100), b(110);
   Panel x;

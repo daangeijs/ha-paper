@@ -1,0 +1,51 @@
+{
+  "name": "332a-attr-list",
+  "description": "An attrList tile (eink-ha-os#332): entity (sensor), attribute / title / time = field names, subtitle = up to 3 field names split by spaces, empty = free text, label; all but entity optional (defaults sightings, title, subtitle, ts; eink-ha-os#375).",
+  "input": "# HA Paper display config\nversion: 1\nscreens:\n  - id: a\n    widgets:\n      - {type: attrList, entity: sensor.rare_birds_nearby, cs: 2, rs: 2}\n      - {type: attrList, entity: sensor.departures_board, attribute: trains, title: destination, subtitle: platform, time: departs, empty: No trains, label: Trains, cs: 2, rs: 2}\n",
+  "expect": {
+    "ok": true,
+    "apps": [
+      {
+        "id": "home",
+        "title": "Home"
+      },
+      {
+        "id": "house",
+        "title": "House"
+      },
+      {
+        "id": "travel",
+        "title": "Travel"
+      }
+    ],
+    "screens": [
+      {
+        "id": "a",
+        "app": "home",
+        "title": "a",
+        "cells": 8,
+        "widgets": [
+          {
+            "type": "attrList",
+            "entity": "sensor.rare_birds_nearby",
+            "cs": 2,
+            "rs": 2
+          },
+          {
+            "type": "attrList",
+            "entity": "sensor.departures_board",
+            "attribute": "trains",
+            "title": "destination",
+            "subtitle": "platform",
+            "time": "departs",
+            "empty": "No trains",
+            "label": "Trains",
+            "cs": 2,
+            "rs": 2
+          }
+        ]
+      }
+    ],
+    "yaml": "# HA Paper display config\nversion: 1\nscreens:\n  - id: a\n    app: home\n    title: a\n    widgets:\n      - {type: attrList, entity: sensor.rare_birds_nearby, cs: 2, rs: 2}\n      - {type: attrList, entity: sensor.departures_board, attribute: trains, title: destination, subtitle: platform, time: departs, empty: No trains, label: Trains, cs: 2, rs: 2}\n"
+  }
+}

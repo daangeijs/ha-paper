@@ -116,7 +116,7 @@ HomeData deriveHome(const EntityStore& st) {
   d.hasQuarters = !d.prices.empty() && quarterSeries(st.get("sensor.energy_prices"), d.quarters);
   d.usage = attrSeries(st, "sensor.energy_usage_hourly", "today");
   d.solarSeries = attrSeries(st, "sensor.solar_hourly", "today");
-  // #151: only a real forecast; the hourly series is today so far (statistics), its sum is not a forecast
+  // eink-ha-os#151: only a real forecast; the hourly series is today so far (statistics), its sum is not a forecast
   d.solarForecast = attrNum(st.get("sensor.solar_hourly"), "forecast");
 
   std::vector<std::pair<const PStr*, const EntityValue*>> climates, lights;
@@ -198,7 +198,7 @@ RouteState routeState(const EntityValue* e, bool car, Lang lang) {
     return rs;
   }
   if (!parseJson(attr(e, "upcoming"), j) || !j.isArr()) return rs;
-  for (auto& x : j.arr) {   // NS departures integration (#275): ISO planned/actual, status on_time | delayed | cancelled
+  for (auto& x : j.arr) {   // NS departures integration (eink-ha-os#275): ISO planned/actual, status on_time | delayed | cancelled
     auto iso = [&x](const char* k) { auto* v = x.get(k); return v && v->isStr() ? parseIsoTime(v->str) : int64_t(-1); };
     int64_t planned = iso("planned"), actual = iso("actual"), t = actual >= 0 ? actual : planned;
     if (t < 0) continue;
@@ -250,7 +250,7 @@ std::vector<LightGroup> pickLights(const std::vector<LightGroup>& groups, const 
 std::vector<ZoneState> pickZones(const std::vector<ZoneState>& zones, const Widget& w) {
   auto ents = listOf(w, "entities");
   auto labels = labelPairs(w.field("labels"));
-  auto named = [&labels](std::vector<ZoneState> zs) {   // the tile's own room names (#151)
+  auto named = [&labels](std::vector<ZoneState> zs) {   // the tile's own room names (eink-ha-os#151)
     for (auto& z : zs)
       for (auto& l : labels)
         if (!l.second.empty() && l.first == "climate." + z.id) { z.name = l.second; break; }
@@ -368,8 +368,8 @@ StatText statText(const std::string& entity, const HomeData& d, int hour, const 
     return t;
   }
   t.label = tr(l, def->label);
-  const int dp = displayPrecision(raw);   // HA display_precision of the tile's own entity (#85)
-  // sub: a fact or nothing (issue #28, spec/test-vectors/stat-sub.json); grid/battery keep the direction (value unsigned)
+  const int dp = displayPrecision(raw);   // HA display_precision of the tile's own entity (eink-ha-os#85)
+  // sub: a fact or nothing (issue eink-ha-os#28, spec/test-vectors/stat-sub.json); grid/battery keep the direction (value unsigned)
   auto none = [&]() { t.value = "—"; t.unit = ""; t.sub = ""; return t; };
   auto today = [l](const OptNum& o) { return o.ok ? tr(l, S::kwhToday, fmtNum(o.v, "kWh")) : std::string(); };
   auto with = [](std::string a, const std::string& b) { return b.empty() ? a : a + " · " + b; };
@@ -417,7 +417,7 @@ StatText statText(const std::string& entity, const HomeData& d, int hour, const 
     t.sub = tr(l, S::avgPrice, locale::money((d.prices[c] + d.prices[c + 1] + d.prices[c + 2]) / 3)); return t;
   }
   if (entity == "sensor.living_temperature") {
-    OptNum v = d.inside;   // the mapped inside thermometer only (#148: no climate.living guess)
+    OptNum v = d.inside;   // the mapped inside thermometer only (eink-ha-os#148: no climate.living guess)
     if (!v.ok) return none();
     int n = d.heatingCount();
     t.value = fmtNum(v.v, "°C", dp); t.unit = "°C"; t.sub = n == 1 ? tr(l, S::roomHeating1) : tr(l, S::roomsHeating, std::to_string(n), "{}"); return t;

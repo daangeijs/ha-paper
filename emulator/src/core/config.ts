@@ -9,26 +9,28 @@ import { AGENDA_TYPES, MAX_AGENDA_TILES, agendaError } from './agenda.ts';
 import { MEDIA_DOMAINS, favoritesError } from './media.ts';
 import { BIN_DOMAINS, binsError } from './bins.ts';
 import { GUEST_PW_DOMAINS, guestError } from './guestWifi.ts';
+import { LIST_DOMAINS, listError } from './attrList.ts';
 
 // `light` is the pre-0.5 single-light widget: parseYaml rewrites {type: light, light: x} to {type: switch, entity: light.x}.
-export const WIDGET_TYPES = ['clock', 'stat', 'price', 'gauge', 'bars', 'route', 'lightList', 'switch', 'light', 'scene', 'zoneList', 'thermo', 'history', 'media', 'bins', 'weather', 'guestWifi', 'setting', 'ota', 'wifi', 'ha', 'about', ...AGENDA_TYPES];
+export const WIDGET_TYPES = ['clock', 'stat', 'price', 'gauge', 'bars', 'route', 'lightList', 'switch', 'light', 'scene', 'zoneList', 'thermo', 'history', 'media', 'bins', 'weather', 'guestWifi', 'attrList', 'setting', 'ota', 'wifi', 'ha', 'about', ...AGENDA_TYPES];
 
 // Home Assistant domains each entity widget accepts (entity = full HA entity_id, e.g. sensor.outdoor_temperature).
 export const ENTITY_DOMAINS: Record<string, string[]> = {
-  stat: ['sensor', 'binary_sensor', 'input_number', 'number', 'climate', 'weather'],   // climate / weather: a temperature (#161)
+  stat: ['sensor', 'binary_sensor', 'input_number', 'number', 'climate', 'weather'],   // climate / weather: a temperature (eink-ha-os#161)
   gauge: ['sensor', 'input_number', 'number'],
   switch: ['switch', 'light', 'input_boolean', 'fan'],
   route: ['sensor'],
-  history: HISTORY_DOMAINS,   // #265: numeric entities; an attribute / weather forecast series widens it (#283, historyDomains)
-  weather: ['weather'],   // #318: the weather tile
-  scene: ['scene', 'script'],   // #146: scene.turn_on / script.turn_on; no entity = the built-in all lights off
-  media: MEDIA_DOMAINS,   // #319: now playing
+  history: HISTORY_DOMAINS,   // eink-ha-os#265: numeric entities; an attribute / weather forecast series widens it (eink-ha-os#283, historyDomains)
+  weather: ['weather'],   // eink-ha-os#318: the weather tile
+  scene: ['scene', 'script'],   // eink-ha-os#146: scene.turn_on / script.turn_on; no entity = the built-in all lights off
+  media: MEDIA_DOMAINS,   // eink-ha-os#319: now playing
+  attrList: LIST_DOMAINS,   // eink-ha-os#332: list from attributes
 };
 /** Entity widgets that may leave `entity` out: gauge = the home battery; route = an empty user route (an old catalog
- *  route such as `route: car`, #145) that shows the gap state until the user picks its sensor; scene = all lights off
- *  (the pre-#146 `scene: all_off`). */
+ *  route such as `route: car`, eink-ha-os#145) that shows the gap state until the user picks its sensor; scene = all lights off
+ *  (the pre-eink-ha-os#146 `scene: all_off`). */
 export const ENTITY_OPTIONAL = ['gauge', 'route', 'scene'];
-/** What tapping a scene tile asks HA (#146): its scene / script entity → <domain>.turn_on, none → light.turn_off all.
+/** What tapping a scene tile asks HA (eink-ha-os#146): its scene / script entity → <domain>.turn_on, none → light.turn_off all.
  *  An entity wins over a `scene:` key (only all_off ever existed). */
 export function sceneAction(w: Widget): { domain: string; service: string; data: Record<string, string> } {
   const e = typeof w.entity === 'string' ? w.entity : '';
@@ -40,9 +42,9 @@ export const ROUTE_MODES = ['train', 'bus', 'car'];
 export const BARS_SERIES = ['prices', 'usage', 'solar'];
 export const GAUGE_DEFAULT_ENTITY = 'sensor.home_battery_soc';
 export const domainOf = (entityId: string): string => entityId.split('.')[0];
-/** HA entities of stat / gauge / switch / route tiles that have no value right now (#86): id → reason. Our own logical
+/** HA entities of stat / gauge / switch / route tiles that have no value right now (eink-ha-os#86): id → reason. Our own logical
  *  sensors (ENT) and the gauge's home battery are derived tiles, never listed; nor are scene tiles (a scene's state is
- *  "unknown" until it first runs, #146). GET /console/state `entity_gaps`. */
+ *  "unknown" until it first runs, eink-ha-os#146). GET /console/state `entity_gaps`. */
 export function entityGaps(screens: { widgets: { type: string; entity?: unknown }[] }[], stateOf: (id: string) => string | undefined): Record<string, EntityGap> {
   const out: Record<string, EntityGap> = {};
   for (const sc of screens) for (const w of sc.widgets) {
@@ -55,17 +57,17 @@ export function entityGaps(screens: { widgets: { type: string; entity?: unknown 
 const ENTITY_ID = /^[a-z0-9_]+\.[a-z0-9_]+$/;
 /** Does `id` look like an HA entity_id of one of `domains`? */
 export const entityFits = (id: unknown, domains: string[]): boolean => typeof id === 'string' && ENTITY_ID.test(id) && domains.includes(domainOf(id));
-/** A space-separated list field (lightList areas / entities, zoneList entities, #127); absent = []. */
+/** A space-separated list field (lightList areas / entities, zoneList entities, eink-ha-os#127); absent = []. */
 export const listOf = (w: Widget, k: string): string[] => (w[k] === undefined ? [] : String(w[k]).split(' ').filter(Boolean));
-/** List tiles' pick fields (#127): field → HA domain of its entity ids, or null = HA area ids. Nothing picked = all. */
+/** List tiles' pick fields (eink-ha-os#127): field → HA domain of its entity ids, or null = HA area ids. Nothing picked = all. */
 export const LIST_PICKS: Record<string, Record<string, string | null>> = { lightList: { areas: null, entities: 'light' }, zoneList: { entities: 'climate' },
-  agenda: { entities: 'calendar' }, next: { entities: 'calendar' } };   // #316: the calendars
+  agenda: { entities: 'calendar' }, next: { entities: 'calendar' } };   // eink-ha-os#316: the calendars
 const AREA_ID = /^[a-z0-9_]+$/;
-/** zoneList `labels` (#151): "climate.a=Name; climate.b=Other name" → [entity, label] in order, items trimmed, empty
+/** zoneList `labels` (eink-ha-os#151): "climate.a=Name; climate.b=Other name" → [entity, label] in order, items trimmed, empty
  *  items skipped. Items without "=" come back with label "" (parseYaml rejects them). */
 export const labelPairs = (v: unknown): [string, string][] => (v === undefined ? [] : String(v).split(';').map((x) => x.trim()).filter(Boolean)
   .map((x) => { const eq = x.indexOf('='); return eq < 0 ? [x, ''] : [x.slice(0, eq).trim(), x.slice(eq + 1).trim()]; }));
-/** A zoneList's own name for a zone (#151), else undefined: the room keeps HA's name. */
+/** A zoneList's own name for a zone (eink-ha-os#151), else undefined: the room keeps HA's name. */
 export const zoneLabel = (w: Widget, zoneId: string): string | undefined => labelPairs(w.labels).find(([e, l]) => e === 'climate.' + zoneId && l)?.[1];
 
 export type Widget = { type: string; cs?: number; rs?: number; [k: string]: string | number | undefined };
@@ -77,7 +79,7 @@ export type Config = { apps: AppDef[]; screens: Screen[] };
 /** App switcher slots on the display; one is the built-in Settings app, so screens.yaml has at most MAX_USER_APPS. */
 export const MAX_APPS = 8;
 export const MAX_USER_APPS = MAX_APPS - 1;
-/** Settings (#159): a fixed, built-in app, always last in the switcher; never part of screens.yaml. */
+/** Settings (eink-ha-os#159): a fixed, built-in app, always last in the switcher; never part of screens.yaml. */
 export const SETTINGS_APP: AppDef = { id: 'settings', title: 'Settings' };
 /** Tiles that only exist on the fixed Settings pages: parseYaml drops them from user screens. */
 export const SYSTEM_TILES = ['setting', 'ota', 'wifi', 'ha', 'about'];
@@ -149,22 +151,22 @@ const DEFAULT_SCREENS_RAW: Omit<Screen, 'app'>[] = [
 ];
 /** Fresh deep copy of the default screens (spec/default-screens.yaml). */
 export const defaultScreens = (): Screen[] => JSON.parse(JSON.stringify(DEFAULT_SCREENS_RAW)).map((sc: Screen) => ({ ...sc, app: SCREEN_APP[sc.id] || 'home' }));
-/** Default apps = the built-in apps that have a default screen (no Travel: routes are the user's own, #145). */
+/** Default apps = the built-in apps that have a default screen (no Travel: routes are the user's own, eink-ha-os#145). */
 export const defaultConfig = (): Config => {
   const screens = defaultScreens();
   return { apps: DEFAULT_APPS.filter((a) => screens.some((s) => s.app === a.id)).map((a) => ({ ...a })), screens };
 };
 
-// The fixed Settings pages (#159), in order; = firmware core/config.cpp settingsScreens().
+// The fixed Settings pages (eink-ha-os#159), in order; = firmware core/config.cpp settingsScreens().
 const SETTINGS_SCREENS: Omit<Screen, 'app'>[] = [
   { id: 'display', title: 'Display', widgets: [
     { type: 'setting', key: 'brightness' }, { type: 'setting', key: 'warmth' }, { type: 'setting', key: 'lightTimeout' },
     { type: 'setting', key: 'returnHome' }, { type: 'setting', key: 'standby' }, { type: 'setting', key: 'interval' }, { type: 'setting', key: 'cleanEvery' } ] },
-  // The clock format sits with the look since #220; night mode left for Power › Quiet hours (#295).
+  // The clock format sits with the look since eink-ha-os#220; night mode left for Power › Quiet hours (eink-ha-os#295).
   // Display styles (x4-display-styles): the look is a device setting; these tiles only step it (same screen as firmware/src/core/config.cpp).
   { id: 'style', title: 'Display style', widgets: [{ type: 'setting', key: 'style' }, { type: 'setting', key: 'typeface', cs: 2 }, { type: 'setting', key: 'surface' }, { type: 'setting', key: 'clock' }] },
-  // Power saving (ROBUSTNESS_PLAN 3.1, glance #10, emulator DEVIATIONS 10). Two rows tall (#190); no hint line since #310.
-  // Quiet hours (#295) sit here: on battery they are a power setting first. The Good morning page (#330) next to them.
+  // Power saving (ROBUSTNESS_PLAN 3.1, glance eink-ha-os#10, emulator DEVIATIONS 10). Two rows tall (eink-ha-os#190); no hint line since eink-ha-os#310.
+  // Quiet hours (eink-ha-os#295) sit here: on battery they are a power setting first. The Good morning page (eink-ha-os#330) next to them.
   { id: 'power', title: 'Power', widgets: [{ type: 'setting', key: 'powerSave', cs: 2, rs: 2 }, { type: 'setting', key: 'quiet' }, { type: 'setting', key: 'morning' }, { type: 'setting', key: 'wakeEvery' }, { type: 'setting', key: 'liveMin' }] },
   { id: 'updates', title: 'Updates', widgets: [{ type: 'ota', cs: 4, rs: 2 }] },
   { id: 'wifi', title: 'Wi-Fi', widgets: [{ type: 'wifi', cs: 4, rs: 2 }] },
@@ -191,7 +193,7 @@ const has = (o: object, k: unknown): boolean => typeof k === 'string' && Object.
 /** Human label of a widget (web console tiles). `names`: HA friendly names by entity_id, when known. */
 export function wLabel(w: Widget, names: Record<string, string> = {}): string {
   if (w.label) return String(w.label);
-  if (['stat', 'switch', 'gauge', 'route', 'scene', 'history', 'media', 'weather'].includes(w.type) && w.entity) {
+  if (['stat', 'switch', 'gauge', 'route', 'scene', 'history', 'media', 'weather', 'attrList'].includes(w.type) && w.entity) {
     const e = String(w.entity);
     return (has(ENT, e) && ENT[e].label) || (has(names, e) && names[e]) || e;
   }
@@ -199,7 +201,7 @@ export function wLabel(w: Widget, names: Record<string, string> = {}): string {
   if (w.type === 'setting') return (has(SETTINGS, w.key) && SETTINGS[w.key as string].label) || String(w.key);
   if (w.type === 'bars') return ({ prices: 'Prices chart', usage: 'Usage chart', solar: 'Solar chart' } as Record<string, string>)[w.series as string] || 'Chart';
   if ((w.type === 'lightList' || w.type === 'zoneList') && Object.keys(LIST_PICKS[w.type]).some((k) => listOf(w, k).length)) return w.type === 'lightList' ? 'Lights' : 'Rooms';
-  return ({ clock: 'Clock', price: 'Price now', gauge: 'Home battery', lightList: 'All lights', scene: 'All lights off', zoneList: 'All rooms', ota: 'Updates', wifi: 'Wi-Fi', ha: 'Home Assistant', about: 'About', route: 'Route', stat: 'Sensor value', switch: 'Switch', history: 'History chart', media: 'Now playing', bins: 'Bin day', agenda: 'Agenda', next: 'Next event', weather: 'Weather', guestWifi: 'Guest Wi-Fi' } as Record<string, string>)[w.type] || w.type;
+  return ({ clock: 'Clock', price: 'Price now', gauge: 'Home battery', lightList: 'All lights', scene: 'All lights off', zoneList: 'All rooms', ota: 'Updates', wifi: 'Wi-Fi', ha: 'Home Assistant', about: 'About', route: 'Route', stat: 'Sensor value', switch: 'Switch', history: 'History chart', media: 'Now playing', bins: 'Bin day', agenda: 'Agenda', next: 'Next event', weather: 'Weather', guestWifi: 'Guest Wi-Fi', attrList: 'List' } as Record<string, string>)[w.type] || w.type;
 }
 
 const yq = (t: string): string => (/[:#{}[\],"]|^\s|\s$/.test(t) ? JSON.stringify(t) : t);
@@ -228,16 +230,17 @@ export class ConfigError extends Error {
  * Rules (each rejects with a line number): version != 1, apps after screens, duplicate app id, more than 8 apps,
  * widget/app/title before a screen, unknown app, widget outside "widgets:", malformed "key: value", unknown widget type,
  * stat/gauge/switch/route/scene entity not an HA entity_id of an allowed domain, lightList areas / entities or zoneList entities
- * not area ids / light / climate entity_ids (#127), a zoneList labels item that is not climate.<id>=Name (#151), a media
- * favorites item that is not Name=type:id / Name=script.<id> / scene.<id> or a 7th favorite (#319), unknown route,
- * a history tile's window / bucket / agg / style / min / max (history.ts historyError) or a 7th history tile (#265),
- * a bins tile's entities / labels / tonight or more than 6 bins (#317, bins.ts binsError), a guestWifi tile's
- * password_entity / security / hidden (#329, guestWifi.ts guestError),
+ * not area ids / light / climate entity_ids (eink-ha-os#127), a zoneList labels item that is not climate.<id>=Name (eink-ha-os#151), a media
+ * favorites item that is not Name=type:id / Name=script.<id> / scene.<id> or a 7th favorite (eink-ha-os#319), unknown route,
+ * a history tile's window / bucket / agg / style / min / max (history.ts historyError) or a 7th history tile (eink-ha-os#265),
+ * a bins tile's entities / labels / tonight or more than 6 bins (eink-ha-os#317, bins.ts binsError), a guestWifi tile's
+ * password_entity / security / hidden (eink-ha-os#329, guestWifi.ts guestError), an attrList tile's attribute / title / subtitle /
+ * time (eink-ha-os#332, attrList.ts listError),
  * cs not 1–4, rs not 1–2,
  * col not 1–4 / row not 1–2 (they go together), a pinned tile that sticks out of the grid or overlaps an earlier pinned one,
  * unreadable line, no apps (empty "apps:"), no screens, duplicate screen id, more than 8 cells on a screen.
  * Without an `apps:` section the apps are DEFAULT_APPS; a screen without `app:` belongs to the first app.
- * Settings is built in (#159): an `apps:` entry `settings` is skipped, `app: settings` screens and settings tiles
+ * Settings is built in (eink-ha-os#159): an `apps:` entry `settings` is skipped, `app: settings` screens and settings tiles
  * (SYSTEM_TILES) are checked like any other, then dropped; the display adds the fixed pages (withSettings).
  */
 export function parseYaml(text: string): Config {
@@ -280,7 +283,7 @@ export function parseYaml(text: string): Config {
         Object.keys(w).forEach((k) => { if (k === 'type') nw.type = 'switch'; else if (k === 'light') nw.entity = String(w.light).includes('.') ? String(w.light) : 'light.' + w.light; else nw[k] = w[k]; });
         w = nw;
       }
-      const doms = w.type === 'history' ? historyDomains(w) : ENTITY_DOMAINS[w.type as string];   // #283: by source
+      const doms = w.type === 'history' ? historyDomains(w) : ENTITY_DOMAINS[w.type as string];   // eink-ha-os#283: by source
       if (doms && (!ENTITY_OPTIONAL.includes(w.type as string) || w.entity !== undefined) && !entityFits(w.entity, doms))
         fail(n, w.type + ': “' + w.entity + '” is not a ' + doms.join(' / ') + ' entity');
       const picks = LIST_PICKS[w.type as string];
@@ -290,16 +293,17 @@ export function parseYaml(text: string): Config {
       }
       if (w.type === 'zoneList') for (const [e, l] of labelPairs(w.labels))
         if (!entityFits(e, ['climate']) || !l) fail(n, 'zoneList: “' + e + '” in labels is not climate.<id>=Name');
-      if (w.type === 'media') { const err = favoritesError(w); if (err) fail(n, err); }   // #319
+      if (w.type === 'media') { const err = favoritesError(w); if (err) fail(n, err); }   // eink-ha-os#319
+      if (w.type === 'attrList') { const err = listError(w); if (err) fail(n, err); }   // eink-ha-os#332
       if (w.type === 'route' && w.mode !== undefined && !ROUTE_MODES.includes(w.mode as string)) fail(n, 'route: mode must be train, bus or car');
-      if (w.type === 'bins') {   // #317
+      if (w.type === 'bins') {   // eink-ha-os#317
         const ents = listOf(w as Widget, 'entities');
         for (const id of ents) if (!entityFits(id, BIN_DOMAINS)) fail(n, 'bins: “' + id + '” is not a sensor entity');
         for (const [e, l] of labelPairs(w.labels)) if (!entityFits(e, BIN_DOMAINS) || !l) fail(n, 'bins: “' + e + '” in labels is not sensor.<id>=Name');
         const err = binsError(w, ents);
         if (err) fail(n, err);
       }
-      if (w.type === 'guestWifi') {   // #329: never put the ssid / password in a message
+      if (w.type === 'guestWifi') {   // eink-ha-os#329: never put the ssid / password in a message
         if (w.password_entity !== undefined && !entityFits(w.password_entity, GUEST_PW_DOMAINS)) fail(n, 'guestWifi: password_entity is not an input_text / text / sensor entity');
         const err = guestError(w);
         if (err) fail(n, err);
@@ -319,12 +323,12 @@ export function parseYaml(text: string): Config {
         if (err) fail(n, err);
         if (++histories > MAX_HISTORY_TILES) fail(n, 'At most ' + MAX_HISTORY_TILES + ' history tiles');
       }
-      if (w.type === 'weather') {   // #318
+      if (w.type === 'weather') {   // eink-ha-os#318
         const err = weatherError(w);
         if (err) fail(n, err);
         if (++weathers > MAX_WEATHER_TILES) fail(n, 'At most ' + MAX_WEATHER_TILES + ' weather tiles');
       }
-      if (AGENDA_TYPES.includes(w.type as string)) {   // #316
+      if (AGENDA_TYPES.includes(w.type as string)) {   // eink-ha-os#316
         const err = agendaError(w);
         if (err) fail(n, err);
         if (++agendas > MAX_AGENDA_TILES) fail(n, 'At most ' + MAX_AGENDA_TILES + ' agenda or next tiles');

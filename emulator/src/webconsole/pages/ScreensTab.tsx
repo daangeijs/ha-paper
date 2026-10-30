@@ -59,7 +59,7 @@ export function ScreensTab({ v }: { v: ConsoleView }) {
               <button className="dev-btn" onClick={v.web.deleteScreen} style={{ height: "36px", padding: "0 12px", border: "1px solid #c9c6be", borderRadius: "8px", background: "#fff", fontSize: "13px" }}>{v.web.t('deleteScreen')}</button>
             </div>
             {!!(v.web.pvLine) && (<span role="status" style={{ flex: "none", font: "500 12px 'IBM Plex Mono', monospace", color: "#5c5a55" }}>{v.web.pvLine}</span>)}
-            {/* #360: Values = the panel's own grid at its aspect ratio (cells keep their crop's shape at any width) */}
+            {/* eink-ha-os#360: Values = the panel's own grid at its aspect ratio (cells keep their crop's shape at any width) */}
             <div className={v.web.isValues ? undefined : "x4-canvas"} style={v.web.isValues
               ? { flex: "none", position: "relative", width: "100%", maxWidth: "1040px", aspectRatio: v.web.panelAspect, boxSizing: "border-box", borderRadius: "12px", background: "#ECEBE5", border: "1px solid #d3d0c8" }
               : { flex: "none", height: "330px", boxSizing: "border-box", borderRadius: "12px", background: "#ECEBE5", border: "1px solid #d3d0c8", padding: "10px", display: "grid", gridTemplateColumns: "repeat(4, minmax(0, 1fr))", gridTemplateRows: "repeat(2, minmax(0, 1fr))", gap: "8px" }}>
@@ -69,8 +69,8 @@ export function ScreensTab({ v }: { v: ConsoleView }) {
                 <button key={b.j} type="button" aria-pressed={b.on} aria-label={b.aria} aria-keyshortcuts="ArrowLeft ArrowRight ArrowUp ArrowDown Delete" className="x4-tile"
                   draggable="true" onDragStart={b.dragStart} onDragOver={v.web.allowDrop} onDrop={b.drop} onClick={b.select} onKeyDown={b.key} style={{ ...(b.place ?? { gridColumn: `${b.col} / span ${b.cs}`, gridRow: `${b.row} / span ${b.rs}` }), minWidth: "0", minHeight: "0", boxSizing: "border-box", border: b.bad ? "2px solid #B3261E" : b.border, borderRadius: "8px", background: b.bg, padding: b.crop && !b.bad ? "0" : "10px 12px", display: "flex", flexDirection: "column", alignItems: "stretch", justifyContent: "space-between", textAlign: "left", cursor: "grab", overflow: "hidden" }}>
                   {b.crop && !b.bad
-                    // #189: the tile as the display draws it, cut from preview.png (viewBox = its panel rectangle; slice, so
-                    // nothing outside it shows, #360)
+                    // eink-ha-os#189: the tile as the display draws it, cut from preview.png (viewBox = its panel rectangle; slice, so
+                    // nothing outside it shows, eink-ha-os#360)
                     ? <svg viewBox={b.crop.box} preserveAspectRatio="xMidYMid slice" aria-hidden="true" style={{ display: "block", flex: "1", minHeight: "0", width: "100%", height: "100%" }}><image href={b.crop.url} width="800" height="480" /></svg>
                     : <>
                       <span style={{ display: "block", fontSize: "16px", fontWeight: "600", lineHeight: "1.2", overflow: "hidden" }}>{b.name}</span>
@@ -230,6 +230,10 @@ export function ScreensTab({ v }: { v: ConsoleView }) {
                       <span style={{ minWidth: "64px", fontSize: "13px", color: "#5c5a55" }}>{v.web.t('histThreshold')}</span>
                       <input inputMode="decimal" aria-label={v.web.t('histThreshold')} placeholder={v.web.t('histThresholdNone')} value={v.web.histThreshold} onChange={v.web.setHistThreshold} style={{ width: "84px", height: "32px", boxSizing: "border-box", border: "1px solid #c9c6be", borderRadius: "6px", padding: "0 8px", fontSize: "13px" }} />
                     </fieldset>
+                    {(v.web.histCompares).length > 0 && (<fieldset aria-label={v.web.t('histCompare')} style={{ display: "flex", alignItems: "center", gap: "8px", flexWrap: "wrap", margin: "0", padding: "0", minWidth: "0", border: "0" }}>
+                      <span style={{ minWidth: "64px", fontSize: "13px", color: "#5c5a55" }}>{v.web.t('histCompare')}</span>
+                      {(v.web.histCompares).map((o: any) => (<Fragment key={o.label}><button onClick={o.pick} aria-pressed={o.bg === '#1d1d1f'} style={{ height: "32px", padding: "0 10px", border: "1px solid #c9c6be", borderRadius: "6px", background: o.bg, color: o.fg, fontSize: "13px" }}>{o.label}</button></Fragment>))}
+                    </fieldset>)}
                     <fieldset aria-label={v.web.t('histLabels')} style={{ display: "flex", alignItems: "center", gap: "8px", flexWrap: "wrap", margin: "0", padding: "0", minWidth: "0", border: "0" }}>
                       <span style={{ minWidth: "64px", fontSize: "13px", color: "#5c5a55" }}>{v.web.t('histLabels')}</span>
                       {(v.web.histLabelOpts).map((o: any) => (<Fragment key={o.label}><button onClick={o.pick} aria-pressed={o.bg === '#1d1d1f'} style={{ height: "32px", padding: "0 10px", border: "1px solid #c9c6be", borderRadius: "6px", background: o.bg, color: o.fg, fontSize: "13px" }}>{o.label}</button></Fragment>))}

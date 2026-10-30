@@ -54,6 +54,10 @@
 // (found with the real firmware under QEMU, sim/qemu/ota-fw-test.sh).
 extern "C" bool verifyRollbackLater() { return true; }
 
+// loopTask runs setup() and the UI. Arduino's 8 KB left 1.8-2.2 KB free in QEMU and 2 KB on the X4 Pro after a render
+// (eink-ha-os#289); 10 KB, internal RAM, paid for by the App state that moved to PSRAM (app/app.cpp).
+SET_LOOP_TASK_STACK_SIZE(10 * 1024);
+
 namespace {
 #if X4_QEMU
 x4::QemuDisplay g_display;   // Espressif QEMU: no panel / I2C / LEDC (docs/ESP32_EMULATION.md §5)
@@ -95,7 +99,7 @@ constexpr uint32_t kLoopIdleMs = 20;
 }  // namespace
 
 void setup() {
-  // Log ring in PSRAM + the previous boot's tail out of RTC memory, before the first LOG line (net/log.h, #200).
+  // Log ring in PSRAM + the previous boot's tail out of RTC memory, before the first LOG line (net/log.h, eink-ha-os#200).
   x4::net::logBegin();
   // Deep-sleep wake cause + the glance record in RTC memory (net/power.h); diag reads it under QEMU.
   x4::net::powerEarlyBoot();
@@ -115,7 +119,7 @@ void setup() {
 #endif
 #else
   // GPIO1 (power latch + touch rail) is already HIGH and pad-held: a constructor in hw/x4_board.cpp asserts it before
-  // Arduino's init (#225). Not BoardConfig::holdPowerRails(): it releases the hold. X4 Pro has no chargeEnable pin.
+  // Arduino's init (eink-ha-os#225). Not BoardConfig::holdPowerRails(): it releases the hold. X4 Pro has no chargeEnable pin.
   Serial.begin(115200);
   Serial.setTxTimeoutMs(1);   // HWCDC, logged from several tasks: no host reading → each write blocks 100 ms by default (crosspoint-reader does the same)
   LOG_INF("MAIN", "HA Paper %s · %s", x4::net::firmwareVersion(), BoardConfig::isX4Pro() ? "X4 Pro" : "?");
@@ -124,15 +128,15 @@ void setup() {
 #endif
 
   // malloc() keeps Arduino's split: up to 4 KB internal, above that PSRAM. HA data that fragmented internal RAM
-  // allocates PSRAM explicitly instead (net/psram.h, core/psram_alloc.h). Not lower (#79): libraries hand plain
+  // allocates PSRAM explicitly instead (net/psram.h, core/psram_alloc.h). Not lower (eink-ha-os#79): libraries hand plain
   // malloc'd buffers to DMA peripherals, e.g. NetworkClientSecure's `new sslclient_context` holds the CTR_DRBG counter
   // the AES DMA reads, and QEMU's GDMA can't read PSRAM (every https call hung).
 
   auto& services = x4::net::deviceServices();
   services.begin();                                          // storage, Wi-Fi, web server, net task
   x4::net::diagBegin();                                      // boot ring → userdata /diag.json
-  // Glance timer wake (#10): no boot screen, the panel keeps what it shows until a visible value changed. A key wake
-  // from glance sleep (#299) holds it too, until the data is in.
+  // Glance timer wake (eink-ha-os#10): no boot screen, the panel keeps what it shows until a visible value changed. A key wake
+  // from glance sleep (eink-ha-os#299) holds it too, until the data is in.
   const bool glanceWake = x4::net::powerBegin(services.bootSettings());
 #ifdef X4_TEST_CRASH_ON_BOOT
   // Test-only image (sim/qemu/ota-fw-test.sh): a broken update that resets before it is confirmed must be rolled
@@ -149,7 +153,7 @@ void setup() {
 #endif
   // loopTask joins the task watchdog after the test hooks: the hang-test image must stay the OTA guard's case.
   // Every step below (first-boot panel init, first full refresh ~3 s) is well under 30 s; a panel whose BUSY never
-  // releases gives up after 20 s per wait, feeding the watchdog, once (core/panel_guard.h, #181).
+  // releases gives up after 20 s per wait, feeding the watchdog, once (core/panel_guard.h, eink-ha-os#181).
   x4::wdt::subscribe();
   setenv("TZ", x4::net::timezone().c_str(), 1);
   tzset();
@@ -186,8 +190,8 @@ void setup() {
 
   g_app = new x4::App(g_display, g_board, services);
   g_app->setPanelHeld(glanceWake);
-  g_app->setBootWake(x4::net::powerWakeName());   // quiet hours (#295): a press, power-on or charger boot opens with a peek
-  g_app->setMorningState(x4::net::morningRtcLoad());   // Good morning page (#330): armed overnight, across deep sleep
+  g_app->setBootWake(x4::net::powerWakeName());   // quiet hours (eink-ha-os#295): a press, power-on or charger boot opens with a peek
+  g_app->setMorningState(x4::net::morningRtcLoad());   // Good morning page (eink-ha-os#330): armed overnight, across deep sleep
   g_app->onMorningState([](const x4::morning::State& m) { x4::net::morningRtcSave(m); });
 #if !X4_QEMU
   x4::net::powerOnSleep([](int64_t seconds) {
@@ -196,7 +200,7 @@ void setup() {
   });
 #endif
   if (!g_app->framebuffer().data) LOG_ERR("MAIN", "!!! out of memory for the 96 KB UI framebuffer · nothing will be drawn");
-  if (g_app->framebuffer().data) {   // render micro-benchmark, once per boot (#213); begin() repaints the framebuffer
+  if (g_app->framebuffer().data) {   // render micro-benchmark, once per boot (eink-ha-os#213); begin() repaints the framebuffer
     x4::Framebuffer fb = g_app->framebuffer();   // same buffer (a pointer)
     x4::Canvas c(&fb);
     const uint32_t t0 = micros();
@@ -208,11 +212,11 @@ void setup() {
     LOG_INF("MAIN", "render bench · full-screen card %u us · arc r46 %u us · tone 400x240 %u us", unsigned(t1 - t0),
             unsigned(t2 - t1), unsigned(micros() - t2));
   }
-  g_app->onLog([](const std::string& s) { LOG_INF("APP", "%s", s.c_str()); });   // every refresh with its reason (#71)
-  g_app->onPowerStage([](const char* s) { x4::net::powerKeyStage(s); });   // #225 power trail
+  g_app->onLog([](const std::string& s) { LOG_INF("APP", "%s", s.c_str()); });   // every refresh with its reason (eink-ha-os#71)
+  g_app->onPowerStage([](const char* s) { x4::net::powerKeyStage(s); });   // eink-ha-os#225 power trail
   g_app->onSettingsChanged([](const x4::DisplaySettings& s) { x4::net::deviceServices().saveDeviceSettings(s); });
   g_app->begin(services.bootConfig(), services.bootSettings());
-  // Safe recovery (#21): ≥ 3 crash resets in a row → offer the factory reset screen (Right erases, 10 s timeout).
+  // Safe recovery (eink-ha-os#21): ≥ 3 crash resets in a row → offer the factory reset screen (Right erases, 10 s timeout).
   if (const int streak = x4::net::diagCrashStreak(); streak >= x4::kCrashLoopBoots) {
     LOG_WRN("MAIN", "crash loop · %d crash resets in a row · offering factory reset", streak);
     g_app->offerRecovery();
@@ -226,7 +230,7 @@ void loop() {
   x4::net::diagLoop();
   x4::net::deviceServices().pump(*g_app, g_board);
   x4::net::powerLoop(*g_app, g_board);   // live: may deep-sleep; glance wake: snapshot → redraw? → sleep
-  x4::net::improvPoll();   // Wi-Fi from the web flasher over the serial console (#31)
+  x4::net::improvPoll();   // Wi-Fi from the web flasher over the serial console (eink-ha-os#31)
   if (x4::net::takeTimeSynced()) g_board.writeRtcFromSystemClock();
   {
     // expose the panel content to GET /api/v1/screens/{id}/preview.png
@@ -235,7 +239,7 @@ void loop() {
     x4::net::hub().lastFrame = f;
   }
   {
-    // GET /console/state entity_gaps (#86): tile entities HA has no value for, from the App's store, once a second
+    // GET /console/state entity_gaps (eink-ha-os#86): tile entities HA has no value for, from the App's store, once a second
     static uint32_t gapsAt = 0;
     const uint32_t now = millis();
     if (now - gapsAt >= 1000) {

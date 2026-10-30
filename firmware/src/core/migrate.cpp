@@ -18,7 +18,7 @@ Json text(const std::string& s) {
   j.str = s;
   return j;
 }
-// 1 → 2 (#295): quiet hours. New key `quiet` from `night` (kept for a rollback); "Sleep at night" becomes glance.
+// 1 → 2 (eink-ha-os#295): quiet hours. New key `quiet` from `night` (kept for a rollback); "Sleep at night" becomes glance.
 void settings1to2(Json& d) {
   if (!member(d, "quiet")) {
     const Json* n = d.get("night");

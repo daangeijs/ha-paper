@@ -3,7 +3,7 @@
 #   emulator/  `npm run build:device-ui`  →  emulator/dist-device-ui/{index.html,app.js,app.css,…}
 #   →  firmware/data/www/<file>.gz   (ESPAsyncWebServer serves the .gz with Content-Encoding: gzip)
 #   spec/openapi.yaml  →  firmware/data/www/openapi.yaml.gz  (GET /openapi.yaml, no auth)
-#   $X4_FW_VERSION     →  firmware/data/www/version.txt  (plain; the firmware compares it to its own, #350)
+#   $X4_FW_VERSION     →  firmware/data/www/version.txt  (plain; the firmware compares it to its own, eink-ha-os#350)
 #
 # Runs only for `pio run -t buildfs|uploadfs` (or with X4_BUILD_UI=1) so normal firmware builds stay fast.
 # If node/npm or the emulator sources are missing, the image ships without /www and the firmware serves its
@@ -91,7 +91,7 @@ def package():
             with open(src, "rb") as i, gzip.GzipFile(dst, "wb", compresslevel=9, mtime=0) as o:
                 o.write(i.read())
             total += os.path.getsize(dst)
-    # The console's version (#350): the firmware compares it to its own (net/www_ota.h); same default as net/util.cpp
+    # The console's version (eink-ha-os#350): the firmware compares it to its own (net/www_ota.h); same default as net/util.cpp
     version = os.environ.get("X4_FW_VERSION") or "0.0.0-dev"
     with open(os.path.join(WWW, "version.txt"), "w") as o:
         o.write(version + "\n")

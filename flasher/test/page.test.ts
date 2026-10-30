@@ -57,12 +57,12 @@ describe("landing page", () => {
     for (const m of html.matchAll(/href="((https?:)?\/\/[^"]*)"/g)) expect(m[1]).toMatch(/^https:\/\/github\.com\/daangeijs\/ha-paper\//);
   });
 
-  it("links the release, x4flash.py, the flashing guide and the issue form (#44)", () => {
+  it("links the release, x4flash.py, the flashing guide and the issue form (eink-ha-os#44)", () => {
     for (const p of ["/releases/latest", "/firmware/tools/x4flash.py", "/docs/FLASHING.md", "/issues/new?template=bug_report.yml"])
       at(`href="https://github.com/daangeijs/ha-paper${p.startsWith("/releases") || p.startsWith("/issues") ? "" : "/blob/main"}${p}"`);
   });
 
-  it("keeps restore under Advanced; backup privacy in the details (#233, #239)", () => {
+  it("keeps restore under Advanced; backup privacy in the details (eink-ha-os#233, eink-ha-os#239)", () => {
     const adv = html.slice(at('<details class="advanced">'), at('class="tech"'));
     expect(adv).toContain('id="restore-h">Restore backup<');
     expect(html).toMatch(/Wi-Fi password/);
@@ -70,14 +70,14 @@ describe("landing page", () => {
     expect(html).toMatch(/Chrome or Edge/);
   });
 
-  it("makes the backup an unchecked option and draws no button layout (#239)", () => {
+  it("makes the backup an unchecked option and draws no button layout (eink-ha-os#239)", () => {
     expect(html).toMatch(/<input type="checkbox" id="want-backup">/);
     expect(html).not.toMatch(/<svg/);
     expect(html).not.toMatch(/press Reset|hold Left/i);
     expect(main).toContain('"Done. Replug USB."');
   });
 
-  it("shows progress and errors inline, in the step that runs (#239)", () => {
+  it("shows progress and errors inline, in the step that runs (eink-ha-os#239)", () => {
     expect(html).not.toContain('id="progress"');
     for (const step of ["backup", "install", "restore"]) {
       const ids = [`id="${step}-progress"`, `id="${step}-bar"`, `id="${step}-label"`, `id="${step}-error"`];
@@ -90,7 +90,7 @@ describe("landing page", () => {
     at('id="wifi-error"');
   });
 
-  it("keeps the landing state short: under 60 visible words (#239)", () => {
+  it("keeps the landing state short: under 60 visible words (eink-ha-os#239)", () => {
     let b = html.slice(html.indexOf("<body>"));
     b = b.replace(/<details[\s\S]*?<\/details>\s*<\/details>|<details class="tech">[\s\S]*?<\/details>/g, "");
     b = b.replace(/<(p|div|li)\b[^>]*\bhidden\b[^>]*>[\s\S]*?<\/\1>/g, "");
@@ -98,7 +98,7 @@ describe("landing page", () => {
     expect(b.split(/\s+/).filter(Boolean).length).toBeLessThan(60);
   });
 
-  it("offers the X4 Pro and Other as radio tiles; Other hides the controls and says why (#239)", () => {
+  it("offers the X4 Pro and Other as radio tiles; Other hides the controls and says why (eink-ha-os#239)", () => {
     const pick = html.slice(at('<fieldset id="device-pick"'), at("</fieldset>"));
     expect([...pick.matchAll(/<input type="radio" name="device" value="(\w+)"/g)].map((m) => m[1])).toEqual(["x4pro", "other"]);
     expect(pick).toMatch(/value="x4pro" checked/);
@@ -109,7 +109,7 @@ describe("landing page", () => {
   });
 
 
-  it("always shows a Version select before Install, even with one release (#239)", () => {
+  it("always shows a Version select before Install, even with one release (eink-ha-os#239)", () => {
     expect(html).toMatch(/<select id="version-select"><\/select>/);
     expect(at('id="version-select"')).toBeLessThan(at('id="install"'));
   });

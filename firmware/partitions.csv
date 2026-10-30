@@ -1,7 +1,7 @@
 # Name,    Type, SubType,  Offset,   Size
-# www: web console (LittleFS image www.bin), rewritten by every USB flash and by OTA once the new app is confirmed (#350). userdata: screens.yaml, settings.json,
+# www: web console (LittleFS image www.bin), rewritten by every USB flash and by OTA once the new app is confirmed (eink-ha-os#350). userdata: screens.yaml, settings.json,
 # diag.json; formatted by the firmware on first mount and never written by any flasher. userdata sits below
-# coredump so everything a flasher may write ends at 0xFD0000 (issue #16, firmware/DEVIATIONS.md).
+# coredump so everything a flasher may write ends at 0xFD0000 (issue eink-ha-os#16, firmware/DEVIATIONS.md).
 nvs,       data, nvs,      0x9000,   0x5000
 otadata,   data, ota,      0xE000,   0x2000
 app0,      app,  ota_0,    0x10000,  0x640000

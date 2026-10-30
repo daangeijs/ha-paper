@@ -30,7 +30,7 @@ const char* const kSolarHourly = "sensor.solar_hourly";
 const char* const kInside = "sensor.living_temperature";
 const char* const kRoutePrefix = "sensor.x4_route_";
 
-// Fixed logical ids. Routes are user tiles on their own entity (#145); sensor.x4_route_* overrides still map.
+// Fixed logical ids. Routes are user tiles on their own entity (eink-ha-os#145); sensor.x4_route_* overrides still map.
 const std::vector<std::string>& fixedLogical() {
   static const std::vector<std::string> v = {kSolarPower, kGridPower, kBattPower, kHomePower, kSoc, kPrices,
                                              kSolarToday, kImportToday, kExportToday, kEnergyToday, kUsageHourly,
@@ -607,7 +607,7 @@ void EntityAdapter::emitLogical(const std::string& logical, EntityUpdates& out) 
     auto p = priceSeries(src, now_);
     if (p.hourly.size() == 24) v.attrs["today"] = jsonArray(p.hourly, 4);
     else v.attrs.erase("today");
-    if (p.quarters.size() == 96) v.attrs["quarters"] = jsonArray(p.quarters, 4);   // "now" = this quarter (#151)
+    if (p.quarters.size() == 96) v.attrs["quarters"] = jsonArray(p.quarters, 4);   // "now" = this quarter (eink-ha-os#151)
     else v.attrs.erase("quarters");
   } else if (s.sign < 0) {
     v = withPrecision(s.ha, src);
@@ -659,7 +659,7 @@ void EntityAdapter::ingest(const std::string& haId, const EntityValue& v, Entity
   }
   if (power && (hasSolar_ || hasGrid_)) emitDerived(out);
   // pass through everything that is not a logical id and not a mere sensor source (lights, climate, x4.*, …); an
-  // unmapped sensor.x4_route_* is an HA sensor of that name (a route tile's entity, #145)
+  // unmapped sensor.x4_route_* is an HA sensor of that name (a route tile's entity, eink-ha-os#145)
   if ((!isLogicalId(haId) || !resolved_.count(haId)) && (keep_.count(haId) || !(used && haId.compare(0, 7, "sensor.") == 0)))
     out.emplace_back(haId, withPrecision(haId, v));
 }

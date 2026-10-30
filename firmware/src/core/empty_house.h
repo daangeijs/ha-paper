@@ -1,4 +1,4 @@
-// Empty-house sleep (#331, emulator src/core/emptyHouse.ts, spec/test-vectors/empty-house.json): while the presence
+// Empty-house sleep (eink-ha-os#331, emulator src/core/emptyHouse.ts, spec/test-vectors/empty-house.json): while the presence
 // source says nobody is home, glance wakes every kEmptyWaitS and the sleeping panel shows the Nobody home face.
 // Setting `emptyHouse`: "" = off, else the entity. Quiet hours win; a key press wakes into live mode as always. Pure.
 #pragma once

@@ -17,14 +17,14 @@ function FirstRunPage({ e, rep }: { e: Emulator; rep: SeedReportView }) {
   return createElement(FirstRunCard, { rep, v: { web: useConsole(e.api, e.snapshot() as any), osName: 'HA Paper' }, open: false, setOpen: () => {}, hide: () => {}, fix: () => {} });
 }
 
-describe('first-run checklist (#91)', () => {
+describe('first-run checklist (eink-ha-os#91)', () => {
   it('four steps; done only when linked, seeded and the preview was opened', () => {
     const s = checklist(base, en);
     expect(s.map((x) => x.id)).toEqual(['linked', 'seeded', 'preview', 'done']);
     expect(s.map((x) => x.ok)).toEqual([true, true, false, false]);
     expect(s[1].text).toBe('9 of 17 tiles filled');
     expect(s.map((x) => x.fix?.to ?? null)).toEqual([null, 'missing', 'values', null]);
-    expect(s[3]).toMatchObject({ ok: false, text: 'All set' });   // the card hides it until it is done (#184)
+    expect(s[3]).toMatchObject({ ok: false, text: 'All set' });   // the card hides it until it is done (eink-ha-os#184)
     const done = checklist({ ...base, previewSeen: true }, en);
     expect(done[3]).toMatchObject({ ok: true, text: 'All set' });
   });
@@ -50,7 +50,7 @@ describe('first-run checklist (#91)', () => {
     for (const t of ['Getting started', 'Linked to Home Assistant', '1 tile filled', 'Show values', 'Not found in your Home Assistant, so left out: lights.']) expect(h).toContain(t);
     for (const t of ['See what’s missing', 'All set', '<summary']) expect(h).not.toContain(t);   // nothing to pick; done not yet
   });
-  it('#184: counts only tiles the house can fill; what it lacks is one "left out" line', () => {
+  it('eink-ha-os#184: counts only tiles the house can fill; what it lacks is one "left out" line', () => {
     const tiles = [
       { tile: 'home_power', screen: 'overview', entity: 'sensor.p1', rule: 'grid' as const },
       { tile: 'inside', screen: 'overview', why: 'no_sensor' as const },

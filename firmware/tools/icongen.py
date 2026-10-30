@@ -17,7 +17,7 @@ REPO = os.path.dirname(ROOT)
 ICONS_JSON = os.path.join(REPO, "firmware", "assets", "icons.json")
 OUT_CPP = os.path.join(ROOT, "src", "app", "gen", "icons.cpp")
 OUT_H = os.path.join(ROOT, "src", "app", "gen", "icons.h")
-WX_JSON = os.path.join(ROOT, "assets", "weather-icons.json")   # #318: generated from emulator core/weatherArt.ts
+WX_JSON = os.path.join(ROOT, "assets", "weather-icons.json")   # eink-ha-os#318: generated from emulator core/weatherArt.ts
 WX = json.load(open(WX_JSON))
 
 J = json.load(open(ICONS_JSON))
@@ -94,7 +94,7 @@ SPECS = [
     ("SkFlame16", "sk_flame", 16, 0, True),
     ("ChevRight20", "chev_right", 20, 2.6, False),
 ]
-# Weather tile (#318): every drawing at the strip size (44) and the hero size (120, strokes x heroStroke)
+# Weather tile (eink-ha-os#318): every drawing at the strip size (44) and the hero size (120, strokes x heroStroke)
 for _wx in WX["icons"]:
     _n = "Wx" + _wx["name"][0].upper() + _wx["name"][1:]
     SPECS.append((_n + "44", "wx:" + _wx["name"], 44, 1.0, False))
@@ -238,7 +238,7 @@ def raster(d, size, stroke, filled):
 
 
 def raster_layers(layers, size, stroke_k):
-    # #318: fill / stroke in ink, erase (fill + stroke `w`) back to paper, in order; WX["grid"]-unit square
+    # eink-ha-os#318: fill / stroke in ink, erase (fill + stroke `w`) back to paper, in order; WX["grid"]-unit square
     S = 8
     big = size * S
     k = big / float(WX["grid"])

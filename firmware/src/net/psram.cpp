@@ -7,7 +7,7 @@
 #include <new>
 
 namespace {
-// One slot per task inside a scope (#160: one global owner let the web and net tasks restore each other's state).
+// One slot per task inside a scope (eink-ha-os#160: one global owner let the web and net tasks restore each other's state).
 // A slot's task is claimed by CAS; only that task touches its depth.
 struct Slot {
   std::atomic<TaskHandle_t> task{nullptr};

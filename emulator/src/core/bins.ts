@@ -1,4 +1,4 @@
-// Bin day tile (#317): the next waste collection per bin sensor, in words. Pure; firmware core/bins.cpp must match
+// Bin day tile (eink-ha-os#317): the next waste collection per bin sensor, in words. Pure; firmware core/bins.cpp must match
 // spec/test-vectors/bins.json. Times are epoch ms, `tz` the local UTC offset in minutes.
 import { parseTime } from './history.ts';
 import { tr, type Lang, type StrKey } from './strings.ts';
@@ -87,7 +87,7 @@ export function binLabels(entities: string[], labels: [string, string][], names:
   return entities.map((e) => labels.find(([k, l]) => k === e && l)?.[1] || names(e) || e);
 }
 
-/** Config check of a bins tile (#317), in order; '' = fine. `entities` items and `labels` items are checked by
+/** Config check of a bins tile (eink-ha-os#317), in order; '' = fine. `entities` items and `labels` items are checked by
  *  parseYaml like a list pick; this covers the rest. */
 export function binsError(w: Record<string, unknown>, entities: string[]): string {
   if (entities.length > MAX_BINS) return 'bins: at most ' + MAX_BINS + ' sensors';

@@ -6,7 +6,7 @@ import { validateYaml } from './config.ts';
 import { mediaVectors } from '../../scripts/gen-vectors.ts';
 import { FakeHa } from '../../server/fake-ha.ts';
 
-describe('now playing tile (#319)', () => {
+describe('now playing tile (eink-ha-os#319)', () => {
   it('media.json is in sync', () => {
     expect(JSON.parse(readFileSync(join(import.meta.dirname, '../../../spec/test-vectors/media.json'), 'utf8'))).toEqual(mediaVectors());
   });
@@ -33,7 +33,7 @@ describe('now playing tile (#319)', () => {
     expect(mediaLayout(1, 1, 3)).toMatchObject({ volume: false, inlineShown: 0, star: true, pickShown: 3 });
     expect(mediaLayout(2, 2, 6)).toMatchObject({ volume: true, inlineShown: 6, star: false });
   });
-  it('volume slider (#351): VOLUME_SET gets the bar, a tap sets the level with one volume_set', () => {
+  it('volume slider (eink-ha-os#351): VOLUME_SET gets the bar, a tap sets the level with one volume_set', () => {
     expect(mediaView('playing', { volume_level: 0.32, supported_features: 152_511 }).slider).toBe(true);
     expect(mediaView('playing', { volume_level: 0.32, supported_features: 1024 }).slider).toBe(false);
     expect(mediaView('playing', { volume_level: 0.32 }).slider).toBe(false);

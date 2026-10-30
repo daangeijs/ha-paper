@@ -24,8 +24,8 @@ type WireWifi = { state: 'idle' | 'connecting' | 'connected' | 'failed'; connect
 const toToken = (t: WireToken): TokenInfo => ({ id: t.id, name: t.name, scope: t.scope === 'write' ? 'rw' : 'ro', created: t.created, last: t.last_used || 'never', masked: t.masked });
 /** The console only authenticates with its session cookie: a 401 without one means it ran out (12 h) or the display restarted. */
 export const SESSION_ENDED = 'Your session expired. Sign in again.';
-/** POST /auth/ha/start probes the typed address on the display first (#54); a dead or stalled server must not leave
- *  the button on "Waiting for Home Assistant…" (#79). The display gives up on its own in ~15 s per address. */
+/** POST /auth/ha/start probes the typed address on the display first (eink-ha-os#54); a dead or stalled server must not leave
+ *  the button on "Waiting for Home Assistant…" (eink-ha-os#79). The display gives up on its own in ~15 s per address. */
 export const HA_NO_ANSWER = tr('en', 'haNoAnswer');   // the console shows it in its own language (useConsole)
 export const HA_START_TIMEOUT_MS = 20_000;
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));

@@ -1,6 +1,6 @@
 {
   "name": "45-label-free-text",
-  "description": "Labels and titles are free text: spaces, %, accents (issue #80); surrounding spaces are trimmed.",
+  "description": "Labels and titles are free text: spaces, %, accents (issue eink-ha-os#80); surrounding spaces are trimmed.",
   "input": "# HA Paper display config\nversion: 1\nscreens:\n  - id: a\n    title: Energie & café 100%\n    widgets:\n      - {type: stat, entity: sensor.phone_battery, label: Batterij %}\n      - {type: gauge, entity: sensor.phone_battery, label:  Température café }\n      - {type: switch, entity: switch.coffee, label: Koffie & thee}\n",
   "expect": {
     "ok": true,

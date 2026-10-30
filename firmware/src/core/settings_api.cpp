@@ -13,10 +13,10 @@ namespace {
 const char* const kKeys[] = {"display", "ota_channel", "tz", "name", "entities"};
 const char* const kDisplayKeys[] = {"brightness", "warmth", "lightTimeout", "quiet",      "returnHome", "standby", "clock",   "intervalSec",
                                     "fullEvery",  "cleanEvery", "otaAuto", "style",      "typeface", "surface", "haReport",
-                                    "powerSave",  "wakeEvery", "liveMin",   // glance (#10)
-                                    "emptyHouse",                          // #331
-                                    "debugInput",                          // #214
-                                    "morning"};                            // #330
+                                    "powerSave",  "wakeEvery", "liveMin",   // glance (eink-ha-os#10)
+                                    "emptyHouse",                          // eink-ha-os#331
+                                    "debugInput",                          // eink-ha-os#214
+                                    "morning"};                            // eink-ha-os#330
 
 template <size_t N>
 bool known(const char* const (&table)[N], const std::string& k) {
@@ -113,7 +113,7 @@ std::string putError(const Json& body) {
       if (!known(kDisplayKeys, kv.first)) return "unknown key: display." + kv.first;
   }
   const Json* tz = body.get("tz");
-  if (tz && !tz->isNull() && !(tz->isStr() && locale::validTzSetting(tz->str))) return kTzError;   // #147
+  if (tz && !tz->isNull() && !(tz->isStr() && locale::validTzSetting(tz->str))) return kTzError;   // eink-ha-os#147
   return "";
 }
 

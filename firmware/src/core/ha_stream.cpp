@@ -1,5 +1,6 @@
 #include "core/ha_stream.h"
 
+#include "core/attr_list.h"
 #include "core/empty_house.h"
 
 #include <cstring>
@@ -10,14 +11,14 @@ namespace {
 const char* const kAttrs[] = {
     "friendly_name", "unit_of_measurement", "display_precision",                            // every widget
     "today", "raw_today", "prices_today", "prices", "unit", "price_in_cents", "forecast",   // prices, hourly series
-    "current_temperature", "temperature", "preset_mode", "temperature_unit",                // climate, weather (#161)
-    "preset_modes",                                                                         // climate: away button (#148)
+    "current_temperature", "temperature", "preset_mode", "temperature_unit",                // climate, weather (eink-ha-os#161)
+    "preset_modes",                                                                         // climate: away button (eink-ha-os#148)
     "area_id", "area_name", "brightness", "dimmable", "supported_color_modes",              // lights
     "x4_order",                                                                             // climate, lights
-    "departures", "upcoming", "per_hour", "note", "typical",                                // routes (upcoming: #275)
-    "apparent_temperature", "wind_speed", "wind_speed_unit", "wind_bearing", "precipitation_unit",   // weather tile (#318)
-    "media_title", "media_artist", "volume_level",                                          // now playing (#319)
-    "daysTo",                                                                               // bins (#317; upcoming above)
+    "departures", "upcoming", "per_hour", "note", "typical",                                // routes (upcoming: eink-ha-os#275)
+    "apparent_temperature", "wind_speed", "wind_speed_unit", "wind_bearing", "precipitation_unit",   // weather tile (eink-ha-os#318)
+    "media_title", "media_artist", "volume_level",                                          // now playing (eink-ha-os#319)
+    "daysTo",                                                                               // bins (eink-ha-os#317; upcoming above)
 };
 
 std::vector<std::pair<PStr, PStr>, PsramAlloc<std::pair<PStr, PStr>>>& extras() {
@@ -25,17 +26,35 @@ std::vector<std::pair<PStr, PStr>, PsramAlloc<std::pair<PStr, PStr>>>& extras() 
   return v;
 }
 
+std::vector<std::pair<PStr, PStr>, PsramAlloc<std::pair<PStr, PStr>>>& lists() {
+  static std::vector<std::pair<PStr, PStr>, PsramAlloc<std::pair<PStr, PStr>>> v;
+  return v;
+}
+
+bool replacePairs(std::vector<std::pair<PStr, PStr>, PsramAlloc<std::pair<PStr, PStr>>>& x,
+                  const std::vector<std::pair<std::string, std::string>>& entityAttr) {
+  bool same = x.size() == entityAttr.size();
+  for (size_t i = 0; same && i < x.size(); ++i) same = x[i].first == entityAttr[i].first && x[i].second == entityAttr[i].second;
+  if (same) return false;
+  x.clear();
+  for (auto& e : entityAttr) x.emplace_back(PStr(e.first), PStr(e.second));
+  return true;
+}
+
 int64_t epochOf(ArduinoJson::JsonVariantConst v) { return v.is<double>() ? static_cast<int64_t>(v.as<double>()) : 0; }
 
-// #331 Nobody home face: device_class of a door / window binary_sensor only (core/empty_house.h isOpeningClass)
+// eink-ha-os#331 Nobody home face: device_class of a door / window binary_sensor only (core/empty_house.h isOpeningClass)
 bool openingClass(const char* id, const char* key, ArduinoJson::JsonVariantConst v) {
   return std::strcmp(key, "device_class") == 0 && std::strncmp(id, "binary_sensor.", 14) == 0 && v.is<const char*>() &&
          isOpeningClass(v.as<const char*>());
 }
 
 void setAttrs(ArduinoJson::JsonObjectConst a, EntityValue& v, const char* id) {
-  for (ArduinoJson::JsonPairConst p : a)
-    if (keepAttrFor(id, p.key().c_str()) || openingClass(id, p.key().c_str(), p.value())) v.attrs[p.key().c_str()] = scalarText(p.value());
+  for (ArduinoJson::JsonPairConst p : a) {
+    const char* k = p.key().c_str();
+    if (keepAttrFor(id, k) || openingClass(id, k, p.value())) v.attrs[k] = scalarText(p.value());
+    else if (listAttrFor(id, k)) v.attrs[k] = capListText(p.value(), alist::kMaxItems, alist::kMaxBytes);   // eink-ha-os#332
+  }
 }
 }  // namespace
 
@@ -45,19 +64,32 @@ bool keepAttr(const char* key) {
   return false;
 }
 
-bool setExtraAttrs(const std::vector<std::pair<std::string, std::string>>& entityAttr) {
-  auto& x = extras();
-  bool same = x.size() == entityAttr.size();
-  for (size_t i = 0; same && i < x.size(); ++i) same = x[i].first == entityAttr[i].first && x[i].second == entityAttr[i].second;
-  if (same) return false;
-  x.clear();
-  for (auto& e : entityAttr) x.emplace_back(PStr(e.first), PStr(e.second));
-  return true;
+bool setExtraAttrs(const std::vector<std::pair<std::string, std::string>>& entityAttr) { return replacePairs(extras(), entityAttr); }
+bool setListAttrs(const std::vector<std::pair<std::string, std::string>>& entityAttr) { return replacePairs(lists(), entityAttr); }
+
+bool listAttrFor(const char* entity, const char* key) {
+  for (auto& e : lists()) if (e.second == key && e.first == entity) return true;
+  return false;
+}
+
+std::string capListText(ArduinoJson::JsonVariantConst v, size_t maxItems, size_t maxBytes) {
+  if (!v.is<ArduinoJson::JsonArrayConst>()) return scalarText(v);
+  std::string out = "[", item;
+  size_t n = 0;
+  for (ArduinoJson::JsonVariantConst e : v.as<ArduinoJson::JsonArrayConst>()) {
+    if (n >= maxItems) break;
+    item.clear();
+    serializeJson(e, item);
+    if (out.size() + 1 + item.size() + (n ? 1 : 0) > maxBytes) break;
+    if (n++) out += ',';
+    out += item;
+  }
+  return out + "]";
 }
 
 bool keepAttrFor(const char* entity, const char* key) {
   if (keepAttr(key)) return true;
-  // #351: a player's VOLUME_SET bit picks the volume slider; only media players keep it (every entity has one)
+  // eink-ha-os#351: a player's VOLUME_SET bit picks the volume slider; only media players keep it (every entity has one)
   if (std::strcmp(key, "supported_features") == 0 && std::strncmp(entity, "media_player.", 13) == 0) return true;
   for (auto& e : extras()) if (e.second == key && e.first == entity) return true;
   return false;

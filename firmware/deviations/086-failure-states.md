@@ -9,4 +9,4 @@
 - `GET /console/state` `entity_gaps` is computed in the main loop once a second from the App's store, so the console
   can lag the panel by up to a second. x4qemu only: `GET /__qemu/regions` returns each region's canvas signature
   (the drawn text), for the contract checks.
-  Wi-Fi keyboard, the OTA and recovery faces, the setup steps on the display. Numbers: see #110 below.
+  Wi-Fi keyboard, the OTA and recovery faces, the setup steps on the display. Numbers: see eink-ha-os#110 below.

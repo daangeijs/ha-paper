@@ -52,13 +52,13 @@ namespace x4::net {
 
 namespace {
 
-// At most kMaxConns open HTTP connections (#198). Each holds up to ~5.7 KB of lwIP send buffer plus Wi-Fi TX copies in
+// At most kMaxConns open HTTP connections (eink-ha-os#198). Each holds up to ~5.7 KB of lwIP send buffer plus Wi-Fi TX copies in
 // internal RAM. The server closes every connection after its response (no keep-alive, no WebSocket here), so open
 // connections = requests in flight. One browser opens ≤ 6 per host (console first load); steady state is ~2 (state
 // poll every 3 s, preview.png every 15 s). 8 = one browser + two API/HA clients; above that: 503 + Retry-After.
 constexpr int kMaxConns = 8;
 std::atomic<int> g_conns{0};
-std::atomic<Board*> g_inputBoard{nullptr};   // POST /debug/input target (#214)
+std::atomic<Board*> g_inputBoard{nullptr};   // POST /debug/input target (eink-ha-os#214)
 
 class CappedWebServer : public AsyncWebServer {
  public:
@@ -66,7 +66,7 @@ class CappedWebServer : public AsyncWebServer {
     _server.onClient([](void* s, AsyncClient* c) {
       if (!c) return;
       if (g_conns.load() >= kMaxConns) return refuse(c, "connections open");
-      // #248: under the heap floor a request (console state poll, preview.png: -9.5 KB) took the last internal RAM
+      // eink-ha-os#248: under the heap floor a request (console state poll, preview.png: -9.5 KB) took the last internal RAM
       // the Wi-Fi driver needed; its failed timer allocation aborts (ESP_ERROR_CHECK in ets_timer_*)
       if (HeapStarve::critical(heapFreeInternal(), uint32_t(heap_caps_get_free_size(MALLOC_CAP_DMA))))
         return refuse(c, "internal RAM low");
@@ -318,7 +318,7 @@ void otaToJson(JsonObject o) {
   else if (otaJustUpdated()) status = "updated";
   else if (otaLastCheckEpoch() > 0) status = "uptodate";
   o["status"] = status;
-  // an upload without a version (#237) has nothing to name: null, like the install face without its version line
+  // an upload without a version (eink-ha-os#237) has nothing to name: null, like the install face without its version line
   if ((st.ota == OtaState::Available || st.ota == OtaState::Downloading || st.ota == OtaState::Installing) &&
       !st.otaAvailableVersion.empty()) {
     JsonObject a = o["available"].to<JsonObject>();
@@ -341,12 +341,12 @@ void otaToJson(JsonObject o) {
     o["last_check"] = nullptr;
   }
   o["message"] = !why.empty() ? why : !otaLastError().empty() ? otaLastError() : checksOff ? kOtaChecksOffMsg : "";
-  // #250: why the last check failed (status error); null for a failed install
+  // eink-ha-os#250: why the last check failed (status error); null for a failed install
   const char* err = std::strcmp(status, "error") == 0 ? otaErrName(st.otaCheckErr) : nullptr;
   if (err) o["error"] = err;
   else o["error"] = nullptr;
   o["progress"] = st.otaProgressPct;   // extension
-  const WwwInfo w = wwwInfo();          // #350: the web console on the www partition
+  const WwwInfo w = wwwInfo();          // eink-ha-os#350: the web console on the www partition
   JsonObject wo = o["www"].to<JsonObject>();
   if (w.version.empty()) wo["version"] = nullptr;
   else wo["version"] = w.version;
@@ -371,7 +371,7 @@ static void powerToJson(JsonObject o) {
   o["cpuMhz"] = getCpuFrequencyMhz();
   if (const char* ps = wifiPsMode()) o["wifiPs"] = ps;
   else o["wifiPs"] = nullptr;
-  JsonObject a = o["applied"].to<JsonObject>();   // what the power rules set (#177); QEMU: tracked, not applied
+  JsonObject a = o["applied"].to<JsonObject>();   // what the power rules set (eink-ha-os#177); QEMU: tracked, not applied
   a["cpuMhz"] = powerAppliedCpuMhz();
   a["wifiPs"] = powerAppliedWifiPs();
   a["psOffHeld"] = wifiPsHeld();
@@ -386,14 +386,14 @@ void statusJson(JsonDocument& d) {
     d["name"] = storage().getString("x4dev", "name", "HA Paper");
     d["firmware"] = firmwareVersion();
     d["battery"] = h.power.batteryPct;
-    if (h.power.mv) d["battery_mv"] = h.power.mv;   // CW2017 VCELL (#73); null until read
+    if (h.power.mv) d["battery_mv"] = h.power.mv;   // CW2017 VCELL (eink-ha-os#73); null until read
     else d["battery_mv"] = nullptr;
     d["wifi"] = h.status.wifi == WifiState::Connected ? h.status.ssid : "";
     d["home_assistant"] = h.link.linked() ? haWord(h.status.ha) : "not linked";
     d["screens"] = h.config.screens.size();
-    if (h.status.language.empty()) d["language"] = nullptr;   // HA's language (#98); null until HA told us
+    if (h.status.language.empty()) d["language"] = nullptr;   // HA's language (eink-ha-os#98); null until HA told us
     else d["language"] = h.status.language;
-    if (h.status.currency.empty() || !h.link.linked()) d["currency"] = nullptr;   // HA's currency (#147)
+    if (h.status.currency.empty() || !h.link.linked()) d["currency"] = nullptr;   // HA's currency (eink-ha-os#147)
     else d["currency"] = h.status.currency;
     // extensions (additive)
     d["charging"] = h.power.charging;
@@ -404,16 +404,16 @@ void statusJson(JsonDocument& d) {
     d["free_psram"] = ESP.getFreePsram();
     d["heap_largest_block"] = heapLargestFree();   // internal RAM; TLS gate: core/net_policy.h heapOkForTls
     d["heap_min_free"] = heapMinFree();
-    JsonObject rep = d["ha_report"].to<JsonObject>();   // net/ha_report (#32)
+    JsonObject rep = d["ha_report"].to<JsonObject>();   // net/ha_report (eink-ha-os#32)
     rep["enabled"] = h.settings.haReport;
     rep["state"] = h.haReportState;
     if (h.haReportEpoch) rep["last_push_epoch"] = h.haReportEpoch;
     else rep["last_push_epoch"] = nullptr;
   }
-  d["panel"] = panelGuard().failed() ? "failed" : "ok";   // #181: BUSY stuck → panel given up until restart
+  d["panel"] = panelGuard().failed() ? "failed" : "ok";   // eink-ha-os#181: BUSY stuck → panel given up until restart
   otaToJson(d["ota"].to<JsonObject>());
   powerToJson(d["power"].to<JsonObject>());
-  powerTallyJson(d["power"].as<JsonObject>(), d["refreshes"].to<JsonObject>());   // #178
+  powerTallyJson(d["power"].as<JsonObject>(), d["refreshes"].to<JsonObject>());   // eink-ha-os#178
 }
 
 // GET /api/v1/diagnostics/coredump: the ELF image straight from the coredump partition, in chunks.
@@ -477,10 +477,10 @@ void consoleState(AsyncWebServerRequest* r) {
   if (showHa)
     for (auto& u : h.haDiscovered) disc.add(u);
   d["offline"] = linked && h.status.ha != HaState::Connected;
-  JsonObject gaps = d["entity_gaps"].to<JsonObject>();   // #86: the console says why a tile has no value
+  JsonObject gaps = d["entity_gaps"].to<JsonObject>();   // eink-ha-os#86: the console says why a tile has no value
   if (linked && signedIn)
     for (auto& kv : h.entityGaps) gaps[kv.first] = kv.second;
-  if (h.status.language.empty()) d["language"] = nullptr;   // the console follows it while linked (#98)
+  if (h.status.language.empty()) d["language"] = nullptr;   // the console follows it while linked (eink-ha-os#98)
   else d["language"] = h.status.language;
   JsonObject se = d["session"].to<JsonObject>();
   se["signed_in"] = signedIn;
@@ -492,7 +492,7 @@ void consoleState(AsyncWebServerRequest* r) {
   if (signedIn) screensToJson(h.config, screens);
   d["config_rev"] = h.configRev;
   d["install_id"] = storage().installId();
-  d["seed_pending"] = h.seedPending;   // first HA connection still has to build the screens (#23)
+  d["seed_pending"] = h.seedPending;   // first HA connection still has to build the screens (eink-ha-os#23)
   JsonArray toks = d["tokens"].to<JsonArray>();
   if (signedIn && s.admin)
     for (auto& t : auth().tokens()) tokenToJson(t, toks.add<JsonObject>());
@@ -503,7 +503,7 @@ void consoleState(AsyncWebServerRequest* r) {
 
 // GET /api/v1/ha/entities: what the console's entity picker offers. A missing or > 5 min old list asks Home Assistant
 // again (net task); until the first answer arrives: ready false. The list (~70 KB for 800 entities, PSRAM) is streamed
-// from the hub's shared copy, never copied into one body string (#57).
+// from the hub's shared copy, never copied into one body string (eink-ha-os#57).
 void haEntities(AsyncWebServerRequest* r) {
   if (!authorize(r, Scope::Read)) return;
   std::shared_ptr<const std::string> list;
@@ -529,7 +529,7 @@ void haEntities(AsyncWebServerRequest* r) {
   if (!list || list->empty()) return sendJson(r, 200, "{\"ready\":false,\"areas\":[],\"entities\":[]}");
   auto n = [](const ListCount& c) { return "{\"total\":" + std::to_string(c.total) + ",\"shown\":" + std::to_string(c.shown) + "}"; };
   auto prefix = std::make_shared<const std::string>("{\"ready\":true,\"areas\":" + areas + ",\"lists\":{\"climate\":" +
-                                                    n(lc.climate) + ",\"lights\":" + n(lc.lights) + ",\"entities\":" + n(ec) + "},\"entities\":");   // areas: #127, lists: #134 / #150
+                                                    n(lc.climate) + ",\"lights\":" + n(lc.lights) + ",\"entities\":" + n(ec) + "},\"entities\":");   // areas: eink-ha-os#127, lists: eink-ha-os#134 / eink-ha-os#150
   const size_t head = prefix->size();
   const size_t total = head + list->size() + 1;   // head · list · "}"
   AsyncWebServerResponse* resp = r->beginResponse(kJson, total, [prefix, list, head, total](uint8_t* buf, size_t max, size_t index) -> size_t {
@@ -567,7 +567,7 @@ void getConfig(AsyncWebServerRequest* r) {
   const bool json = header(r, "Accept").find("application/json") != std::string::npos;
   std::string text;
   {
-    PsramScope ps;   // the copy, the DOM and the text: ~10 KB of small blocks on a real house (#160)
+    PsramScope ps;   // the copy, the DOM and the text: ~10 KB of small blocks on a real house (eink-ha-os#160)
     Config c;
     {
       std::lock_guard<std::recursive_mutex> l(hub().mu);
@@ -589,7 +589,7 @@ void getConfig(AsyncWebServerRequest* r) {
   r->send(resp);
 }
 
-// Parse a config body in PSRAM (#160): the YAML lines, key/value pairs and the parsed Config were ~15 KB of small
+// Parse a config body in PSRAM (eink-ha-os#160): the YAML lines, key/value pairs and the parsed Config were ~15 KB of small
 // internal blocks per PUT. Only the summary leaves the scope.
 struct ConfigParse {
   bool empty = false;
@@ -657,7 +657,7 @@ void sendPreviewBusy(AsyncWebServerRequest* r) {
   r->send(resp);
 }
 
-// GET /screens/{id}/preview.png (#168): the screen the panel shows is its frame; any other screen is drawn off-screen
+// GET /screens/{id}/preview.png (eink-ha-os#168): the screen the panel shows is its frame; any other screen is drawn off-screen
 // by the main loop (net/device_services pump), one at a time, 503 + Retry-After while busy.
 void preview(AsyncWebServerRequest* r, const std::string& id) {
   if (!authorize(r, Scope::Read)) return;
@@ -699,7 +699,7 @@ void preview(AsyncWebServerRequest* r, const std::string& id) {
   sendPng(r, std::move(png), "current-panel");
 }
 
-// POST /debug/input (#214): the same queue as touch/keys (App coalescing applies); off unless display.debugInput.
+// POST /debug/input (eink-ha-os#214): the same queue as touch/keys (App coalescing applies); off unless display.debugInput.
 void debugInput(AsyncWebServerRequest* r) {
   if (!authorize(r, Scope::Write)) return;
   bool on;
@@ -719,7 +719,7 @@ void debugInput(AsyncWebServerRequest* r) {
   sendNoContent(r);
 }
 
-// GET /debug/framebuffer.png (#214): the frame last pushed to the panel.
+// GET /debug/framebuffer.png (eink-ha-os#214): the frame last pushed to the panel.
 void debugFramebuffer(AsyncWebServerRequest* r) {
   if (!authorize(r, Scope::Read)) return;
   const uint8_t* fb;
@@ -736,7 +736,7 @@ void debugFramebuffer(AsyncWebServerRequest* r) {
   sendPng(r, std::move(png), "current-panel");
 }
 
-// GET /screens/{id}/values (#122): formatted by the main loop (it owns the entity store); ready: false until it has.
+// GET /screens/{id}/values (eink-ha-os#122): formatted by the main loop (it owns the entity store); ready: false until it has.
 void screenValues(AsyncWebServerRequest* r, const std::string& id) {
   if (!authorize(r, Scope::Read)) return;
   bool known = false, ready = false;
@@ -883,14 +883,14 @@ std::string startAuth(AsyncWebServerRequest* r, const std::string& requestedUrl,
   return url;
 }
 
-// HA address probe in flight / last one ended (#75). Guarded by hub().mu.
+// HA address probe in flight / last one ended (eink-ha-os#75). Guarded by hub().mu.
 struct {
   bool busy = false, ran = false;
   uint32_t endMs = 0;
 } g_probe;
 
 // POST /api/v1/auth/ha/start. Not linked yet: the address (typed, else remembered / discovered) must answer as Home
-// Assistant first (#54); it is remembered only then. Probing blocks, so it runs on the net task.
+// Assistant first (eink-ha-os#54); it is remembered only then. Probing blocks, so it runs on the net task.
 void authHaStart(AsyncWebServerRequest* r) {
   JsonDocument in;
   deserializeJson(in, body(r));
@@ -909,7 +909,7 @@ void authHaStart(AsyncWebServerRequest* r) {
     d["need"] = "ha_url";
     return sendJsonDoc(r, 422, d);
   }
-  {   // one probe in flight, then a short cooldown (#75): each one holds the net task for up to 2 × 5 s
+  {   // one probe in flight, then a short cooldown (eink-ha-os#75): each one holds the net task for up to 2 × 5 s
     std::lock_guard<std::recursive_mutex> l(hub().mu);
     if (g_probe.busy || (g_probe.ran && millis() - g_probe.endMs < ha_address::kProbeCooldownMs)) {
       AsyncWebServerResponse* resp = r->beginResponse(429, kJson, errorJson(ha_address::kProbeBusy).c_str());
@@ -957,7 +957,7 @@ std::string withQuery(const std::string& path, const std::string& kv) {
 }
 
 // HA → /auth/callback?code&state. Exchanges the code (net task): links the display if it isn't yet, and
-// creates the browser session (view-only unless the user is an HA admin, issue #22). 302 → return_to.
+// creates the browser session (view-only unless the user is an HA admin, issue eink-ha-os#22). 302 → return_to.
 // Spec (openapi.yaml): unknown / used state → 400 (no session).
 void sendAuthError(AsyncWebServerRequest* r, int code, const std::string& msg) {
   std::string html = "<!doctype html><meta charset=utf-8><meta name=viewport content=\"width=device-width\"><title>HA Paper</title>"
@@ -998,7 +998,7 @@ void authCallback(AsyncWebServerRequest* r) {
     bool admin = false;
     int st = 0;
     bool ok = HaAuth::exchangeCode(p, code, t, err, &st);
-    // The open HA WebSocket holds two 16 KB record buffers; the exchange needs two more (#123). Close it, retry once:
+    // The open HA WebSocket holds two 16 KB record buffers; the exchange needs two more (eink-ha-os#123). Close it, retry once:
     // it reconnects after this job. An auth code is single use, but HA never saw the failed attempt.
     if (!ok && st == kHttpLowMemory && haClient().yieldTls()) ok = HaAuth::exchangeCode(p, code, t, err, &st);
     if (!ok) {
@@ -1110,7 +1110,7 @@ void settingsJson(JsonDocument& d) {
   deserializeJson(disp, Storage::settingsToJson(s));
   d["display"] = disp;
   d["ota_channel"] = otaChannel();
-  d["tz"] = timezoneSetting();   // #147: "" = follow Home Assistant
+  d["tz"] = timezoneSetting();   // eink-ha-os#147: "" = follow Home Assistant
   d["tz_ha"] = haTimezone();
   d["tz_active"] = timezone();
   d["name"] = storage().getString("x4dev", "name", "HA Paper");
@@ -1194,7 +1194,7 @@ void putSettings(AsyncWebServerRequest* r) {
       hub().entityOverrides = o;
       hub().sourcesChanged = true;
     }
-    LOG_INF("API", "PUT /api/v1/settings · entities · %u overrides", unsigned(o.size()));   // #81: was invisible in the log
+    LOG_INF("API", "PUT /api/v1/settings · entities · %u overrides", unsigned(o.size()));   // eink-ha-os#81: was invisible in the log
     hub().post([o] { haClient().setEntityOverrides(o); });
   }
   if (in["tz"].is<const char*>()) setTimezone(in["tz"].as<const char*>());   // validated above
@@ -1261,7 +1261,7 @@ class ApiHandler : public AsyncWebHandler {
     if (isWwwUpload(r)) return wwwChunk(r, data, len, index, total);
     if (isUpload(r)) return uploadChunk(r, data, len, index, total, index + len >= total);
     if (total > kMaxBody) return;   // handleRequest answers 413
-    if (index == 0 && !r->_tempObject) {   // freed by the request with free(): PSRAM if there is any (#160)
+    if (index == 0 && !r->_tempObject) {   // freed by the request with free(): PSRAM if there is any (eink-ha-os#160)
       r->_tempObject = heap_caps_calloc(total + 1, 1, MALLOC_CAP_SPIRAM | MALLOC_CAP_8BIT);
       if (!r->_tempObject) r->_tempObject = calloc(total + 1, 1);
     }
@@ -1329,7 +1329,7 @@ class ApiHandler : public AsyncWebHandler {
       std::string err;
       // multipart bodies are larger than the image → size unknown
       const bool raw = !r->contentType().startsWith("multipart/");
-      // the install face shows now: name the version if a manifest part came first or ?version= has it (#237)
+      // the install face shows now: name the version if a manifest part came first or ?version= has it (eink-ha-os#237)
       std::string ver = manifestVersion(s);
       if (ver.empty() && r->hasParam("version")) ver = otaUploadVersion(str(r->arg("version")));
       if (!otaUploadBegin(raw ? total : 0, ver, err)) {
@@ -1347,7 +1347,7 @@ class ApiHandler : public AsyncWebHandler {
     (void)final;
   }
 
-  // POST /ota/upload-www (#350): www.bin straight into the www partition; sha256 required (a bad image takes the
+  // POST /ota/upload-www (eink-ha-os#350): www.bin straight into the www partition; sha256 required (a bad image takes the
   // console offline until a good one is written, so nothing unverified counts as done).
   static void wwwChunk(AsyncWebServerRequest* r, uint8_t* data, size_t len, size_t index, size_t total) {
     UploadState* s = state(r);
@@ -1588,7 +1588,7 @@ class ApiHandler : public AsyncWebHandler {
       if (!authorize(r, Scope::Read)) return;
       return sendJson(r, 200, diagReportJson());
     }
-    if (path == "/api/v1/logs" && GET) {   // #200: the log ring (net/log.h)
+    if (path == "/api/v1/logs" && GET) {   // eink-ha-os#200: the log ring (net/log.h)
       if (!authorize(r, Scope::Read)) return;
       auto arg = [r](const char* k) { return r->hasParam(k) ? r->getParam(k)->value().c_str() : nullptr; };
       logs::Query q;
@@ -1615,7 +1615,7 @@ class ApiHandler : public AsyncWebHandler {
       diagClear();
       return sendNoContent(r);
     }
-    if (path == "/api/v1/seed" && (GET || DEL)) {   // #89: written once by the first-link seed (HaClient::maybeSeed)
+    if (path == "/api/v1/seed" && (GET || DEL)) {   // eink-ha-os#89: written once by the first-link seed (HaClient::maybeSeed)
       if (!authorize(r, GET ? Scope::Read : Scope::Write)) return;
       std::string j;
       if (!storage().readFile("/seed.json", j) || j.empty()) return sendError(r, 404, "no seed report");
@@ -1638,7 +1638,7 @@ class ApiHandler : public AsyncWebHandler {
       hub().restartAtMs = millis() + 1000;
       return sendJson(r, 202, "{\"status\":\"restarting\"}");
     }
-    if (path == "/api/v1/device/sleep" && POST) {   // #178: deep sleep now (power measurements)
+    if (path == "/api/v1/device/sleep" && POST) {   // eink-ha-os#178: deep sleep now (power measurements)
       if (!authorize(r, Scope::Write)) return;
       JsonDocument in;
       deserializeJson(in, body(r));
@@ -1676,7 +1676,7 @@ const char* mimeOf(const std::string& p) {
        : ends(".txt") ? "text/plain" : "application/octet-stream";
 }
 
-// #350: console files go out chunk by chunk through wwwRead (open, seek, read, close under the www lock). No File
+// eink-ha-os#350: console files go out chunk by chunk through wwwRead (open, seek, read, close under the www lock). No File
 // handle outlives a callback, so a console rewrite can unmount the partition at any time; a response cut by it ends
 // short. path: "/www/<file>" without .gz (the .gz is preferred).
 bool sendWwwFile(AsyncWebServerRequest* r, const std::string& path, const char* type = nullptr) {
@@ -1700,8 +1700,8 @@ std::string htmlEsc(const std::string& s) {
   return o;
 }
 
-// #350: the console on the www partition is not this firmware's (or is being / failed to be rewritten). The old
-// console stays one click away (/?console=old); a console from before #350 has no version.txt.
+// eink-ha-os#350: the console on the www partition is not this firmware's (or is being / failed to be rewritten). The old
+// console stays one click away (/?console=old); a console from before eink-ha-os#350 has no version.txt.
 bool consoleStale(AsyncWebServerRequest* r) { return !r->hasParam("console") && hasUi() && !wwwCurrent(); }
 
 void sendWwwPage(AsyncWebServerRequest* r) {
@@ -1760,7 +1760,8 @@ WebServer& webServer() {
   return w;
 }
 
-void WebServer::begin() {
+namespace {
+void addRoutes() {
   // Captive portal probes (Android, iOS/macOS, Windows, Firefox) → setup page while the SoftAP is up.
   for (const char* probe : {"/generate_204", "/gen_204", "/hotspot-detect.html", "/library/test/success.html",
                             "/ncsi.txt", "/connecttest.txt", "/redirect", "/canonical.html", "/success.txt"}) {
@@ -1808,7 +1809,7 @@ void WebServer::begin() {
     resp->addHeader("Cache-Control", "no-store");
     r->send(resp);
   });
-  g_server.on("/__qemu/regions", HTTP_GET, [](AsyncWebServerRequest* r) {   // #86: the panel's text, per region
+  g_server.on("/__qemu/regions", HTTP_GET, [](AsyncWebServerRequest* r) {   // eink-ha-os#86: the panel's text, per region
     std::string t;
     {
       std::lock_guard<std::recursive_mutex> l(hub().mu);
@@ -1816,7 +1817,7 @@ void WebServer::begin() {
     }
     r->send(200, "text/plain; charset=utf-8", t.c_str());
   });
-  // Stuck panel (#181): ?stuck=1 → the next refresh's BUSY never releases (core/panel_guard times out, panel failed);
+  // Stuck panel (eink-ha-os#181): ?stuck=1 → the next refresh's BUSY never releases (core/panel_guard times out, panel failed);
   // ?stuck=0 → BUSY releases again and the failure is cleared (a real panel stays failed until restart).
   g_server.on("/__qemu/panel", HTTP_POST, [](AsyncWebServerRequest* r) {
     const std::string v = r->hasParam("stuck") ? str(r->arg("stuck")) : "";
@@ -1840,7 +1841,7 @@ void WebServer::begin() {
                 r->hasParam("charging") && str(r->arg("charging")) == "1", r->hasParam("mv") ? r->arg("mv").toInt() : 0);
     sendNoContent(r);
   });
-  // #300: display settings before any sign-in (PUT /settings needs a token): the contract suite turns quiet hours off
+  // eink-ha-os#300: display settings before any sign-in (PUT /settings needs a token): the contract suite turns quiet hours off
   // on the fresh image, so a run at 23:00–07:00 links like one at noon. ?display={"quiet":"off"}, validated as PUT's.
   g_server.on("/__qemu/settings", HTTP_POST, [](AsyncWebServerRequest* r) {
     if (!r->hasParam("display")) return sendError(r, 400, "use ?display={\"quiet\":\"off\"}");
@@ -1867,12 +1868,12 @@ void WebServer::begin() {
     d["psram"] = ESP.getFreePsram();
     d["largest"] = heapLargestFree();      // internal RAM
     d["tls_slots"] = tlsPoolUsed();        // TLS record-buffer reserve in use (net/tls_pool.cpp)
-    d["tls_spills"] = tlsPoolSpills();     // record buffers that missed the reserve since boot (#198)
+    d["tls_spills"] = tlsPoolSpills();     // record buffers that missed the reserve since boot (eink-ha-os#198)
     d["time"] = static_cast<int64_t>(time(nullptr));   // > 1.7e9 once SNTP (over slirp) set the clock
     d["wake"] = powerWakeName();                       // cold | timer | button | charger (simulated deep sleep)
     d["power_mode"] = powerMode();                     // awake | glance
     {
-      qemu_eth_link_t e;   // the NIC as the driver sees it: link, lease, how often each came and went (#108)
+      qemu_eth_link_t e;   // the NIC as the driver sees it: link, lease, how often each came and went (eink-ha-os#108)
       qemu_eth_link(&e);
       JsonObject eth = d["eth"].to<JsonObject>();
       eth["link"] = e.link;
@@ -1887,16 +1888,16 @@ void WebServer::begin() {
       std::lock_guard<std::recursive_mutex> l(hub().mu);
       d["entities_applied"] = hub().entitiesApplied;
       d["ha"] = static_cast<int>(hub().status.ha);
-      // a queued config / settings / refresh not drawn yet: under QEMU a full refresh renders for seconds (#71)
+      // a queued config / settings / refresh not drawn yet: under QEMU a full refresh renders for seconds (eink-ha-os#71)
       d["busy"] = hub().configPending || hub().settingsPending || hub().refreshPending || hub().applying;
       d["ambient"] = hub().ambient;
-      d["history"] = serialized(std::string(hub().historyInfo));   // #269: per series key: state, source, bytes
+      d["history"] = serialized(std::string(hub().historyInfo));   // eink-ha-os#269: per series key: state, source, bytes
       d["screen"] = hub().shownScreen;                    // screen the panel shows plainly ("" = menu, setup, face)
-      d["number_format"] = hub().status.numberFormat;   // HA profile number_format (#110)
+      d["number_format"] = hub().status.numberFormat;   // HA profile number_format (eink-ha-os#110)
     }
     sendJsonDoc(r, 200, d);
   });
-  // Forced low-memory episode (#149): hold internal RAM in 1 KB blocks until ?free=<bytes> is left; ?free=0 lets go.
+  // Forced low-memory episode (eink-ha-os#149): hold internal RAM in 1 KB blocks until ?free=<bytes> is left; ?free=0 lets go.
   g_server.on("/__qemu/heap-hog", HTTP_POST, [](AsyncWebServerRequest* r) {
     static void* held[512];
     static size_t n = 0;
@@ -1935,11 +1936,19 @@ void WebServer::begin() {
       const String& u = r->url();
       int dot = u.lastIndexOf('.');
       if (dot < 0 || u.lastIndexOf('/') > dot) return sendSpa(r);
-      // console files (app.js, app.css, fonts, version.txt) from the www partition (#350: no serveStatic File handles)
+      // console files (app.js, app.css, fonts, version.txt) from the www partition (eink-ha-os#350: no serveStatic File handles)
       if (u.indexOf("..") < 0 && sendWwwFile(r, "/www" + str(u))) return;
     }
     sendError(r, 404, "not found");
   });
+}
+}  // namespace
+
+void WebServer::begin() {
+  {
+    PsramScope ps;   // the route handlers (std::function, matchers): ~3 KB of internal RAM for the server's life (eink-ha-os#289)
+    addRoutes();
+  }
   g_server.begin();
   LOG_INF("WEB", "HTTP server on :80 · console %s", hasUi() ? "from the www partition" : "fallback page (no www.bin in flash)");
 }

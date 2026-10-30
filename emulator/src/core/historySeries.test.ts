@@ -1,4 +1,4 @@
-// History tile series from an attribute or a weather forecast (#283).
+// History tile series from an attribute or a weather forecast (eink-ha-os#283).
 import { describe, it, expect } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
@@ -87,7 +87,7 @@ describe('history series console', () => {
   });
 });
 
-describe('past and future in one chart (#307)', () => {
+describe('past and future in one chart (eink-ha-os#307)', () => {
   const now = Date.UTC(2026, 9, 26, 14, 37), tz = 60;
   const w = { type: 'history', entity: 'binary_sensor.rain_expected', attribute: 'forecast', value: 'precipitation', past: 'sensor.rain_rate', window: '3h', ahead: '2h', bucket: '10m', style: 'bars' };
   it('fetches the past part plus the open bucket and joins by bucket start', () => {

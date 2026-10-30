@@ -6,7 +6,7 @@
   internal threshold: on QEMU (demo house) the first ingest took the internal low-water 67 → 54.5 KB, the next update
   54.5 → 38.5 KB; The real test display started lower and hit ~1.2 KB.
 - `HaClient` now runs every `EntityAdapter` call (entity events, `push`, overrides, energy prefs, device discovery,
-  statistics, registry precision) inside `PsramScope` (#137), which now nests on one task. Measured after: low-water
+  statistics, registry precision) inside `PsramScope` (eink-ha-os#137), which now nests on one task. Measured after: low-water
   75.9 → 74.3 KB over the same sequence. The mirror keeps the raw attribute text as one PSRAM string; nothing else of it
   is stored (the logical keeps 24 hourly values).
 - `tlsHeapOk` counts the TLS record-buffer reserve (`net/tls_pool.cpp`): with two of its three slots free (no WebSocket

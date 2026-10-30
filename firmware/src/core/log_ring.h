@@ -1,4 +1,4 @@
-// Device log ring (GET /api/v1/logs, #200). Spec: emulator/src/core/logs.ts, vectors spec/test-vectors/logs.json.
+// Device log ring (GET /api/v1/logs, eink-ha-os#200). Spec: emulator/src/core/logs.ts, vectors spec/test-vectors/logs.json.
 // A byte ring over caller-owned memory (64 KB PSRAM on the device; a 2 KB copy in RTC memory keeps the previous
 // boot's tail). Record = 16-byte header (seq, ms, epoch, level, tag len, msg len) + tag + message; records may wrap
 // around the end of the buffer, so `used` is exactly the sum of record sizes and eviction matches the spec.

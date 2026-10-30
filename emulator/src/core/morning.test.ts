@@ -6,7 +6,7 @@ import { morningVectors } from '../../scripts/gen-vectors.ts';
 
 const file = join(import.meta.dirname, '..', '..', '..', 'spec', 'test-vectors', 'morning.json');
 
-describe('good morning page (#330)', () => {
+describe('good morning page (eink-ha-os#330)', () => {
   it('spec/test-vectors/morning.json is current', () => {
     expect(JSON.parse(readFileSync(file, 'utf8'))).toEqual(JSON.parse(JSON.stringify(morningVectors())));
   });

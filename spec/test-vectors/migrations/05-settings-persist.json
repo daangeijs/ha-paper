@@ -18,7 +18,7 @@
       "expect": { "output": { "schema": 2, "warmth": 50, "brightness": 20 } }
     },
     {
-      "name": "a key added later (#32 haReport) is appended without a schema bump",
+      "name": "a key added later (eink-ha-os#32 haReport) is appended without a schema bump",
       "op": "persist", "stored": { "schema": 2, "brightness": 10, "surface": "dots" }, "known": { "brightness": 10, "surface": "dots", "haReport": false },
       "expect": { "output": { "schema": 2, "brightness": 10, "surface": "dots", "haReport": false } }
     }

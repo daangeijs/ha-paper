@@ -6,7 +6,7 @@ const H = 3600000, MID = Date.UTC(2026, 9, 27, 23);   // 2026-10-28 00:00 CET (t
 const m = metersOf({ energy_sources: [{ type: 'solar', stat_energy_from: 'sensor.pv' }, { type: 'grid', stat_energy_from: 'sensor.imp' }] });
 const rows = (from: number, xs: number[]) => xs.map((change, k) => ({ start: from + k * H, change }));
 
-describe('energy hourly (#308)', () => {
+describe('energy hourly (eink-ha-os#308)', () => {
   it('drops rows of another local day', () => {
     const out = hourlyStatistics({ 'sensor.pv': rows(MID - 2 * H, [1, 1, 0.5]), 'sensor.imp': rows(MID - 2 * H, [2, 2, 0.25]) }, m, MID + 1.5 * H, 60);
     expect(out[SOLAR_HOURLY].today?.[0]).toBe(0.5);

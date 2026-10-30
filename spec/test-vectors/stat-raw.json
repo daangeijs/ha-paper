@@ -1,5 +1,5 @@
 {
-  "description": "What a stat tile shows for an HA entity that is not one of our logical sensors (emulator src/core/format.ts statSource, firmware core/home.cpp statSource, #161). climate: current_temperature in °C; weather: temperature in temperature_unit (absent = °C); anything else: its state and unit_of_measurement. ok false = a climate / weather without a temperature: the tile shows \"—\". The console entity list sends the same state / unit for climate and weather. Unavailable / unknown states never get here (gap, #86). attrs are text as the firmware keeps them (\"\" = null).",
+  "description": "What a stat tile shows for an HA entity that is not one of our logical sensors (emulator src/core/format.ts statSource, firmware core/home.cpp statSource, eink-ha-os#161). climate: current_temperature in °C; weather: temperature in temperature_unit (absent = °C); anything else: its state and unit_of_measurement. ok false = a climate / weather without a temperature: the tile shows \"—\". The console entity list sends the same state / unit for climate and weather. Unavailable / unknown states never get here (gap, eink-ha-os#86). attrs are text as the firmware keeps them (\"\" = null).",
   "cases": [
     {
       "name": "sensor: state and unit_of_measurement",

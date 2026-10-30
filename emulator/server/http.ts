@@ -67,7 +67,7 @@ export function createDeviceHandler(sim: DeviceSim, o: HandlerOptions) {
       res.end(isJson ? JSON.stringify(body) : body);
     };
     const err = (code: number, error: string) => send(code, { error });
-    res.once('finish', () => { sim.web.served++; sim.web.lastAt = Date.now(); });   // #227 /diagnostics web
+    res.once('finish', () => { sim.web.served++; sim.web.lastAt = Date.now(); });   // eink-ha-os#227 /diagnostics web
     // Deep sleep: the radio is off, nothing answers (only the simulator's own /__sim routes).
     if (sim.power.asleep && !u.pathname.startsWith('/__sim/')) { log('ASLEEP ' + method + ' ' + u.pathname + ' · no answer'); req.socket.destroy(); return; }
     try {
@@ -195,13 +195,13 @@ export function createDeviceHandler(sim: DeviceSim, o: HandlerOptions) {
         const sc = sim.p.screens.find((s) => s.id === id); if (!sc) return err(404, 'unknown screen “' + id + '”');
         return send(200, previewPng(sc), { 'Content-Type': 'image/png' });
       }
-      case path === '/debug/input': {   // #214
+      case path === '/debug/input': {   // eink-ha-os#214
         if (method !== 'POST') return bad(); if (!need('write')) return;
         if (!sim.p.settings.display.debugInput) return err(403, 'remote input is off');
         const spec = parseInputSpec(u.searchParams); if (!spec) return err(400, INPUT_SPEC_ERROR);
         sim.remoteInput(spec); return send(204);
       }
-      case path === '/debug/framebuffer.png': {   // #214: the layout of the screen shown (png.ts)
+      case path === '/debug/framebuffer.png': {   // eink-ha-os#214: the layout of the screen shown (png.ts)
         if (method !== 'GET') return bad(); if (!need('read')) return;
         const sc = sim.shown.find((s) => s.id === sim.screenId()); if (!sc) return err(503, 'no frame yet');
         return send(200, previewPng(sc), { 'Content-Type': 'image/png' });
@@ -227,7 +227,7 @@ export function createDeviceHandler(sim: DeviceSim, o: HandlerOptions) {
         const e = sim.otaCheck(); if (e) return err(409, e);
         return send(202, { status: 'checking' });
       }
-      case path === '/ota/upload-www': {   // #350, firmware web_server.cpp wwwChunk/finishWwwUpload
+      case path === '/ota/upload-www': {   // eink-ha-os#350, firmware web_server.cpp wwwChunk/finishWwwUpload
         if (method !== 'POST') return bad(); if (!need('write')) return;
         if (/multipart\//i.test(String(req.headers['content-type'] || ''))) return err(415, 'send www.bin as the raw body (Content-Type: application/octet-stream)');
         const want = String(u.searchParams.get('sha256') || req.headers['x-sha256'] || '').toLowerCase();
@@ -251,7 +251,7 @@ export function createDeviceHandler(sim: DeviceSim, o: HandlerOptions) {
         const ct = String(req.headers['content-type'] || '');
         const multipart = /multipart\/form-data/i.test(ct);
         const checked = sim.otaRun.avail;   // the upload screen drops it; still the raw-upload manifest fallback
-        // firmware: the install face shows from the first body byte; a raw upload names its version in ?version= (#237)
+        // firmware: the install face shows from the first body byte; a raw upload names its version in ?version= (eink-ha-os#237)
         if (!multipart && Number(req.headers['content-length'] || 0) > 0) sim.uploadStart(uploadVersion(u.searchParams.get('version')));
         const fail = (code: number, msg: string) => { sim.uploadFailed(msg); return err(code, msg); };
         let body: Buffer;
@@ -301,7 +301,7 @@ export function createDeviceHandler(sim: DeviceSim, o: HandlerOptions) {
         if (method !== 'POST') return bad();
         const b = await json<{ return_to?: string; ha_url?: string }>(); if (!b) return;
         if (sim.p.setup === 'wifi') return err(409, 'Join your Wi-Fi first: Home Assistant can’t be reached from the setup hotspot.');
-        // Not linked: check the address (typed, else remembered / discovered) answers as Home Assistant (#54).
+        // Not linked: check the address (typed, else remembered / discovered) answers as Home Assistant (eink-ha-os#54).
         if (!sim.p.ha.linked) {
           const input = String(b.ha_url || sim.p.ha.url || '');
           if (!input) return send(503, { error: 'Home Assistant not found on this network. Enter its address.', need: 'ha_url' });
@@ -360,7 +360,7 @@ export function createDeviceHandler(sim: DeviceSim, o: HandlerOptions) {
         const next = mergeSettings(sim.p.settings, b); if (typeof next === 'string') return err(422, next);
         const prev = sim.p.settings; const nightOrClock = next.display.clock !== prev.display.clock;
         sim.p.settings = next; sim.p.name = next.name; sim.p.ota.channel = next.ota_channel;
-        if (next.display.otaAuto) sim.p.ota.auto = next.display.otaAuto;   // Settings › Updates › Automatic (#159)
+        if (next.display.otaAuto) sim.p.ota.auto = next.display.otaAuto;   // Settings › Updates › Automatic (eink-ha-os#159)
         sim.save();
         const lookChanged = (['style', 'typeface', 'surface'] as const).some((k) => next.display[k] !== prev.display[k]);
         if (lookChanged) sim.fullRefresh('display style');   // a new look is one full refresh, never a region diff
@@ -392,7 +392,7 @@ export function createDeviceHandler(sim: DeviceSim, o: HandlerOptions) {
         if (method !== 'POST') return bad(); if (!setupOrSession()) return;
         return send(202, { status: 'searching' });
       }
-      case path === '/logs': {   // #200 (x-firmware: net/log.cpp)
+      case path === '/logs': {   // eink-ha-os#200 (x-firmware: net/log.cpp)
         if (method !== 'GET') return bad(); if (!need('read')) return;
         const g = (k: string) => u.searchParams.get(k);
         const q = logsQueryOf({ since: g('since'), level: g('level'), tag: g('tag'), limit: g('limit') });
@@ -406,7 +406,7 @@ export function createDeviceHandler(sim: DeviceSim, o: HandlerOptions) {
         if (method !== 'DELETE') return bad(); if (!need('write')) return;
         sim.diagnosticsClear(); return send(204);
       }
-      case path === '/seed': {   // #89
+      case path === '/seed': {   // eink-ha-os#89
         if (method !== 'GET' && method !== 'DELETE') return bad();
         if (!need(method === 'GET' ? 'read' : 'write')) return;
         if (!sim.p.seed) return err(404, 'no seed report');
@@ -423,7 +423,7 @@ export function createDeviceHandler(sim: DeviceSim, o: HandlerOptions) {
         res.on('finish', () => sim.restart('API restart'));
         return send(202, { status: 'restarting' });
       }
-      case path === '/device/sleep': {   // #178: deep sleep now (power measurements)
+      case path === '/device/sleep': {   // eink-ha-os#178: deep sleep now (power measurements)
         if (method !== 'POST') return bad(); if (!need('write')) return;
         const b = await json<{ seconds?: unknown }>(); if (!b) return;
         const c = sim.sleepNow(b.seconds ?? null);
@@ -455,7 +455,7 @@ export function createDeviceHandler(sim: DeviceSim, o: HandlerOptions) {
       if (typeof b.battery === 'number') sim.battery = b.battery;
       if (typeof b.battery_mv === 'number' || b.battery_mv === null) sim.batteryMv = b.battery_mv;
       if (typeof b.usb === 'boolean') sim.setUsb(b.usb);
-      if (b.wake === 'timer' || b.wake === 'button') sim.wake(b.wake);   // end a deep sleep now (#178 tests)
+      if (b.wake === 'timer' || b.wake === 'button') sim.wake(b.wake);   // end a deep sleep now (eink-ha-os#178 tests)
       if (b.api_idle) sim.power.lastApi = null;   // as if no API request since boot (skips the 2-min quiet period)
       if (b.wake) sim.wake('power key');
       if (b.sleep) { const why = sim.sleep(); if (why) return err(409, 'stays awake: ' + why); }

@@ -1,4 +1,4 @@
-// core/history_fetch (#269): streaming scanner + incremental bucketing against spec/test-vectors/history.json, the
+// core/history_fetch (eink-ha-os#269): streaming scanner + incremental bucketing against spec/test-vectors/history.json, the
 // request plan (statistics first, 6 h history slices, one in flight), oversized answers, live append, and the heap:
 // nothing outside PsramAlloc stays allocated once an answer is processed.
 #include <unity.h>
@@ -363,6 +363,67 @@ void test_fetch_history_slices_and_live() {
   sameSeries(want, got, "live append");
 }
 
+// eink-ha-os#304 wave 2: a compare series asks its own past span (statistics with end_time, history slices ending compareMs ago),
+// lines up bucket for bucket with the tile, and ignores live changes.
+void test_fetch_compare() {
+  const int64_t now = 1793025123456LL;
+  const Sensor sen{97 * 1000};
+  hist::Spec sp = spec("sensor.d", "6h", "1h", "mean");
+  sp.compareMs = hist::kDay;
+  const hist::Spec cs = hist::compareSpec(sp);
+  const std::string ks = hist::seriesKey(sp), kc = hist::seriesKey(cs);
+  TEST_ASSERT_TRUE(ks != kc);
+  hist::Fetcher f;
+  f.setTiles({{sp, ks, true}, {cs, kc, true}}, true);
+  const int64_t back = now - hist::kDay;
+  std::string j;
+  uint32_t id = 40;
+  int stats = 0, shiftedStats = 0;
+  int64_t lastEnd[2] = {0, 0};
+  bool first[2] = {true, true};
+  while (f.next(now, 60, id, j)) {
+    const std::string type = field(j, "type"), end = field(j, "end_time");
+    if (type == "recorder/statistics_during_period") {
+      ++stats;
+      if (!end.empty()) {   // the compare tile's own request: its span, ending a day ago
+        ++shiftedStats;
+        TEST_ASSERT_EQUAL_INT64(back / 1000 * 1000, isoMs(end));
+        TEST_ASSERT_EQUAL_INT64(hist::chartSpan(sp.windowMs, sp.bucketMs, back, 60).start, isoMs(field(j, "start_time")));
+      }
+      feedAnswer(f, id++, "{}", now);   // no statistics: history slices
+      continue;
+    }
+    const int64_t a = isoMs(field(j, "start_time")), e = end.empty() ? now : isoMs(end);
+    const int k = a < back ? 1 : 0;   // the compare span lies a day back
+    TEST_ASSERT_EQUAL_STRING(first[k] ? "true" : "false", field(j, "include_start_time_state").c_str());
+    feedAnswer(f, id++, sen.rows("sensor.d", a, e, first[k]), now, 61);
+    first[k] = false;
+    lastEnd[k] = e;
+  }
+  TEST_ASSERT_EQUAL_INT(2, stats);
+  TEST_ASSERT_EQUAL_INT(1, shiftedStats);
+  TEST_ASSERT_EQUAL_INT64(now, lastEnd[0]);
+  TEST_ASSERT_EQUAL_INT64(back / 1000 * 1000, lastEnd[1]);
+  static hist::Series want;
+  const hist::Span span = hist::chartSpan(cs.windowMs, cs.bucketMs, back, 60);
+  auto pts = sen.points(span.start, back);
+  hist::bucketize(pts.data(), pts.size(), cs.windowMs, cs.bucketMs, cs.agg, back, 60, want);
+  int published = 0;
+  f.publish(now, [&](const std::string& k, const hist::Series* s, hist::FetchState st) {
+    ++published;
+    TEST_ASSERT_EQUAL(int(hist::FetchState::Ok), int(st));
+    if (k != kc) return;
+    TEST_ASSERT_EQUAL_INT64(hist::chartSpan(sp.windowMs, sp.bucketMs, now, 60).start - hist::kDay, s->start);   // bucket i under bucket i
+    sameSeries(want, *s, "compare");
+  });
+  TEST_ASSERT_EQUAL_INT(2, published);
+  f.live("sensor.d", 99, now + 1000);   // the tile takes it, the compare series does not
+  std::vector<std::string> keys;
+  f.publish(now + hist::kLiveGapMs, [&](const std::string& k, const hist::Series*, hist::FetchState) { keys.push_back(k); });
+  TEST_ASSERT_EQUAL_INT(1, int(keys.size()));
+  TEST_ASSERT_EQUAL_STRING(ks.c_str(), keys[0].c_str());
+}
+
 void test_fetch_oversized_and_orphan() {
   const int64_t now = 1793025123456LL;
   hist::Spec sp = spec("sensor.chatty", "1h", "1m", "mean");   // under 5 min: history only
@@ -405,7 +466,7 @@ void test_fetch_oversized_and_orphan() {
   TEST_ASSERT_TRUE(f.next(now + 60000, 0, 51, j));
 }
 
-// #292: weather.get_forecasts with return_response, streamed; the span follows now; asked again after kForecastMs.
+// eink-ha-os#292: weather.get_forecasts with return_response, streamed; the span follows now; asked again after kForecastMs.
 static hist::Spec widgetSpec(std::initializer_list<std::pair<const char*, const char*>> kv, int cs = 1) {
   Widget w; w.type = "history"; w.cs = cs;
   for (auto& p : kv) w.fields[p.first] = p.second;
@@ -472,7 +533,7 @@ void test_fetch_forecast() {
   TEST_ASSERT_EQUAL(int(hist::FetchState::None), int(st));
 }
 
-// #292: an attribute list from the mirror: parsed when it changes (not when it does not), again at a bucket boundary.
+// eink-ha-os#292: an attribute list from the mirror: parsed when it changes (not when it does not), again at a bucket boundary.
 void test_fetch_attribute() {
   const int64_t now = 1793025123456LL;
   hist::Spec sp = widgetSpec({{"entity", "binary_sensor.rain"}, {"attribute", "forecast"}, {"value", "precipitation"},
@@ -575,6 +636,7 @@ int main(int, char**) {
   RUN_TEST(test_accum_live_shift_matches_bucketize);
   RUN_TEST(test_fetch_statistics_then_tail);
   RUN_TEST(test_fetch_history_slices_and_live);
+  RUN_TEST(test_fetch_compare);
   RUN_TEST(test_fetch_oversized_and_orphan);
   RUN_TEST(test_fetch_heap);
   RUN_TEST(test_fetch_forecast);

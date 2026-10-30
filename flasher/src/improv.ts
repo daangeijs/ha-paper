@@ -1,4 +1,4 @@
-// Improv Wi-Fi over serial (https://www.improv-wifi.com/serial/, #31): after installing, the page sends the Wi-Fi
+// Improv Wi-Fi over serial (https://www.improv-wifi.com/serial/, eink-ha-os#31): after installing, the page sends the Wi-Fi
 // name and password to the display over the same USB port, so nobody has to join the setup hotspot. Device side:
 // firmware/src/core/improv.cpp. Vectors: spec/test-vectors/improv.json. The port also carries the firmware's log
 // lines; the parser skips everything that is not an "IMPROV" frame.

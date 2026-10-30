@@ -21,7 +21,7 @@ describe('boot / crash ring (GET /diagnostics)', () => {
     expect(['PANIC', 'INT_WDT', 'TASK_WDT', 'WDT', 'BROWNOUT', 'CPU_LOCKUP'].every(isCrash)).toBe(true);
     expect(['POWERON', 'SW', 'EXT', 'DEEPSLEEP'].some(isCrash)).toBe(false);
   });
-  it('hw: the raw reset cause is kept next to the IDF reason; it never changes crash (#241)', () => {
+  it('hw: the raw reset cause is kept next to the IDF reason; it never changes crash (eink-ha-os#241)', () => {
     const r = diagPush(diagPush([], 'POWERON', '0.3.0', null), 'TASK_WDT', '0.3.0', null, 'CORE_MWDT0');
     expect(r[0].hw).toBe('CORE_MWDT0'); expect(r[1].hw).toBeNull(); expect(lastCrash(r)?.reason).toBe('TASK_WDT');
   });

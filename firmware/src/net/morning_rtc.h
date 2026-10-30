@@ -1,4 +1,4 @@
-// Good morning page state across deep sleep (#330, core/morning.h): armed by quiet hours, the page's end time. RTC
+// Good morning page state across deep sleep (eink-ha-os#330, core/morning.h): armed by quiet hours, the page's end time. RTC
 // memory survives deep sleep and esp_restart(); after a power-on the checksum fails and the state is idle (no page).
 #pragma once
 #include "core/morning.h"

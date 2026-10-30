@@ -5,6 +5,7 @@
 
 #include <algorithm>
 #include <cstring>
+#include <new>
 #include <utility>
 
 #include "Logging.h"
@@ -70,10 +71,8 @@ done:
   }
   open_ = true;
   lastRxMs_ = millis();
-  rx_.clear();
-  frag_.clear();
-  skip_ = 0;
-  streaming_ = false;
+  rx_.reset();
+  rx_.setStream(&tap_);
   return true;
 }
 
@@ -89,10 +88,7 @@ void WsClient::close() {
   }
   c_.reset();
   open_ = false;
-  rx_.clear();
-  frag_.clear();
-  skip_ = 0;
-  streaming_ = false;
+  rx_.reset();
 }
 
 bool WsClient::sendFrame(uint8_t opcode, const uint8_t* data, size_t len) {
@@ -114,7 +110,7 @@ bool WsClient::sendFrame(uint8_t opcode, const uint8_t* data, size_t len) {
   randomBytes(mask, 4);
   memcpy(hdr + h, mask, 4);
   h += 4;
-  // Each write can block in lwIP / ssl_client for up to the socket timeout without feeding the TWDT (#248): leave it
+  // Each write can block in lwIP / ssl_client for up to the socket timeout without feeding the TWDT (eink-ha-os#248): leave it
   // for the frame, stop at the frame deadline and drop the socket; HaClient::loop sees !connected() and reconnects.
   wdt::BlockingCall b("ws send");
   const uint32_t t0 = millis();
@@ -143,6 +139,8 @@ bool WsClient::sendText(const std::string& s) {
 
 bool WsClient::ping() { return sendFrame(0x9, nullptr, 0); }
 
+// Reads only while the reader has room (eink-ha-os#374): a complete frame waiting at the front stops the reads, so a server that
+// outpaces the device fills TCP windows instead of the heap. HA itself then drops a client whose queue backs up.
 bool WsClient::poll(std::string& msg) {
   if (!c_) return false;
   if (!c_->connected()) {
@@ -151,170 +149,47 @@ bool WsClient::poll(std::string& msg) {
   }
   uint8_t buf[2048];
   size_t budget = 64 * 1024;   // don't monopolise the net task
-  while (budget && c_->available()) {
-    int n = c_->read(buf, std::min(sizeof buf, budget));
-    if (n <= 0) break;
-    rx_.append(reinterpret_cast<char*>(buf), n);
-    budget -= n;
-    lastRxMs_ = millis();
-    skip();   // a streamed / dropped frame never piles up in rx_
-    if (rx_.size() > kMaxMessage + 16) break;
-  }
-  return parse(msg);
-}
-
-namespace {
-// {"id":N at the start of a payload → N, else 0
-uint32_t peekId(const char* p, size_t n) {
-  static const char kHead[] = "{\"id\":";
-  size_t i = 0, k = 0;
-  for (; i < n && kHead[k]; ++i) {
-    if (p[i] == ' ' && (k == 1 || k == 5)) continue;
-    if (p[i] != kHead[k++]) return 0;
-  }
-  while (i < n && p[i] == ' ') ++i;
-  uint32_t id = 0;
-  size_t d = i;
-  for (; i < n && p[i] >= '0' && p[i] <= '9' && i - d < 9; ++i) id = id * 10 + uint32_t(p[i] - '0');
-  return i > d && i < n && (p[i] == ',' || p[i] == ' ' || p[i] == '}') ? id : 0;
-}
-}  // namespace
-
-void WsClient::skip() {
-  for (;;) {
-    if (skip_) {
-      size_t n = static_cast<size_t>(std::min<uint64_t>(skip_, rx_.size()));
-      if (!n) return;
-      if (streaming_ && stream_) stream_->chunk(rx_.data(), n);
-      rx_.erase(0, n);
-      skip_ -= n;
-      if (skip_) return;
-      if (stream_) {
-        if (streaming_) stream_->end(skipId_, skipLen_);
-        else stream_->dropped(skipId_, skipLen_);
+  try {
+    for (;;) {
+      size_t room;
+      while (budget && (room = rx_.room()) && c_->available()) {
+        int n = c_->read(buf, std::min({sizeof buf, budget, room}));
+        if (n <= 0) break;
+        rx_.feed(reinterpret_cast<const char*>(buf), static_cast<size_t>(n));   // streamed / dropped frames pass through
+        budget -= static_cast<size_t>(n);
+        lastRxMs_ = millis();
       }
-      streaming_ = false;
-      continue;
-    }
-    if (rx_.size() < 2) return;
-    const uint8_t* p = reinterpret_cast<const uint8_t*>(rx_.data());
-    const uint8_t op = p[0] & 0x0F;
-    const bool fin = p[0] & 0x80, masked = p[1] & 0x80;
-    uint64_t len = p[1] & 0x7F;
-    size_t h = 2;
-    if (len == 126) {
-      if (rx_.size() < 4) return;
-      len = (static_cast<uint64_t>(p[2]) << 8) | p[3];
-      h = 4;
-    } else if (len == 127) {
-      if (rx_.size() < 10) return;
-      len = 0;
-      for (int i = 0; i < 8; i++) len = (len << 8) | p[2 + i];
-      h = 10;
-    }
-    if (masked) h += 4;   // servers never mask; such a frame only ever gets dropped
-    const bool text = op == 0x1 && fin && !masked;
-    if (!text && len <= kMaxMessage) return;
-    uint32_t id = 0;
-    if (text) {
-      const size_t peek = static_cast<size_t>(std::min<uint64_t>(len, 24));
-      if (rx_.size() < h + peek) return;
-      id = peekId(rx_.data() + h, peek);
-    }
-    const bool over = len > kMaxMessage;
-    if (!over && !(id && stream_ && stream_->want(id))) return;   // the normal path
-    if (over) LOG_WRN("WS", "frame too large (%llu bytes, id %u) · dropped", static_cast<unsigned long long>(len), unsigned(id));
-    rx_.erase(0, h);
-    skip_ = skipLen_ = len;
-    skipId_ = id;
-    streaming_ = !over;
-    if (streaming_) stream_->begin(id, len);
-    if (!skip_) {   // empty payload
-      if (stream_) streaming_ ? stream_->end(id, 0) : stream_->dropped(id, 0);
-      streaming_ = false;
-    }
-  }
-}
-
-bool WsClient::parse(std::string& msg) {
-  for (;;) {
-    skip();
-    if (skip_) return false;
-    if (rx_.size() < 2) return false;
-    const uint8_t* p = reinterpret_cast<const uint8_t*>(rx_.data());
-    const bool fin = p[0] & 0x80;
-    const uint8_t op = p[0] & 0x0F;
-    const bool masked = p[1] & 0x80;
-    uint64_t len = p[1] & 0x7F;
-    size_t h = 2;
-    if (len == 126) {
-      if (rx_.size() < 4) return false;
-      len = (static_cast<uint64_t>(p[2]) << 8) | p[3];
-      h = 4;
-    } else if (len == 127) {
-      if (rx_.size() < 10) return false;
-      len = 0;
-      for (int i = 0; i < 8; i++) len = (len << 8) | p[2 + i];
-      h = 10;
-    }
-    if (len > kMaxMessage) {
-      LOG_ERR("WS", "frame too large (%llu bytes) — closing", static_cast<unsigned long long>(len));
-      close();
-      return false;
-    }
-    uint8_t mask[4] = {0, 0, 0, 0};
-    if (masked) {
-      if (rx_.size() < h + 4) return false;
-      memcpy(mask, p + h, 4);
-      h += 4;
-    }
-    if (rx_.size() < h + len) return false;
-    std::string payload = rx_.substr(h, static_cast<size_t>(len));
-    rx_.erase(0, h + static_cast<size_t>(len));
-    if (masked)
-      for (size_t i = 0; i < payload.size(); i++) payload[i] ^= mask[i & 3];
-
-    switch (op) {
-      case 0x9:   // ping → pong
-        sendFrame(0xA, reinterpret_cast<const uint8_t*>(payload.data()), payload.size());
-        continue;
-      case 0xA:   // pong
-        continue;
-      case 0x8:   // close
-        LOG_INF("WS", "server closed the connection");
-        close();
-        return false;
-      case 0x0:   // continuation
-        if (frag_.size() + payload.size() > kMaxMessage) {
+      switch (rx_.next(msg)) {
+        case WsReader::Ev::Text:
+          return true;
+        case WsReader::Ev::Ping:
+          sendFrame(0xA, reinterpret_cast<const uint8_t*>(msg.data()), msg.size());
+          msg.clear();
+          continue;
+        case WsReader::Ev::Close:
+          LOG_INF("WS", "server closed the connection");
           close();
           return false;
-        }
-        frag_ += payload;
-        if (fin) {
-          if (fragOp_ == 0x1) {
-            msg.swap(frag_);
-            frag_.clear();
-            return true;
-          }
-          frag_.clear();
-        }
-        continue;
-      case 0x1:
-      case 0x2:
-        if (fin) {
-          if (op == 0x1) {
-            msg.swap(payload);
-            return true;
-          }
-          continue;   // binary: ignored
-        }
-        fragOp_ = op;
-        frag_ = std::move(payload);
-        continue;
-      default:
-        continue;
+        case WsReader::Ev::TooLarge:
+          LOG_ERR("WS", "message over %u bytes · closing", unsigned(kMaxMessage));
+          close();
+          return false;
+        case WsReader::Ev::None:
+          return false;
+      }
     }
+  } catch (const std::bad_alloc&) {   // never abort the net task on a message: drop the socket, HaClient reconnects
+    LOG_ERR("WS", "out of memory · %u B buffered · closing", unsigned(rx_.buffered()));
+    open_ = false;
+    c_->stop();
+    rx_.reset();
+    return false;
   }
+}
+
+void WsClient::Tap::dropped(uint32_t id, uint64_t len) {
+  LOG_WRN("WS", "frame too large (%llu bytes, id %u) · dropped", static_cast<unsigned long long>(len), unsigned(id));
+  if (c->stream_) c->stream_->dropped(id, len);
 }
 
 }  // namespace x4::net

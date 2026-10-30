@@ -4,11 +4,11 @@
 #   → DEVICE_URL=http://127.0.0.1:8080 X4_FAKE_HA=… npm run test:contract (the suite signs in through the fake HA:
 #     the firmware does the real OAuth2 + PKCE exchange, auth/current_user and subscribe_entities over its WebSocket).
 #   The fake HA also listens over https on FAKE_HA_TLS_PORT (default FAKE_HA_PORT+1) with sim/qemu/tls's test CA, which
-#   only x4qemu images trust: the suite's address check runs one real TLS handshake on the device (#79).
+#   only x4qemu images trust: the suite's address check runs one real TLS handshake on the device (eink-ha-os#79).
 #   CONTRACT_HA_TLS=1: the device links to that https address instead, so sign-in, WebSocket and the HA-dependent tests
-#   run over TLS, plus a TLS reset + hung-handshake relink test (#87). The suite keeps controlling the fake HA over http.
-# X4_WWW_BIN (set here): the build's www.bin, for the POST /ota/upload-www round trip (#350).
-# Usage: sim/qemu/contract.sh [--no-build]     exit code = vitest's, 124 = guest hung (CONTRACT_STALL_S, #245).
+#   run over TLS, plus a TLS reset + hung-handshake relink test (eink-ha-os#87). The suite keeps controlling the fake HA over http.
+# X4_WWW_BIN (set here): the build's www.bin, for the POST /ota/upload-www round trip (eink-ha-os#350).
+# Usage: sim/qemu/contract.sh [--no-build]     exit code = vitest's, 124 = guest hung (CONTRACT_STALL_S, eink-ha-os#245).
 #   Logs: sim/qemu/.state/contract{,-tls}/{qemu,fake-ha}.log
 # X4_QEMU_ENV=x4qemu_debug: run the suite against the debug image (heap/spinlock checks, docs/ESP32_EMULATION.md).
 set -euo pipefail
@@ -17,15 +17,15 @@ ROOT="$(cd "$HERE/../.." && pwd)"
 PIO="${PIO:-$ROOT/.venv/bin/pio}"
 PORT="${SIM_HTTP_PORT:-8080}"
 HA_PORT="${FAKE_HA_PORT:-8123}"
-HOUSE="${FAKE_HA_HOUSE:-demo}"   # fake HA house; not demo = only the first sign-in + seed check makes sense (#82):
+HOUSE="${FAKE_HA_HOUSE:-demo}"   # fake HA house; not demo = only the first sign-in + seed check makes sense (eink-ha-os#82):
 # FAKE_HA_HOUSE=dutch X4_VITEST_ARGS="-t status" sim/qemu/contract.sh
 read -ra VITEST_ARGS <<< "${X4_VITEST_ARGS:-}"
-HA_TLS_PORT="${FAKE_HA_TLS_PORT:-$((HA_PORT + 1))}"   # the same fake HA over https (sim/qemu/tls test CA, #79)
+HA_TLS_PORT="${FAKE_HA_TLS_PORT:-$((HA_PORT + 1))}"   # the same fake HA over https (sim/qemu/tls test CA, eink-ha-os#79)
 STATE="$HERE/.state/contract"
 HA_DEV="http://10.0.2.2:$HA_PORT"
 if [[ "${CONTRACT_HA_TLS:-0}" == 1 ]]; then STATE="$HERE/.state/contract-tls"; HA_DEV="https://10.0.2.2:$HA_TLS_PORT"; fi
 ENV="${X4_QEMU_ENV:-x4qemu}"
-# own PlatformIO build dir (shared with the -tls run): a `pio run` in firmware/ can't swap the image under the suite (#118)
+# own PlatformIO build dir (shared with the -tls run): a `pio run` in firmware/ can't swap the image under the suite (eink-ha-os#118)
 BUILD_ROOT="$HERE/.state/contract/build"
 BUILD="$BUILD_ROOT/$ENV"
 mkdir -p "$STATE"
@@ -66,7 +66,7 @@ for i in $(seq 60); do
   sleep 1
 done
 echo "[contract] firmware up; running the contract suite (device → HA: $HA_DEV)"
-# Fail fast on a hung guest (#245): no new device log byte for STALL_S = print the tail, stop the suite, exit 124
+# Fail fast on a hung guest (eink-ha-os#245): no new device log byte for STALL_S = print the tail, stop the suite, exit 124
 # (instead of every remaining test timing out). The longest quiet gap is printed on every run to keep STALL_S honest.
 STALL_S="${CONTRACT_STALL_S:-120}"   # green run 2026-10-26: longest gap 34 s
 killtree() { local c; for c in $(pgrep -P "$1"); do killtree "$c"; done; kill "$1" 2>/dev/null || true; }
@@ -83,7 +83,7 @@ while kill -0 "$vpid" 2>/dev/null; do
   (( quiet > maxquiet )) && maxquiet=$quiet
   if (( quiet >= STALL_S )); then
     stalled=1
-    echo "[contract] FAIL: no device log output for ${STALL_S} s, QEMU guest hung (#245); a rerun is cheap"
+    echo "[contract] FAIL: no device log output for ${STALL_S} s, QEMU guest hung (eink-ha-os#245); a rerun is cheap"
     killtree "$vpid"
     break
   fi

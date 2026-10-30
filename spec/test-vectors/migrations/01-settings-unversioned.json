@@ -1,9 +1,9 @@
 {
   "name": "01-settings-unversioned",
-  "description": "/settings.json written before versioning (no schema key) is upgraded 0 → 1 → 2: values and key order kept, unknown keys kept, schema stamped as the first key; step 1 → 2 (#295) appends quiet hours (07-settings-quiet-hours).",
+  "description": "/settings.json written before versioning (no schema key) is upgraded 0 → 1 → 2: values and key order kept, unknown keys kept, schema stamped as the first key; step 1 → 2 (eink-ha-os#295) appends quiet hours (07-settings-quiet-hours).",
   "cases": [
     {
-      "name": "firmware file from before #12",
+      "name": "firmware file from before eink-ha-os#12",
       "op": "migrate",
       "stored": { "brightness": 30, "warmth": 40, "night": "23-07", "returnHome": "5", "standby": "never", "clock": "24", "intervalSec": 30, "fullEvery": 8, "otaAuto": "notify", "style": "classic", "typeface": "archivo", "surface": "dither" },
       "expect": {

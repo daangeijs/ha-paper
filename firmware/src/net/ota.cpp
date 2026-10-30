@@ -82,7 +82,7 @@ std::atomic<bool> g_checking{false};
 bool g_justUpdated = false;
 bool g_nightTried = false;
 uint32_t g_nightTriedMs = 0;
-// Console sync (#350): the www.bin of the running version's release, retried this often (or after a check)
+// Console sync (eink-ha-os#350): the www.bin of the running version's release, retried this often (or after a check)
 constexpr uint32_t kWwwRetryMs = 6UL * 3600UL * 1000UL;
 constexpr uint32_t kWwwRetryFailedMs = 10UL * 60UL * 1000UL;
 bool g_wwwTried = false;
@@ -97,7 +97,7 @@ void wwwStep();
 mbedtls_sha256_context g_upSha;
 
 // Hash through internal RAM: OTA chunks above 4 KB live in PSRAM, and the SHA peripheral's DMA read wrong bytes
-// from PSRAM under QEMU (upload rejected as "does not match manifest", #57).
+// from PSRAM under QEMU (upload rejected as "does not match manifest", eink-ha-os#57).
 // One OTA runs at a time, so one static bounce buffer is enough.
 void shaUpdateInternal(mbedtls_sha256_context* ctx, const uint8_t* d, size_t n) {
   static uint8_t bounce[1024];
@@ -172,7 +172,7 @@ int64_t otaLastCheckEpoch() { return storage().getI64(kNs, "last", 0); }
 bool otaPendingVerify() { return g_pending && !g_validated; }
 bool otaChecking() { return g_checking; }
 bool otaBusy() {
-  if (g_upActive || wwwWriting()) return true;   // #350: no install/restart/sleep while the console is rewritten
+  if (g_upActive || wwwWriting()) return true;   // eink-ha-os#350: no install/restart/sleep while the console is rewritten
   std::lock_guard<std::recursive_mutex> l(hub().mu);
   return hub().status.ota == OtaState::Downloading || hub().status.ota == OtaState::Installing;
 }
@@ -318,7 +318,7 @@ bool otaCheck(std::string& err) {
   g_checking = false;
   if (ok) {
     g_justUpdated = false;
-    g_wwwKick = true;   // a check also retries a stale console (#350)
+    g_wwwKick = true;   // a check also retries a stale console (eink-ha-os#350)
   }
   LOG_INF("OTA", "check · %s", ok ? "done" : otaErrName(why) ? otaErrName(why) : "skipped");
   return ok;
@@ -338,7 +338,7 @@ namespace {
 constexpr const char* kLowMemMsg = "Not enough memory right now — try again in a minute";
 constexpr uint32_t kLowMemRetryMs = 2000;
 
-// GitHub's handshake needs ~47 KB of internal RAM (#248). When the guard refuses: close the HA WebSocket (its TLS
+// GitHub's handshake needs ~47 KB of internal RAM (eink-ha-os#248). When the guard refuses: close the HA WebSocket (its TLS
 // session and socket buffers; HaClient::loop reconnects after this job) and give lwIP a moment before one more try.
 void makeTlsRoom(const char* what) {
   LOG_WRN("OTA", "not enough memory for %s · closing the HA WebSocket, retrying in %u s", what,
@@ -456,7 +456,7 @@ bool otaCheckImpl(std::string& err, OtaErr& why) {
 
 namespace {
 // The download of a running console update: one otaLoop pass moves at most kWwwStepBytes / kWwwStepMs, so Wi-Fi, HA
-// and the hub keep running on the net task for the minute it takes (#350 review).
+// and the hub keep running on the net task for the minute it takes (eink-ha-os#350 review).
 constexpr size_t kWwwStepBytes = 16 * 1024;
 constexpr uint32_t kWwwStepMs = 50;
 struct WwwDownload {
@@ -612,7 +612,7 @@ bool otaInstall(std::string& err) {
     err = "Already up to date";
     return false;
   }
-  if (wwwWriting()) {   // a restart now would cut the console rewrite (#350)
+  if (wwwWriting()) {   // a restart now would cut the console rewrite (eink-ha-os#350)
     err = "The web console is being updated — try again in a minute";
     return false;
   }
@@ -708,7 +708,7 @@ bool otaInstall(std::string& err) {
   return true;
 }
 
-// #237: the install face reads otaAvailableVersion; an upload replaces the GitHub target ("" = unknown: no version line)
+// eink-ha-os#237: the install face reads otaAvailableVersion; an upload replaces the GitHub target ("" = unknown: no version line)
 static void setUploadTarget(const std::string& v) {
   std::lock_guard<std::recursive_mutex> l(hub().mu);
   if (hub().status.otaAvailableVersion == v && hub().status.otaNotes.empty()) return;

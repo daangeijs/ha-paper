@@ -8,6 +8,7 @@
 #include <cctype>
 
 #include "Logging.h"
+#include "core/attr_list.h"
 #include "core/strings.h"
 #include "hw/watchdog.h"
 #include "net/auth.h"
@@ -57,12 +58,12 @@ std::set<std::string> DeviceServices::entityIdsOf(const Config& c) {
         bool list = false;
         if (picks) for (auto& pk : *picks) list |= kv.first == pk.first;
         if (!list) { if (looksLikeEntityId(kv.second)) ids.insert(kv.second); continue; }
-        for (auto& id : listOf(kv.second)) if (looksLikeEntityId(id)) ids.insert(id);   // #127 picks
+        for (auto& id : listOf(kv.second)) if (looksLikeEntityId(id)) ids.insert(id);   // eink-ha-os#127 picks
       }
       if (w.type == "gauge" && w.field("entity").empty()) ids.insert(kGaugeDefaultEntity);
-      if (w.type == "thermo" && !w.field("zone").empty()) ids.insert("climate." + w.field("zone"));   // #148
-      if (w.type == "bins") for (auto& id : listOf(w, "entities")) if (looksLikeEntityId(id)) ids.insert(id);   // #317
-      if (w.type == "guestWifi" && looksLikeEntityId(w.field("password_entity"))) ids.insert(w.field("password_entity"));   // #329
+      if (w.type == "thermo" && !w.field("zone").empty()) ids.insert("climate." + w.field("zone"));   // eink-ha-os#148
+      if (w.type == "bins") for (auto& id : listOf(w, "entities")) if (looksLikeEntityId(id)) ids.insert(id);   // eink-ha-os#317
+      if (w.type == "guestWifi" && looksLikeEntityId(w.field("password_entity"))) ids.insert(w.field("password_entity"));   // eink-ha-os#329
     }
   return ids;
 }
@@ -77,7 +78,7 @@ void DeviceServices::begin() {
   std::string yaml;
   bool saved;
   {
-    PsramScope ps;   // the boot copy and the Hub's copy stay out of internal RAM (#160)
+    PsramScope ps;   // the boot copy and the Hub's copy stay out of internal RAM (eink-ha-os#160)
     bootConfig_ = defaultConfig();
     saved = storage().readFile("/screens.yaml", yaml);
     if (saved) {
@@ -94,12 +95,12 @@ void DeviceServices::begin() {
   HaLink link;
   storage().loadHa(link);
   if (link.url.empty()) link.url = storage().haUrl();
-  std::string lang;   // HA's language from the last connect (#98); English until HA says otherwise
+  std::string lang;   // HA's language from the last connect (eink-ha-os#98); English until HA says otherwise
   if (storage().readFile("/lang", lang) && !lang.empty()) lang = langCode(langOf(lang));
   else lang.clear();
-  std::string numFmt;   // HA profile number_format from the last connect (#110)
+  std::string numFmt;   // HA profile number_format from the last connect (eink-ha-os#110)
   if (!storage().readFile("/numfmt", numFmt)) numFmt.clear();
-  std::string currency;   // HA get_config currency from the last connect (#147)
+  std::string currency;   // HA get_config currency from the last connect (eink-ha-os#147)
   if (!storage().readFile("/currency", currency)) currency.clear();
   {
     std::lock_guard<std::recursive_mutex> l(h.mu);
@@ -141,17 +142,17 @@ void DeviceServices::begin() {
   auto ids = entityIdsOf(bootConfig_);
   LightSubs subs = lightSubs(bootConfig_);
   h.post([ids, subs] { haClient().setConfigEntities(ids, subs); });
-  h.post([p = bootSettings_.emptyHouse] { haClient().setPresenceEntity(p); });   // #331
+  h.post([p = bootSettings_.emptyHouse] { haClient().setPresenceEntity(p); });   // eink-ha-os#331
   {
     // The App reads status() at finishBoot(), before the first pump() when the boot refresh blocks longer than the
     // 1.6 s boot screen (real panel): publish the stored state now, or the defaults (no Wi-Fi, never linked) send a
-    // configured device through the setup screens at every boot (#202).
+    // configured device through the setup screens at every boot (eink-ha-os#202).
     std::lock_guard<std::recursive_mutex> l(h.mu);
     h.status.haUrl = h.link.url;
     published_ = h.status;
   }
   // Net task on core 0 (AsyncTCP lives there too); App/display/input stay on core 1.
-  // 12 KB, internal RAM (#248): peak use 5.1 KB on the X4 Pro (HA TLS, reports), 5.6 KB in QEMU (TLS, config apply)
+  // 12 KB, internal RAM (eink-ha-os#248): peak use 5.1 KB on the X4 Pro (HA TLS, reports), 5.6 KB in QEMU (TLS, config apply)
   xTaskCreatePinnedToCore(netTask, "x4net", 12288, this, 3, nullptr, 0);
 }
 
@@ -225,7 +226,7 @@ void DeviceServices::pump(App& app, Board& board) {
     clear = h.clearEntities;
     h.clearEntities = false;
     if ((cfgPending = h.configPending)) {
-      PsramScope ps;   // the App keeps this copy (setDisplayConfig moves it): out of internal RAM (#160)
+      PsramScope ps;   // the App keeps this copy (setDisplayConfig moves it): out of internal RAM (eink-ha-os#160)
       cfg = withSettings(h.config);
       h.configPending = false;
     }
@@ -242,22 +243,22 @@ void DeviceServices::pump(App& app, Board& board) {
   }
   if (clear) app.entities().clear();
   for (auto& u : updates) app.entities().set(u.first, std::move(u.second));
-  if (!hist.empty()) {   // history series (#269) → the tiles (#270)
+  if (!hist.empty()) {   // history series (eink-ha-os#269) → the tiles (eink-ha-os#270)
     static_assert(int(hist::FetchState::NeedsStats) == int(hist::State::NeedsStats) && int(hist::FetchState::Ok) == int(hist::State::Ok),
                   "FetchState mirrors hist::State");
     for (auto& o : hist) app.setHistory(std::string(o.key), o.has ? &o.s : nullptr, hist::State(int(o.state)));
   }
-  for (auto& o : wxOut) app.setWeather(std::string(o.entity), o.fc);   // #318
-  for (auto& o : agendas) app.setAgenda(std::string(o.key), o.state, o.f);   // #316
+  for (auto& o : wxOut) app.setWeather(std::string(o.entity), o.fc);   // eink-ha-os#318
+  for (auto& o : agendas) app.setAgenda(std::string(o.key), o.state, o.f);   // eink-ha-os#316
   if (setPending) {
     app.setSettings(settings);
-    h.post([p = settings.emptyHouse] { haClient().setPresenceEntity(p); });   // #331
+    h.post([p = settings.emptyHouse] { haClient().setPresenceEntity(p); });   // eink-ha-os#331
   }
   if (cfgPending) app.setDisplayConfig(std::move(cfg));  // one full refresh
   else if (sources) app.expectData();
   else if (refresh && forceRefresh_) forceRefresh_();    // POST /display/refresh
   if (statusChanged) app.onNetStatusChanged();
-  // GET /screens/{id}/values (#122): format the asked screen about once a second while the console keeps asking
+  // GET /screens/{id}/values (eink-ha-os#122): format the asked screen about once a second while the console keeps asking
   std::string ask;
   {
     std::lock_guard<std::recursive_mutex> l(h.mu);
@@ -273,7 +274,7 @@ void DeviceServices::pump(App& app, Board& board) {
     h.values = std::move(v);
     h.valuesAtMs = millis() | 1;
   }
-  // GET /screens/{id}/preview.png (#168): draw the asked screen into a PSRAM frame, never onto the panel
+  // GET /screens/{id}/preview.png (eink-ha-os#168): draw the asked screen into a PSRAM frame, never onto the panel
   std::function<void(std::shared_ptr<const std::vector<uint8_t>>)> reply;
   std::string previewId;
   {
@@ -394,7 +395,7 @@ void DeviceServices::factoryReset() {
   hub().post([] { doFactoryReset(); });
 }
 
-// History tiles (#269): the config's series, fetched only for the app on screen. Posted when the config or that app
+// History tiles (eink-ha-os#269): the config's series, fetched only for the app on screen. Posted when the config or that app
 // changes (an overlay or a menu shows no screen: the last app stays).
 void DeviceServices::historyTiles(App& app, bool configChanged) {
   const std::string shown = app.shownScreen();
@@ -410,23 +411,21 @@ void DeviceServices::historyTiles(App& app, bool configChanged) {
   for (auto& sc : cfg.screens)
     for (auto& w : sc.widgets) {
       if (w.type != "history") continue;
-      hist::Spec s = hist::specOf(w);
-      want.push_back({s, hist::seriesKey(s), sc.app == appId});
-      if (!s.past.empty()) {   // #307: the recorder of `past` before now, a second series of the same tile
-        hist::Spec p = hist::pastSpec(s);
-        want.push_back({p, hist::seriesKey(p), sc.app == appId});
-      }
+      // eink-ha-os#307: the recorder of `past` before now; eink-ha-os#304: band min / max and the compare window (more series of the tile)
+      hist::tileSpecs(hist::specOf(w), [&](const hist::Spec& p) { want.push_back({p, hist::seriesKey(p), sc.app == appId}); });
     }
-  std::vector<std::string> weather;   // #318: every weather tile's entity, whichever app shows it
+  std::vector<std::string> weather;   // eink-ha-os#318: every weather tile's entity, whichever app shows it
   for (auto& sc : cfg.screens)
     for (auto& w : sc.widgets) if (w.type == "weather") weather.push_back(w.field("entity"));
-  hub().post([want, changed, weather] {
+  auto lists = alist::attrKeys(cfg);   // eink-ha-os#332: each list tile's attribute (+ attribution) of its entity
+  hub().post([want, changed, weather, lists] {
     haClient().setHistoryTiles(want, changed);
     haClient().setWeatherTiles(weather);
+    haClient().setListTiles(lists);
   });
 }
 
-// Agenda / next tiles (#316): every calendar set of the config is kept fresh (on screen or not: one small call per set
+// Agenda / next tiles (eink-ha-os#316): every calendar set of the config is kept fresh (on screen or not: one small call per set
 // every 30 min). Posted when the set list changes.
 void DeviceServices::agendaTiles(App& app) {
   std::vector<std::string> keys;
@@ -445,7 +444,7 @@ void DeviceServices::agendaTiles(App& app) {
 }
 
 void DeviceServices::applyConfig(const Config& c) {
-  // #160: the YAML text, the id sets and the Hub's long-lived copy were ~10 KB of small internal blocks per PUT, the
+  // eink-ha-os#160: the YAML text, the id sets and the Hub's long-lived copy were ~10 KB of small internal blocks per PUT, the
   // copy interleaved with transient ones (largest block 31.7 → 8 KB). No DMA here: LittleFS writes from its own cache.
   PsramScope ps;
   storage().writeFile("/screens.yaml", toYaml(c));
@@ -469,9 +468,9 @@ void DeviceServices::unlinkHa() {
     hub().link.secret.clear();
     hub().link.user.clear();
     hub().status.ha = HaState::NeverLinked;
-    hub().status.language.clear();   // unlinked: English on the display, the browser's language in the console (#98)
+    hub().status.language.clear();   // unlinked: English on the display, the browser's language in the console (eink-ha-os#98)
     hub().status.numberFormat.clear();
-    hub().status.currency.clear();   // € again; the HA time zone stays (#147)
+    hub().status.currency.clear();   // € again; the HA time zone stays (eink-ha-os#147)
     hub().clearEntities = true;
     hub().markStatus();
   }

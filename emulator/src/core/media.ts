@@ -1,4 +1,4 @@
-// Now playing tile (#319, spec/SCHEMA.md media): favorites, what a tap asks HA, what the tile shows, what fits.
+// Now playing tile (eink-ha-os#319, spec/SCHEMA.md media): favorites, what a tap asks HA, what the tile shows, what fits.
 // The firmware's core/media.cpp matches spec/test-vectors/media.json (generated from this file).
 import { entityGap, type EntityGap } from './format.ts';
 
@@ -38,7 +38,7 @@ export type MediaTarget = 'prev' | 'play' | 'next' | 'down' | 'up' | 'fav' | 'se
 export type MediaAction = { domain: string; service: string; data: Record<string, string | number> };
 const SERVICE: Record<string, string> = { prev: 'media_previous_track', play: 'media_play_pause', next: 'media_next_track', down: 'volume_down', up: 'volume_up' };
 /** What a tap asks HA. `n`: for `fav` the index into favoritesOf(w), null = nothing (no such favorite); for `set` the
- *  volume in % (#351: the slider, clamped 0–100) → one volume_set. Volume steps are HA's volume_down / volume_up: HA
+ *  volume in % (eink-ha-os#351: the slider, clamped 0–100) → one volume_set. Volume steps are HA's volume_down / volume_up: HA
  *  steps from its own level, so quick taps add up without a local guess. */
 export function mediaAction(w: { [k: string]: unknown }, t: MediaTarget, n = 0): MediaAction | null {
   const e = String(w.entity ?? ''), fav = n;
@@ -56,7 +56,7 @@ export type MediaView = { gap: EntityGap | null; phase: MediaPhase; title: strin
 /** HA MediaPlayerEntityFeature.VOLUME_SET. */
 export const VOLUME_SET = 4;
 /** What the tile shows from the player's state + attributes (the firmware store keeps them as text). Only these feed
- *  the drawing, so media_position and friends never cause a redraw. `slider` (#351): `supported_features` (an integer)
+ *  the drawing, so media_position and friends never cause a redraw. `slider` (eink-ha-os#351): `supported_features` (an integer)
  *  has VOLUME_SET, so the volume is a bar to tap or drag; otherwise − / + (volume_down / volume_up). */
 export function mediaView(state: string | null | undefined, attrs: Record<string, unknown> = {}): MediaView {
   const s = state ?? '';
@@ -71,7 +71,7 @@ function featureBits(f: unknown): number {
   return /^[0-9]{1,10}$/.test(t) ? Number(t) : 0;   // & below keeps the low bits of any 10-digit value
 }
 
-/** Volume slider (#351): a tap or the end of a drag at `x` on a bar from `bx`, `bw` px wide → the level in % (whole,
+/** Volume slider (eink-ha-os#351): a tap or the end of a drag at `x` on a bar from `bx`, `bw` px wide → the level in % (whole,
  *  clamped to the bar). */
 export function volumeAt(x: number, bx: number, bw: number): number {
   return bw <= 0 ? 0 : Math.round(Math.max(0, Math.min(1, (x - bx) / bw)) * 100);

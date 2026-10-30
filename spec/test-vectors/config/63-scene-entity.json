@@ -1,6 +1,6 @@
 {
   "name": "63-scene-entity",
-  "description": "A scene tile takes a scene.* or script.* entity and an optional label (#146); without entity, or with the older `scene: all_off`, it is all lights off.",
+  "description": "A scene tile takes a scene.* or script.* entity and an optional label (eink-ha-os#146); without entity, or with the older `scene: all_off`, it is all lights off.",
   "input": "# HA Paper display config\nversion: 1\nscreens:\n  - id: a\n    widgets:\n      - {type: scene, entity: scene.movie_night, cs: 2}\n      - {type: scene, entity: script.good_night, label: Bedtime}\n      - {type: scene, scene: all_off, label: Lights out}\n      - {type: scene}\n",
   "expect": {
     "ok": true,

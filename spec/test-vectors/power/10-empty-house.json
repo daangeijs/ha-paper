@@ -1,6 +1,6 @@
 {
   "name": "10-empty-house",
-  "description": "Empty-house sleep (#331, emulator src/core/emptyHouse.ts): in glance, while the presence source says nobody is home (emptyHouse), sleep EMPTY_WAIT_S (2 h) instead of the glance sleep to midnight / quiet start (#356), cut at the start of quiet hours and at the 03:00 OTA window. Quiet hours win (no timer wakes inside the window), a key press (live) wins, standby / off / every guard of 01-09 still hold.",
+  "description": "Empty-house sleep (eink-ha-os#331, emulator src/core/emptyHouse.ts): in glance, while the presence source says nobody is home (emptyHouse), sleep EMPTY_WAIT_S (2 h) instead of the glance sleep to midnight / quiet start (eink-ha-os#356), cut at the start of quiet hours and at the 03:00 OTA window. Quiet hours win (no timer wakes inside the window), a key press (live) wins, standby / off / every guard of 01-09 still hold.",
   "base": {
     "nowEpoch": 1800000000,
     "localSec": 43200,
@@ -40,7 +40,7 @@
       }
     },
     {
-      "name": "someone home: the glance sleep, to the next transition (#356)",
+      "name": "someone home: the glance sleep, to the next transition (eink-ha-os#356)",
       "input": {
         "emptyHouse": false
       },

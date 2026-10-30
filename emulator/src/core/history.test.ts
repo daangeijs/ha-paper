@@ -3,7 +3,7 @@ import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { historyVectors } from '../../scripts/gen-vectors.ts';
 import { validateYaml, toYaml, entityGaps } from './config.ts';
-import { axisTicks, bucketize, chartSpan, dayLowHigh, defaultBucket, fromHistoryRows, fromStatistics, historyError, historySpec, lowHigh, parseSpan, resolveStyle, statsPeriod, statsType, yScale, type Point } from './history.ts';
+import { axisTicks, bucketize, chartSpan, compareSpec, dayLowHigh, defaultBucket, fromHistoryRows, fromStatistics, historyError, historySpec, lowHigh, parseSpan, resolveStyle, seriesNow, statsPeriod, statsType, tileSpecs, yScale, type HistorySpec, type Point } from './history.ts';
 
 const MIN = 60_000, HOUR = 60 * MIN;
 const NOW = Date.UTC(2026, 9, 26, 14, 37);
@@ -111,7 +111,21 @@ describe('history chart', () => {
   });
 });
 
-describe('dayLowHigh (#260, the price chart)', () => {
+describe('band and compare (eink-ha-os#304 wave 2)', () => {
+  it('band reads min and max series of the same buckets; compare the same series a day / week back', () => {
+    const s = historySpec({ entity: 'sensor.t', style: 'band', compare: '1d', cs: 4 });
+    expect(tileSpecs(s).map((x) => [x.agg, x.shiftMs ?? 0])).toEqual([['mean', 0], ['min', 0], ['max', 0], ['mean', 86_400_000]]);
+    const c = compareSpec(s) as HistorySpec;
+    // bucket i of the compare span is bucket i of the tile's span, a day earlier
+    expect(chartSpan(c, seriesNow(c, NOW), 60).start).toBe(chartSpan(s, NOW, 60).start - 86_400_000);
+    expect(historyError({ entity: 'sensor.t', style: 'band', agg: 'last' })).toBe('history: style band needs agg mean');
+    expect(historyError({ entity: 'sensor.t', compare: '2d' })).toBe('history: compare must be 1d or 7d, at least the window');
+    expect(historyError({ entity: 'sensor.t', attribute: 'forecast', compare: '1d' })).toMatch(/need a recorder series/);
+    expect(historyError({ entity: 'sensor.t', window: '7d', compare: '7d', style: 'band' })).toBeNull();
+  });
+});
+
+describe('dayLowHigh (eink-ha-os#260, the price chart)', () => {
   it('hourly and quarter-hourly days: earliest on a tie, times from midnight', () => {
     const h = dayLowHigh([3, 1, 5, 1, 5, ...Array(19).fill(2)], 'en');
     expect([h?.low.i, h?.low.time, h?.high.i, h?.high.time]).toEqual([1, '01:00', 2, '02:00']);

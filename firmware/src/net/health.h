@@ -14,7 +14,7 @@ uint32_t heapMinFree();       // internal RAM: lowest free total since boot
 uint32_t heapFreeInternal();  // internal RAM: free total now
 
 // false (and logged) when internal or DMA RAM is below core tlsFloor() for this peer (kTlsMin*Pooled while the TLS
-// reserve has two slots free, #149; GitHub's floor is higher, #248): the caller fails this attempt and backs off
+// reserve has two slots free, eink-ha-os#149; GitHub's floor is higher, eink-ha-os#248): the caller fails this attempt and backs off
 // instead of crashing mid-handshake. `host` = the peer (also logged); the second form names the peer itself.
 bool tlsHeapOk(const char* host);
 bool tlsHeapOk(const char* what, TlsPeer peer);
@@ -26,13 +26,13 @@ void maintenanceRestart(const char* why);   // via Hub::restartPending → pump(
 
 void healthLoop();   // net task: heap watch every 10 s (HeapStarve every 2 s: WebSocket shed), `[I][HEAP] free …` line every 60 s
 
-// Heap low point (#198, #200): any task, after something that may have used a lot of internal RAM. When the internal
+// Heap low point (eink-ha-os#198, eink-ha-os#200): any task, after something that may have used a lot of internal RAM. When the internal
 // minimum since boot dropped >= 512 B below the last low point: `[W][HEAP] low point …` with what was going on
 // (`where` = this checkpoint, WebSocket, TLS slots, HA report push, OTA, open web requests, last API path, RSSI), kept
 // for GET /diagnostics heap.low_point. Allocation-free.
 void heapCheckpoint(const char* where);
 // `[I][HEAP] mark <what> · internal free … (Δ since the last mark) …` at boot/Wi-Fi/WebSocket milestones and every
-// 10 HA entity events (#248: where internal RAM goes, and whether it creeps).
+// 10 HA entity events (eink-ha-os#248: where internal RAM goes, and whether it creeps).
 void heapMark(const char* what);
 void heapLowPoint(diag::LowPoint& out);
 void heapRequestOpen();                   // web server: a connection was accepted / it closed
@@ -45,7 +45,7 @@ void heapReportInFlight(bool on);         // ha_report: POST /api/states running
 // started; under X4_QEMU only the hold count is kept.
 void wifiPsOffAcquire();
 void wifiPsOffRelease();
-// Power rules (#177): modem sleep min or none. Re-applied when the driver drifted (a Wi-Fi restart resets it).
+// Power rules (eink-ha-os#177): modem sleep min or none. Re-applied when the driver drifted (a Wi-Fi restart resets it).
 // A hold wins: false = held, applied when it ends.
 bool wifiPsSet(bool modemSleep);
 bool wifiPsHeld();

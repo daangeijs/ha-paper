@@ -1,5 +1,5 @@
 {
-  "description": "Battery history (#231, emulator src/core/battery.ts, firmware core/battery_history.cpp). ops = power-loop passes {ms uptime, epoch (0 = clock unknown), pct (< 0 = not read), mv|null, chg, usb, power reason, rssi|null} from an empty ring. A row every 300 s (the first at once), newest 288 kept; t = epoch, or uptime seconds while the clock is unknown. log = the [BATT] lines written: every sample and every chg / usb change. battery = GET /diagnostics battery.",
+  "description": "Battery history (eink-ha-os#231, emulator src/core/battery.ts, firmware core/battery_history.cpp). ops = power-loop passes {ms uptime, epoch (0 = clock unknown), pct (< 0 = not read), mv|null, chg, usb, power reason, rssi|null} from an empty ring. A row every 300 s (the first at once), newest 288 kept; t = epoch, or uptime seconds while the clock is unknown. log = the [BATT] lines written: every sample and every chg / usb change. battery = GET /diagnostics battery.",
   "cases": [
     {
       "name": "gauge not read yet: nothing",

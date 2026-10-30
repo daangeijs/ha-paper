@@ -46,31 +46,49 @@ double Chart::y(double val) const { return r4(std::max(0.0, std::min(1.0, (val -
 double Chart::x(int i) const { return r4((i + 0.5) / n); }
 double Chart::edge(int i) const { return r4(double(i) / n); }
 
-void chart(const Spec& spec, const Series* s, State st, int64_t now, int tz, Lang lang, Chart& out) {
+void chart(const Spec& spec, const Series* s, State st, int64_t now, int tz, Lang lang, Chart& out, const Series* lo,
+           const Series* hi, const Series* prev) {
   out = Chart();
   out.style = spec.style;
   out.n = spec.n;
-  const bool fits = s && s->n == spec.n && s->bucketMs == spec.bucketMs;
+  auto fit = [&](const Series* x) { return x && x->n == spec.n && x->bucketMs == spec.bucketMs; };
+  const bool fits = fit(s);
   if (st == State::Ok && !fits) st = State::Loading;
   if (st == State::Ok) out.v = s->v;
   if (out.v) {
     for (int i = 0; i < out.n; ++i) if (has(out.v[i])) out.latest = i;
     if (out.latest < 0) { st = State::None; out.v = nullptr; }
-    else if (spec.aheadMs) {   // #292: a window that looks ahead marks the bucket holding now, when it has data
+    else if (spec.aheadMs) {   // eink-ha-os#292: a window that looks ahead marks the bucket holding now, when it has data
       const int i = int((bucketStart(now, spec.bucketMs, tz) - chartSpan(spec.windowMs, spec.bucketMs, now, tz, spec.aheadMs).start) / spec.bucketMs);
       out.latest = i >= 0 && i < out.n && has(out.v[i]) ? i : -1;
     }
   }
   out.state = st;
   out.split = pastBuckets(spec);
+  if (out.v) {   // eink-ha-os#304 wave 2
+    if (spec.style == Style::Band && fit(lo) && fit(hi)) { out.lo = lo->v; out.hi = hi->v; }
+    if (fit(prev)) out.prev = prev->v;
+  }
   static const double kEmpty[1] = {kNone};
   out.r = out.v ? yScale(out.v, out.n, spec.style, spec.min, spec.max, spec.threshold) : yScale(kEmpty, 0, spec.style, spec.min, spec.max);
+  if (out.v && (out.lo || out.prev)) {   // the band and the compare window count as data (yScale over all of them)
+    double dl = 0, dh = 0;
+    bool any = false;
+    auto take = [&](double x) { if (!has(x)) return; dl = any ? std::min(dl, x) : x; dh = any ? std::max(dh, x) : x; any = true; };
+    for (int i = 0; i < out.n; ++i) {
+      take(out.v[i]);
+      if (out.bandAt(i)) { take(out.lo[i]); take(out.hi[i]); }
+      if (out.prev) take(out.prev[i]);
+    }
+    const double two[2] = {dl, dh};
+    out.r = yScale(two, 2, spec.style, spec.min, spec.max, spec.threshold);
+  }
   if (out.r.lo <= 0 && out.r.hi >= 0) out.zero = out.y(0);
   if (st == State::Ok && has(spec.threshold) && spec.threshold >= out.r.lo && spec.threshold <= out.r.hi) out.threshold = out.y(spec.threshold);
   out.nTicks = axisTicks(spec.windowMs, spec.bucketMs, now, tz, lang, out.ticks, spec.aheadMs);
   for (int k = 0; k < out.nTicks; ++k) out.ticks[k].x = r4(out.ticks[k].x);
   if (out.v) out.lowHigh = lowHigh(*s, spec.windowMs, tz, lang, out.low, out.high);
-  if (spec.labels && out.lowHigh) {   // #304: one label per spot; the last one only away from the max and min
+  if (spec.labels && out.lowHigh) {   // eink-ha-os#304: one label per spot; the last one only away from the max and min
     auto put = [&](LabelKind k, int i) { out.labels[out.nLabels++] = Label{k, i, out.x(i) < 0.5}; };
     put(LabelKind::Max, out.high.i);
     if (out.low.i != out.high.i) put(LabelKind::Min, out.low.i);
@@ -109,14 +127,25 @@ std::string chartKey(const Chart& c, int dp, int px) {
   if (has(c.threshold)) k += ";t" + std::to_string(q(c.threshold, px));
   for (int i = 0; i < c.nLabels; ++i)
     if (c.labels[i].kind == LabelKind::Last) k += ";l" + std::to_string(c.labels[i].i) + "=" + fmtFixed(c.v[c.labels[i].i], dp);
+  // eink-ha-os#304 wave 2 (emulator extraKey): band and compare heights per bucket, always at 200 steps
+  if (c.lo) {
+    k += ";b";
+    for (int i = 0; i < c.n; ++i)
+      k += std::string(i ? "," : "") + (c.bandAt(i) ? std::to_string(q(c.y(c.lo[i]), 200)) + ":" + std::to_string(q(c.y(c.hi[i]), 200)) : "_");
+  }
+  if (c.prev) {
+    k += ";p";
+    for (int i = 0; i < c.n; ++i) k += std::string(i ? "," : "") + (c.prevAt(i) ? std::to_string(q(c.y(c.prev[i]), 200)) : "_");
+  }
   return k;
 }
 
 std::string seriesKey(const Spec& s) {
   std::string k = s.entity + "|" + std::to_string(s.windowMs) + "|" + std::to_string(s.bucketMs) + "|" + aggName(s.agg);
-  if (s.kind != Kind::Recorder)   // #292, like the device sim's histKey
+  if (s.kind != Kind::Recorder)   // eink-ha-os#292, like the device sim's histKey
     k += "|" + std::to_string(s.aheadMs) + "|" + s.attribute + "|" + s.value + "|" + s.time + "|" +
          (s.kind == Kind::Forecast ? (s.daily ? "daily" : "hourly") : "");
+  if (s.shiftMs) k += "|s" + std::to_string(s.shiftMs);   // eink-ha-os#304 wave 2: a compare series
   return k;
 }
 

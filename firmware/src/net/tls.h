@@ -24,7 +24,7 @@ unsigned tlsPoolUsed();      // slots in use now
 uint32_t tlsPoolSpills();    // record buffers since boot that missed the reserve and came from the heap
 constexpr unsigned kTlsPoolSlots = 4;
 
-// DNS + TCP + TLS handshake, logged with its duration and the internal heap before it (host only, #123).
+// DNS + TCP + TLS handshake, logged with its duration and the internal heap before it (host only, eink-ha-os#123).
 // 0 = connected; else -1 or kHttpLowMemory.
 int tlsConnect(NetworkClientSecure& c, const char* host, uint16_t port, uint32_t timeoutMs);
 
@@ -36,7 +36,7 @@ int httpPostJsonEach(const std::string& base, const std::string& bearer, const s
                      uint32_t timeoutMs = 8000);
 int httpGet(const std::string& url, std::string& response, size_t maxBytes = 64 * 1024, uint32_t timeoutMs = 15000,
             const char* accept = nullptr);
-// GET without following redirects; a 3xx answer's Location goes to `location` (HA address probe, #54).
+// GET without following redirects; a 3xx answer's Location goes to `location` (HA address probe, eink-ha-os#54).
 int httpProbe(const std::string& url, std::string& response, std::string& location, size_t maxBytes, uint32_t timeoutMs);
 
 }  // namespace x4::net

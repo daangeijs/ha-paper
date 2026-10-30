@@ -3,7 +3,7 @@ import { createHttpApi, HA_NO_ANSWER, SESSION_ENDED } from './httpApi.ts';
 
 const answer = (status: number, body: object) => (async () => new Response(JSON.stringify(body), { status })) as unknown as typeof fetch;
 
-describe('httpApi errors (#44)', () => {
+describe('httpApi errors (eink-ha-os#44)', () => {
   it('a 401 for a missing or expired session says to sign in again', async () => {
     for (const error of ['missing token', 'session expired, sign in again'])
       await expect(createHttpApi('/api/v1', { fetch: answer(401, { error }) }).getSettings()).rejects.toMatchObject({ status: 401, message: SESSION_ENDED });
@@ -13,7 +13,7 @@ describe('httpApi errors (#44)', () => {
   });
 });
 
-describe('sign-in start timeout (#79)', () => {
+describe('sign-in start timeout (eink-ha-os#79)', () => {
   (globalThis as { location?: unknown }).location ??= { pathname: '/link' };
   it('a display that never answers POST /auth/ha/start ends in a message, not an endless wait', async () => {
     const hang = ((_u: string, init: RequestInit) => new Promise((_r, reject) => {

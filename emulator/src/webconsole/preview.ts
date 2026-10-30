@@ -1,8 +1,8 @@
-// Values view of the screen editor (#83, #122): polls GET /screens/{id}/values for one screen at a time and puts each
+// Values view of the screen editor (eink-ha-os#83, eink-ha-os#122): polls GET /screens/{id}/values for one screen at a time and puts each
 // tile's live value where the editor shows its name. One request in flight at most; nothing while the tab is hidden;
 // a screen switch, a config save or the tab coming back fetches at once (after the pending one), a timer tick during
 // a slow request is dropped. ready: false (the display has not formatted that screen yet) asks again after 1 s.
-// #189: alongside, GET /screens/{id}/preview.png every 15 s (an off-screen draw holds the display loop 1–2.6 s on
+// eink-ha-os#189: alongside, GET /screens/{id}/preview.png every 15 s (an off-screen draw holds the display loop 1–2.6 s on
 // QEMU); each card shows its tile cut from that picture (lists, charts: what the panel draws, not a one-line summary).
 // 503 + Retry-After holds the next request that long.
 import { useEffect, useRef, useState } from 'react';
@@ -22,7 +22,7 @@ export function loadView(): ScreenView {
 export function saveView(v: ScreenView) {
   try { localStorage.setItem(VIEW_KEY, v); } catch { /* private mode, storage off */ }
 }
-/** Advanced tab page (#191), remembered per browser like the screen view. */
+/** Advanced tab page (eink-ha-os#191), remembered per browser like the screen view. */
 export type AdvPage = 'yaml' | 'api' | 'logs';
 const ADV_KEY = 'x4.advancedPage';
 export function loadAdvPage(): AdvPage {
@@ -113,7 +113,7 @@ export function tileCrops(draft: Widget[], pushed: Widget[], grid: GridMetrics):
   });
 }
 
-/** #360: Values canvas = the panel below its header (side margin kept on top), so each cell has its crop's aspect at
+/** eink-ha-os#360: Values canvas = the panel below its header (side margin kept on top), so each cell has its crop's aspect at
  *  any window width. Aspect for CSS aspect-ratio, and a span's place in % of that box (same metrics as tileCrops). */
 export function panelAspect(g: GridMetrics): string {
   return `800 / ${480 - g.top + g.side}`;

@@ -48,18 +48,18 @@ class DeviceServices : public Services {
 
  private:
   static void netTask(void*);
-  void historyTiles(App& app, bool configChanged);   // #269
-  void agendaTiles(App& app);                          // #316: the config's calendar sets, when it changes
+  void historyTiles(App& app, bool configChanged);   // eink-ha-os#269
+  void agendaTiles(App& app);                          // eink-ha-os#316: the config's calendar sets, when it changes
   Config bootConfig_;
   DisplaySettings bootSettings_;
   NetStatus published_;
   std::function<void()> forceRefresh_;
   uint32_t lastPowerMs_ = 0, lastPairCheckMs_ = 0;
-  uint32_t lastValuesMs_ = 0;   // last GET /screens/{id}/values formatting (#122)
+  uint32_t lastValuesMs_ = 0;   // last GET /screens/{id}/values formatting (eink-ha-os#122)
   uint32_t lastFulls_ = 0;   // App full refresh count seen by pump() (net/ha_report "last full refresh")
-  std::string histApp_;      // app whose history tiles are fetched (#269)
+  std::string histApp_;      // app whose history tiles are fetched (eink-ha-os#269)
   bool histPosted_ = false;
-  std::string agendaKeys_ = "-";   // calendar sets last posted (#316)
+  std::string agendaKeys_ = "-";   // calendar sets last posted (eink-ha-os#316)
 };
 
 DeviceServices& deviceServices();

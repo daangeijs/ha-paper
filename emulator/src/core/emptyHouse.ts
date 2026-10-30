@@ -1,4 +1,4 @@
-// Empty-house sleep (#331): when nobody is home, glance wakes every EMPTY_WAIT_S instead of `wakeEvery` and the
+// Empty-house sleep (eink-ha-os#331): when nobody is home, glance wakes every EMPTY_WAIT_S instead of `wakeEvery` and the
 // sleeping panel shows the "Nobody home" face. Setting `display.emptyHouse`: '' = off, else the presence entity.
 // Vectors: spec/test-vectors/empty-house.json (+ power/10-empty-house.json). Firmware: core/empty_house.cpp.
 //

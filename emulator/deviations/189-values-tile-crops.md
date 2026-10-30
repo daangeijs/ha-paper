@@ -6,6 +6,6 @@
   and in the card's accessible name.
 - The emulator's console has no `screenPreview` (its device draws HTML, not a frame): its Values cards keep the
   one-line value, so list and chart tiles there still show a count or their name.
-- The device simulator's preview.png draws the layout only (#168), so on the simulator the cards show empty tile frames.
+- The device simulator's preview.png draws the layout only (eink-ha-os#168), so on the simulator the cards show empty tile frames.
 - A card falls back to the one-line value while the draft tile differs from the pushed one (source, size, place), for
   a tile that needs an entity, and for a pinned tile (`col`/`row`: the firmware auto-places it elsewhere).

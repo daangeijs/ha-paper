@@ -5,7 +5,7 @@
 // Secrets go through SecretBox. Factory reset clears only HA Paper namespaces — the OEM `hw_calib`
 // namespace (panel controller type, read by XteinkDetect) in the same NVS partition is preserved.
 //
-// What is persisted, and its schema version (issue #12, core/migrate.h; migrate() runs once in begin()):
+// What is persisted, and its schema version (issue eink-ha-os#12, core/migrate.h; migrate() runs once in begin()):
 //   NVS x4wifi  ssid, pw (sealed)                          ┐
 //   NVS x4ha    url, kind, cid, user, sec (sealed)         │ one number: x4dev/schema (I64, kDeviceSchema;
 //   NVS x4tok   list (JSON array of API token hashes)      │ missing = 0). Older: device steps run, number
@@ -16,8 +16,8 @@
 //   /screens.yaml   `version: 1`, owned by core/config: any other version fails to parse → default config in RAM,
 //                   the file is left as it is (nothing rewrites it at boot).
 //   /diag.json      boot ring, not a setting: unversioned; an unreadable ring is dropped and rebuilt (core/diag).
-//   /lang           HA's language as "en" | "nl" (#98), rewritten only when it changes; empty = unlinked/unknown.
-//   /numfmt         HA profile number_format as HA spells it (#110), rewritten only when it changes; empty = unset.
+//   /lang           HA's language as "en" | "nl" (eink-ha-os#98), rewritten only when it changes; empty = unlinked/unknown.
+//   /numfmt         HA profile number_format as HA spells it (eink-ha-os#110), rewritten only when it changes; empty = unset.
 //   NVS hw_calib    OEM, read-only, never touched.
 #pragma once
 #include <atomic>
@@ -47,7 +47,7 @@ class Storage {
   bool fsOk() const { return fsOk_; }
   bool wwwOk() const { return wwwOk_; }
   fs::FS& www();                         // web console files (/www/...); empty FS when wwwOk() is false
-  void wwwUnmount();                     // before net/www_ota rewrites the partition (#350)
+  void wwwUnmount();                     // before net/www_ota rewrites the partition (eink-ha-os#350)
   bool wwwRemount();                     // after it; false = not a LittleFS image (fallback page)
 
   bool loadWifi(WifiCreds& out);

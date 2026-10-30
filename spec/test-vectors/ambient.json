@@ -1,5 +1,5 @@
 {
-  "description": "Ambient idle mode and night face (issue #27). ambientDue(idleMs, menu, setup): no menu, no setup, idle >= 60 s. chromeFor(ambient, battery, clockTile): what the top bar keeps. nightStale(nowSec, lastDataSec): 'as of HH:MM' only when data is older than 30 min; 0 = unknown. Emulator src/core/ambient.ts, firmware src/core/logic.h.",
+  "description": "Ambient idle mode and night face (issue eink-ha-os#27). ambientDue(idleMs, menu, setup): no menu, no setup, idle >= 60 s. chromeFor(ambient, battery, clockTile): what the top bar keeps. nightStale(nowSec, lastDataSec): 'as of HH:MM' only when data is older than 30 min; 0 = unknown. Emulator src/core/ambient.ts, firmware src/core/logic.h.",
   "ambient_ms": 60000,
   "batt_low": 20,
   "stale_s": 1800,

@@ -1,8 +1,8 @@
-// Quiet hours (#295, decision on #294): one window that replaces night mode and the "Sleep at night" power mode.
+// Quiet hours (eink-ha-os#295, decision on eink-ha-os#294): one window that replaces night mode and the "Sleep at night" power mode.
 // Vectors: spec/test-vectors/quiet.json (+ power/*, refresh.json, frontlight.json). Firmware: core/logic.h.
 //
 // Inside the window (clock known, not peeking) the display shows the quiet face: "Back at 07:00", the date and a
-// "Tomorrow" row (#328, quiet-tomorrow.json, firmware core/tomorrow.h), built when the window starts. No minute clock
+// "Tomorrow" row (eink-ha-os#328, quiet-tomorrow.json, firmware core/tomorrow.h), built when the window starts. No minute clock
 // (a deep-sleeping panel would show a wrong time all night). On battery it deep-sleeps to the window end (no timer wakes;
 // the 03:00 OTA wake excepted); on USB it stays connected but draws no data. The front light follows its own timeout.
 // Standby inside the window shows the same face. Any key, tap or swipe shows the dashboard for PEEK_MS (a "peek"), also
@@ -37,9 +37,9 @@ export function quietFromNight(night: unknown): string {
   return typeof night === 'string' && /^([01]\d|2[0-3])-([01]\d|2[0-3])$/.test(night) ? night : DEFAULT_QUIET;
 }
 
-// ---------- the "Tomorrow" row (#328) ----------
+// ---------- the "Tomorrow" row (eink-ha-os#328) ----------
 // Values that stay true overnight and matter for the morning, from data the device already keeps (no fetch for the face):
-// the weather forecast (#318, RTC), the first event (#316 agenda cache), the bins (#317, the entity mirror). An item
+// the weather forecast (eink-ha-os#318, RTC), the first event (eink-ha-os#316 agenda cache), the bins (eink-ha-os#317, the entity mirror). An item
 // without a source is left out; no item = no row ("Back at 07:00" and the date only).
 
 /** A tile on screen `screen` (config order), widget `widget`. */
@@ -60,7 +60,7 @@ export function quietSources(screens: readonly { widgets: readonly W[] }[]): Qui
 }
 
 /** The morning the face points at: the local day of the window's end. Before the end hour that is today (a boot at
- *  03:00), else tomorrow. TODAY_END (24): always today, the glance sleep face's "Today" row (#356). */
+ *  03:00), else tomorrow. TODAY_END (24): always today, the glance sleep face's "Today" row (eink-ha-os#356). */
 export const TODAY_END = 24;
 export const quietDay = (now: number, tz: number, endHour: number): number => {
   const m = Math.floor((now + tz * 60_000) / 60_000), day = Math.floor(m / 1440), h = Math.floor((((m % 1440) + 1440) % 1440) / 60);

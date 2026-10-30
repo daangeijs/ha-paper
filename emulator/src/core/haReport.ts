@@ -1,4 +1,4 @@
-// Device health as Home Assistant entities (#32). The device POSTs these to HA's REST API (/api/states/<entity_id>,
+// Device health as Home Assistant entities (eink-ha-os#32). The device POSTs these to HA's REST API (/api/states/<entity_id>,
 // admin only): HA's WebSocket API has no set-state command. Not persisted by HA; re-pushed on every (re)connect.
 // Behaviour spec for firmware/src/core/ha_report.{h,cpp}; vectors spec/test-vectors/ha-report.json.
 import { powerSource } from './power.ts';
@@ -11,7 +11,7 @@ export type Health = {
   lastFullEpoch: number | null; bootEpoch: number | null;
 };
 export type ReportState = { entity_id: string; state: string; attributes: Record<string, string | number | boolean> };
-/** retry: the last push failed on the network (no HTTP answer) and gets one early retry (#123). */
+/** retry: the last push failed on the network (no HTTP answer) and gets one early retry (eink-ha-os#123). */
 export type ReportLast = { atMs: number; battery: number; charging: boolean; retry?: boolean };
 
 export const REPORT_MIN_GAP_MS = 60_000;

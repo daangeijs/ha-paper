@@ -1,4 +1,4 @@
-// Advanced › Screens as YAML (#191): the editor fills the page, Validate and Push top right.
+// Advanced › Screens as YAML (eink-ha-os#191): the editor fills the page, Validate and Push top right.
 import type { ConsoleView } from '../useConsole.ts';
 
 export function YamlTab({ v }: { v: ConsoleView }) {

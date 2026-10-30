@@ -9,10 +9,11 @@ import { fitMiddle } from '../core/format.ts';
 import { HATCH, TRACK, TRACK_PAINT } from '../core/panel.ts';
 import { WX_ART, WX_GRID, WX_HERO_STROKE } from '../core/weatherArt.ts';
 import { BinsTile } from './BinsTile.tsx';
+import { ListTile } from './ListTile.tsx';
 import { GuestWifiTile } from './GuestWifiTile.tsx';
 
-/** No value in Home Assistant (unavailable / unknown, #86): a 28 px ring, bottom on the value's baseline. */
-/** Now playing tile (#319): header (name, volume, state pill or ★), title + artist, inline favorites (2 high), transport
+/** No value in Home Assistant (unavailable / unknown, eink-ha-os#86): a 28 px ring, bottom on the value's baseline. */
+/** Now playing tile (eink-ha-os#319): header (name, volume, state pill or ★), title + artist, inline favorites (2 high), transport
  *  and volume buttons; ★ swaps the body for the favorites picker (last cell ×). Glyphs are drawn shapes, like the firmware. */
 const MBTN = 48;
 function MediaGlyph({ k, fg }: { k: string; fg: string }) {
@@ -20,7 +21,7 @@ function MediaGlyph({ k, fg }: { k: string; fg: string }) {
     down: 'M5 11h14v3H5z', up: 'M5 11h14v3H5zM10.5 5.5h3v13h-3z', star: 'M12 2l2.9 6.6 7.1.6-5.4 4.7 1.6 7L12 17.3 5.8 21l1.6-7L2 9.2l7.1-.6z' };
   return <svg width="22" height="22" viewBox="0 0 24 24" aria-hidden="true"><path d={p[k]} fill={fg} /></svg>;
 }
-/** Volume slider (#351): a 48 px bar filled to the level, the % at the free end. A tap or drag shows the new level
+/** Volume slider (eink-ha-os#351): a 48 px bar filled to the level, the % at the free end. A tap or drag shows the new level
  *  right away and sends one volume_set on release (core volumeAt). Pointer events stop here: no page swipe. */
 function VolumeBar({ level, pill, set }: { level: number | null; pill: boolean; set: (n: number) => void }) {
   const [drag, setDrag] = useState<number | null>(null);
@@ -82,7 +83,7 @@ function MediaTile({ w }: { w: any }) {
     </div>);
 }
 const GapRing = () => <span aria-hidden="true" style={{ flex: "none", display: "inline-block", width: "28px", height: "28px", border: "3px solid #111", borderRadius: "50%", boxSizing: "border-box" }} />;
-// History tile (#267): bars from zero or an auto-ranged line, gaps left blank, the open bucket solid ink (bars) or a
+// History tile (eink-ha-os#267): bars from zero or an auto-ranged line, gaps left blank, the open bucket solid ink (bars) or a
 // dot (line); axis ticks and low / high with their times below. Classic: 2 px rules, uppercase name; Modern: card,
 // capsule bars, a 3 px line. Geometry from core/historyChart.ts historyTile().
 function HistoryPlot({ w, sleek }: { w: any; sleek: boolean }) {
@@ -101,10 +102,16 @@ function HistoryPlot({ w, sleek }: { w: any; sleek: boolean }) {
             {!b.gap && <div style={{ position: "absolute", left: "0", right: "0", bottom: b.bottom, height: b.h, background: b.bg, border: b.line, boxSizing: "border-box", borderRadius: sleek ? "4px" : "2px 2px 0 0" }}></div>}
           </div>))}
         </div>)}
+        {w.isBarChart && !w.hasState && (w.hPrevTicks).length > 0 && (<div data-x4-prev="" style={{ position: "absolute", inset: "0", display: "flex", gap: w.barGap }}>
+          {(w.hPrevTicks).map((b: any, i_b: number) => (<div key={i_b} style={{ position: "relative", flex: "1", minWidth: "0" }}>
+            {!b.gap && <div style={{ position: "absolute", left: "0", right: "0", bottom: b.bottom, height: "2px", marginBottom: "-1px", background: "#111", outline: "1px solid #ECEBE5" }}></div>}
+          </div>))}
+        </div>)}
         {w.isBarChart && !w.hasState && w.zeroPct !== null && (<div style={{ position: "absolute", left: "0", right: "0", bottom: w.zeroPct, height: "2px", marginBottom: "-1px", background: "#111" }}></div>)}
         {!w.hasState && (w.fills).map((cp: string, i_f: number) => (<div key={'f' + i_f} data-x4-fill="" style={{ position: "absolute", inset: "0", background: w.fillBg, clipPath: cp }}></div>))}
-        {!w.hasState && w.thresholdPct !== null && (<div data-x4-threshold="" style={{ position: "absolute", left: "0", right: "0", bottom: w.thresholdPct, height: "2px", marginBottom: "-1px", background: "repeating-linear-gradient(90deg, #111 0 6px, transparent 6px 10px)" }}></div>)}
+        {!w.hasState && w.thresholdPct !== null && (<div data-x4-threshold="" style={{ position: "absolute", left: "0", right: "0", bottom: w.thresholdPct, height: "2px", marginBottom: "-1px", background: "repeating-linear-gradient(90deg, eink-ha-os#111 0 6px, transparent 6px 10px)" }}></div>)}
         {w.isLine && !w.hasState && (<svg viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden="true" style={{ position: "absolute", inset: "0", width: "100%", height: "100%", overflow: "visible" }}>
+          {(w.prevPaths).map((d: string, i_p: number) => (<path key={'p' + i_p} data-x4-prev="" d={d} fill="none" stroke="#111" strokeWidth={2} strokeDasharray="6 4" strokeLinejoin="miter" strokeLinecap="butt" vectorEffect="non-scaling-stroke" />))}
           {(w.paths).map((d: string, i_p: number) => (<path key={i_p} d={d} fill="none" stroke="#111" strokeWidth={sleek ? 3 : 2} strokeLinejoin={w.isStep ? "miter" : "round"} strokeLinecap={w.isStep ? "square" : "round"} vectorEffect="non-scaling-stroke" />))}
           {(w.aheadPaths).map((d: string, i_p: number) => (<path key={'a' + i_p} data-x4-ahead="" d={d} fill="none" stroke="#111" strokeWidth={sleek ? 3 : 2} strokeDasharray="6 4" strokeLinejoin="miter" strokeLinecap="butt" vectorEffect="non-scaling-stroke" />))}
         </svg>)}
@@ -122,7 +129,7 @@ function HistoryPlot({ w, sleek }: { w: any; sleek: boolean }) {
   );
 }
 
-/** A weather drawing (#318, core/weatherArt.ts): ink layers through a mask, erase layers cut back to paper. hero: the
+/** A weather drawing (eink-ha-os#318, core/weatherArt.ts): ink layers through a mask, erase layers cut back to paper. hero: the
  *  120 px size with lighter strokes (the firmware's second bitmap). */
 function WxArt({ icon, size, hero }: { icon: string; size: number; hero?: boolean }) {
   const k = hero ? WX_HERO_STROKE : 1, id = 'wx-' + icon + (hero ? '-h' : '');
@@ -138,7 +145,7 @@ function WxArt({ icon, size, hero }: { icon: string; size: number; hero?: boolea
   );
 }
 
-/** Weather tile (#318, core/weather.ts weatherView): the hero row (drawing, temperature, condition, high / low / wind /
+/** Weather tile (eink-ha-os#318, core/weather.ts weatherView): the hero row (drawing, temperature, condition, high / low / wind /
  *  rain) and, full screen, the 5-day strip with rain bars (solid from half the scale, else hatched). Classic: one frame
  *  with a rule; Modern: two cards. */
 function WeatherTile({ w, sleek }: { w: any; sleek: boolean }) {
@@ -174,7 +181,7 @@ function WeatherTile({ w, sleek }: { w: any; sleek: boolean }) {
   );
 }
 
-// Agenda and Next tiles (#316, core/agenda.ts): day headers and timed rows at a fixed 25 px pitch (the firmware's
+// Agenda and Next tiles (eink-ha-os#316, core/agenda.ts): day headers and timed rows at a fixed 25 px pitch (the firmware's
 // ui_tiles agendaTile / nextTile), "+N more this week" at the foot; Next = title (2 lines), times, an inverted pill.
 function AgendaPlot({ w, sleek }: { w: any; sleek: boolean }) {
   const ell = { whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" } as const;
@@ -209,7 +216,7 @@ function NextPlot({ w, sleek }: { w: any; sleek: boolean }) {
   );
 }
 
-/** OTA version line (#215): core fitMiddle over the firmware's size steps; width estimated at 0.6 em per codepoint
+/** OTA version line (eink-ha-os#215): core fitMiddle over the firmware's size steps; width estimated at 0.6 em per codepoint
  *  for bold sans (the firmware measures its glyphs). */
 const updVersion = (s: string) => fitMiddle(s, [28, 24, 20, 18], 720, (t, size) => [...t].length * size * 0.6);
 
@@ -235,7 +242,7 @@ export function Device({ v }: { v: Vals }) {
 
         {/* SCREEN 800x480 */}
         <div style={{ position: "absolute", left: "50px", top: "55px", width: "800px", height: "480px", overflow: "hidden", borderRadius: "3px", background: "#ECEBE5", boxShadow: "0 0 0 2px rgba(0,0,0,.35)" }}>
-          {/* Panel preview (#25, core/panel.ts): gray everywhere, B/W (gray1 → ink, gray2 → paper) inside the areas a partial
+          {/* Panel preview (eink-ha-os#25, core/panel.ts): gray everywhere, B/W (gray1 → ink, gray2 → paper) inside the areas a partial
               refresh redrew since the last full refresh. The flood rects mask the thresholded copy. */}
           <svg width="0" height="0" style={{ position: "absolute" }} aria-hidden="true">
             {/* B/W-safe paint for SVG strokes (core/panel.ts TRACK_PAINT; firmware Tone::Track) */}
@@ -264,7 +271,7 @@ export function Device({ v }: { v: Vals }) {
               </div>
             </>)}
 
-            {/* TURNED OFF (#258): boot-face layout, kept by the panel while the board is off */}
+            {/* TURNED OFF (eink-ha-os#258): boot-face layout, kept by the panel while the board is off */}
             {!!(v.isOff) && (<>
               <div style={{ height: "100%", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: "18px" }}>
                 <svg width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="#111" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M3 11l9-7 9 7"></path><path d="M5 10v10h14V10"></path><path d="M10 20v-6h4v6"></path></svg>
@@ -320,7 +327,7 @@ export function Device({ v }: { v: Vals }) {
                     {!!(v.chromeClock) && !!(v.asleepMark) && (<div style={{ flex: "none", fontSize: "18px", fontWeight: "700" }}>{v.asleepMark}</div>)}
                     {!!(v.chromeClock) && !(v.asleepMark) && (<div style={{ position: "relative", flex: "none", fontSize: "22px", fontWeight: "700", fontVariantNumeric: "tabular-nums" }}>{v.clock}{!!(v.timeDirty) && (<><div className="dirty"></div></>)}</div>)}
                   </div>
-                  {/* zone 3: page navigation (fixed 176); hidden in ambient (#27) */}
+                  {/* zone 3: page navigation (fixed 176); hidden in ambient (eink-ha-os#27) */}
                   {!!(v.chromePager) && (<div style={{ flex: "none", width: "176px", height: "44px", display: "flex", border: "2px solid #111", borderRadius: "8px", overflow: "hidden" }}>
                     <button className="ink-btn" aria-label="Previous page" onClick={v.tapPrev} style={{ width: "56px", border: "0", borderRight: "2px solid #111", background: "#ECEBE5", display: "flex", alignItems: "center", justifyContent: "center" }}><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.6" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M15 5l-7 7 7 7"></path></svg></button>
                     <button className="ink-btn" aria-label="All pages in this app" onClick={v.togglePages} style={{ flex: "1", minWidth: "0", border: "0", background: v.pagesBg, color: v.pagesFg, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: "2px", padding: "0" }}>
@@ -444,7 +451,7 @@ export function Device({ v }: { v: Vals }) {
                         <div style={{ flex: "1", minHeight: "0", padding: "16px 20px 14px", display: "flex", flexDirection: "column", justifyContent: "space-between" }}>
                           <div style={{ display: "flex", justifyContent: "space-between", gap: "10px", fontSize: "16px", fontWeight: "600", color: "#ECEBE5" }}><span>{v.clockHead}</span><span>{v.clockMonth}</span></div>
                           <div style={{ fontFamily: "var(--fd)", fontStretch: "var(--fs)", fontSize: `calc(${w.big}px * var(--fk))`, fontWeight: "700", lineHeight: "0.82", letterSpacing: "-3px", fontVariantNumeric: "tabular-nums" }}>{v.asleepMark ? v.dayNum : v.clock}</div>
-                          {/* asleep (#333): no day progress (a time of day); a paper "Asleep" pill in its place */}
+                          {/* asleep (eink-ha-os#333): no day progress (a time of day); a paper "Asleep" pill in its place */}
                           {!!(v.asleepMark) && (<div style={{ alignSelf: "flex-start", height: "28px", boxSizing: "border-box", padding: "0 12px", borderRadius: "14px", background: "#ECEBE5", color: "#111", display: "flex", alignItems: "center", fontSize: "16px", fontWeight: "600" }}>{v.asleepMark}</div>)}
                           {!(v.asleepMark) && (<div style={{ display: "flex", flexDirection: "column", gap: "5px" }}>
                             <div style={{ height: "6px", borderRadius: "3px", background: "linear-gradient(#ECEBE5, #ECEBE5) 0 2px / 100% 2px no-repeat", overflow: "hidden" }}><div style={{ width: `${w.dayPct}%`, height: "100%", background: "#ECEBE5", borderRadius: "3px" }}></div></div>
@@ -505,7 +512,7 @@ export function Device({ v }: { v: Vals }) {
                         </div>
                       </>)}
 
-                      {/* sleek history chart (#267) */}
+                      {/* sleek history chart (eink-ha-os#267) */}
                       {!!(w.sHistory) && <HistoryPlot w={w} sleek={true} />}
                       {!!(w.sBins) && <BinsTile w={w} sleek={true} />}
                       {!!(w.sAgenda) && <AgendaPlot w={w} sleek={true} />}
@@ -520,7 +527,7 @@ export function Device({ v }: { v: Vals }) {
                               <span style={{ fontFamily: "var(--fd)", fontStretch: "var(--fs)", fontSize: "calc(34px * var(--fk))", fontWeight: "700", lineHeight: "1", fontVariantNumeric: "tabular-nums" }}>{w.value}°</span>
                             </div>
                           </div>
-                          {/* #162: the name under the ring's open bottom, card-wide (was 76 px inside the ring) */}
+                          {/* eink-ha-os#162: the name under the ring's open bottom, card-wide (was 76 px inside the ring) */}
                           <span style={{ alignSelf: "stretch", textAlign: "center", fontSize: "13px", fontWeight: "600", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{w.label}</span>
                           <div style={{ alignSelf: "stretch", display: "flex", alignItems: "center", justifyContent: "space-between", gap: "6px" }}>
                             <button className="ink-btn" aria-label={`Lower ${w.label}`} onClick={w.dec} style={{ width: "46px", height: "46px", border: "0", borderRadius: "50%", background: "#ECEBE5", fontSize: "24px", fontWeight: "600", lineHeight: "1" }}>−</button>
@@ -688,7 +695,7 @@ export function Device({ v }: { v: Vals }) {
                           <div style={{ flex: "1", minHeight: "0", display: "flex", alignItems: "flex-end", gap: "3px", borderBottom: "2px solid #111", paddingTop: w.nowMark ? "14px" : "0" }}>
                             {(w.bars).map((b: any, i_b: number) => (<Fragment key={i_b}>
                               <div style={{ position: "relative", flex: "1", height: `${b.h}%`, background: b.c, borderRadius: "2px 2px 0 0" }}>
-                                {/* #260: a caret over the hour now (prices), a shape, so it reads on a 1-bit panel */}
+                                {/* eink-ha-os#260: a caret over the hour now (prices), a shape, so it reads on a 1-bit panel */}
                                 {!!(w.nowMark && b.now) && <div data-x4-now="" style={{ position: "absolute", left: "50%", top: "-14px", transform: "translateX(-50%)", width: "0", height: "0", borderLeft: "7px solid transparent", borderRight: "7px solid transparent", borderTop: "10px solid #111" }}></div>}
                               </div>
                             </Fragment>))}
@@ -698,10 +705,10 @@ export function Device({ v }: { v: Vals }) {
                         </div>
                       </>)}
 
-                      {/* weather (#318), both looks */}
+                      {/* weather (eink-ha-os#318), both looks */}
                       {!!(w.isWeather) && <WeatherTile w={w} sleek={!!w.wxSleek} />}
 
-                      {/* history chart (#267) */}
+                      {/* history chart (eink-ha-os#267) */}
                       {!!(w.isHistory) && <HistoryPlot w={w} sleek={false} />}
                       {!!(w.isBins) && <BinsTile w={w} sleek={false} />}
                       {!!(w.isAgenda) && <AgendaPlot w={w} sleek={false} />}
@@ -816,11 +823,14 @@ export function Device({ v }: { v: Vals }) {
                         </div>
                       </>)}
 
-                      {/* now playing (#319): Classic layout in both styles (Sleek: pill buttons); firmware ui_tiles.cpp mediaTile */}
+                      {/* now playing (eink-ha-os#319): Classic layout in both styles (Sleek: pill buttons); firmware ui_tiles.cpp mediaTile */}
                       {!!(w.isMedia) && <MediaTile w={w} />}
 
-                      {/* guest Wi-Fi (#329): one layout in both styles; firmware app/ui_guest.cpp */}
+                      {/* guest Wi-Fi (eink-ha-os#329): one layout in both styles; firmware app/ui_guest.cpp */}
                       {!!(w.isGuest) && <GuestWifiTile w={w} />}
+
+                      {/* list from attributes (eink-ha-os#332): one component, both looks; firmware app/ui_list.cpp */}
+                      {!!(w.isAttrList) && <ListTile w={w} />}
 
                       {/* scene */}
                       {!!(w.isScene) && (<>
@@ -870,7 +880,7 @@ export function Device({ v }: { v: Vals }) {
                               {w.connected}
                             </div>
                             <div style={{ fontSize: "30px", fontWeight: "700", lineHeight: "1.1", marginBottom: "12px" }}>{w.title}</div>
-                            {/* #272: titles only, one 52 px row each between dotted rules */}
+                            {/* eink-ha-os#272: titles only, one 52 px row each between dotted rules */}
                             {(w.steps).map((st: any, i_st: number) => (<Fragment key={i_st}>
                               <div className="hl" style={{ display: "flex", gap: "14px", alignItems: "center", height: "52px", boxSizing: "border-box", borderTop: "1px dotted #111", borderBottom: i_st === w.steps.length - 1 ? "1px dotted #111" : "none" }}>
                                 <span style={{ flex: "none", width: "28px", height: "28px", border: "2px solid #111", borderRadius: "50%", boxSizing: "border-box", display: "flex", alignItems: "center", justifyContent: "center", fontSize: "14px", fontWeight: "700" }}>{st.n}</span>
@@ -1141,7 +1151,7 @@ export function Device({ v }: { v: Vals }) {
                           {!!(w.isCar) && (<>
                             <div className="hl" style={{ flex: "1", minHeight: "0", display: "flex", flexDirection: "column", justifyContent: "center", gap: "4px", borderTop: "1px dotted #111" }}>
                               <div style={{ display: "flex", alignItems: "baseline", gap: "6px" }}><span className="num" style={{ fontSize: "52px", fontWeight: "700", letterSpacing: "-1.5px", lineHeight: "1", fontVariantNumeric: "tabular-nums" }}>{w.eta}</span><span style={{ fontSize: "20px", fontWeight: "700" }}>min</span>
-                                {/* #303: cs ≥ 3 shows the arrival time as a second big value; cs 2 keeps it in the line */}
+                                {/* eink-ha-os#303: cs ≥ 3 shows the arrival time as a second big value; cs 2 keeps it in the line */}
                                 {w.carWide
                                   ? (<><span aria-hidden="true" style={{ flex: "none", alignSelf: "stretch", margin: "0 20px 0 14px", borderLeft: "1px dotted #111" }}></span><span className="num" style={{ flex: "none", fontSize: "52px", fontWeight: "700", letterSpacing: "-1.5px", lineHeight: "1", fontVariantNumeric: "tabular-nums" }}>{w.arrive}</span><span style={{ minWidth: "0", fontSize: "17px", color: "#111", marginLeft: "10px", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{v.t('arriveCaption')}</span></>)
                                   : <span style={{ fontSize: "17px", color: "#111", marginLeft: "10px" }}>{v.t('arriveIfLeave', w.arrive)}</span>}</div>
@@ -1221,9 +1231,9 @@ export function Device({ v }: { v: Vals }) {
               </div>
             </>)}
 
-            {/* SLEEP FACE (#295 quiet hours, #331 Nobody home, #356 glance sleep): no clock (a sleeping panel would show a
+            {/* SLEEP FACE (eink-ha-os#295 quiet hours, eink-ha-os#331 Nobody home, eink-ha-os#356 glance sleep): no clock (a sleeping panel would show a
                 wrong time). A title ("Back at 07:00" / "Nobody home" / "Asleep · press to wake"), a line under it (the date /
-                "Next update ~16:05"), then the Tomorrow / Today row (#328, core/quiet.ts quietTomorrow: a head, one centred line
+                "Next update ~16:05"), then the Tomorrow / Today row (eink-ha-os#328, core/quiet.ts quietTomorrow: a head, one centred line
                 per item: weather drawing, bold part, text) or the Nobody home facts, and "as of 22:14" when the data was stale.
                 Firmware app/ui_chrome.cpp sleepFace. */}
             {!!(v.face) && (<>
@@ -1244,7 +1254,7 @@ export function Device({ v }: { v: Vals }) {
               </div>
             </>)}
 
-            {/* GOOD MORNING (#330): the first wake after quiet hours, 20 min or one press. Greeting + date, today's weather on
+            {/* GOOD MORNING (eink-ha-os#330): the first wake after quiet hours, 20 min or one press. Greeting + date, today's weather on
                 the right; today's events, then bins due today / tonight. Rows without a source are left out; the block is
                 centred vertically. Sizes are the firmware's font sizes (app/ui_morning.cpp morningFace). */}
             {!!(v.isMorning && v.morning) && (<>

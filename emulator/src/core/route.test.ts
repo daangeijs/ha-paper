@@ -6,7 +6,7 @@ import { routeVectors } from '../../scripts/gen-vectors.ts';
 
 const file = join(import.meta.dirname, '..', '..', '..', 'spec', 'test-vectors', 'route-departures.json');
 
-describe('route departures (#275)', () => {
+describe('route departures (eink-ha-os#275)', () => {
   it('the NS upcoming list as HA sends it (a real list)', () => {
     const upcoming = [
       { planned: '2026-09-29T07:55:00+02:00', actual: '2026-09-29T08:01:00+02:00', delay: 6, track: '5', direction: 'Harbour', train: 'IC 1234', status: 'delayed', message: null },

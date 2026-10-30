@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Device log over the network (GET /api/v1/logs, #200): no cable, no reset.
+"""Device log over the network (GET /api/v1/logs, eink-ha-os#200): no cable, no reset.
 
     X4_TOKEN=x4_… python3 logs.py --url http://ha-paper-a1b2.local [--follow] [--previous] [--level W] [--tag HEAP,EPD]
 

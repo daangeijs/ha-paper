@@ -14,6 +14,7 @@
 
 #include <algorithm>
 #include <atomic>
+#include <cstring>
 
 #include "Logging.h"
 #include "hw/watchdog.h"
@@ -26,6 +27,13 @@
 #include "net/util.h"
 #if X4_QEMU
 #include "qemu_eth.h"   // sim/qemu/lib/qemu_openeth: QEMU's OpenCores Ethernet instead of Wi-Fi (never on hardware)
+#endif
+
+#if !X4_QEMU
+// eink-ha-os#376: espressif mdns 1.11.3 has no public "is this pcb up". Component-private, exported from the prebuilt lib (a
+// framework bump that drops it fails the link, not the device). STA is mdns_if 0: the first predefined interface.
+static_assert(CONFIG_MDNS_PREDEF_NETIF_STA, "mDNS STA must be predefined interface 0");
+extern "C" bool mdns_priv_if_ready(size_t tcpip_if, mdns_ip_protocol_t ip_protocol);
 #endif
 
 namespace x4::net {
@@ -58,7 +66,7 @@ bool g_dnsUp = false;
 constexpr uint32_t kFastMs = 8000;   // fast join (cached BSSID/channel/IP) not up after this → normal join
 std::atomic<uint8_t> g_lastReason{0};
 std::atomic<bool> g_timeSynced{false};
-// #227: set by the Wi-Fi event task, handled by the net task (mDNS restart)
+// eink-ha-os#227: set by the Wi-Fi event task, handled by the net task (mDNS restart)
 std::atomic<bool> g_ipEvent{false}, g_bssidEvent{false};
 uint8_t g_bssid[6];
 bool g_haveBssid = false;
@@ -366,24 +374,62 @@ void WifiMgr::startMdns(const char* reason) {
         MDNS.addService("http", "tcp", 80);
         MDNS.addServiceTxt("http", "tcp", "path", "/");
         MDNS.addServiceTxt("http", "tcp", "fw", firmwareVersion());
-        LOG_INF("WIFI", "mDNS %s.local + _http._tcp (%s)", hostname(), reason);
+        LOG_INF("WIFI", "mDNS %s.local → %s + _http._tcp (%s)", hostname(), WiFi.localIP().toString().c_str(), reason);
       } else {
+        MDNS.end();   // eink-ha-os#376: begin fails after mdns_init when the hostname set fails; free it, or stopMdns skips it
         LOG_WRN("WIFI", "mDNS start failed (%s)", reason);
       }
       break;
     case MdnsStep::Rebind: {
       esp_netif_t* sta = WiFi.STA.netif();
+      // two actions: a full mdns queue drops either silently (still ESP_OK); checkMdns() repairs a lost ENABLE
       const esp_err_t e = sta ? mdns_netif_action(sta, MDNS_EVENT_DISABLE_IP4) : ESP_ERR_INVALID_STATE;
       const esp_err_t e2 = sta ? mdns_netif_action(sta, mdns_event_actions_t(MDNS_EVENT_ENABLE_IP4 | MDNS_EVENT_ANNOUNCE_IP4))
                                : ESP_ERR_INVALID_STATE;
-      if (e == ESP_OK && e2 == ESP_OK) LOG_INF("WIFI", "mDNS re-bind %s.local (%s)", hostname(), reason);
+      if (e == ESP_OK && e2 == ESP_OK)
+        LOG_INF("WIFI", "mDNS re-bind %s.local → %s (%s)", hostname(), WiFi.localIP().toString().c_str(), reason);
       else LOG_WRN("WIFI", "mDNS re-bind failed (%s): %s", reason, esp_err_to_name(e != ESP_OK ? e : e2));
       break;
     }
   }
   mdnsPlan_.lastMs = now;
+  if (mdns_) mdnsAnnounced();
   mdnsStarted(mdns_, mdnsOnce_ ? reason : nullptr);
   mdnsOnce_ = true;
+}
+
+// eink-ha-os#376: minute NET tick. Samples the responder for /diagnostics and repairs what the mdns component never reports:
+// the STA IPv4 pcb off with the link up (a dropped ENABLE), or the host renamed after a lost probe tie-break.
+void WifiMgr::checkMdns(bool up) {
+#if X4_QEMU
+  (void)up;
+  mdnsSample("", false);
+#else
+  if (!mdns_) return mdnsSample("", false);
+  char host[65] = "";   // MDNS_NAME_BUF_LEN
+  if (mdns_hostname_get(host) != ESP_OK) host[0] = 0;
+  const bool v4 = mdns_priv_if_ready(0, MDNS_IP_PROTOCOL_V4);
+  mdnsSample(host, v4);
+  if (!up) return;
+  const uint32_t now = millis();
+  const MdnsFix f = mdnsPlan_.check(v4, strcasecmp(host, hostname()) == 0, now);
+  if (f == MdnsFix::None) return;
+  const String ip = WiFi.localIP().toString();
+  esp_err_t e = ESP_OK;
+  if (f == MdnsFix::Enable) {
+    esp_netif_t* sta = WiFi.STA.netif();
+    e = sta ? mdns_netif_action(sta, mdns_event_actions_t(MDNS_EVENT_ENABLE_IP4 | MDNS_EVENT_ANNOUNCE_IP4))
+            : ESP_ERR_INVALID_STATE;
+    LOG_WRN("WIFI", "mDNS IPv4 off with the link up · enable + announce %s.local → %s: %s", hostname(), ip.c_str(), esp_err_to_name(e));
+  } else {
+    e = mdns_hostname_set(hostname());   // bye + re-probe on every pcb; services follow the name
+    LOG_WRN("WIFI", "mDNS answers as %s.local (lost a probe tie-break?) · reclaim %s.local → %s: %s", host[0] ? host : "-",
+            hostname(), ip.c_str(), esp_err_to_name(e));
+  }
+  mdnsPlan_.did(f, now);
+  mdnsStarted(true, f == MdnsFix::Enable ? "v4_off" : "renamed");
+  if (e == ESP_OK) mdnsAnnounced();
+#endif
 }
 
 void WifiMgr::stopMdns(const char* why) {
@@ -412,7 +458,7 @@ void WifiMgr::onConnected() {
   LOG_INF("WIFI", "connected · %s · %s", ssid.c_str(), ip.c_str());
   heapMark("Wi-Fi connected");
 #if !X4_QEMU
-  fastDone(true);   // RTC Wi-Fi cache for the next deep-sleep wake (#10)
+  fastDone(true);   // RTC Wi-Fi cache for the next deep-sleep wake (eink-ha-os#10)
 #endif
   startMdns("connect");
   sntp_set_time_sync_notification_cb(onTimeSync);
@@ -442,7 +488,7 @@ void WifiMgr::discoverHa() {
           found.empty() ? "" : found[0].c_str());
 }
 
-// Offered on the link page (console state, sign-in fallback); saved only once it answers as HA (#54).
+// Offered on the link page (console state, sign-in fallback); saved only once it answers as HA (eink-ha-os#54).
 std::vector<std::string> WifiMgr::applyDiscovered(const std::vector<std::string>& urls) {
   std::vector<std::string> found;
   for (const auto& u : urls) {
@@ -493,7 +539,7 @@ void WifiMgr::disconnect() {
 
 #if X4_QEMU
 namespace {
-// The NIC's link and lease as the driver sees them (#108): `set_link off` drops the lease, `on` must bring both back.
+// The NIC's link and lease as the driver sees them (eink-ha-os#108): `set_link off` drops the lease, `on` must bring both back.
 void trackQemuLink() {
   static qemu_eth_link_t was{};
   qemu_eth_link_t e;
@@ -584,7 +630,7 @@ void WifiMgr::loop() {
   if (up || userDisconnected_ || hub().savedSsid.empty()) esc_.reset();
   else escalate();
   checkStale(up);
-  // #227: the responder can miss a lease renewal (netif re-bound, no re-announce) or a roam to another AP
+  // eink-ha-os#227: the responder can miss a lease renewal (netif re-bound, no re-announce) or a roam to another AP
   if (up && (g_ipEvent || g_bssidEvent)) startMdns(g_bssidEvent ? "bssid" : "got_ip");
   checkInbound(up);
 }
@@ -658,7 +704,10 @@ void WifiMgr::checkInbound(bool up) {
 #else
     wifiSample(known, dbm, up ? WiFi.BSSID() : nullptr);
 #endif
-    if (samples_++ % 6 == 0) netStatsLog();   // once a minute, next to the HEAP line
+    if (samples_++ % 6 == 0) {   // once a minute, next to the HEAP line
+      checkMdns(up);
+      netStatsLog();
+    }
   }
   if (!up) return inbound_.linkDown();
   inbound_.linkUp(now);
@@ -684,7 +733,7 @@ void WifiMgr::checkInbound(bool up) {
 #endif
 }
 
-// After a deep-sleep timer wake (#10): join with the BSSID/channel from RTC memory (no scan) and, while the lease is
+// After a deep-sleep timer wake (eink-ha-os#10): join with the BSSID/channel from RTC memory (no scan) and, while the lease is
 // younger than an hour, the cached IP (no DHCP). Falls back to a normal join after kFastMs (core/glance wifiFast).
 void WifiMgr::beginFast(const WifiCreds& c) {
   const char* pw = c.password.empty() ? nullptr : c.password.c_str();
@@ -778,11 +827,11 @@ void WifiMgr::escalate() {
 }  // namespace x4::net
 
 #if !X4_QEMU
-// Linked with -Wl,--wrap=esp_wifi_init (x4pro only, #198). Arduino's WiFiGeneric.cpp sets 32 dynamic RX and 32 dynamic
+// Linked with -Wl,--wrap=esp_wifi_init (x4pro only, eink-ha-os#198). Arduino's WiFiGeneric.cpp sets 32 dynamic RX and 32 dynamic
 // TX buffers (~1.7 KB each, internal RAM: no SPIRAM_TRY_ALLOCATE_WIFI_LWIP in the prebuilt libs); a burst next to a
 // TLS handshake took the internal heap to 10.9 KB. 12 + 12 cap the transient at ~41 KB instead of ~109 KB. The BA
 // window must stay ≤ dynamic RX and ≤ 2 × static RX (4, kept: fixed cost, the minimum Arduino uses). TX 12 → 8
-// (#248): the display sends little (pings, reports), and at RSSI -88 the retried frames sat in TX buffers; RX stays 12
+// (eink-ha-os#248): the display sends little (pings, reports), and at RSSI -88 the retried frames sat in TX buffers; RX stays 12
 // so a weak link doesn't also lose frames to a full RX queue (more retries, more airtime).
 extern "C" esp_err_t __real_esp_wifi_init(const wifi_init_config_t* config);
 extern "C" esp_err_t __wrap_esp_wifi_init(const wifi_init_config_t* config) {

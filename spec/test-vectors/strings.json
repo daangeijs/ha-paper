@@ -1,5 +1,5 @@
 {
-  "_doc": "UI strings (#98): emulator src/core/strings.ts = firmware core/strings.{h,cpp} + the generated core/strings_gen.h (npm run vectors writes both). langOf(code): HA get_config language or browser language → en | nl (any nl variant → nl, everything else → en). tr(lang, key, args): each {} takes the next arg. dateLine(lang, wday, mday, month): struct tm numbering.",
+  "_doc": "UI strings (eink-ha-os#98): emulator src/core/strings.ts = firmware core/strings.{h,cpp} + the generated core/strings_gen.h (npm run vectors writes both). langOf(code): HA get_config language or browser language → en | nl (any nl variant → nl, everything else → en). tr(lang, key, args): each {} takes the next arg. dateLine(lang, wday, mday, month): struct tm numbering.",
   "langs": [
     "en",
     "nl"
@@ -620,6 +620,42 @@
     "binsPick": {
       "en": "Pick bin sensors in the browser",
       "nl": "Kies in de browser je afvalsensoren"
+    },
+    "listTitle": {
+      "en": "List",
+      "nl": "Lijst"
+    },
+    "listEmpty": {
+      "en": "Nothing to show",
+      "nl": "Niets te melden"
+    },
+    "listMore": {
+      "en": "+{} more",
+      "nl": "+{} meer"
+    },
+    "listNow": {
+      "en": "just now",
+      "nl": "zojuist"
+    },
+    "listMinAgo": {
+      "en": "{} min ago",
+      "nl": "{} min geleden"
+    },
+    "listHoursAgo": {
+      "en": "{} h ago",
+      "nl": "{} uur geleden"
+    },
+    "listToday": {
+      "en": "today",
+      "nl": "vandaag"
+    },
+    "listYesterday": {
+      "en": "yesterday",
+      "nl": "gisteren"
+    },
+    "listDaysAgo": {
+      "en": "{} days ago",
+      "nl": "{} dagen geleden"
     },
     "heatingTo": {
       "en": "Heating to {}",
@@ -2657,6 +2693,26 @@
       "en": "Dots",
       "nl": "Punten"
     },
+    "styleBand": {
+      "en": "Band",
+      "nl": "Band"
+    },
+    "histCompare": {
+      "en": "Compare",
+      "nl": "Vergelijk"
+    },
+    "cmpOff": {
+      "en": "Off",
+      "nl": "Uit"
+    },
+    "cmpDay": {
+      "en": "Day before",
+      "nl": "Dag ervoor"
+    },
+    "cmpWeek": {
+      "en": "Week before",
+      "nl": "Week ervoor"
+    },
     "histThreshold": {
       "en": "Line at",
       "nl": "Lijn op"
@@ -2754,8 +2810,20 @@
       "nl": "labels moet true of false zijn"
     },
     "errHistStyle": {
-      "en": "style must be bars, line, area, step, dots or auto",
-      "nl": "style moet bars, line, area, step, dots of auto zijn"
+      "en": "style must be bars, line, area, step, dots, band or auto",
+      "nl": "style moet bars, line, area, step, dots, band of auto zijn"
+    },
+    "errHistBandCompare": {
+      "en": "band and compare need a recorder series (no attribute or forecast)",
+      "nl": "band en compare werken alleen met geschiedenis (geen attribuut of verwachting)"
+    },
+    "errHistBandAgg": {
+      "en": "style band needs agg mean",
+      "nl": "style band werkt alleen met agg mean"
+    },
+    "errHistCompare": {
+      "en": "compare must be 1d or 7d, at least the window",
+      "nl": "compare moet 1d of 7d zijn, minstens de periode"
     },
     "palThermo": {
       "en": "Room thermostat (tall)",

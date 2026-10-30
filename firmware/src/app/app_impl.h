@@ -31,8 +31,8 @@ enum class WifiView : uint8_t { List, Pw, Connecting, Phone };
 enum class Kb : uint8_t { Lower, Upper, Nums };
 enum class HaView : uint8_t { Status, Link };
 
-// Quiet face (#295): the "Tomorrow" row (#328, core/tomorrow.h), built when the face goes up. asOf: "HH:MM" of the last
-// data, only when it was stale (#27).
+// Quiet face (eink-ha-os#295): the "Tomorrow" row (eink-ha-os#328, core/tomorrow.h), built when the face goes up. asOf: "HH:MM" of the last
+// data, only when it was stale (eink-ha-os#27).
 struct QuietSnap { bool taken = false; quiet::Row row; std::string asOf; };
 
 struct LocalTime {
@@ -40,10 +40,10 @@ struct LocalTime {
   int h = 0, m = 0, minuteOfDay = 0;
   std::string clock = "--:--";   // per 12/24-hour setting
   std::string date;              // "Tuesday 13 October"
-  std::string day = "—";         // "13": asleep, the big day number in place of a clock (#333)
+  std::string day = "—";         // "13": asleep, the big day number in place of a clock (eink-ha-os#333)
   std::string dayLine;           // "Tuesday · October" under it
   std::string hm = "—";          // always 24 h, for "updated HH:MM"
-  int64_t epochMs = 0;           // now, for the history chart span (#270)
+  int64_t epochMs = 0;           // now, for the history chart span (eink-ha-os#270)
   int tz = 0;                    // local UTC offset, minutes
 };
 
@@ -68,15 +68,15 @@ struct App::Impl {
   std::string bootMsg = "Starting…";
   uint32_t bootUntil = 0;
   bool sleeping = false;
-  bool poweredOff = false;   // Power held 2 s (#258): "Turned off" face; hardware never returns from Board::powerOff
+  bool poweredOff = false;   // Power held 2 s (eink-ha-os#258): "Turned off" face; hardware never returns from Board::powerOff
   Menu menu = Menu::None;
   Setup setup = Setup::None;
   int idx = 0, sub = 0;
   uint32_t peekUntil = 0;
   bool prevQuiet = false, quietKnown = false;
   QuietSnap snap;
-  std::string bootWake = "cold";   // net powerWakeName(): a boot that a timer did not cause opens with a peek (#295)
-  // Good morning page (#330, core/morning.h): kept in RTC memory by main.cpp through onMorning
+  std::string bootWake = "cold";   // net powerWakeName(): a boot that a timer did not cause opens with a peek (eink-ha-os#295)
+  // Good morning page (eink-ha-os#330, core/morning.h): kept in RTC memory by main.cpp through onMorning
   morning::State morningSt;
   std::function<void(const morning::State&)> onMorning;
   WifiView wview = WifiView::List;
@@ -86,12 +86,12 @@ struct App::Impl {
   Kb kb = Kb::Lower;
   HaView haView = HaView::Status;
   bool resetArm = false; uint32_t resetArmUntil = 0;
-  RecoveryState recovery;        // hardware-key factory reset / crash-loop offer (core/recovery.h, #21)
+  RecoveryState recovery;        // hardware-key factory reset / crash-loop offer (core/recovery.h, eink-ha-os#21)
   std::string otaMsg;            // local OTA message (blocked/no network)
   bool otaBlocked = false;
-  bool otaOffline = false;       // Check pressed without Wi-Fi (#250: "No connection")
+  bool otaOffline = false;       // Check pressed without Wi-Fi (eink-ha-os#250: "No connection")
   int lastOtaPct = -1;
-  std::string lastOtaVer;   // install face version line (an upload's manifest can arrive after the image, #237)
+  std::string lastOtaVer;   // install face version line (an upload's manifest can arrive after the image, eink-ha-os#237)
 
   // optimistic overrides until Home Assistant acknowledges
   std::map<std::string, double> setOverride;      // zone id → setpoint
@@ -113,29 +113,29 @@ struct App::Impl {
   std::vector<std::string> lastChanged;
 
   uint32_t lastInput = 0;
-  bool lightOut = false;   // front light timed out (#220); the next key/tap only turns it back on
-  bool bootDark = false;   // #357: a timer wake booted with the light off; the next key/tap turns it on (not consumed)
+  bool lightOut = false;   // front light timed out (eink-ha-os#220); the next key/tap only turns it back on
+  bool bootDark = false;   // eink-ha-os#357: a timer wake booted with the light off; the next key/tap turns it on (not consumed)
   bool idleHomed = false;
-  bool ambient = false;   // #27: chrome hidden after kAmbientMs without input; the next input only restores it
+  bool ambient = false;   // eink-ha-os#27: chrome hidden after kAmbientMs without input; the next input only restores it
   Chrome chr;             // top-bar parts in the frame being built (chromeFor)
   int lastMinute = -1;
   uint32_t lastTick = 0, lastIdle = 0;
   uint32_t lastRev = 0;
   bool pressFeedback = true;
-  Lang lang = Lang::En;       // UI language: NetStatus.language (#98)
-  std::string cur = "€";          // NetStatus.currency as a symbol (#147); core locale::setCurrency
-  NumFmt numFmt = NumFmt::Point;   // NetStatus.numberFormat, else the language (#110); core setNumFormat
+  Lang lang = Lang::En;       // UI language: NetStatus.language (eink-ha-os#98)
+  std::string cur = "€";          // NetStatus.currency as a symbol (eink-ha-os#147); core locale::setCurrency
+  NumFmt numFmt = NumFmt::Point;   // NetStatus.numberFormat, else the language (eink-ha-os#110); core setNumFormat
   const char* t(S k) const { return tr(lang, k); }
   std::string t(S k, const std::string& a, const std::string& b = "{}") const { return tr(lang, k, a, b); }
   // net status snapshot (detect changes)
   std::string netSig;
 
   bool held = false;          // glance wake: nothing goes to the panel (App::setPanelHeld)
-  std::string asleepAt;       // #299: non-empty = going to deep sleep; #333: clocks show the date, no time of day
-  uint32_t panelMs = 0;       // last panel refresh call, ms (log line, #197/#200)
-  uint32_t renderMs = 0;      // framebuffer draw before it, ms (log line, #212)
-  uint32_t buildMs = 0, recordMs = 0;   // renderMs split (#213): region build, signature record; the rest is paint
-  std::vector<std::pair<uint32_t, std::string>> paintMs;   // per region painted in the last render, ms (#213)
+  std::string asleepAt;       // eink-ha-os#299: non-empty = going to deep sleep; eink-ha-os#333: clocks show the date, no time of day
+  uint32_t panelMs = 0;       // last panel refresh call, ms (log line, eink-ha-os#197/eink-ha-os#200)
+  uint32_t renderMs = 0;      // framebuffer draw before it, ms (log line, eink-ha-os#212)
+  uint32_t buildMs = 0, recordMs = 0;   // renderMs split (eink-ha-os#213): region build, signature record; the rest is paint
+  std::vector<std::pair<uint32_t, std::string>> paintMs;   // per region painted in the last render, ms (eink-ha-os#213)
   bool offscreen = false;     // App::renderScreen is building a preview: no quiet face
   bool userInput = false;     // a key / touch since boot (power: live mode)
   uint32_t userInputAt = 0;
@@ -144,22 +144,22 @@ struct App::Impl {
   void panelPartial(Rect r);
 
   bool linkPending = false;   // linked (key stored) but the WebSocket is not up yet
-  // fresh data expected (connect, new config, new data source; #151): from freshAt until freshUntil every store change
+  // fresh data expected (connect, new config, new data source; eink-ha-os#151): from freshAt until freshUntil every store change
   // is drawn at once (at most once a second), not after a whole Live data interval
   bool fresh = false;
   uint32_t freshAt = 0, freshUntil = 0;
   void expectData(uint32_t delayMs, uint32_t windowMs) { fresh = true; freshAt = ms() + delayMs; freshUntil = freshAt + windowMs; }
 
-  // history tile series (#270), in PSRAM: one slot per hist::seriesKey; a tile with `past` (#307) has two
-  static constexpr int kHistSlots = 2 * hist::kMaxTiles;
+  // history tile series (eink-ha-os#270), in PSRAM: one slot per hist::seriesKey; a tile with `past` (eink-ha-os#307) has two
+  static constexpr int kHistSlots = 4 * hist::kMaxTiles;   // eink-ha-os#304: band (+ min, max) and compare (+ 1)
   struct HistSlot { PStr key; hist::State state = hist::State::Loading; hist::Series s; };
   std::vector<HistSlot, PsramAlloc<HistSlot>> hist;
   const HistSlot* histOf(const std::string& key) const;
-  // weather forecasts (#318), in PSRAM: one slot per weather entity of the config (≤ wx::kMaxTiles)
+  // weather forecasts (eink-ha-os#318), in PSRAM: one slot per weather entity of the config (≤ wx::kMaxTiles)
   struct WxSlot { PStr entity; wx::Forecast fc; };
   std::vector<WxSlot, PsramAlloc<WxSlot>> wx;
   const wx::Forecast* wxOf(const std::string& entity) const;
-  // agenda / next tile events (#316), in PSRAM: one slot per calendar set (agenda::keyOf), at most agenda::kMaxTiles
+  // agenda / next tile events (eink-ha-os#316), in PSRAM: one slot per calendar set (agenda::keyOf), at most agenda::kMaxTiles
   struct AgendaSlot { PStr key; agenda::State state = agenda::State::Loading; agenda::Fetch f; };
   std::vector<AgendaSlot, PsramAlloc<AgendaSlot>> agendas;
   const AgendaSlot* agendaOf(const std::string& key) const;
@@ -173,7 +173,7 @@ struct App::Impl {
   void note(const std::string& s);
   std::string panelNote() const;
   LocalTime localTime();
-  HomeData derive();          // power fields through powerHold (deadband, #85)
+  HomeData derive();          // power fields through powerHold (deadband, eink-ha-os#85)
   PowerHold powerHold;
   std::map<std::string, EntityValue> heldEnt;   // last shown value of a W/kW stat entity
   const EntityValue* statEntity(const std::string& id);   // store value, or the held one inside the deadband
@@ -182,12 +182,12 @@ struct App::Impl {
   bool neverLinked() const;
   bool revoked() const;
   bool offline() const;
-  bool quietHour() const;     // quiet hours (#295, core/logic.h): clock known and inside the window
+  bool quietHour() const;     // quiet hours (eink-ha-os#295, core/logic.h): clock known and inside the window
   bool quietActive() const;   // the quiet face is up: quietHour, not peeking, not in setup (standby too)
-  bool houseEmptyNow() const; // #331: settings emptyHouse set and its entity says nobody is home (core/empty_house.h)
-  bool emptyActive() const;   // #331: the Nobody home face is up: asleep in glance, house empty, not quiet, not in setup
-  bool morningActive() const; // the Good morning page is up (#330): until not reached, main, no setup, no quiet face
-  bool glanceFaceActive() const;   // #356: the sleep face is up: asleep in glance, not quiet / Nobody home / morning
+  bool houseEmptyNow() const; // eink-ha-os#331: settings emptyHouse set and its entity says nobody is home (core/empty_house.h)
+  bool emptyActive() const;   // eink-ha-os#331: the Nobody home face is up: asleep in glance, house empty, not quiet, not in setup
+  bool morningActive() const; // the Good morning page is up (eink-ha-os#330): until not reached, main, no setup, no quiet face
+  bool glanceFaceActive() const;   // eink-ha-os#356: the sleep face is up: asleep in glance, not quiet / Nobody home / morning
   int sleepKind() const;      // the sleeping panel's whole face: 0 dashboard, 1 Nobody home, 2 glance sleep face
   bool clockOnPage() const;   // the current page shows a clock tile (ambient drops the bar clock)
   int curSub() const;
@@ -204,7 +204,7 @@ struct App::Impl {
   RegionMap signatures(std::vector<RegionDef>& defs, std::vector<Hit>* hits);
   void renderAll();
   void fullRefresh(const std::string& reason);   // clean: one short flash
-  void navRefresh(const std::string& reason);    // navigation: fast, every kNavClean-th a clean (#197)
+  void navRefresh(const std::string& reason);    // navigation: fast, every kNavClean-th a clean (eink-ha-os#197)
   void partialRefresh(const std::string& reason, const RegionMap& next, const std::vector<std::string>& keys);
   void commit(const std::string& reason, bool quiet = false);
   void drawAll();
@@ -227,7 +227,7 @@ struct App::Impl {
   void tick();
   void idleCheck();
   void checkQuiet();
-  void checkMorning();                   // #330: once per loop, before checkQuiet
+  void checkMorning();                   // eink-ha-os#330: once per loop, before checkQuiet
   void morningDone(const char* src);     // a press: the page ends, the start page shows
   void saveMorning(const morning::State& s);
   void netChanged();
@@ -245,13 +245,13 @@ struct App::Impl {
   void dimLight(const std::string& id, int step);
   void roomLights(const std::string& area, const std::vector<std::string>& ids);
   void allOff();
-  void runScene(const SceneAction& s);   // scene tile (#146)
-  // now playing tile (#319): mediaPick = "idx:sub:tile" whose favorites picker is open (a page change closes it)
+  void runScene(const SceneAction& s);   // scene tile (eink-ha-os#146)
+  // now playing tile (eink-ha-os#319): mediaPick = "idx:sub:tile" whose favorites picker is open (a page change closes it)
   std::string mediaPick;
   std::string mediaKey(int tile) const { return std::to_string(idx) + ":" + std::to_string(sub) + ":" + std::to_string(tile); }
   void mediaRun(const media::Action& act, bool pick);
   void mediaPicker(const std::string& key);
-  // volume slider (#351): the level drawn until HA reports it (± 1 %) or 10 s pass; touchX = x of the tap / drag end
+  // volume slider (eink-ha-os#351): the level drawn until HA reports it (± 1 %) or 10 s pass; touchX = x of the tap / drag end
   // running the current hit (a slider reads it)
   struct VolOv { int pct; uint32_t until; };
   std::map<std::string, VolOv> mediaVolOv;
@@ -292,7 +292,7 @@ void label(Canvas& c, int x, int top, const std::string& s, int size = 16, Ink i
 void kvRow(Canvas& c, int x, int top, int w, const std::string& k, const std::string& v, int size, int padBottom);
 
 void topBar(Canvas& c, I& a);
-// Minute-tick regions (issue #38): the clock text drawn on its own so the tick redraws only these boxes.
+// Minute-tick regions (issue eink-ha-os#38): the clock text drawn on its own so the tick redraws only these boxes.
 Rect barTimeRect(I& a);                 // "time" in the top bar
 void barTime(Canvas& c, I& a);
 Rect faceTimeRect(I& a);                // "time" on the standby face
@@ -301,11 +301,11 @@ Rect clockTimeRect(I& a, const Widget& w, Rect r);    // "k<i>" inside clock til
 void clockTime(Canvas& c, I& a, const Widget& w, Rect r);
 void menu(Canvas& c, I& a, Rect r);
 void bootFace(Canvas& c, I& a);
-// One sleep face (#356, ui_chrome.cpp sleepFace): quiet hours, Nobody home (#331) and glance sleep, each with its lines
+// One sleep face (eink-ha-os#356, ui_chrome.cpp sleepFace): quiet hours, Nobody home (eink-ha-os#331) and glance sleep, each with its lines
 void quietFace(Canvas& c, I& a);
 void emptyFace(Canvas& c, I& a);
 void glanceFace(Canvas& c, I& a);
-void morningFace(Canvas& c, I& a);   // #330 (ui_morning.cpp)
+void morningFace(Canvas& c, I& a);   // eink-ha-os#330 (ui_morning.cpp)
 quiet::Row quietRow(I& a, int endHour);   // the Tomorrow / Today row from the weather, agenda and bins tiles' data
 std::string staleAt(I& a);   // "HH:MM" of the last data when it is stale (nightStale), else 
 void standbyFace(Canvas& c, I& a);
@@ -319,23 +319,25 @@ void emptyScreen(Canvas& c, I& a, Rect r);
 // the screen is redrawn from live status, so the IP is current); text shows both names.
 std::string qrBase(I& a);          // "http://192.168.1.42", or "http://ha-paper-XXXX.local" without an IP
 std::string hostOrIp(I& a);        // "ha-paper-XXXX.local or 192.168.1.42", or just the name without an IP
-// HA has no value for a tile's entity (#86): a 28 px ring, bottom on the value baseline `bl` (emulator GapRing), and the
+// HA has no value for a tile's entity (eink-ha-os#86): a 28 px ring, bottom on the value baseline `bl` (emulator GapRing), and the
 // word for it ("Unavailable" / "Unknown").
 void gapRing(Canvas& c, int x, int bl);
 std::string gapText(I& a, EntityGap g);
-// Scene tile (#146, emulator Emulator.tsx scene): the label / HA name / "All lights off", and the line under it.
+// Scene tile (eink-ha-os#146, emulator Emulator.tsx scene): the label / HA name / "All lights off", and the line under it.
 std::string sceneLabel(I& a, const Widget& w, const SceneAction& s);
 std::string sceneSub(I& a, const SceneAction& s);
-// Now playing tile (#319, ui_media.cpp; emulator Device.tsx MediaTile): both styles (Sleek: pill buttons).
+// Now playing tile (eink-ha-os#319, ui_media.cpp; emulator Device.tsx MediaTile): both styles (Sleek: pill buttons).
 void mediaTile(Canvas& c, I& a, const Widget& w, int i, Rect r);
-Rect mediaVolumeRect(I& a, const Widget& w, int i, Rect r);   // #351: the slider's own region; w = 0: none
+Rect mediaVolumeRect(I& a, const Widget& w, int i, Rect r);   // eink-ha-os#351: the slider's own region; w = 0: none
 void mediaVolume(Canvas& c, I& a, const Widget& w, Rect tile, Rect bar);
 
 void tile(Canvas& c, I& a, const Widget& w, int i, Rect r);   // simple (single-region) tiles
-void weatherTile(Canvas& c, I& a, const Widget& w, Rect r);   // #318, both looks (ui_weather.cpp)
-std::string tileValue(I& a, const Widget& w);                 // GET /screens/{id}/values (#122)
-void binsTile(Canvas& c, I& a, const Widget& w, Rect r);     // bin day (#317, ui_bins.cpp)
-void guestTile(Canvas& c, I& a, const Widget& w, Rect r);    // guest Wi-Fi (#329, ui_guest.cpp)
+void weatherTile(Canvas& c, I& a, const Widget& w, Rect r);   // eink-ha-os#318, both looks (ui_weather.cpp)
+std::string tileValue(I& a, const Widget& w);                 // GET /screens/{id}/values (eink-ha-os#122)
+void binsTile(Canvas& c, I& a, const Widget& w, Rect r);     // bin day (eink-ha-os#317, ui_bins.cpp)
+void guestTile(Canvas& c, I& a, const Widget& w, Rect r);    // guest Wi-Fi (eink-ha-os#329, ui_guest.cpp)
+void listTile(Canvas& c, I& a, const Widget& w, Rect r);     // list from attributes (eink-ha-os#332, ui_list.cpp)
+std::string listValue(I& a, const Widget& w);
 std::string settingValue(const I& a, const std::string& key);
 void rule(Canvas& c, int x, int y, int len, bool vertical);   // divider: Classic 2 px ink, Sleek 1 px dotted ink
 void btnBox(Canvas& c, Rect r, bool dark, int radius = 8);    // custom button background: Classic outlined, Sleek pill
@@ -353,7 +355,7 @@ void linkCard(Canvas& c, I& a, Rect r);
 // lists: frame + header + rows as separate regions
 void listRegions(I& a, const Widget& w, int i, Rect r, std::vector<RegionDef>& out);
 void systemTile(Canvas& c, I& a, const Widget& w, int i, Rect r);   // ota, wifi, ha, about, setupWeb
-// Settings › Updates status line (#250): an overlay region over the ota tile, so Check → "Checking…" → the result
+// Settings › Updates status line (eink-ha-os#250): an overlay region over the ota tile, so Check → "Checking…" → the result
 // redraws only this block (partial refresh, no flash).
 Rect otaStatusRect(Rect tile);
 void otaStatus(Canvas& c, I& a, Rect tile);

@@ -1,0 +1,772 @@
+{
+  "description": "List from attributes tile (spec/SCHEMA.md attrList, eink-ha-os#332). ago: listAgo(v, now, tz, lang) = \"just now\" under a minute (or up to 5 min ahead), \"N min ago\", \"N h ago\" under 24 h, then by local day \"yesterday\" / \"N days ago\"; a date without a time: today / yesterday / N days ago; unreadable or later: \"\". rows: listRows(cs, rs). views: listView(value, listSpec(w), now, tz, lang, max): defaults title / subtitle / time = title / subtitle / ts (eink-ha-os#375); a default field the item lacks (absent or null; subtitle: none of its names) reads species / place distance_km / observed_at; items without a title left out, numbers to 1 decimal (\"…_km\" + \" km\", \"…_m\" + \" m\"), subtitle parts joined with \" · \", more = titled items past max. cap: capList(list) keeps the first items while ≤ 10 items and the JSON ≤ 3072 bytes; kept = item count.",
+  "now": 1793194200000,
+  "tz": 60,
+  "ago": [
+    {
+      "v": "2026-10-28T14:30:00+01:00",
+      "lang": "en",
+      "out": "just now"
+    },
+    {
+      "v": "2026-10-28T14:30:00+01:00",
+      "lang": "nl",
+      "out": "zojuist"
+    },
+    {
+      "v": "2026-10-28T14:29:30+01:00",
+      "lang": "en",
+      "out": "just now"
+    },
+    {
+      "v": "2026-10-28T14:29:30+01:00",
+      "lang": "nl",
+      "out": "zojuist"
+    },
+    {
+      "v": "2026-10-28T14:33:00+01:00",
+      "lang": "en",
+      "out": "just now"
+    },
+    {
+      "v": "2026-10-28T14:33:00+01:00",
+      "lang": "nl",
+      "out": "zojuist"
+    },
+    {
+      "v": "2026-10-28T14:40:00+01:00",
+      "lang": "en",
+      "out": ""
+    },
+    {
+      "v": "2026-10-28T14:40:00+01:00",
+      "lang": "nl",
+      "out": ""
+    },
+    {
+      "v": "2026-10-28T14:00:00+01:00",
+      "lang": "en",
+      "out": "30 min ago"
+    },
+    {
+      "v": "2026-10-28T14:00:00+01:00",
+      "lang": "nl",
+      "out": "30 min geleden"
+    },
+    {
+      "v": "2026-10-28T13:31:00",
+      "lang": "en",
+      "out": "59 min ago"
+    },
+    {
+      "v": "2026-10-28T13:31:00",
+      "lang": "nl",
+      "out": "59 min geleden"
+    },
+    {
+      "v": "2026-10-28T12:30:00Z",
+      "lang": "en",
+      "out": "1 h ago"
+    },
+    {
+      "v": "2026-10-28T12:30:00Z",
+      "lang": "nl",
+      "out": "1 uur geleden"
+    },
+    {
+      "v": "2026-10-28T00:10:00+01:00",
+      "lang": "en",
+      "out": "14 h ago"
+    },
+    {
+      "v": "2026-10-28T00:10:00+01:00",
+      "lang": "nl",
+      "out": "14 uur geleden"
+    },
+    {
+      "v": "2026-10-27T23:59:00+01:00",
+      "lang": "en",
+      "out": "14 h ago"
+    },
+    {
+      "v": "2026-10-27T23:59:00+01:00",
+      "lang": "nl",
+      "out": "14 uur geleden"
+    },
+    {
+      "v": "2026-10-27T09:00:00+01:00",
+      "lang": "en",
+      "out": "yesterday"
+    },
+    {
+      "v": "2026-10-27T09:00:00+01:00",
+      "lang": "nl",
+      "out": "gisteren"
+    },
+    {
+      "v": "2026-10-25T18:00:00+01:00",
+      "lang": "en",
+      "out": "3 days ago"
+    },
+    {
+      "v": "2026-10-25T18:00:00+01:00",
+      "lang": "nl",
+      "out": "3 dagen geleden"
+    },
+    {
+      "v": "2026-10-28",
+      "lang": "en",
+      "out": "today"
+    },
+    {
+      "v": "2026-10-28",
+      "lang": "nl",
+      "out": "vandaag"
+    },
+    {
+      "v": "2026-10-27",
+      "lang": "en",
+      "out": "yesterday"
+    },
+    {
+      "v": "2026-10-27",
+      "lang": "nl",
+      "out": "gisteren"
+    },
+    {
+      "v": "2026-10-21",
+      "lang": "en",
+      "out": "7 days ago"
+    },
+    {
+      "v": "2026-10-21",
+      "lang": "nl",
+      "out": "7 dagen geleden"
+    },
+    {
+      "v": "2026-10-29",
+      "lang": "en",
+      "out": ""
+    },
+    {
+      "v": "2026-10-29",
+      "lang": "nl",
+      "out": ""
+    },
+    {
+      "v": "yesterday",
+      "lang": "en",
+      "out": ""
+    },
+    {
+      "v": "yesterday",
+      "lang": "nl",
+      "out": ""
+    },
+    {
+      "v": "",
+      "lang": "en",
+      "out": ""
+    },
+    {
+      "v": "",
+      "lang": "nl",
+      "out": ""
+    },
+    {
+      "v": 1793194200,
+      "lang": "en",
+      "out": "just now"
+    },
+    {
+      "v": 1793194200,
+      "lang": "nl",
+      "out": "zojuist"
+    },
+    {
+      "v": 1793187000,
+      "lang": "en",
+      "out": "2 h ago"
+    },
+    {
+      "v": 1793187000,
+      "lang": "nl",
+      "out": "2 uur geleden"
+    },
+    {
+      "v": 1793187000000,
+      "lang": "en",
+      "out": "2 h ago"
+    },
+    {
+      "v": 1793187000000,
+      "lang": "nl",
+      "out": "2 uur geleden"
+    },
+    {
+      "v": 1793187000.5,
+      "lang": "en",
+      "out": "1 h ago"
+    },
+    {
+      "v": 1793187000.5,
+      "lang": "nl",
+      "out": "1 uur geleden"
+    }
+  ],
+  "rows": [
+    {
+      "cs": 1,
+      "rs": 1,
+      "oneLine": false,
+      "rows": 2
+    },
+    {
+      "cs": 1,
+      "rs": 2,
+      "oneLine": false,
+      "rows": 6
+    },
+    {
+      "cs": 2,
+      "rs": 1,
+      "oneLine": false,
+      "rows": 2
+    },
+    {
+      "cs": 2,
+      "rs": 2,
+      "oneLine": false,
+      "rows": 6
+    },
+    {
+      "cs": 3,
+      "rs": 1,
+      "oneLine": true,
+      "rows": 4
+    },
+    {
+      "cs": 3,
+      "rs": 2,
+      "oneLine": true,
+      "rows": 10
+    },
+    {
+      "cs": 4,
+      "rs": 1,
+      "oneLine": true,
+      "rows": 4
+    },
+    {
+      "cs": 4,
+      "rs": 2,
+      "oneLine": true,
+      "rows": 10
+    }
+  ],
+  "views": [
+    {
+      "name": "ready-fields",
+      "value": "[{\"species\":\"Kraanvogel ?\",\"scientific\":\"Aves\",\"count\":1,\"place\":\"Heidebos\",\"distance_km\":3.2,\"observed_at\":\"2026-10-28T12:30:00\",\"rarity\":3,\"certain\":true,\"url\":\"https://waarneming.nl/observation/0/\",\"title\":\"3× Kraanvogel ?\",\"subtitle\":\"Heidebos · 3,2 km\",\"ts\":1793187000},{\"species\":\"Klapekster\",\"scientific\":\"Aves\",\"count\":1,\"place\":\"Heideveld Oost\",\"distance_km\":5.8,\"observed_at\":\"2026-10-28T14:20:00\",\"rarity\":3,\"certain\":true,\"url\":\"https://waarneming.nl/observation/0/\",\"title\":\"Klapekster\",\"subtitle\":\"Heideveld Oost · 5,8 km\",\"ts\":1793193600},{\"species\":\"Velduil\",\"scientific\":\"Aves\",\"count\":1,\"place\":\"Beekdal\",\"distance_km\":9.1,\"observed_at\":\"2026-10-27T12:30:00\",\"rarity\":3,\"certain\":true,\"url\":\"https://waarneming.nl/observation/0/\",\"title\":\"Velduil\",\"subtitle\":\"Beekdal · 9,1 km\",\"ts\":1793100600000},{\"species\":\"Roodkeelduiker\",\"scientific\":\"Aves\",\"count\":1,\"place\":\"Plas Noordhoek\",\"distance_km\":7.4,\"observed_at\":\"2020-01-01\",\"rarity\":3,\"certain\":true,\"url\":\"https://waarneming.nl/observation/0/\",\"title\":\"  Roodkeelduiker  \",\"subtitle\":\"Plas Noordhoek · 7,4 km\",\"ts\":\"2026-10-28T13:00:00\"},{\"species\":\"Leeg\",\"scientific\":\"Aves\",\"count\":1,\"place\":\"Leeg\",\"distance_km\":1,\"observed_at\":\"2026-10-28\",\"rarity\":3,\"certain\":true,\"url\":\"https://waarneming.nl/observation/0/\",\"title\":\"\",\"subtitle\":\"Leeg · 1 km\",\"ts\":1793194200}]",
+      "w": {},
+      "max": 6,
+      "lang": "en",
+      "out": {
+        "rows": [
+          {
+            "title": "3× Kraanvogel ?",
+            "sub": "Heidebos · 3,2 km",
+            "ago": "2 h ago"
+          },
+          {
+            "title": "Klapekster",
+            "sub": "Heideveld Oost · 5,8 km",
+            "ago": "10 min ago"
+          },
+          {
+            "title": "Velduil",
+            "sub": "Beekdal · 9,1 km",
+            "ago": "yesterday"
+          },
+          {
+            "title": "Roodkeelduiker",
+            "sub": "Plas Noordhoek · 7,4 km",
+            "ago": "1 h ago"
+          }
+        ],
+        "more": 0
+      }
+    },
+    {
+      "name": "ready-fields",
+      "value": "[{\"species\":\"Kraanvogel ?\",\"scientific\":\"Aves\",\"count\":1,\"place\":\"Heidebos\",\"distance_km\":3.2,\"observed_at\":\"2026-10-28T12:30:00\",\"rarity\":3,\"certain\":true,\"url\":\"https://waarneming.nl/observation/0/\",\"title\":\"3× Kraanvogel ?\",\"subtitle\":\"Heidebos · 3,2 km\",\"ts\":1793187000},{\"species\":\"Klapekster\",\"scientific\":\"Aves\",\"count\":1,\"place\":\"Heideveld Oost\",\"distance_km\":5.8,\"observed_at\":\"2026-10-28T14:20:00\",\"rarity\":3,\"certain\":true,\"url\":\"https://waarneming.nl/observation/0/\",\"title\":\"Klapekster\",\"subtitle\":\"Heideveld Oost · 5,8 km\",\"ts\":1793193600},{\"species\":\"Velduil\",\"scientific\":\"Aves\",\"count\":1,\"place\":\"Beekdal\",\"distance_km\":9.1,\"observed_at\":\"2026-10-27T12:30:00\",\"rarity\":3,\"certain\":true,\"url\":\"https://waarneming.nl/observation/0/\",\"title\":\"Velduil\",\"subtitle\":\"Beekdal · 9,1 km\",\"ts\":1793100600000},{\"species\":\"Roodkeelduiker\",\"scientific\":\"Aves\",\"count\":1,\"place\":\"Plas Noordhoek\",\"distance_km\":7.4,\"observed_at\":\"2020-01-01\",\"rarity\":3,\"certain\":true,\"url\":\"https://waarneming.nl/observation/0/\",\"title\":\"  Roodkeelduiker  \",\"subtitle\":\"Plas Noordhoek · 7,4 km\",\"ts\":\"2026-10-28T13:00:00\"},{\"species\":\"Leeg\",\"scientific\":\"Aves\",\"count\":1,\"place\":\"Leeg\",\"distance_km\":1,\"observed_at\":\"2026-10-28\",\"rarity\":3,\"certain\":true,\"url\":\"https://waarneming.nl/observation/0/\",\"title\":\"\",\"subtitle\":\"Leeg · 1 km\",\"ts\":1793194200}]",
+      "w": {},
+      "max": 6,
+      "lang": "nl",
+      "out": {
+        "rows": [
+          {
+            "title": "3× Kraanvogel ?",
+            "sub": "Heidebos · 3,2 km",
+            "ago": "2 uur geleden"
+          },
+          {
+            "title": "Klapekster",
+            "sub": "Heideveld Oost · 5,8 km",
+            "ago": "10 min geleden"
+          },
+          {
+            "title": "Velduil",
+            "sub": "Beekdal · 9,1 km",
+            "ago": "gisteren"
+          },
+          {
+            "title": "Roodkeelduiker",
+            "sub": "Plas Noordhoek · 7,4 km",
+            "ago": "1 uur geleden"
+          }
+        ],
+        "more": 0
+      }
+    },
+    {
+      "name": "ready-mixed",
+      "value": "[{\"title\":\"2× Grote zilverreiger\",\"subtitle\":\"Polder · 4,0 km\",\"ts\":1793188800},{\"species\":\"Klapekster\",\"scientific\":\"Aves\",\"count\":1,\"place\":\"Heideveld Oost\",\"distance_km\":3.24,\"observed_at\":\"2026-10-28T13:05:00+01:00\",\"rarity\":3,\"certain\":true,\"url\":\"https://waarneming.nl/observation/0/\"},{\"title\":\"Kleine zwaan\",\"place\":\"Uiterwaard\",\"distance_km\":8.7,\"observed_at\":\"2026-10-28T11:00:00+01:00\"},{\"title\":null,\"species\":\"Taigaboomkruiper\",\"subtitle\":\"Landgoed · 6 km\",\"ts\":null,\"observed_at\":\"2026-10-26\"},{\"species\":\"Ijsvogel\",\"subtitle\":null,\"place\":\"Beek\",\"ts\":1793194170}]",
+      "w": {},
+      "max": 6,
+      "lang": "en",
+      "out": {
+        "rows": [
+          {
+            "title": "2× Grote zilverreiger",
+            "sub": "Polder · 4,0 km",
+            "ago": "1 h ago"
+          },
+          {
+            "title": "Klapekster",
+            "sub": "Heideveld Oost · 3.2 km",
+            "ago": "1 h ago"
+          },
+          {
+            "title": "Kleine zwaan",
+            "sub": "Uiterwaard · 8.7 km",
+            "ago": "3 h ago"
+          },
+          {
+            "title": "Taigaboomkruiper",
+            "sub": "Landgoed · 6 km",
+            "ago": "2 days ago"
+          },
+          {
+            "title": "Ijsvogel",
+            "sub": "Beek",
+            "ago": "just now"
+          }
+        ],
+        "more": 0
+      }
+    },
+    {
+      "name": "ready-mixed",
+      "value": "[{\"title\":\"2× Grote zilverreiger\",\"subtitle\":\"Polder · 4,0 km\",\"ts\":1793188800},{\"species\":\"Klapekster\",\"scientific\":\"Aves\",\"count\":1,\"place\":\"Heideveld Oost\",\"distance_km\":3.24,\"observed_at\":\"2026-10-28T13:05:00+01:00\",\"rarity\":3,\"certain\":true,\"url\":\"https://waarneming.nl/observation/0/\"},{\"title\":\"Kleine zwaan\",\"place\":\"Uiterwaard\",\"distance_km\":8.7,\"observed_at\":\"2026-10-28T11:00:00+01:00\"},{\"title\":null,\"species\":\"Taigaboomkruiper\",\"subtitle\":\"Landgoed · 6 km\",\"ts\":null,\"observed_at\":\"2026-10-26\"},{\"species\":\"Ijsvogel\",\"subtitle\":null,\"place\":\"Beek\",\"ts\":1793194170}]",
+      "w": {},
+      "max": 6,
+      "lang": "nl",
+      "out": {
+        "rows": [
+          {
+            "title": "2× Grote zilverreiger",
+            "sub": "Polder · 4,0 km",
+            "ago": "1 uur geleden"
+          },
+          {
+            "title": "Klapekster",
+            "sub": "Heideveld Oost · 3.2 km",
+            "ago": "1 uur geleden"
+          },
+          {
+            "title": "Kleine zwaan",
+            "sub": "Uiterwaard · 8.7 km",
+            "ago": "3 uur geleden"
+          },
+          {
+            "title": "Taigaboomkruiper",
+            "sub": "Landgoed · 6 km",
+            "ago": "2 dagen geleden"
+          },
+          {
+            "title": "Ijsvogel",
+            "sub": "Beek",
+            "ago": "zojuist"
+          }
+        ],
+        "more": 0
+      }
+    },
+    {
+      "name": "ready-set-fields",
+      "value": "[{\"title\":\"2× Grote zilverreiger\",\"subtitle\":\"Polder · 4,0 km\",\"ts\":1793188800},{\"species\":\"Klapekster\",\"scientific\":\"Aves\",\"count\":1,\"place\":\"Heideveld Oost\",\"distance_km\":3.24,\"observed_at\":\"2026-10-28T13:05:00+01:00\",\"rarity\":3,\"certain\":true,\"url\":\"https://waarneming.nl/observation/0/\"},{\"title\":\"Kleine zwaan\",\"place\":\"Uiterwaard\",\"distance_km\":8.7,\"observed_at\":\"2026-10-28T11:00:00+01:00\"},{\"title\":null,\"species\":\"Taigaboomkruiper\",\"subtitle\":\"Landgoed · 6 km\",\"ts\":null,\"observed_at\":\"2026-10-26\"},{\"species\":\"Ijsvogel\",\"subtitle\":null,\"place\":\"Beek\",\"ts\":1793194170}]",
+      "w": {
+        "title": "species",
+        "subtitle": "subtitle",
+        "time": "observed_at"
+      },
+      "max": 6,
+      "lang": "en",
+      "out": {
+        "rows": [
+          {
+            "title": "Klapekster",
+            "sub": "",
+            "ago": "1 h ago"
+          },
+          {
+            "title": "Taigaboomkruiper",
+            "sub": "Landgoed · 6 km",
+            "ago": "2 days ago"
+          },
+          {
+            "title": "Ijsvogel",
+            "sub": "",
+            "ago": ""
+          }
+        ],
+        "more": 0
+      }
+    },
+    {
+      "name": "ready-set-fields",
+      "value": "[{\"title\":\"2× Grote zilverreiger\",\"subtitle\":\"Polder · 4,0 km\",\"ts\":1793188800},{\"species\":\"Klapekster\",\"scientific\":\"Aves\",\"count\":1,\"place\":\"Heideveld Oost\",\"distance_km\":3.24,\"observed_at\":\"2026-10-28T13:05:00+01:00\",\"rarity\":3,\"certain\":true,\"url\":\"https://waarneming.nl/observation/0/\"},{\"title\":\"Kleine zwaan\",\"place\":\"Uiterwaard\",\"distance_km\":8.7,\"observed_at\":\"2026-10-28T11:00:00+01:00\"},{\"title\":null,\"species\":\"Taigaboomkruiper\",\"subtitle\":\"Landgoed · 6 km\",\"ts\":null,\"observed_at\":\"2026-10-26\"},{\"species\":\"Ijsvogel\",\"subtitle\":null,\"place\":\"Beek\",\"ts\":1793194170}]",
+      "w": {
+        "title": "species",
+        "subtitle": "subtitle",
+        "time": "observed_at"
+      },
+      "max": 6,
+      "lang": "nl",
+      "out": {
+        "rows": [
+          {
+            "title": "Klapekster",
+            "sub": "",
+            "ago": "1 uur geleden"
+          },
+          {
+            "title": "Taigaboomkruiper",
+            "sub": "Landgoed · 6 km",
+            "ago": "2 dagen geleden"
+          },
+          {
+            "title": "Ijsvogel",
+            "sub": "",
+            "ago": ""
+          }
+        ],
+        "more": 0
+      }
+    },
+    {
+      "name": "birds-2",
+      "value": "[{\"species\":\"Klapekster\",\"scientific\":\"Aves\",\"count\":1,\"place\":\"Heideveld Oost\",\"distance_km\":3.24,\"observed_at\":\"2026-10-28T13:05:00+01:00\",\"rarity\":3,\"certain\":true,\"url\":\"https://waarneming.nl/observation/0/\"},{\"species\":\"Grote zilverreiger\",\"scientific\":\"Aves\",\"count\":1,\"place\":\"Polder De Weide\",\"distance_km\":5.8,\"observed_at\":\"2026-10-28T11:50:00+01:00\",\"rarity\":3,\"certain\":true,\"url\":\"https://waarneming.nl/observation/0/\"},{\"species\":\"\",\"scientific\":\"Aves\",\"count\":1,\"place\":\"Plas Noordhoek\",\"distance_km\":7,\"observed_at\":\"2026-10-28T10:00:00+01:00\",\"rarity\":3,\"certain\":true,\"url\":\"https://waarneming.nl/observation/0/\"},{\"species\":\"Roodkeelduiker\",\"scientific\":\"Aves\",\"count\":1,\"place\":\"\",\"distance_km\":12,\"observed_at\":\"2026-10-27T16:00:00+01:00\",\"rarity\":3,\"certain\":true,\"url\":\"https://waarneming.nl/observation/0/\"},{\"species\":\"Velduil\",\"scientific\":\"Aves\",\"count\":1,\"place\":\"Heideveld Oost\",\"distance_km\":null,\"observed_at\":\"2026-10-26\",\"rarity\":3,\"certain\":true,\"url\":\"https://waarneming.nl/observation/0/\"},{\"species\":\"Kleine zwaan\",\"scientific\":\"Aves\",\"count\":1,\"place\":\"Uiterwaard West\",\"distance_km\":8.75,\"observed_at\":\"soon\",\"rarity\":3,\"certain\":true,\"url\":\"https://waarneming.nl/observation/0/\"}]",
+      "w": {},
+      "max": 2,
+      "lang": "en",
+      "out": {
+        "rows": [
+          {
+            "title": "Klapekster",
+            "sub": "Heideveld Oost · 3.2 km",
+            "ago": "1 h ago"
+          },
+          {
+            "title": "Grote zilverreiger",
+            "sub": "Polder De Weide · 5.8 km",
+            "ago": "2 h ago"
+          }
+        ],
+        "more": 3
+      }
+    },
+    {
+      "name": "birds-2",
+      "value": "[{\"species\":\"Klapekster\",\"scientific\":\"Aves\",\"count\":1,\"place\":\"Heideveld Oost\",\"distance_km\":3.24,\"observed_at\":\"2026-10-28T13:05:00+01:00\",\"rarity\":3,\"certain\":true,\"url\":\"https://waarneming.nl/observation/0/\"},{\"species\":\"Grote zilverreiger\",\"scientific\":\"Aves\",\"count\":1,\"place\":\"Polder De Weide\",\"distance_km\":5.8,\"observed_at\":\"2026-10-28T11:50:00+01:00\",\"rarity\":3,\"certain\":true,\"url\":\"https://waarneming.nl/observation/0/\"},{\"species\":\"\",\"scientific\":\"Aves\",\"count\":1,\"place\":\"Plas Noordhoek\",\"distance_km\":7,\"observed_at\":\"2026-10-28T10:00:00+01:00\",\"rarity\":3,\"certain\":true,\"url\":\"https://waarneming.nl/observation/0/\"},{\"species\":\"Roodkeelduiker\",\"scientific\":\"Aves\",\"count\":1,\"place\":\"\",\"distance_km\":12,\"observed_at\":\"2026-10-27T16:00:00+01:00\",\"rarity\":3,\"certain\":true,\"url\":\"https://waarneming.nl/observation/0/\"},{\"species\":\"Velduil\",\"scientific\":\"Aves\",\"count\":1,\"place\":\"Heideveld Oost\",\"distance_km\":null,\"observed_at\":\"2026-10-26\",\"rarity\":3,\"certain\":true,\"url\":\"https://waarneming.nl/observation/0/\"},{\"species\":\"Kleine zwaan\",\"scientific\":\"Aves\",\"count\":1,\"place\":\"Uiterwaard West\",\"distance_km\":8.75,\"observed_at\":\"soon\",\"rarity\":3,\"certain\":true,\"url\":\"https://waarneming.nl/observation/0/\"}]",
+      "w": {},
+      "max": 2,
+      "lang": "nl",
+      "out": {
+        "rows": [
+          {
+            "title": "Klapekster",
+            "sub": "Heideveld Oost · 3.2 km",
+            "ago": "1 uur geleden"
+          },
+          {
+            "title": "Grote zilverreiger",
+            "sub": "Polder De Weide · 5.8 km",
+            "ago": "2 uur geleden"
+          }
+        ],
+        "more": 3
+      }
+    },
+    {
+      "name": "birds-all",
+      "value": "[{\"species\":\"Klapekster\",\"scientific\":\"Aves\",\"count\":1,\"place\":\"Heideveld Oost\",\"distance_km\":3.24,\"observed_at\":\"2026-10-28T13:05:00+01:00\",\"rarity\":3,\"certain\":true,\"url\":\"https://waarneming.nl/observation/0/\"},{\"species\":\"Grote zilverreiger\",\"scientific\":\"Aves\",\"count\":1,\"place\":\"Polder De Weide\",\"distance_km\":5.8,\"observed_at\":\"2026-10-28T11:50:00+01:00\",\"rarity\":3,\"certain\":true,\"url\":\"https://waarneming.nl/observation/0/\"},{\"species\":\"\",\"scientific\":\"Aves\",\"count\":1,\"place\":\"Plas Noordhoek\",\"distance_km\":7,\"observed_at\":\"2026-10-28T10:00:00+01:00\",\"rarity\":3,\"certain\":true,\"url\":\"https://waarneming.nl/observation/0/\"},{\"species\":\"Roodkeelduiker\",\"scientific\":\"Aves\",\"count\":1,\"place\":\"\",\"distance_km\":12,\"observed_at\":\"2026-10-27T16:00:00+01:00\",\"rarity\":3,\"certain\":true,\"url\":\"https://waarneming.nl/observation/0/\"},{\"species\":\"Velduil\",\"scientific\":\"Aves\",\"count\":1,\"place\":\"Heideveld Oost\",\"distance_km\":null,\"observed_at\":\"2026-10-26\",\"rarity\":3,\"certain\":true,\"url\":\"https://waarneming.nl/observation/0/\"},{\"species\":\"Kleine zwaan\",\"scientific\":\"Aves\",\"count\":1,\"place\":\"Uiterwaard West\",\"distance_km\":8.75,\"observed_at\":\"soon\",\"rarity\":3,\"certain\":true,\"url\":\"https://waarneming.nl/observation/0/\"}]",
+      "w": {},
+      "max": 10,
+      "lang": "en",
+      "out": {
+        "rows": [
+          {
+            "title": "Klapekster",
+            "sub": "Heideveld Oost · 3.2 km",
+            "ago": "1 h ago"
+          },
+          {
+            "title": "Grote zilverreiger",
+            "sub": "Polder De Weide · 5.8 km",
+            "ago": "2 h ago"
+          },
+          {
+            "title": "Roodkeelduiker",
+            "sub": "12 km",
+            "ago": "22 h ago"
+          },
+          {
+            "title": "Velduil",
+            "sub": "Heideveld Oost",
+            "ago": "2 days ago"
+          },
+          {
+            "title": "Kleine zwaan",
+            "sub": "Uiterwaard West · 8.8 km",
+            "ago": ""
+          }
+        ],
+        "more": 0
+      }
+    },
+    {
+      "name": "birds-all",
+      "value": "[{\"species\":\"Klapekster\",\"scientific\":\"Aves\",\"count\":1,\"place\":\"Heideveld Oost\",\"distance_km\":3.24,\"observed_at\":\"2026-10-28T13:05:00+01:00\",\"rarity\":3,\"certain\":true,\"url\":\"https://waarneming.nl/observation/0/\"},{\"species\":\"Grote zilverreiger\",\"scientific\":\"Aves\",\"count\":1,\"place\":\"Polder De Weide\",\"distance_km\":5.8,\"observed_at\":\"2026-10-28T11:50:00+01:00\",\"rarity\":3,\"certain\":true,\"url\":\"https://waarneming.nl/observation/0/\"},{\"species\":\"\",\"scientific\":\"Aves\",\"count\":1,\"place\":\"Plas Noordhoek\",\"distance_km\":7,\"observed_at\":\"2026-10-28T10:00:00+01:00\",\"rarity\":3,\"certain\":true,\"url\":\"https://waarneming.nl/observation/0/\"},{\"species\":\"Roodkeelduiker\",\"scientific\":\"Aves\",\"count\":1,\"place\":\"\",\"distance_km\":12,\"observed_at\":\"2026-10-27T16:00:00+01:00\",\"rarity\":3,\"certain\":true,\"url\":\"https://waarneming.nl/observation/0/\"},{\"species\":\"Velduil\",\"scientific\":\"Aves\",\"count\":1,\"place\":\"Heideveld Oost\",\"distance_km\":null,\"observed_at\":\"2026-10-26\",\"rarity\":3,\"certain\":true,\"url\":\"https://waarneming.nl/observation/0/\"},{\"species\":\"Kleine zwaan\",\"scientific\":\"Aves\",\"count\":1,\"place\":\"Uiterwaard West\",\"distance_km\":8.75,\"observed_at\":\"soon\",\"rarity\":3,\"certain\":true,\"url\":\"https://waarneming.nl/observation/0/\"}]",
+      "w": {},
+      "max": 10,
+      "lang": "nl",
+      "out": {
+        "rows": [
+          {
+            "title": "Klapekster",
+            "sub": "Heideveld Oost · 3.2 km",
+            "ago": "1 uur geleden"
+          },
+          {
+            "title": "Grote zilverreiger",
+            "sub": "Polder De Weide · 5.8 km",
+            "ago": "2 uur geleden"
+          },
+          {
+            "title": "Roodkeelduiker",
+            "sub": "12 km",
+            "ago": "22 uur geleden"
+          },
+          {
+            "title": "Velduil",
+            "sub": "Heideveld Oost",
+            "ago": "2 dagen geleden"
+          },
+          {
+            "title": "Kleine zwaan",
+            "sub": "Uiterwaard West · 8.8 km",
+            "ago": ""
+          }
+        ],
+        "more": 0
+      }
+    },
+    {
+      "name": "custom-fields",
+      "value": "[{\"destination\":\"Centraal\",\"platform\":3,\"departs\":\"2026-10-28T14:20:00+01:00\"},{\"destination\":\"Noord\",\"platform\":\"4b\",\"departs\":1793193600},{\"destination\":7,\"platform\":1}]",
+      "w": {
+        "attribute": "trains",
+        "title": "destination",
+        "subtitle": "platform",
+        "time": "departs"
+      },
+      "max": 6,
+      "lang": "en",
+      "out": {
+        "rows": [
+          {
+            "title": "Centraal",
+            "sub": "3",
+            "ago": "10 min ago"
+          },
+          {
+            "title": "Noord",
+            "sub": "4b",
+            "ago": "10 min ago"
+          },
+          {
+            "title": "7",
+            "sub": "1",
+            "ago": ""
+          }
+        ],
+        "more": 0
+      }
+    },
+    {
+      "name": "custom-fields",
+      "value": "[{\"destination\":\"Centraal\",\"platform\":3,\"departs\":\"2026-10-28T14:20:00+01:00\"},{\"destination\":\"Noord\",\"platform\":\"4b\",\"departs\":1793193600},{\"destination\":7,\"platform\":1}]",
+      "w": {
+        "attribute": "trains",
+        "title": "destination",
+        "subtitle": "platform",
+        "time": "departs"
+      },
+      "max": 6,
+      "lang": "nl",
+      "out": {
+        "rows": [
+          {
+            "title": "Centraal",
+            "sub": "3",
+            "ago": "10 min geleden"
+          },
+          {
+            "title": "Noord",
+            "sub": "4b",
+            "ago": "10 min geleden"
+          },
+          {
+            "title": "7",
+            "sub": "1",
+            "ago": ""
+          }
+        ],
+        "more": 0
+      }
+    },
+    {
+      "name": "metres-and-text",
+      "value": "[{\"species\":\"  Ijsvogel \",\"place\":\"Beek\",\"distance_m\":420.5,\"observed_at\":\"2026-10-28T14:29:50+01:00\"},\"text item\",null,[1,2]]",
+      "w": {
+        "subtitle": "place distance_m"
+      },
+      "max": 6,
+      "lang": "en",
+      "out": {
+        "rows": [
+          {
+            "title": "Ijsvogel",
+            "sub": "Beek · 420.5 m",
+            "ago": "just now"
+          }
+        ],
+        "more": 0
+      }
+    },
+    {
+      "name": "metres-and-text",
+      "value": "[{\"species\":\"  Ijsvogel \",\"place\":\"Beek\",\"distance_m\":420.5,\"observed_at\":\"2026-10-28T14:29:50+01:00\"},\"text item\",null,[1,2]]",
+      "w": {
+        "subtitle": "place distance_m"
+      },
+      "max": 6,
+      "lang": "nl",
+      "out": {
+        "rows": [
+          {
+            "title": "Ijsvogel",
+            "sub": "Beek · 420.5 m",
+            "ago": "zojuist"
+          }
+        ],
+        "more": 0
+      }
+    },
+    {
+      "name": "not-a-list",
+      "value": "{\"species\":\"Klapekster\"}",
+      "w": {},
+      "max": 6,
+      "lang": "en",
+      "out": {
+        "rows": [],
+        "more": 0
+      }
+    },
+    {
+      "name": "not-a-list",
+      "value": "{\"species\":\"Klapekster\"}",
+      "w": {},
+      "max": 6,
+      "lang": "nl",
+      "out": {
+        "rows": [],
+        "more": 0
+      }
+    },
+    {
+      "name": "not-json",
+      "value": "unavailable",
+      "w": {},
+      "max": 6,
+      "lang": "en",
+      "out": {
+        "rows": [],
+        "more": 0
+      }
+    },
+    {
+      "name": "not-json",
+      "value": "unavailable",
+      "w": {},
+      "max": 6,
+      "lang": "nl",
+      "out": {
+        "rows": [],
+        "more": 0
+      }
+    },
+    {
+      "name": "empty-list",
+      "value": "[]",
+      "w": {},
+      "max": 6,
+      "lang": "en",
+      "out": {
+        "rows": [],
+        "more": 0
+      }
+    },
+    {
+      "name": "empty-list",
+      "value": "[]",
+      "w": {},
+      "max": 6,
+      "lang": "nl",
+      "out": {
+        "rows": [],
+        "more": 0
+      }
+    }
+  ],
+  "cap": [
+    {
+      "name": "fourteen",
+      "value": "[{\"species\":\"Soort 0\",\"scientific\":\"Aves\",\"count\":1,\"place\":\"Plek 0\",\"distance_km\":0,\"observed_at\":\"2026-10-28T12:00:00+01:00\",\"rarity\":3,\"certain\":true,\"url\":\"https://waarneming.nl/observation/0/\"},{\"species\":\"Soort 1\",\"scientific\":\"Aves\",\"count\":1,\"place\":\"Plek 1\",\"distance_km\":1,\"observed_at\":\"2026-10-28T12:00:00+01:00\",\"rarity\":3,\"certain\":true,\"url\":\"https://waarneming.nl/observation/0/\"},{\"species\":\"Soort 2\",\"scientific\":\"Aves\",\"count\":1,\"place\":\"Plek 2\",\"distance_km\":2,\"observed_at\":\"2026-10-28T12:00:00+01:00\",\"rarity\":3,\"certain\":true,\"url\":\"https://waarneming.nl/observation/0/\"},{\"species\":\"Soort 3\",\"scientific\":\"Aves\",\"count\":1,\"place\":\"Plek 3\",\"distance_km\":3,\"observed_at\":\"2026-10-28T12:00:00+01:00\",\"rarity\":3,\"certain\":true,\"url\":\"https://waarneming.nl/observation/0/\"},{\"species\":\"Soort 4\",\"scientific\":\"Aves\",\"count\":1,\"place\":\"Plek 4\",\"distance_km\":4,\"observed_at\":\"2026-10-28T12:00:00+01:00\",\"rarity\":3,\"certain\":true,\"url\":\"https://waarneming.nl/observation/0/\"},{\"species\":\"Soort 5\",\"scientific\":\"Aves\",\"count\":1,\"place\":\"Plek 5\",\"distance_km\":5,\"observed_at\":\"2026-10-28T12:00:00+01:00\",\"rarity\":3,\"certain\":true,\"url\":\"https://waarneming.nl/observation/0/\"},{\"species\":\"Soort 6\",\"scientific\":\"Aves\",\"count\":1,\"place\":\"Plek 6\",\"distance_km\":6,\"observed_at\":\"2026-10-28T12:00:00+01:00\",\"rarity\":3,\"certain\":true,\"url\":\"https://waarneming.nl/observation/0/\"},{\"species\":\"Soort 7\",\"scientific\":\"Aves\",\"count\":1,\"place\":\"Plek 7\",\"distance_km\":7,\"observed_at\":\"2026-10-28T12:00:00+01:00\",\"rarity\":3,\"certain\":true,\"url\":\"https://waarneming.nl/observation/0/\"},{\"species\":\"Soort 8\",\"scientific\":\"Aves\",\"count\":1,\"place\":\"Plek 8\",\"distance_km\":8,\"observed_at\":\"2026-10-28T12:00:00+01:00\",\"rarity\":3,\"certain\":true,\"url\":\"https://waarneming.nl/observation/0/\"},{\"species\":\"Soort 9\",\"scientific\":\"Aves\",\"count\":1,\"place\":\"Plek 9\",\"distance_km\":9,\"observed_at\":\"2026-10-28T12:00:00+01:00\",\"rarity\":3,\"certain\":true,\"url\":\"https://waarneming.nl/observation/0/\"},{\"species\":\"Soort 10\",\"scientific\":\"Aves\",\"count\":1,\"place\":\"Plek 10\",\"distance_km\":10,\"observed_at\":\"2026-10-28T12:00:00+01:00\",\"rarity\":3,\"certain\":true,\"url\":\"https://waarneming.nl/observation/0/\"},{\"species\":\"Soort 11\",\"scientific\":\"Aves\",\"count\":1,\"place\":\"Plek 11\",\"distance_km\":11,\"observed_at\":\"2026-10-28T12:00:00+01:00\",\"rarity\":3,\"certain\":true,\"url\":\"https://waarneming.nl/observation/0/\"},{\"species\":\"Soort 12\",\"scientific\":\"Aves\",\"count\":1,\"place\":\"Plek 12\",\"distance_km\":12,\"observed_at\":\"2026-10-28T12:00:00+01:00\",\"rarity\":3,\"certain\":true,\"url\":\"https://waarneming.nl/observation/0/\"},{\"species\":\"Soort 13\",\"scientific\":\"Aves\",\"count\":1,\"place\":\"Plek 13\",\"distance_km\":13,\"observed_at\":\"2026-10-28T12:00:00+01:00\",\"rarity\":3,\"certain\":true,\"url\":\"https://waarneming.nl/observation/0/\"}]",
+      "kept": 10
+    },
+    {
+      "name": "fat-items",
+      "value": "[{\"species\":\"Soort 0\",\"scientific\":\"Aves\",\"count\":1,\"place\":\"Plek 0\",\"distance_km\":0,\"observed_at\":\"2026-10-28T12:00:00+01:00\",\"rarity\":3,\"certain\":true,\"url\":\"https://waarneming.nl/observation/0/\",\"notes\":\"xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\"},{\"species\":\"Soort 1\",\"scientific\":\"Aves\",\"count\":1,\"place\":\"Plek 1\",\"distance_km\":1,\"observed_at\":\"2026-10-28T12:00:00+01:00\",\"rarity\":3,\"certain\":true,\"url\":\"https://waarneming.nl/observation/0/\",\"notes\":\"xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\"},{\"species\":\"Soort 2\",\"scientific\":\"Aves\",\"count\":1,\"place\":\"Plek 2\",\"distance_km\":2,\"observed_at\":\"2026-10-28T12:00:00+01:00\",\"rarity\":3,\"certain\":true,\"url\":\"https://waarneming.nl/observation/0/\",\"notes\":\"xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\"},{\"species\":\"Soort 3\",\"scientific\":\"Aves\",\"count\":1,\"place\":\"Plek 3\",\"distance_km\":3,\"observed_at\":\"2026-10-28T12:00:00+01:00\",\"rarity\":3,\"certain\":true,\"url\":\"https://waarneming.nl/observation/0/\",\"notes\":\"xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\"},{\"species\":\"Soort 4\",\"scientific\":\"Aves\",\"count\":1,\"place\":\"Plek 4\",\"distance_km\":4,\"observed_at\":\"2026-10-28T12:00:00+01:00\",\"rarity\":3,\"certain\":true,\"url\":\"https://waarneming.nl/observation/0/\",\"notes\":\"xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\"},{\"species\":\"Soort 5\",\"scientific\":\"Aves\",\"count\":1,\"place\":\"Plek 5\",\"distance_km\":5,\"observed_at\":\"2026-10-28T12:00:00+01:00\",\"rarity\":3,\"certain\":true,\"url\":\"https://waarneming.nl/observation/0/\",\"notes\":\"xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\"}]",
+      "kept": 2
+    },
+    {
+      "name": "not-a-list",
+      "value": "{\"a\":1}",
+      "kept": -1
+    }
+  ]
+}

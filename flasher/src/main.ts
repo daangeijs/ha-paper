@@ -1,5 +1,5 @@
 // Page wiring. All decisions about what may be written live in flow.ts / writePlan.ts.
-// Layout follows crosspoint's flash tool (#239): connect, one install button, progress inline, extras under Advanced.
+// Layout follows crosspoint's flash tool (eink-ha-os#239): connect, one install button, progress inline, extras under Advanced.
 
 import { sha256Sidecar } from "./backup.ts";
 import { startCarousel } from "./carousel.ts";
@@ -54,7 +54,7 @@ let busy = false;
 // The installed firmware's console, reopened after the reset for Improv Wi-Fi.
 let improv: { port: SerialPort; client: ImprovClient } | null = null;
 
-/** Where a step shows its progress and errors: inline, where the user clicked (#239). */
+/** Where a step shows its progress and errors: inline, where the user clicked (eink-ha-os#239). */
 interface StepUi {
   box?: HTMLElement;
   bar?: HTMLProgressElement;
@@ -380,7 +380,7 @@ ui.install.addEventListener("click", () =>
     if (!session || !release) return;
     const s = session;
     const backupFirst = ui.wantBackup.checked && !s.backup;
-    // Ask before anything runs; offsets live under Technical details (#183).
+    // Ask before anything runs; offsets live under Technical details (eink-ha-os#183).
     const body = el("div", "", [
       el("p", "Replaces the current firmware. Wi-Fi and settings stay."),
       ...(backupFirst ? [el("p", "Backup first.")] : []),
@@ -446,7 +446,7 @@ ui.restore.addEventListener("click", () =>
 );
 
 // Load the chosen version's files. Every release is tested on a real X4 Pro before it ships, so the badge shows
-// only for the latest one (#239).
+// only for the latest one (eink-ha-os#239).
 async function selectVersion(i: number) {
   release = null;
   releaseDesc = null;

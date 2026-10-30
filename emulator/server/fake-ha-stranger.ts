@@ -1,7 +1,7 @@
-// The fake HA's "stranger house" (#23): somebody else's Home Assistant, nothing like the demo data.
+// The fake HA's "stranger house" (eink-ha-os#23): somebody else's Home Assistant, nothing like the demo data.
 // A flat with a P1 meter on the Energy dashboard (grid only, HA ≥ 2025.12 power sensor, no prices, no solar),
 // one Nest thermostat, four lights (one without an area), room thermometers, a NAS and a phone that also report
-// a temperature, a weather station outside and a weather entity, plus the usual clutter of a real install (#58):
+// a temperature, a weather station outside and a weather entity, plus the usual clutter of a real install (eink-ha-os#58):
 // entities without device_class / unit / area, unavailable and text states. No sensor.x4_route_*, no logical ids.
 // `npm run fake-ha -- --house stranger`, `npm run device-sim -- --house stranger`.
 
@@ -27,7 +27,7 @@ export const STRANGER_ENTITIES: Raw[] = [
   { id: 'light.bedside', state: 'off', attrs: { friendly_name: 'Bedside', brightness: null, supported_color_modes: ['brightness'] }, area: 'bedroom' },
   { id: 'light.porch', state: 'off', attrs: { friendly_name: 'Porch', supported_color_modes: ['onoff'] } },
   { id: 'switch.kettle', state: 'off', attrs: { friendly_name: 'Kettle' } },
-  // What a real HA also has (#58): sensors without device_class / unit / area / even a friendly_name, unavailable
+  // What a real HA also has (eink-ha-os#58): sensors without device_class / unit / area / even a friendly_name, unavailable
   // and unknown states, text and timestamp values. None of them may break the seed template or become a tile.
   { id: 'sensor.uptime', state: '2026-10-12T06:01:22+00:00', attrs: { friendly_name: 'Uptime', device_class: 'timestamp' } },
   { id: 'sensor.washing_machine_status', state: 'unavailable', attrs: { friendly_name: 'Washing machine status' } },
@@ -39,7 +39,7 @@ export const STRANGER_ENTITIES: Raw[] = [
   { id: 'light.hue_go', state: 'unavailable', attrs: { friendly_name: 'Hue Go', supported_color_modes: ['xy'] } },
 ];
 
-/** get_config `time_zone` and `currency` (#147). */
+/** get_config `time_zone` and `currency` (eink-ha-os#147). */
 export const STRANGER_CONFIG = { time_zone: 'Europe/London', currency: 'GBP' };
 
 export const STRANGER_PREFS = {

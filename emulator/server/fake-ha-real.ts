@@ -1,4 +1,4 @@
-// The fake HA's large example house (house id `real`, #88): an invented household shaped like a real Home Assistant after a few
+// The fake HA's large example house (house id `real`, eink-ha-os#88): an invented household shaped like a real Home Assistant after a few
 // years of use (~1100 entities, > 800 of them in the entity picker's domains). Hue (bridge + room groups), Zigbee2MQTT
 // (sensors, plugs, bulbs, buttons, each with config entities), ESPHome (one node offline), Shelly, tado, Netatmo,
 // DSMR P1 (kW, gas), Enphase (microinverters), a car, two phone companion apps, Nord Pool prices, Sonos, updates,
@@ -76,7 +76,7 @@ hueLight('driveway_spot', 'Driveway spot', 'driveway', false, false);
 // room groups: entities of the bridge (utility), each with its own area
 for (const [id, name, area, on] of [['living_room', 'Living room', 'living_room', true], ['kitchen', 'Kitchen', 'kitchen', true], ['bedroom', 'Bedroom', 'bedroom', false], ['outdoor', 'Outdoor', 'garden', false]] as const)
   ent('light.' + id, on ? 'on' : 'off', { min_color_temp_kelvin: 2000, max_color_temp_kelvin: 6535, supported_color_modes: ['color_temp', 'xy'], color_mode: on ? 'color_temp' : null, brightness: on ? 190 : null, is_hue_group: true, hue_scenes: ['Bright', 'Dimmed', 'Read', 'Nightlight', 'Energize', 'Relax', 'Concentrate', 'Savanna sunset'], hue_type: 'room', lights: ['Living room ceiling', 'Floor lamp', 'Reading lamp 📖'], dynamics: false, friendly_name: name + ' (group)', supported_features: 44 }, { device: hueBridge, area });
-// #152: an HA light group of the same room (a second integration's duplicate of the Hue room group)
+// eink-ha-os#152: an HA light group of the same room (a second integration's duplicate of the Hue room group)
 ent('light.living_room_lamps', 'on', { min_color_temp_kelvin: 2000, max_color_temp_kelvin: 6535, supported_color_modes: ['color_temp'], color_mode: 'color_temp', brightness: 160, entity_id: ['light.living_room_ceiling', 'light.living_room_floor_lamp', 'light.living_room_reading_lamp'], icon: 'mdi:lightbulb-group', friendly_name: 'Living room lamps', supported_features: 40 }, { area: 'living_room' });
 for (const [room, area, motion, lux, temp] of [['hallway', 'hallway', 'off', '3', '18.71'], ['toilet', 'toilet', 'off', '0', '17.2'], ['landing', 'attic', 'on', '41', '19.43'], ['garage', 'garage', 'off', 'unavailable', 'unavailable']] as const) {
   const d = dev('hue_motion_' + room, 'Motion sensor ' + room, area, 'Signify Netherlands B.V.', 'Hue motion sensor (SML001)');
@@ -236,7 +236,7 @@ for (const [zone, name, area, mode, cur, set, hum, heat] of [
   ent('binary_sensor.' + zone + '_connectivity', off ? 'off' : 'on', { device_class: 'connectivity', friendly_name: name + ' Connectivity' }, { device: d });
   ent('binary_sensor.' + zone + '_battery_state', off ? 'unavailable' : 'off', { device_class: 'battery', friendly_name: name + ' Battery state' }, { device: d });
 }
-// #152: a Better-Thermostat-style wrapper of the living-room thermostat (same room and name, switched off)
+// eink-ha-os#152: a Better-Thermostat-style wrapper of the living-room thermostat (same room and name, switched off)
 const btLiving = dev('better_thermostat_living_room', 'Living room', 'living_room', 'Better Thermostat', 'climate');
 ent('climate.living_room_better_thermostat', 'off', { hvac_modes: ['heat', 'off'], min_temp: 5, max_temp: 30, target_temp_step: 0.5, current_temperature: 20.8, temperature: 21, hvac_action: 'idle', call_for_heat: false, window_open: false, batteries: '{}', errors: '[]', friendly_name: 'Living room', supported_features: 385 }, { device: btLiving });
 ent('switch.playroom_child_lock', 'on', { friendly_name: 'Playroom & Study Child lock' }, { device: 'tado_playroom' });
@@ -258,7 +258,7 @@ ent('sensor.weather_station_outdoor_temperature_trend', 'down', { friendly_name:
 ent('sensor.rain_gauge_precipitation', '0.0', meas('Rain gauge Precipitation', 'mm', 'precipitation'), { device: nRain });
 ent('sensor.rain_gauge_precipitation_last_hour', '0.2', meas('Rain gauge Precipitation last hour', 'mm', 'precipitation'), { device: nRain });
 ent('sensor.rain_gauge_precipitation_today', 'unknown', { ...meas('Rain gauge Precipitation today', 'mm', 'precipitation'), state_class: 'total_increasing' }, { device: nRain });
-// #152: a forecast's maximum of today (sorts before the Shelly H&T: it was the Outside tile)
+// eink-ha-os#152: a forecast's maximum of today (sorts before the Shelly H&T: it was the Outside tile)
 ent('sensor.forecast_max_temperature_today', '13.4', T('Forecast Max temperature today'));
 ent('sensor.rain_gauge_battery', 'unavailable', BAT('Rain gauge Battery'), { device: nRain });
 
@@ -285,7 +285,7 @@ ent('sensor.gas_meter_gas_consumption', '4817.392', { state_class: 'total_increa
 ent('sensor.home_energy_usage_today', '7.83', KWH('Home energy usage today', 'total'), {});   // a utility_meter helper, no device, no area
 ent('sensor.gas_usage_today', '1.21', { state_class: 'total', unit_of_measurement: 'm³', device_class: 'gas', friendly_name: 'Gas usage today' });
 
-// #152: an appliance plug's own day counter ("today consumption"; it was Imported today) and power
+// eink-ha-os#152: an appliance plug's own day counter ("today consumption"; it was Imported today) and power
 const dryer = dev('tapo_dryer', 'Dryer', 'garden', 'TP-Link', 'P110');
 ent('switch.dryer', 'off', { friendly_name: 'Dryer' }, { device: dryer });
 ent('sensor.dryer_current_consumption', '0.0', W('Dryer Current consumption'), { device: dryer });
@@ -435,7 +435,7 @@ for (const [k, st, a] of [['cpu_utilization_total', '4', meas('Synology NAS CPU 
 ent('binary_sensor.synology_nas_security_status', 'off', { device_class: 'safety', friendly_name: 'Synology NAS Security status' }, { device: nas });
 
 // ---------------------------------------------------------------- Energy dashboard
-/** get_config `time_zone` and `currency` (#147). */
+/** get_config `time_zone` and `currency` (eink-ha-os#147). */
 export const REAL_CONFIG = { time_zone: 'Europe/Amsterdam', currency: 'EUR' };
 
 export const REAL_PREFS = {

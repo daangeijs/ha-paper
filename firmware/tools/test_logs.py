@@ -1,4 +1,4 @@
-"""Tests for logs.py and the log-line secret audit (make test-tools, #200).
+"""Tests for logs.py and the log-line secret audit (make test-tools, eink-ha-os#200).
 
 The audit reads every LOG_* / note() / onLog() call in firmware/src: no argument after the format string may name a
 secret (passwords, tokens, refresh token, PKCE verifier, cookies). The ring also masks secret-looking values

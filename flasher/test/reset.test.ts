@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { hardReset } from "../src/reset.ts";
 
-describe("hard reset after a write (#239)", () => {
+describe("hard reset after a write (eink-ha-os#239)", () => {
   it("raises RTS with DTR low, waits, then drops RTS: the chip boots from flash", async () => {
     const calls: string[] = [];
     const t = {

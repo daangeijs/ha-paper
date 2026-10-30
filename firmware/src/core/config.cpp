@@ -3,6 +3,7 @@
 // exactly like in the emulator).
 #include "core/config.h"
 #include "core/media.h"
+#include "core/attr_list.h"
 #include "core/catalog.h"
 #include "core/agenda.h"
 #include "core/bins.h"
@@ -233,10 +234,10 @@ const std::vector<Screen>& settingsScreens() {
     std::vector<Screen> o;
     o.push_back({"display", kSettingsApp, "Display", {setting("brightness"), setting("warmth"), setting("lightTimeout"),
                                                        setting("returnHome"), setting("standby"), setting("interval"), setting("cleanEvery")}});
-    // the clock format sits with the look since #220; night mode left for Power › Quiet hours (#295)
+    // the clock format sits with the look since eink-ha-os#220; night mode left for Power › Quiet hours (eink-ha-os#295)
     o.push_back({"style", kSettingsApp, "Display style", {setting("style"), setting("typeface", 2), setting("surface"), setting("clock")}});
-    // power saving two rows tall: room for its hint (#190); quiet hours (#295) are a power setting first
-    o.push_back({"power", kSettingsApp, "Power", {setting("powerSave", 2, 2), setting("quiet"), setting("morning"), setting("wakeEvery"), setting("liveMin")}});   // morning: #330
+    // power saving two rows tall: room for its hint (eink-ha-os#190); quiet hours (eink-ha-os#295) are a power setting first
+    o.push_back({"power", kSettingsApp, "Power", {setting("powerSave", 2, 2), setting("quiet"), setting("morning"), setting("wakeEvery"), setting("liveMin")}});   // morning: eink-ha-os#330
     o.push_back({"updates", kSettingsApp, "Updates", {tile("ota", nullptr, 4, 2)}});
     o.push_back({"wifi", kSettingsApp, "Wi-Fi", {tile("wifi", nullptr, 4, 2)}});
     o.push_back({"ha", kSettingsApp, "Home Assistant", {tile("ha", nullptr, 4, 2)}});
@@ -262,14 +263,15 @@ Config withSettings(const Config& c) {
 }
 
 const std::vector<const char*>* entityDomains(const std::string& t) {
-  static const std::vector<const char*> stat = {"sensor", "binary_sensor", "input_number", "number", "climate", "weather"};   // #161
+  static const std::vector<const char*> stat = {"sensor", "binary_sensor", "input_number", "number", "climate", "weather"};   // eink-ha-os#161
   static const std::vector<const char*> gauge = {"sensor", "input_number", "number"};
   static const std::vector<const char*> sw = {"switch", "light", "input_boolean", "fan"};
   static const std::vector<const char*> route = {"sensor"};
-  static const std::vector<const char*> scene = {"scene", "script"};   // #146
-  static const std::vector<const char*> history = {"sensor", "input_number", "number"};   // #268
-  static const std::vector<const char*> weather = {"weather"};   // #318
-  static const std::vector<const char*> mediaDoms = {"media_player"};   // #319
+  static const std::vector<const char*> scene = {"scene", "script"};   // eink-ha-os#146
+  static const std::vector<const char*> history = {"sensor", "input_number", "number"};   // eink-ha-os#268
+  static const std::vector<const char*> weather = {"weather"};   // eink-ha-os#318
+  static const std::vector<const char*> mediaDoms = {"media_player"};   // eink-ha-os#319
+  static const std::vector<const char*> listDoms = {"sensor"};   // eink-ha-os#332
   if (t == "stat") return &stat;
   if (t == "scene") return &scene;
   if (t == "route") return &route;
@@ -278,6 +280,7 @@ const std::vector<const char*>* entityDomains(const std::string& t) {
   if (t == "history") return &history;
   if (t == "weather") return &weather;
   if (t == "media") return &mediaDoms;
+  if (t == "attrList") return &listDoms;
   return nullptr;
 }
 
@@ -324,7 +327,7 @@ std::vector<std::pair<std::string, std::string>> labelPairs(const std::string& v
 const std::vector<std::pair<const char*, const char*>>* listPicks(const std::string& t) {
   static const std::vector<std::pair<const char*, const char*>> lights = {{"areas", nullptr}, {"entities", "light"}};
   static const std::vector<std::pair<const char*, const char*>> zones = {{"entities", "climate"}};
-  static const std::vector<std::pair<const char*, const char*>> calendars = {{"entities", "calendar"}};   // #316
+  static const std::vector<std::pair<const char*, const char*>> calendars = {{"entities", "calendar"}};   // eink-ha-os#316
   if (agenda::isAgendaType(t)) return &calendars;
   if (t == "lightList") return &lights;
   if (t == "zoneList") return &zones;
@@ -360,7 +363,7 @@ ParseResult parseYamlText(const std::string& text) {
   AppEntry* curApp = nullptr;
   int appsAt = 0;
   bool sawSettings = false;
-  AppEntry skipped;   // the `settings` entry of an older file: built in now, its title goes nowhere (#159)
+  AppEntry skipped;   // the `settings` entry of an older file: built in now, its title goes nowhere (eink-ha-os#159)
   Screen* cur = nullptr;
   bool inW = false;
   int histories = 0, agendas = 0, weathers = 0;
@@ -442,11 +445,11 @@ ParseResult parseYamlText(const std::string& text) {
           type = get("type");
         }
         const std::vector<const char*>* doms = entityDomains(type.v);
-        if (type.v == "history") doms = &hist::historyDomains(hist::sourceOf(get("attribute").present, get("entity").v));   // #292
+        if (type.v == "history") doms = &hist::historyDomains(hist::sourceOf(get("attribute").present, get("entity").v));   // eink-ha-os#292
         if (doms) {
           WVal e = get("entity");
-          // gauge without entity = home battery; route without entity = an empty user route (old catalog ids, #145);
-          // scene without entity = all lights off (#146)
+          // gauge without entity = home battery; route without entity = an empty user route (old catalog ids, eink-ha-os#145);
+          // scene without entity = all lights off (eink-ha-os#146)
           if (((type.v != "gauge" && type.v != "route" && type.v != "scene") || e.present) && (!e.present || e.num || !entityFits(e.v, *doms))) {
             std::string list;
             for (size_t q = 0; q < doms->size(); ++q) list += (q ? " / " : "") + std::string((*doms)[q]);
@@ -469,16 +472,22 @@ ParseResult parseYamlText(const std::string& text) {
             for (auto& p : labelPairs(lb.v))
               if (!entityFits(p.first, {"climate"}) || p.second.empty()) throw Fail{n, "zoneList: " + quoteName(p.first) + " in labels is not climate.<id>=Name"};
         }
-        if (type.v == "media") {   // #319, emulator media.ts favoritesError
+        if (type.v == "media") {   // eink-ha-os#319, emulator media.ts favoritesError
           WVal f = get("favorites");
           std::string err = f.present ? media::favoritesError(f.v) : std::string();
+          if (!err.empty()) throw Fail{n, err};
+        }
+        if (type.v == "attrList") {   // eink-ha-os#332, emulator attrList.ts listError
+          std::map<std::string, std::string> f;
+          for (auto& o : obj) f[o.first] = o.second.v;
+          std::string err = alist::error(f);
           if (!err.empty()) throw Fail{n, err};
         }
         if (type.v == "route") {
           WVal m = get("mode");
           if (m.present && (m.num || (m.v != "train" && m.v != "bus" && m.v != "car"))) throw Fail{n, "route: mode must be train, bus or car"};
         }
-        if (type.v == "bins") {   // #317, emulator config.ts + bins.ts binsError
+        if (type.v == "bins") {   // eink-ha-os#317, emulator config.ts + bins.ts binsError
           WVal ents = get("entities"), lb = get("labels"), tn = get("tonight");
           std::vector<std::string> ids = ents.present ? listOf(ents.v) : std::vector<std::string>();
           for (auto& id : ids) if (!entityFits(id, {"sensor"})) throw Fail{n, "bins: " + quoteName(id) + " is not a sensor entity"};
@@ -488,7 +497,7 @@ ParseResult parseYamlText(const std::string& text) {
           if (int(ids.size()) > bins::kMaxBins) throw Fail{n, "bins: at most " + std::to_string(bins::kMaxBins) + " sensors"};
           if (tn.present && !(tn.num && tn.v.size() <= 2 && std::atoi(tn.v.c_str()) <= 23)) throw Fail{n, "bins: tonight must be an hour 0–23"};
         }
-        if (type.v == "guestWifi") {   // #329, emulator config.ts + guestWifi.ts guestError; never quote ssid / password
+        if (type.v == "guestWifi") {   // eink-ha-os#329, emulator config.ts + guestWifi.ts guestError; never quote ssid / password
           WVal pe = get("password_entity"), sec = get("security"), hid = get("hidden");
           if (pe.present && !(entityFits(pe.v, {"input_text", "text", "sensor"}) && !pe.num))
             throw Fail{n, "guestWifi: password_entity is not an input_text / text / sensor entity"};
@@ -499,24 +508,24 @@ ParseResult parseYamlText(const std::string& text) {
         WVal cs = get("cs"), rs = get("rs");
         if (truthy(cs) && !(cs.num && (cs.v == "1" || cs.v == "2" || cs.v == "3" || cs.v == "4"))) throw Fail{n, "cs must be 1–4"};
         if (truthy(rs) && !(rs.num && (rs.v == "1" || rs.v == "2"))) throw Fail{n, "rs must be 1 or 2"};
-        if (type.v == "history") {   // #268, emulator history.ts historyError
+        if (type.v == "history") {   // eink-ha-os#268, emulator history.ts historyError
           auto f = [&](const char* k) { WVal x = get(k); return hist::Field{x.present, x.v}; };
           hist::Fields hf;
           hf.entity = get("entity").v;
           hf.cs = truthy(cs) ? std::atoi(cs.v.c_str()) : 1;
           hf.window = f("window"); hf.bucket = f("bucket"); hf.agg = f("agg"); hf.style = f("style"); hf.min = f("min");
           hf.max = f("max"); hf.attribute = f("attribute"); hf.value = f("value"); hf.time = f("time"); hf.ahead = f("ahead");
-          hf.forecast = f("forecast"); hf.threshold = f("threshold"); hf.labels = f("labels");
+          hf.forecast = f("forecast"); hf.threshold = f("threshold"); hf.labels = f("labels"); hf.compare = f("compare");
           hf.past = f("past");
           std::string err = hist::configError(hf);
           if (!err.empty()) throw Fail{n, err};
           if (++histories > hist::kMaxTiles) throw Fail{n, "At most " + std::to_string(hist::kMaxTiles) + " history tiles"};
         }
-        if (type.v == "weather") {   // #318, emulator weather.ts weatherError
+        if (type.v == "weather") {   // eink-ha-os#318, emulator weather.ts weatherError
           if ((truthy(cs) ? std::atoi(cs.v.c_str()) : 1) != 4) throw Fail{n, "weather: needs the full width (cs: 4)"};
           if (++weathers > wx::kMaxTiles) throw Fail{n, "At most " + std::to_string(wx::kMaxTiles) + " weather tiles"};
         }
-        if (agenda::isAgendaType(type.v)) {   // #316, emulator agenda.ts agendaError
+        if (agenda::isAgendaType(type.v)) {   // eink-ha-os#316, emulator agenda.ts agendaError
           std::string err = agenda::configError(type.v, get("entities").present ? get("entities").v : "");
           if (!err.empty()) throw Fail{n, err};
           if (++agendas > agenda::kMaxTiles) throw Fail{n, "At most " + std::to_string(agenda::kMaxTiles) + " agenda or next tiles"};
@@ -546,7 +555,7 @@ ParseResult parseYamlText(const std::string& text) {
       int cells = usedCells(*sc);
       if (cells > 8) throw Fail{at[sc->id], "“" + sc->title + "” uses " + std::to_string(cells) + " of 8 cells"};
     }
-    // Settings is built in (#159): its screens and tiles were checked like any other, now they go
+    // Settings is built in (eink-ha-os#159): its screens and tiles were checked like any other, now they go
     bool any = false;
     for (auto* sc : screens) any |= sc->app != kSettingsApp;
     if (!any) throw Fail{1, "No screens found"};

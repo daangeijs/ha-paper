@@ -8,4 +8,4 @@
   midnight or the start of quiet hours, whichever comes first, at most MAX_SLEEP_S (8 h); the 03:00 install slot and
   quiet-hours end still wake it. `wakeEvery` is for standby only; failed wakes no longer stretch the wait.
 - An unreachable HA at such a wake still redraws when the face itself changed (its date; glance.json glanceStep).
-- A timer wake boots with the front light off (#357, frontlight.json `boot`); the emulator also shows no light asleep.
+- A timer wake boots with the front light off (eink-ha-os#357, frontlight.json `boot`); the emulator also shows no light asleep.

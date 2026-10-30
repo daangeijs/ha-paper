@@ -1,4 +1,4 @@
-// UI strings, English and Dutch (#98, decision #97: follow Home Assistant's language). One table for the display and
+// UI strings, English and Dutch (eink-ha-os#98, decision eink-ha-os#97: follow Home Assistant's language). One table for the display and
 // the web console. `npm run vectors` writes spec/test-vectors/strings.json and the firmware's core/strings_gen.h from
 // it, so the firmware uses the same keys and texts. Never put user text here: card names, HA friendly names, area
 // names and screen titles are shown as the user wrote them. "{}" is a placeholder, filled in order by tr().
@@ -28,8 +28,8 @@ export const STRINGS = {
   updated: ['Updated', 'Bijgewerkt'],
   standbyFoot: ['Standby · updated {} · press power to wake', 'Stand-by · bijgewerkt {} · druk op aan/uit'],
   asOf: ['as of {}', 'stand van {}'],
-  quietBack: ['Back at {}', 'Terug om {}'],   // quiet face (#295): the time quiet hours end
-  // Nobody home face (#331): the sleeping panel while the presence source says the house is empty
+  quietBack: ['Back at {}', 'Terug om {}'],   // quiet face (eink-ha-os#295): the time quiet hours end
+  // Nobody home face (eink-ha-os#331): the sleeping panel while the presence source says the house is empty
   emptyTitle: ['Nobody home', 'Niemand thuis'],
   emptyNext: ['Next update ~{}', 'Volgende update ~{}'],
   factDoors: ['Doors and windows', 'Deuren en ramen'],
@@ -40,15 +40,15 @@ export const STRINGS = {
   alarmArmed: ['armed', 'aan'],
   alarmOff: ['off', 'uit'],
   alarmTriggered: ['triggered', 'afgegaan'],
-  // quiet face "Tomorrow" row (#328): its head, rain on that day, bins collected that day
+  // quiet face "Tomorrow" row (eink-ha-os#328): its head, rain on that day, bins collected that day
   qtTomorrow: ['Tomorrow', 'Morgen'], qtToday: ['Today', 'Vandaag'], qtRain: ['rain from {}', 'regen vanaf {}'],
   qtBinTonight: ['put out tonight', 'vanavond buiten zetten'], qtBinTomorrow: ['collected tomorrow', 'morgen opgehaald'],
   qtBinToday: ['collected today', 'vandaag opgehaald'],
-  // deep sleep outside quiet hours (#299, #333): no time of day on a sleeping panel, only the date
+  // deep sleep outside quiet hours (eink-ha-os#299, eink-ha-os#333): no time of day on a sleeping panel, only the date
   asleepBar: ['Asleep', 'Slaapt'],   // top bar mark, replaces the clock; Modern: a dark pill, also in the clock tile
   asleepDate: ['{} · {}', '{} · {}'],   // under the big day number (clock tile, standby face): weekday · month
   asleepFoot: ['Asleep · press power to wake', 'Slaapt · druk op aan/uit'],   // standby face
-  sleepHead: ['Asleep · press to wake', 'Slaapt · druk om te wekken'],   // glance sleep face (#356), the quiet face's layout
+  sleepHead: ['Asleep · press to wake', 'Slaapt · druk om te wekken'],   // glance sleep face (eink-ha-os#356), the quiet face's layout
   sigWeak: ['Weak', 'Zwak'], sigFair: ['Fair', 'Redelijk'], sigGood: ['Good', 'Goed'], sigExcellent: ['Excellent', 'Uitstekend'],
 
   // display chrome and our own card headings
@@ -76,11 +76,11 @@ export const STRINGS = {
   chartSolar: ['Solar · kWh per hour', 'Zon · kWh per uur'],
   chartUsage: ['Usage · kWh per hour', 'Verbruik · kWh per uur'],
   noDataYet: ['No data yet', 'Nog geen gegevens'],
-  // history tile (#267): low / high with the bucket's time, and the states without a chart
+  // history tile (eink-ha-os#267): low / high with the bucket's time, and the states without a chart
   histLow: ['Low {} · {}', 'Laag {} · {}'], histHigh: ['High {} · {}', 'Hoog {} · {}'],
   histNone: ['No history', 'Geen geschiedenis'], histTooMany: ['Too many changes', 'Te veel wijzigingen'],
   histNeedsStats: ['Needs long-term statistics', 'Heeft langetermijnstatistieken nodig'],
-  // weather tile (#318): HA's condition names, the detail labels, values and short weekday names of the 5-day strip
+  // weather tile (eink-ha-os#318): HA's condition names, the detail labels, values and short weekday names of the 5-day strip
   wxSunny: ['Sunny', 'Zonnig'], wxClearNight: ['Clear', 'Helder'], wxPartlyCloudy: ['Partly cloudy', 'Half bewolkt'],
   wxCloudy: ['Cloudy', 'Bewolkt'], wxFog: ['Fog', 'Mist'], wxRainy: ['Rain', 'Regen'], wxPouring: ['Heavy rain', 'Zware regen'],
   wxSnowy: ['Snow', 'Sneeuw'], wxSnowyRainy: ['Sleet', 'Natte sneeuw'], wxHail: ['Hail', 'Hagel'],
@@ -95,21 +95,25 @@ export const STRINGS = {
   arriveCaption: ['arrive if you leave now', 'aankomst als je nu vertrekt'],
   traffic: ['+{} min traffic', '+{} min file'],
   cancelled: ['Cancelled', 'Rijdt niet'],
-  routeTrack: ['Track {}', 'Spoor {}'],   // route departure info from an `upcoming` list (#275)
-  // route tile footer per severity level (#145: generic; the entity's `note` attribute replaces it)
+  routeTrack: ['Track {}', 'Spoor {}'],   // route departure info from an `upcoming` list (eink-ha-os#275)
+  // route tile footer per severity level (eink-ha-os#145: generic; the entity's `note` attribute replaces it)
   routeNote1: ['All on time', 'Alles op tijd'], routeNote2: ['Small delays, under 5 min', 'Kleine vertragingen, minder dan 5 min'],
   routeNote3: ['Delays of 5 min or more', 'Vertragingen van 5 min of meer'], routeNote4: ['Disruption: check before you go', 'Verstoring: kijk voor je vertrekt'],
   carNote1: ['Traffic is normal', 'Normaal verkeer'], carNote2: ['A bit busier than usual', 'Iets drukker dan normaal'],
   carNote3: ['Slow traffic on the way', 'Langzaam verkeer onderweg'], carNote4: ['Heavy congestion', 'Zware file'],
   perHour: ['{} per hour', '{} per uur'],
   routePick: ['Pick a sensor for this route in the browser', 'Kies in de browser een sensor voor deze route'],
-  // bin day tile (#317, core/bins.ts): short weekdays (struct tm order), when words, the pill and the empty states
+  // bin day tile (eink-ha-os#317, core/bins.ts): short weekdays (struct tm order), when words, the pill and the empty states
   dayShort0: ['Sun', 'zo'], dayShort1: ['Mon', 'ma'], dayShort2: ['Tue', 'di'], dayShort3: ['Wed', 'wo'], dayShort4: ['Thu', 'do'],
   dayShort5: ['Fri', 'vr'], dayShort6: ['Sat', 'za'],
   binsTitle: ['Bins', 'Afval'], binToday: ['Today', 'Vandaag'], binTomorrow: ['Tomorrow', 'Morgen'], binInDays: ['in {} days', 'over {} dagen'],
   binTonight: ['Tonight', 'Vanavond'], binPutOut: ['Put out tonight', 'Vanavond buiten'],
   binLine: ['{} · {}', '{} · {}'], binLineTonight: ['{} · put out tonight', '{} · vanavond buiten zetten'],
   binsNone: ['No collection date', 'Geen ophaaldatum'], binsPick: ['Pick bin sensors in the browser', 'Kies in de browser je afvalsensoren'],
+  // list from attributes tile (eink-ha-os#332, core/attrList.ts): how long ago, the empty state, the foot
+  listTitle: ['List', 'Lijst'], listEmpty: ['Nothing to show', 'Niets te melden'], listMore: ['+{} more', '+{} meer'],
+  listNow: ['just now', 'zojuist'], listMinAgo: ['{} min ago', '{} min geleden'], listHoursAgo: ['{} h ago', '{} uur geleden'],
+  listToday: ['today', 'vandaag'], listYesterday: ['yesterday', 'gisteren'], listDaysAgo: ['{} days ago', '{} dagen geleden'],
   heatingTo: ['Heating to {}', 'Verwarmt naar {}'],
   atSetTemp: ['At set temperature', 'Op temperatuur'],
   room: ['Room', 'Kamer'],
@@ -123,7 +127,7 @@ export const STRINGS = {
   script: ['Script', 'Script'],
   tapToRun: ['Tap to run', 'Tik om te starten'],
   sceneBuiltIn: ['Built in', 'Ingebouwd'],
-  // now playing tile (#319)
+  // now playing tile (eink-ha-os#319)
   nowPlaying: ['Now playing', 'Nu speelt'],
   mediaPlaying: ['Playing', 'Speelt'],
   mediaPaused: ['Paused', 'Gepauzeerd'],
@@ -144,7 +148,7 @@ export const STRINGS = {
   nRooms: ['{} rooms', '{} kamers'],
   roomsRange: ['Rooms {} of {}', 'Kamers {} van {}'],
   nHeating: ['{} heating', '{} verwarmen'],
-  nOfHeating: ['{} of {} heating', '{} van {} verwarmen'],   // console Values view of a zoneList (#161)
+  nOfHeating: ['{} of {} heating', '{} van {} verwarmen'],   // console Values view of a zoneList (eink-ha-os#161)
   away: ['away', 'afwezig'],
   lightsOnOf: ['{} of {} lights on', '{} van {} lampen aan'],
   onOf: ['{} of {} on', '{} van {} aan'],
@@ -153,7 +157,7 @@ export const STRINGS = {
   unknownWidget: ['Unknown widget type', 'Onbekend tegeltype'],
   emptyScreen: ['Nothing on this screen yet', 'Nog niets op dit scherm'],
   addWidgetsAt: ['Add tiles at {}', 'Voeg tegels toe op {}'],
-  // failure states (#86): an entity HA has no value for (a ring on the tile + this word), HA unreachable (status bar)
+  // failure states (eink-ha-os#86): an entity HA has no value for (a ring on the tile + this word), HA unreachable (status bar)
   gapUnavailable: ['Unavailable', 'Niet beschikbaar'],
   gapUnknown: ['Unknown', 'Onbekend'],
   since: ['since {}', 'sinds {}'],
@@ -167,7 +171,7 @@ export const STRINGS = {
   signWaiting: ['Waiting for Home Assistant…', 'Wachten op Home Assistant…'],
   signInFailed: ['Sign-in did not start. Try again.', 'Inloggen is niet gestart. Probeer het opnieuw.'],
   signInAdmin: ['Sign in as an admin', 'Inloggen als beheerder'],
-  // signed-out card (#142): one short line; the admin rule only shows once a non-admin is in (viewOnlyText)
+  // signed-out card (eink-ha-os#142): one short line; the admin rule only shows once a non-admin is in (viewOnlyText)
   signInTag: ['Your home, on paper.', 'Je huis, op papier.'],
   signInHint: ['You sign in on your own Home Assistant.', 'Je logt in op je eigen Home Assistant.'],
   signedInAs: ['Signed in as {}', 'Ingelogd als {}'],
@@ -205,7 +209,7 @@ export const STRINGS = {
   allSet: ['All set', 'Klaar'],
   allSetText: ['The display is online and linked. It shows what it found in your Home Assistant. Change anything in the browser.',
     'Het scherm is online en gekoppeld. Het toont wat het in je Home Assistant vond. Pas alles aan in de browser.'],
-  // setup on the panel (#183): "Step 2 of 2" instead of a pager; the browser step's texts
+  // setup on the panel (eink-ha-os#183): "Step 2 of 2" instead of a pager; the browser step's texts
   setupStep: ['Step {} of {}', 'Stap {} van {}'],
   swConnected: ['Connected to {}', 'Verbonden met {}'],
   swTitle: ['Finish in your browser', 'Rond af in je browser'],
@@ -232,7 +236,7 @@ export const STRINGS = {
   pvNotPushed: ['Not on the display yet. Push to see it with live values.', 'Nog niet op het scherm. Stuur het om het met echte waarden te zien.'],
   pvLive: ['Live · updated {}', 'Live · bijgewerkt {}'],
   loading: ['Loading…', 'Laden…'],
-  // failure states in the console (#86)
+  // failure states in the console (eink-ha-os#86)
   haDown: ['The display can’t reach Home Assistant. It shows the last values it had and keeps trying.',
     'Het scherm kan Home Assistant niet bereiken. Het toont de laatste waarden en blijft het proberen.'],
   haDownList: ['Can’t reach Home Assistant. The list loads when the display is back in touch · retrying…',
@@ -245,13 +249,13 @@ export const STRINGS = {
     'Home Assistant heeft nu geen waarde voor deze entiteit ({}). De tegel toont een ring tot die er weer is.'],
   noMatch: ['Nothing matches “{}”.', 'Niets gevonden voor “{}”.'],
   noFit: ['Home Assistant has nothing that fits here.', 'Home Assistant heeft niets dat hier past.'],
-  // first-run checklist (#91)
+  // first-run checklist (eink-ha-os#91)
   clTitle: ['Getting started', 'Aan de slag'],
   clLinked: ['Linked to Home Assistant', 'Gekoppeld aan Home Assistant'],
   clHaOffline: ['Linked, but Home Assistant can’t be reached', 'Gekoppeld, maar Home Assistant is niet bereikbaar'],
   clFilled: ['{} of {} tiles filled', '{} van {} tegels gevuld'],
   clFilledAll: ['{} tiles filled', '{} tegels gevuld'], clFilled1: ['1 tile filled', '1 tegel gevuld'],
-  // #184: tiles the house has nothing for are left out, not counted as missing
+  // eink-ha-os#184: tiles the house has nothing for are left out, not counted as missing
   clLeftOut: ['Not found in your Home Assistant, so left out: {}.', 'Niet gevonden in je Home Assistant, dus weggelaten: {}.'],
   optSolar: ['solar', 'zonnepanelen'], optBattery: ['home battery', 'thuisbatterij'], optPrice: ['energy prices', 'energieprijzen'],
   optHistory: ['energy history', 'energiegeschiedenis'], optLights: ['lights', 'lampen'], optHeating: ['thermostats', 'thermostaten'], optRooms: ['room sensors', 'kamersensoren'],
@@ -261,12 +265,12 @@ export const STRINGS = {
   clFixMissing: ['See what’s missing', 'Bekijk wat ontbreekt'],
   clFixPreview: ['Show values', 'Toon waarden'],
   hide: ['Hide', 'Verbergen'],
-  // console list picker (#127)
+  // console list picker (eink-ha-os#127)
   pickLights: ['Lights to show', 'Te tonen lampen'],
   pickRooms: ['Rooms to show', 'Te tonen kamers'],
-  pickBins: ['Bin sensors', 'Afvalsensoren'], pickBinsHint: ['Tick each bin’s sensor and name it, e.g. Paper', 'Vink de sensor van elke container aan en geef hem een naam, bijv. Papier'],   // #317
+  pickBins: ['Bin sensors', 'Afvalsensoren'], pickBinsHint: ['Tick each bin’s sensor and name it, e.g. Paper', 'Vink de sensor van elke container aan en geef hem een naam, bijv. Papier'],   // eink-ha-os#317
   binName: ['Name of {}', 'Naam van {}'],
-  // guest Wi-Fi tile (#329): the display, then the console editor
+  // guest Wi-Fi tile (eink-ha-os#329): the display, then the console editor
   guestTitle: ['Guest Wi-Fi', 'Gastenwifi'], guestNetwork: ['Network', 'Netwerk'], guestPassword: ['Password', 'Wachtwoord'],
   guestOpen: ['No password', 'Geen wachtwoord'], guestLong: ['Too long for a QR code', 'Te lang voor een QR-code'],
   guestPick: ['Enter the network in the browser', 'Vul het netwerk in via de browser'],
@@ -284,7 +288,7 @@ export const STRINGS = {
   pickArea: ['Whole area', 'Hele ruimte'],
   pickNoArea: ['No area', 'Geen ruimte'],
 
-  // ---- display, the rest (#111) ----
+  // ---- display, the rest (eink-ha-os#111) ----
   // menus
   page1: ['1 page', '1 pagina'],
   widget1: ['1 widget', '1 tegel'], nWidgets: ['{} widgets', '{} tegels'],
@@ -346,8 +350,8 @@ export const STRINGS = {
   setWakeEvery: ['Check every', 'Kijk elke'],
   setLiveMin: ['Live after a press', 'Live na een druk'],
   setQuiet: ['Quiet hours', 'Stille uren'],
-  setEmptyHouse: ['Sleep longer when nobody is home', 'Standby als niemand thuis is'],   // #331, console only
-  // what a setting does (#190): the (i) in the browser (no hint line on the device, #310)
+  setEmptyHouse: ['Sleep longer when nobody is home', 'Standby als niemand thuis is'],   // eink-ha-os#331, console only
+  // what a setting does (eink-ha-os#190): the (i) in the browser (no hint line on the device, eink-ha-os#310)
   infoCleanEvery: ['E-paper leaves faint traces of old images. Every so often the display flashes black and white once to clear them.',
     'E-paper houdt vage resten van oude beelden vast. Af en toe knippert het scherm één keer zwart en wit om ze weg te halen.'],
   infoPowerSave: ['How the display saves battery when not on USB. Always live stays connected and updates within seconds (days of battery). Standby sleeps while the standby screen is on. Glance shows a calm sleep screen and sleeps until you press a button: it wakes on its own only at midnight and around quiet hours. A press shows the dashboard for a few minutes (weeks of battery).',
@@ -388,7 +392,7 @@ export const STRINGS = {
   otaUpToDate: ['Up to date', 'Up-to-date'],
   otaAvailable: ['v{} available', 'v{} beschikbaar'],
   otaInstalling: ['Installing…', 'Installeren…'],
-  otaLocalFile: ['From a file uploaded to this device', 'Van een bestand dat naar dit apparaat is geüpload'],   // installing, version unknown (#237)
+  otaLocalFile: ['From a file uploaded to this device', 'Van een bestand dat naar dit apparaat is geüpload'],   // installing, version unknown (eink-ha-os#237)
   otaNothingChanged: ['Nothing changed. Try again.', 'Er is niets veranderd. Probeer het opnieuw.'],
   otaWhatsNew: ['What’s new', 'Wat is nieuw'],
   otaChannel: ['Channel', 'Kanaal'], otaAutomatic: ['Automatic', 'Automatisch'],
@@ -404,7 +408,7 @@ export const STRINGS = {
   otaChecked: ['Checked {}', 'Gekeken om {}'],
   otaNotChecked: ['Not checked yet', 'Nog niet gekeken'],
   otaCheckingGh: ['Checking GitHub…', 'GitHub bekijken…'],
-  // check results (#250, core/otaStatus.ts)
+  // check results (eink-ha-os#250, core/otaStatus.ts)
   otaErrMemory: ['Not enough memory', 'Te weinig geheugen'],
   otaErrNetwork: ['No connection', 'Geen verbinding'],
   otaErrBusy: ['GitHub busy', 'GitHub is druk'],
@@ -424,13 +428,13 @@ export const STRINGS = {
   otaRolledBack: ['v{} did not start — restored v{} automatically', 'v{} startte niet — v{} automatisch teruggezet'],
   bootRestarting: ['Restarting…', 'Herstarten…'],
   bootStartingV: ['Starting v{}…', 'v{} start…'],
-  // Power held 2 s (#258): the face the panel keeps while the board is off
+  // Power held 2 s (eink-ha-os#258): the face the panel keeps while the board is off
   offTitle: ['Turned off', 'Uitgeschakeld'],
   offHint: ['Hold Power to turn on', 'Houd aan/uit ingedrukt om aan te zetten'],
   bootUpdateFailed: ['Update failed — back on v{}', 'Update mislukt — terug op v{}'],
   // install face
   updatingTo: ['Updating to', 'Bijwerken naar'],
-  updVersion: ['v{}', 'v{}'],   // own line under updatingTo, fitted (#215)
+  updVersion: ['v{}', 'v{}'],   // own line under updatingTo, fitted (eink-ha-os#215)
   updDownloading: ['Downloading firmware.bin', 'firmware.bin downloaden'],
   updChecking: ['Checking SHA-256', 'SHA-256 controleren'],
   updWriting: ['Writing & setting boot partition', 'Schrijven en opstartpartitie kiezen'],
@@ -513,7 +517,7 @@ export const STRINGS = {
   resetStartsSetup: ['Starts setup again from your phone.', 'Start de installatie opnieuw vanaf je telefoon.'],
   tapAgain: ['Tap again to erase', 'Tik nog eens: wissen'],
   factoryReset: ['Factory reset', 'Fabrieksreset'],
-  // ---- web console, the rest (#111) ----
+  // ---- web console, the rest (eink-ha-os#111) ----
   // Screens tab
   searchScreens: ['Search screens', 'Zoek schermen'],
   noScreenMatch: ['No screen matches.', 'Geen scherm gevonden.'],
@@ -570,31 +574,36 @@ export const STRINGS = {
   notLinkedNoList: ['The display is not linked to Home Assistant yet, so there is no entity list.', 'Het scherm is nog niet gekoppeld aan Home Assistant, dus er is nog geen lijst met entiteiten.'],
   loadingHa: ['Loading from Home Assistant…', 'Laden uit Home Assistant…'],
   other: ['Other', 'Overig'],
-  // widget palette (generic items only: entity tiles start empty, #145)
+  // widget palette (generic items only: entity tiles start empty, eink-ha-os#145)
   palSensor: ['Sensor value', 'Sensorwaarde'], palGauge: ['Gauge (percentage)', 'Meter (percentage)'], palSwitch: ['Switch', 'Schakelaar'],
   palLight: ['Light', 'Lamp'], palRoute: ['Route', 'Route'], palScene: ['Scene or script', 'Scène of script'],
-  palBins: ['Bin day', 'Afvalkalender'],   // #317
+  palBins: ['Bin day', 'Afvalkalender'],   // eink-ha-os#317
   // route tile kind (console) and title fallback (display)
   routeMode: ['Kind', 'Soort'], modeTrain: ['Train', 'Trein'], modeBus: ['Bus', 'Bus'], modeCar: ['Car', 'Auto'],
-  // bar chart series (console, #148)
+  // bar chart series (console, eink-ha-os#148)
   barsSeries: ['Shows', 'Toont'], seriesPrices: ['Prices', 'Prijzen'], seriesUsage: ['Usage', 'Verbruik'], seriesSolar: ['Solar', 'Zon'],
-  // history tile editor (console, #267)
+  // history tile editor (console, eink-ha-os#267)
   palHistory: ['History (4 wide)', 'Geschiedenis (4 breed)'], historyName: ['History chart', 'Geschiedenisgrafiek'],
   histWindow: ['Period', 'Periode'], histBucket: ['Per bar', 'Per staaf'], histAgg: ['Value', 'Waarde'], histStyle: ['Chart', 'Grafiek'],
   histRange: ['Range', 'Bereik'], histAuto: ['Auto', 'Automatisch'], histMin: ['Min', 'Min'], histMax: ['Max', 'Max'],
   aggMean: ['Average', 'Gemiddelde'], aggMax: ['Highest', 'Hoogste'], aggMin: ['Lowest', 'Laagste'], aggLast: ['Last', 'Laatste'], aggChange: ['Change', 'Verandering'],
   styleBars: ['Bars', 'Staven'], styleLine: ['Line', 'Lijn'],
-  // #304: more chart styles, a reference line, values on the chart
+  // eink-ha-os#304: more chart styles, a reference line, values on the chart
   styleArea: ['Area', 'Vlak'], styleStep: ['Steps', 'Trappen'], styleDots: ['Dots', 'Punten'],
+  // eink-ha-os#304 wave 2: a min–max band; the same window a day / week before
+  styleBand: ['Band', 'Band'], histCompare: ['Compare', 'Vergelijk'], cmpOff: ['Off', 'Uit'], cmpDay: ['Day before', 'Dag ervoor'], cmpWeek: ['Week before', 'Week ervoor'],
   histThreshold: ['Line at', 'Lijn op'], histThresholdNone: ['none', 'geen'], histLabels: ['Values', 'Waarden'], histLabelsOn: ['On chart', 'In grafiek'], histLabelsOff: ['Off', 'Uit'],
-  // history tile data source (console, #283)
+  // history tile data source (console, eink-ha-os#283)
   histSource: ['Data', 'Gegevens'], srcRecorder: ['History', 'Geschiedenis'], srcAttribute: ['Attribute list', 'Attribuutlijst'], srcForecast: ['Weather forecast', 'Weersverwachting'],
   histAttrName: ['Attribute', 'Attribuut'], histValueField: ['Value field', 'Waardeveld'], histTimeField: ['Time field', 'Tijdveld'],
   histPast: ['Past from', 'Verleden uit'], histShows: ['Shows', 'Toont'], aheadNext: ['Ahead', 'Vooruit'], aheadAround: ['Around now', 'Rond nu'], aheadPast: ['Past', 'Verleden'],
   histForecast: ['Forecast', 'Verwachting'], fcHourly: ['Hourly', 'Per uur'], fcDaily: ['Daily', 'Per dag'],
   errHistNumbers: ['min and max must be numbers', 'min en max moeten getallen zijn'], errHistOrder: ['min must be below max', 'min moet lager zijn dan max'],
   errHistThreshold: ['threshold must be a number', 'threshold moet een getal zijn'], errHistLabels: ['labels must be true or false', 'labels moet true of false zijn'],
-  errHistStyle: ['style must be bars, line, area, step, dots or auto', 'style moet bars, line, area, step, dots of auto zijn'],
+  errHistStyle: ['style must be bars, line, area, step, dots, band or auto', 'style moet bars, line, area, step, dots, band of auto zijn'],
+  errHistBandCompare: ['band and compare need a recorder series (no attribute or forecast)', 'band en compare werken alleen met geschiedenis (geen attribuut of verwachting)'],
+  errHistBandAgg: ['style band needs agg mean', 'style band werkt alleen met agg mean'],
+  errHistCompare: ['compare must be 1d or 7d, at least the window', 'compare moet 1d of 7d zijn, minstens de periode'],
   palThermo: ['Room thermostat (tall)', 'Kamerthermostaat (hoog)'],
   palSolarNow: ['Solar now', 'Zon nu'], palInsideTemp: ['Inside temp', 'Binnentemperatuur'],
   palClock: ['Clock (2 wide)', 'Klok (2 breed)'], palPrices: ['Prices (4 wide)', 'Prijzen (4 breed)'], palUsage: ['Usage (2 wide)', 'Verbruik (2 breed)'], palSolar: ['Solar (2 wide)', 'Zon (2 breed)'],
@@ -604,7 +613,7 @@ export const STRINGS = {
   // console tile names (wLabel)
   chartPricesName: ['Prices chart', 'Prijsgrafiek'], chartUsageName: ['Usage chart', 'Verbruiksgrafiek'], chartSolarName: ['Solar chart', 'Zongrafiek'], chart: ['Chart', 'Grafiek'],
   allLights: ['All lights', 'Alle lampen'], allRooms: ['All rooms', 'Alle kamers'], updates: ['Updates', 'Updates'], about: ['About', 'Over'],
-  // tile source in the screen editor (#191; was the Data sources tab, #24)
+  // tile source in the screen editor (eink-ha-os#191; was the Data sources tab, eink-ha-os#24)
   source: ['Source', 'Bron'],
   srcFromEnergy: ['from Energy dashboard', 'uit het Energie-dashboard'], srcByYou: ['picked by you', 'door jou gekozen'],
   srcSameId: ['same id in HA', 'zelfde id in HA'], srcFromNone: ['none', 'geen'],
@@ -654,9 +663,9 @@ export const STRINGS = {
   yamlOk: ['Looks good · {} categories, {} screens, {} widgets', 'Ziet er goed uit · {} categorieën, {} schermen, {} tegels'],
   yamlLine: ['Line {}: {}', 'Regel {}: {}'],
   yamlPushed: ['Pushed · the display redrew once', 'Verstuurd · het scherm is één keer opnieuw getekend'],
-  // Advanced tab (#191): Screens as YAML and API pages
+  // Advanced tab (eink-ha-os#191): Screens as YAML and API pages
   advYaml: ['Screens as YAML', 'Schermen als YAML'], advApi: ['API', 'API'], advPages: ['Advanced pages', 'Geavanceerde pagina’s'],
-  // Advanced › Device log (#200)
+  // Advanced › Device log (eink-ha-os#200)
   advLogs: ['Device log', 'Apparaatlog'],
   logsNote: ['What the display writes to its serial port: the last ~1000 lines of this boot, newest at the bottom. Passwords and tokens are masked.',
     'Wat het scherm naar zijn seriële poort schrijft: de laatste ~1000 regels van deze start, nieuwste onderaan. Wachtwoorden en tokens zijn gemaskeerd.'],
@@ -705,7 +714,7 @@ export const STRINGS = {
   repLast: [' · last {}', ' · laatst {}'],
   repFailed: ['On · last push failed, retrying', 'Aan · laatste melding mislukt, opnieuw proberen'],
   repWaiting: ['On · waiting for Home Assistant', 'Aan · wacht op Home Assistant'],
-  // seed report (#89)
+  // seed report (eink-ha-os#89)
   whyMissing1: ['Why one is missing', 'Waarom er één ontbreekt'], whyMissingN: ['Why {} are missing', 'Waarom er {} ontbreken'],
   pickOne: ['Pick one', 'Kies er een'],
   seedPrice: ['Energy price', 'Stroomprijs'], seedInside: ['Inside temperature', 'Binnentemperatuur'], seedOutside: ['Outside temperature', 'Buitentemperatuur'],
@@ -763,11 +772,11 @@ export const STRINGS = {
   // emulator only: the deep-sleep line (the firmware keeps the last frame)
   asleepWakes: ['Asleep · wakes {} · press power', 'Slaapt · wakker om {} · druk op aan/uit'],
   asleepLow: ['Asleep · battery low · charge or press power', 'Slaapt · batterij leeg · laad op of druk op aan/uit'],
-  // console list picker: the display's subscription cap hides some (#134)
+  // console list picker: the display's subscription cap hides some (eink-ha-os#134)
   capLights: ['Showing {} of {} lights — pick rooms to choose which', 'Toont {} van {} lampen — kies ruimtes om te bepalen welke'],
   capRooms: ['Showing {} of {} rooms — pick rooms to choose which', 'Toont {} van {} kamers — kies kamers om te bepalen welke'],
-  capEntities: ['Showing {} of {} Home Assistant entities, the most useful first', 'Toont {} van {} Home Assistant-entiteiten, de nuttigste eerst'],   // #150
-  // agenda + next tiles (#316); agDay0 = Sunday
+  capEntities: ['Showing {} of {} Home Assistant entities, the most useful first', 'Toont {} van {} Home Assistant-entiteiten, de nuttigste eerst'],   // eink-ha-os#150
+  // agenda + next tiles (eink-ha-os#316); agDay0 = Sunday
   agTitle: ['Agenda', 'Agenda'], agNext: ['Next', 'Hierna'], agToday: ['Today', 'Vandaag'], agTomorrow: ['Tomorrow', 'Morgen'],
   agAllDay: ['all day', 'hele dag'], agBusy: ['Busy', 'Bezet'], agInMin: ['in {} min', 'over {} min'], agInH: ['in {} h', 'over {} uur'],
   agMore: ['+{} more this week', '+{} meer deze week'], agNothing: ['Nothing planned this week', 'Niets gepland deze week'],
@@ -775,7 +784,7 @@ export const STRINGS = {
   agDay0: ['Sun', 'zo'], agDay1: ['Mon', 'ma'], agDay2: ['Tue', 'di'], agDay3: ['Wed', 'wo'], agDay4: ['Thu', 'do'], agDay5: ['Fri', 'vr'], agDay6: ['Sat', 'za'],
   palAgenda: ['Agenda (tall)', 'Agenda (hoog)'], palNext: ['Next event (2 wide)', 'Volgende afspraak (2 breed)'], grpCalendar: ['Calendar', 'Agenda'],
   pickCalendars: ['Calendars', 'Agenda’s'], pickCalendarHint: ['Pick one to four calendars', 'Kies een tot vier agenda’s'],
-  // Good morning page (#330, core/morning.ts) and its setting (Settings › Power)
+  // Good morning page (eink-ha-os#330, core/morning.ts) and its setting (Settings › Power)
   gmHead: ['Good morning', 'Goedemorgen'], gmRainFrom: ['Rain from {}', 'Regen vanaf {}'], gmRainNow: ['Rain now', 'Nu regen'],
   gmMore: ['+{} more today', '+{} meer vandaag'], gmBinToday: ['collected today', 'vandaag opgehaald'], gmBinTonight: ['put out tonight', 'vanavond buiten zetten'],
   setMorning: ['Good morning', 'Goedemorgen'],   // 1-cell tile: the page's own greeting
@@ -791,7 +800,7 @@ export function langOf(code: string | null | undefined): Lang {
   return base === 'nl' ? 'nl' : 'en';
 }
 
-/** Console language (#98): HA's while linked and known, else the browser's (navigator.language). */
+/** Console language (eink-ha-os#98): HA's while linked and known, else the browser's (navigator.language). */
 export function consoleLang(snap: { ha: { linked: boolean }; language: Lang | null } | null, browser: string): Lang {
   return snap?.ha.linked && snap.language ? langOf(snap.language) : langOf(browser);
 }
@@ -816,7 +825,7 @@ const MSG_RE: [RegExp, StrKey][] = MSG_KEYS.map((k) => [new RegExp('^' + STRINGS
 const EN_KEY = new Map<string, StrKey>();
 for (const [k, [en]] of Object.entries(STRINGS)) if (!en.includes('{}') && !EN_KEY.has(en)) EN_KEY.set(en, k as StrKey);
 
-/** A text the device, the screen editor or a shared table wrote in English (the wire stays English, #111), in `lang`:
+/** A text the device, the screen editor or a shared table wrote in English (the wire stays English, eink-ha-os#111), in `lang`:
  *  an exact match of a key's English, or a MSG_KEYS template. Unknown → as is. */
 export function trMsg(lang: Lang, msg: string): string {
   if (lang === 'en' || !msg) return msg;

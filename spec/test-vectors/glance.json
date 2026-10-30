@@ -1,5 +1,5 @@
 {
-  "description": "Glance wakes (#10, emulator src/core/glance.ts, firmware core/glance.cpp). snapshotDiff: region key -> hash maps (prev null = no valid snapshot in RTC), ignore = clock regions; result sorted. glanceStep: what a wake does with its result (unreachable: changed = what the face shows without new data, #356). wifiFast: how to reconnect from the RTC Wi-Fi cache. liveNow: live mode after a key press. arm: first-boot safety per firmware version, armed after ARM_BOOTS = 3 confirmed boots with network or (#231) ARM_UPTIME_MIN = 30 min of one boot with network and a confirmed image (stored = null: none; ops count = this boot confirmed; then up = [netUpMin, otaPendingVerify] when present; by = armedBy). tally (#178): wake counters since power-on in RTC memory, ops in order from zero: [\"wake\", sleptAtEpoch, wakeAtEpoch, nowEpoch] (slept = clock when known and not backwards, else planned timer, else 0), [\"glance\", ok, redraw, wifiMs|null, haMs|null, totalMs], [\"sleep\", awakeMs, fullRefreshes, partialRefreshes].",
+  "description": "Glance wakes (eink-ha-os#10, emulator src/core/glance.ts, firmware core/glance.cpp). snapshotDiff: region key -> hash maps (prev null = no valid snapshot in RTC), ignore = clock regions; result sorted. glanceStep: what a wake does with its result (unreachable: changed = what the face shows without new data, eink-ha-os#356). wifiFast: how to reconnect from the RTC Wi-Fi cache. liveNow: live mode after a key press. arm: first-boot safety per firmware version, armed after ARM_BOOTS = 3 confirmed boots with network or (eink-ha-os#231) ARM_UPTIME_MIN = 30 min of one boot with network and a confirmed image (stored = null: none; ops count = this boot confirmed; then up = [netUpMin, otaPendingVerify] when present; by = armedBy). tally (eink-ha-os#178): wake counters since power-on in RTC memory, ops in order from zero: [\"wake\", sleptAtEpoch, wakeAtEpoch, nowEpoch] (slept = clock when known and not backwards, else planned timer, else 0), [\"glance\", ok, redraw, wifiMs|null, haMs|null, totalMs], [\"sleep\", awakeMs, fullRefreshes, partialRefreshes]. timer (eink-ha-os#364): sleep-timer drift. ppm = timerPpm(prev, programmedS, realS) (learned from timer sleeps >= TIMER_LEARN_MIN_S = 3600 s; |ppm| > TIMER_PPM_MAX = 50000 or realS 0 keeps prev; rounded half up), seconds = timerSeconds(realS, ppm) (>= 1, rounded half up), early = earlyWake(wakeAtEpoch, nowEpoch) (0 = unknown; up to EARLY_WAIT_S = 15 s early waits awake, earlier sleeps again).",
   "snapshotDiff": [
     {
       "name": "no snapshot: every region but the clock",
@@ -186,7 +186,7 @@
       }
     },
     {
-      "name": "HA unreachable at a transition wake (#356): the face itself changed (its date at midnight, the quiet face) → drawn without new data",
+      "name": "HA unreachable at a transition wake (eink-ha-os#356): the face itself changed (its date at midnight, the quiet face) → drawn without new data",
       "in": {
         "ok": false,
         "changed": [
@@ -789,5 +789,114 @@
         }
       }
     }
-  ]
+  ],
+  "timer": {
+    "ppm": [
+      {
+        "name": "23:00 -> 07:00 woke at 06:55: 1 % fast",
+        "prev": 0,
+        "programmedS": 28800,
+        "realS": 28500,
+        "ppm": -10417
+      },
+      {
+        "name": "slow timer: 27 s late over 1.5 h",
+        "prev": -10417,
+        "programmedS": 5400,
+        "realS": 5427,
+        "ppm": 5000
+      },
+      {
+        "name": "30 min sleep: too short to learn",
+        "prev": -10417,
+        "programmedS": 1800,
+        "realS": 1700,
+        "ppm": -10417
+      },
+      {
+        "name": "clock unknown at wake",
+        "prev": -10417,
+        "programmedS": 28800,
+        "realS": 0,
+        "ppm": -10417
+      },
+      {
+        "name": "clock jumped (2x): not drift",
+        "prev": 300,
+        "programmedS": 3600,
+        "realS": 7200,
+        "ppm": 300
+      }
+    ],
+    "seconds": [
+      {
+        "name": "8 h at 1 % fast",
+        "realS": 28800,
+        "ppm": -10417,
+        "seconds": 29103
+      },
+      {
+        "name": "no drift learned",
+        "realS": 60,
+        "ppm": 0,
+        "seconds": 60
+      },
+      {
+        "name": "1 h at 0.5 % slow",
+        "realS": 3600,
+        "ppm": 5000,
+        "seconds": 3582
+      },
+      {
+        "name": "never 0 (0 = no timer)",
+        "realS": 0,
+        "ppm": 0,
+        "seconds": 1
+      }
+    ],
+    "early": [
+      {
+        "name": "no planned wake",
+        "wakeAt": 0,
+        "now": 1000,
+        "early": "go"
+      },
+      {
+        "name": "clock unknown",
+        "wakeAt": 1000,
+        "now": 0,
+        "early": "go"
+      },
+      {
+        "name": "on time",
+        "wakeAt": 1000,
+        "now": 1000,
+        "early": "go"
+      },
+      {
+        "name": "late",
+        "wakeAt": 1000,
+        "now": 1005,
+        "early": "go"
+      },
+      {
+        "name": "15 s early: wait awake",
+        "wakeAt": 1000,
+        "now": 985,
+        "early": "wait"
+      },
+      {
+        "name": "16 s early: sleep again",
+        "wakeAt": 1000,
+        "now": 984,
+        "early": "sleep"
+      },
+      {
+        "name": "5 min early (06:55 for 07:00)",
+        "wakeAt": 1000,
+        "now": 700,
+        "early": "sleep"
+      }
+    ]
+  }
 }

@@ -143,7 +143,7 @@ make qemu-contract                    # contract suite vs the real firmware: 33 
 make qemu-ota                         # OTA with HA down → PENDING_VERIFY → valid; crash and hang images → rollback (sim/qemu/ota-fw-test.sh)
 make qemu-wdt                         # confirmed image hangs loop() → TWDT armed, reports loopTask → reset → next boot "reset reason TASK_WDT" (sim/qemu/wdt-test.sh; QEMU has no MWDT, see below)
 make qemu-reflash                     # PUT screens.yaml + settings, re-flash the five parts like x4flash.py → userdata unchanged (sim/qemu/reflash-test.sh)
-make qemu-endurance HOURS=72          # big house (1200 extra entities), a fault every 10 min (HA restart, WebSocket drop, clock jump, link drop via the QEMU monitor, config push), soak.py CSV → endurance.md PASS/FAIL (sim/qemu/endurance.sh, #48)
+make qemu-endurance HOURS=72          # big house (1200 extra entities), a fault every 10 min (HA restart, WebSocket drop, clock jump, link drop via the QEMU monitor, config push), soak.py CSV → endurance.md PASS/FAIL (sim/qemu/endurance.sh, eink-ha-os#48)
 ```
 
 `make qemu-contract` signs in through the fake HA like a user: the firmware does the real OAuth2 + PKCE code exchange,
@@ -182,7 +182,7 @@ OTA limitations of QEMU (found 2026-10-14, `sim/qemu/ota-fw-test.sh` avoids the 
 * **No RTC watchdog.** The OTA guard (`otaBootGuard()`, net/ota.h) restarts an unconfirmed image via esp_timer; the
   RTC watchdog backstop behind it is only exercised on hardware.
 
-**Debug image for memory corruption (`env:x4qemu_debug`, #39).** `make qemu-contract QEMU_ENV=x4qemu_debug` runs the
+**Debug image for memory corruption (`env:x4qemu_debug`, eink-ha-os#39).** `make qemu-contract QEMU_ENV=x4qemu_debug` runs the
 suite against an image with extra checks. The prebuilt Arduino libs cannot take sdkconfig changes (comprehensive heap
 poisoning needs a lib rebuild), but they already ship FreeRTOS stack canaries + end-of-stack watchpoint, light heap
 poisoning (block head/tail canaries, checked on free), `-fstack-protector` and assertions. The debug env adds:

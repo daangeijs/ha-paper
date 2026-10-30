@@ -37,7 +37,7 @@ export const layoutGroups = (groups: LightGroup[]): LightItem[][] =>
   layoutLights(groups.map((g) => [g.area, g.area]), groups.flatMap((g) => g.ids.map((id) => ({ id, room: g.area }))));
 
 /**
- * What a lightList tile shows (#127): `areas` (HA area ids, each with all its lights) then `entities` (light.* in pick
+ * What a lightList tile shows (eink-ha-os#127): `areas` (HA area ids, each with all its lights) then `entities` (light.* in pick
  * order, grouped under their area; an area seen first here goes last). Order follows the pick; unknown ids are
  * skipped; nothing picked = every group.
  */
@@ -54,7 +54,7 @@ export function pickLights(groups: LightGroup[], w: Widget): LightGroup[] {
   return out;
 }
 
-/** What a zoneList tile shows (#127): `entities` (climate.*) in pick order, unknown skipped; nothing picked = all. */
+/** What a zoneList tile shows (eink-ha-os#127): `entities` (climate.*) in pick order, unknown skipped; nothing picked = all. */
 export function pickZones<Z extends { id: string }>(zones: Z[], w: Widget): Z[] {
   const ents = listOf(w, 'entities');
   if (!ents.length) return zones;
@@ -66,7 +66,7 @@ export function pickZones<Z extends { id: string }>(zones: Z[], w: Widget): Z[] 
 /** Climate + lights the display subscribes to when nothing narrows them (firmware net/ha_client, core/home.h). */
 export const MAX_WATCHED = 80;
 export type ListCount = { total: number; shown: number };
-/** What an unpicked zoneList / lightList can show (#134, GET /ha/entities `lists`): climate first, then lights in HA
+/** What an unpicked zoneList / lightList can show (eink-ha-os#134, GET /ha/entities `lists`): climate first, then lights in HA
  *  order, MAX_WATCHED in total. A big house loses lights past the cap (14 climate + 149 lights → 66 lights). */
 export function listCounts(climate: number, lights: number, cap = MAX_WATCHED): { climate: ListCount; lights: ListCount } {
   const c = Math.min(climate, cap);

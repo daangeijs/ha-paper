@@ -1,4 +1,4 @@
-// History tiles in the device simulator (#267): statistics first, history rows as the fallback, only the tiles of the
+// History tiles in the device simulator (eink-ha-os#267): statistics first, history rows as the fallback, only the tiles of the
 // app shown, "Too many changes" over the firmware's frame cap.
 import { describe, it, expect, afterEach } from 'vitest';
 import { startSimulator, type RunningSim } from './index.ts';
@@ -10,7 +10,7 @@ async function until<T>(fn: () => T, ok: (v: T) => boolean, ms = 8000): Promise<
   const end = Date.now() + ms;
   for (;;) { const v = fn(); if (ok(v)) return v; if (Date.now() > end) throw new Error('timeout'); await new Promise((r) => setTimeout(r, 20)); }
 }
-/** The link is up and its setup is done (#341). `ha.connected` turns true before subscribe_entities is answered; the
+/** The link is up and its setup is done (eink-ha-os#341). `ha.connected` turns true before subscribe_entities is answered; the
  *  first entity event comes after that answer, so by then the device's own fetchHistory('connected') has run. Without
  *  this, a late answer under load lands inside the test's fetch: a second ('again') fetch doubles the HA calls. */
 const linked = (sim: RunningSim['sim']) => until(() => sim.ha.connected && sim.ha.lastEvent !== null, (c) => c);
@@ -59,7 +59,7 @@ describe('history tiles (device simulator)', () => {
     expect(fake.history.calls.slice(before).every((c) => c.ids.join() === CHATTY_ID)).toBe(true);
   }, 20000);
 
-  it('reads an attribute series and a weather forecast (#283)', async () => {
+  it('reads an attribute series and a weather forecast (eink-ha-os#283)', async () => {
     run = await startSimulator({ port: 0, fakeHaPort: 0, haTickMs: 0, preset: 'installed', delays: FAST });
     const sim = run.sim, fake = run.fakeHa!;
     await linked(sim);

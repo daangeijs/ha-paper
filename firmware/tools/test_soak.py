@@ -242,7 +242,7 @@ class Collector(unittest.TestCase):
 
 
 class Probe(unittest.TestCase):
-    """#227: the name and the IP are checked separately; a dead name with a live IP is its own finding."""
+    """eink-ha-os#227: the name and the IP are checked separately; a dead name with a live IP is its own finding."""
 
     def test_name_and_ip(self):
         class H(http.server.BaseHTTPRequestHandler):

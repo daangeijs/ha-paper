@@ -1,4 +1,4 @@
-// Home Assistant address typed on the link page (#54): normalise, probe, pick the URL or say what's wrong.
+// Home Assistant address typed on the link page (eink-ha-os#54): normalise, probe, pick the URL or say what's wrong.
 // Firmware: core/ha_address.cpp. Vectors: spec/test-vectors/ha-address.json.
 
 export type HaAddress = { url: string; alt: string; typed: boolean } | { error: string };
@@ -8,7 +8,7 @@ export type HaResolved = { url: string } | { status: number; error: string };
 
 export const HA_PROBE_PATH = '/auth/providers';
 export const HA_DEFAULT_PORT = 8123;
-/** One probe at a time; the next may start this long after the last one ended (#75). Else 429. */
+/** One probe at a time; the next may start this long after the last one ended (eink-ha-os#75). Else 429. */
 export const HA_PROBE_COOLDOWN_MS = 1000;
 export const HA_PROBE_BUSY = 'The display is still checking an address. Try again in a moment.';
 
@@ -73,9 +73,9 @@ export function isLocalOnlyHost(host: string): boolean {
 
 /**
  * "homeassistant.local:8123", "https://ha.example.com/lovelace/0", "192.168.1.5" → base URL + the other scheme to try.
- * LAN addresses are fine; loopback and link-local are refused (#75). allowHost: the device-sim's own fake HA on localhost.
+ * LAN addresses are fine; loopback and link-local are refused (eink-ha-os#75). allowHost: the device-sim's own fake HA on localhost.
  * The other scheme keeps the port only when it is HA's own 8123 (HA serves http or https there); any other typed port
- * belongs to the typed scheme (a proxy), so the other scheme is tried on its default port (#75).
+ * belongs to the typed scheme (a proxy), so the other scheme is tried on its default port (eink-ha-os#75).
  */
 export function parseHaAddress(input: string, allowHost?: string): HaAddress {
   let s = input.trim();
@@ -120,7 +120,7 @@ const ok = (a: ProbeAnswer) => a.status === 200 && isHaProviders(a.body || '');
 
 /**
  * Pick the HA base URL. Probes the address as typed; if that isn't HA, tries the other scheme, or instead the
- * redirect target when it is the https upgrade of the same host and port (#75: any other redirect is refused).
+ * redirect target when it is the https upgrade of the same host and port (eink-ha-os#75: any other redirect is refused).
  * No scheme typed, or http typed and HA answers on https: use the working one. https typed and HA only answers on
  * plain http: say so (no silent downgrade). 422 = not an address / not Home Assistant / wrong scheme / redirects
  * elsewhere, 502 = no answer. Probed bodies are never echoed.

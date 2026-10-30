@@ -36,7 +36,7 @@ static void fitVersion(Canvas& c, std::string& v, int& size, int maxW) {
   for (int s : {46, 40, 34, 28}) { size = s; if (c.textWidth(v, B(s), t) <= maxW) return; }
 }
 
-// Status line under the installed version (#250): title + up to two detail lines, at a fixed place and height.
+// Status line under the installed version (eink-ha-os#250): title + up to two detail lines, at a fixed place and height.
 constexpr int kOtaStatusTop = 14 + 24 + 10 + 46 + 10 + 12, kOtaStatusH = 31 + 4 + 2 * 22;
 static int otaLeftW(Rect r) { return r.w - 16 - 270 - 22 - 16; }
 
@@ -82,7 +82,7 @@ static void ota(Canvas& c, I& a, Rect r) {
   int lx1 = r.x + r.w - 16 - rightW - 22;
   label(c, x0, top, a.t(S::firmware), 20);
   int y = top + 24 + 10;
-  {   // #199: a git-describe build name ("0.1.0-alpha.6-18-gbf929d4") does not fit at B46 beside "installed"
+  {   // eink-ha-os#199: a git-describe build name ("0.1.0-alpha.6-18-gbf929d4") does not fit at B46 beside "installed"
     std::string ver = std::string("v") + X4_FW_VERSION_STR;
     int vs = 0;
     fitVersion(c, ver, vs, lx1 - x0 - 12 - c.textWidth(a.t(S::installed), R(18)));
@@ -196,7 +196,7 @@ static void wifiList(Canvas& c, I& a, Rect r) {
   c.text(rx, mid(ry, 44, B(20)), a.t(S::wifiNetworks), B(20), up);
   button(c, rc(rx + rw - sw, ry + 2, sw, 40), sl, B(18), false, [&a] { a.wifiScan(); });
   int ny = ry + 44 + 4;
-  // the 5 GHz note: R18 on up to two lines at the bottom (#199, was one R14 line)
+  // the 5 GHz note: R18 on up to two lines at the bottom (eink-ha-os#199, was one R14 line)
   int noteN = std::max(1, Canvas(nullptr).paragraph(0, 0, rw, 22, a.t(S::wifi5g), R(18), TextOpts(), 2));
   int noteTop = r.y + r.h - 8 - noteN * 22;
   int maxRows = (noteTop - 4 - ny) / 54;
@@ -399,7 +399,7 @@ static void haTile(Canvas& c, I& a, Rect r) {
   int energy = 0;
   for (auto* id : {"sensor.solar_power", "sensor.home_power", "sensor.grid_power", "sensor.battery_power", "sensor.energy_prices", "sensor.home_battery_soc"})
     energy += a.store.get(id) ? 1 : 0;
-  int routes = 0;   // route tiles whose sensor HA reports (#145)
+  int routes = 0;   // route tiles whose sensor HA reports (eink-ha-os#145)
   for (auto& sc : a.cfg.screens)
     for (auto& w : sc.widgets) routes += w.type == "route" && !w.field("entity").empty() && a.store.get(w.field("entity")) ? 1 : 0;
   struct U { S name, src; std::string count; } uses[] = {
@@ -482,7 +482,7 @@ static void setupWeb(Canvas& c, I& a, Rect r) {
   c.textCenter(x + 105, qy + 200 + 10 + 22, host(a), B(22), [] { TextOpts t; t.tracking = 1; return t; }());
   if (!st.ip.empty()) c.textCenter(x + 105, qy + 200 + 10 + 22 + 26, a.t(S::swOr, st.ip), R(18), C(Ink::Black));
   int tx = x + 210 + 28, tw = r.x + r.w - 22 - tx;
-  // #272: titles only; the block (connected 22+12, title 33+12, 3 rows of 52, 18, button 44) centres on the QR
+  // eink-ha-os#272: titles only; the block (connected 22+12, title 33+12, 3 rows of 52, 18, button 44) centres on the QR
   const int rowH = 52, blockH = 22 + 12 + 33 + 12 + 3 * rowH + 18 + 44;
   int y = std::max(r.y + 14, cy - blockH / 2);
   c.circle(tx + 11, y + 11, 11, Ink::Black);

@@ -27,7 +27,7 @@ describe('powerDecision (spec/test-vectors/power)', () => {
   });
 });
 
-describe('CPU_MHZ (#177)', () => {
+describe('CPU_MHZ (eink-ha-os#177)', () => {
   it('full = 240 MHz, auto = 80 MHz (APB stays 80 MHz)', () => expect(CPU_MHZ).toEqual({ full: 240, auto: 80 }));
 });
 

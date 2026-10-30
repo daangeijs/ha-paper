@@ -1,4 +1,4 @@
-// First-run card above the Screens tab: the checklist (#91, ../checklist.ts) with the seed report (#89) under its
+// First-run card above the Screens tab: the checklist (eink-ha-os#91, ../checklist.ts) with the seed report (eink-ha-os#89) under its
 // "N of M tiles filled" step: what the seed (src/core/seed.ts) found in HA and why the other tiles are missing.
 // GET /api/v1/seed; shown until dismissed (DELETE /api/v1/seed), by "Hide" or by finishing the checklist.
 import { useEffect, useRef, useState, type CSSProperties } from 'react';

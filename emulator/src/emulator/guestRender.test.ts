@@ -1,4 +1,4 @@
-// Guest Wi-Fi tile (#329) through the display: 2×2, 2×1, 1-wide, both looks, a password from HA, the console fields.
+// Guest Wi-Fi tile (eink-ha-os#329) through the display: 2×2, 2×1, 1-wide, both looks, a password from HA, the console fields.
 import { describe, expect, it } from 'vitest';
 import { renderToString } from 'react-dom/server';
 import { Emulator, type EmuState } from './Emulator.tsx';
@@ -21,7 +21,7 @@ function at(look: 'classic' | 'geist', pw: string | undefined, lang: 'en' | 'nl'
   return { h: h.slice(h.indexOf('data-x4-screen')), vals: e.tileValues('guest')! };
 }
 
-describe('guest Wi-Fi tile renders (#329)', () => {
+describe('guest Wi-Fi tile renders (eink-ha-os#329)', () => {
   for (const look of ['classic', 'geist'] as const) it(look + ': QR + name + password; a missing HA password waits', () => {
     const r = at(look, 'otter-42');
     expect(r.h.match(/aria-label="QR code"/g)!.length).toBe(2);
@@ -34,7 +34,7 @@ describe('guest Wi-Fi tile renders (#329)', () => {
   });
 });
 
-describe('guest Wi-Fi console fields (#329)', () => {
+describe('guest Wi-Fi console fields (eink-ha-os#329)', () => {
   it('encodes name and password, drops defaults', () => {
     let ws = setGuestField([{ type: 'guestWifi', cs: 2, rs: 2 }], 0, 'ssid', 'Cafe, Upstairs');
     ws = setGuestField(ws, 0, 'password', '00042');

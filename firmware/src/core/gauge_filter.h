@@ -1,4 +1,4 @@
-// Gauge filter (#327), a port of emulator/src/core/battery.ts gaugeStep: the CW2017 % reads low under load and high
+// Gauge filter (eink-ha-os#327), a port of emulator/src/core/battery.ts gaugeStep: the CW2017 % reads low under load and high
 // after rest (92 → 94 % after a night asleep, no charger). The shown % never rises without a charger; a rise of
 // kRisePts or more confirmed by kRiseReads reads in a row is taken (a charge the board did not see). Falls pass at
 // once. Pure and trivially copyable: the device keeps it in RTC_NOINIT memory (hw/x4_board.cpp) across deep sleep.

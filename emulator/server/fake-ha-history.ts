@@ -1,4 +1,4 @@
-// Recorder data for the fake HA (#266, plan in #264): `recorder/statistics_during_period` and
+// Recorder data for the fake HA (eink-ha-os#266, plan in eink-ha-os#264): `recorder/statistics_during_period` and
 // `history/history_during_period`, generated from deterministic seeded series (same seed + same time = same answer).
 //
 // Response shapes follow HA core (dev, 2026-10):

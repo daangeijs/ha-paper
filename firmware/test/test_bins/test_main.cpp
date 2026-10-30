@@ -1,4 +1,4 @@
-// core/bins (#317) against spec/test-vectors/bins.json (emulator src/core/bins.ts).
+// core/bins (eink-ha-os#317) against spec/test-vectors/bins.json (emulator src/core/bins.ts).
 #include <unity.h>
 #include <fstream>
 #include <sstream>

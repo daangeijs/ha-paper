@@ -6,7 +6,7 @@ import { validateYaml } from './config.ts';
 import { DEMO_WEATHER_ATTRS, demoWeatherForecast, weatherView, wxEntries, wxIcon, wxMm, wxRain, wxWind, WX_ICONS } from './weather.ts';
 
 const HOUR = 3_600_000;
-describe('weather tile (#318)', () => {
+describe('weather tile (eink-ha-os#318)', () => {
   it('vectors match the reference', () => {
     expect(JSON.parse(readFileSync(join(import.meta.dirname, '../../../spec/test-vectors/weather.json'), 'utf8'))).toEqual(weatherVectors());
   });

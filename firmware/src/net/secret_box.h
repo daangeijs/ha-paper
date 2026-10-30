@@ -2,7 +2,7 @@
 //
 // The precompiled Arduino core has no NVS encryption / flash encryption, so secrets are sealed with
 // AES-256-GCM. Key = HMAC-SHA256(chip base MAC ‖ eFuse OPTIONAL_UNIQUE_ID, "x4-home/secrets/v1").
-// The label keeps the old product name (#217): changing it would make sealed secrets unreadable.
+// The label keeps the old product name (eink-ha-os#217): changing it would make sealed secrets unreadable.
 //
 // LIMITATION (see docs/FLASHING.md "Security notes"): the key material lives in readable eFuse, not in
 // flash. A flash dump on its own does not reveal secrets, but anyone with the device itself (USB access →

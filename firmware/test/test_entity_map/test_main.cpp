@@ -123,7 +123,7 @@ void test_prefs_with_power_sensors() {
   TEST_ASSERT_EQUAL_STRING("—", statText("sensor.living_temperature", d, 13).value.c_str());
 }
 
-// ---- #148: away only where preset_modes offers it; no climate.living guess for the inside temperature ----
+// ---- eink-ha-os#148: away only where preset_modes offers it; no climate.living guess for the inside temperature ----
 void test_away_presets_and_no_living_guess() {
   TEST_ASSERT_TRUE(presetHasAway("[\"home\",\"away\"]"));
   TEST_ASSERT_FALSE(presetHasAway("[\"none\",\"eco\"]"));
@@ -222,7 +222,7 @@ void test_price_formats() {
   TEST_ASSERT_EQUAL_INT64(1791842400, parseIsoTime("2026-10-13 00:00:00"));   // local (TZ above)
 }
 
-// ---- quarter-hourly prices (#151): "now" is this quarter, the hourly bars stay averages ----
+// ---- quarter-hourly prices (eink-ha-os#151): "now" is this quarter, the hourly bars stay averages ----
 void test_price_quarters() {
   std::string plain = "[";
   for (int k = 0; k < 96; ++k) plain += (k ? "," : "") + std::to_string(0.20 + 0.001 * k);
@@ -281,7 +281,7 @@ void test_overrides_routes_identity() {
   Json dep; parseJson("{\"departures\":[{\"time\":\"13:07\",\"delay\":2,\"cancelled\":false,\"info\":\"Bus 52 · to the station\"}],\"per_hour\":4}", dep);
   a.ingest("sensor.ovapi_bus_52", haValue("13:07", &dep), out);
   Json tr; parseJson("{\"departures\":[{\"time\":\"13:04\",\"delay\":0,\"cancelled\":false,\"info\":\"Intercity\"}]}", tr);
-  a.ingest("sensor.x4_route_work", haValue("13:04", &tr), out);   // unmapped: an HA sensor of that name (#145)
+  a.ingest("sensor.x4_route_work", haValue("13:04", &tr), out);   // unmapped: an HA sensor of that name (eink-ha-os#145)
   Json cl; parseJson("{\"friendly_name\":\"Living\",\"current_temperature\":20.5,\"temperature\":21}", cl);
   a.ingest("climate.living", haValue("heat", &cl), out);
   a.ingest("sensor.solaredge_current_power", haValue("2000"), out);           // not the source any more
@@ -330,7 +330,7 @@ void test_identity_without_prefs() {
   TEST_ASSERT_EQUAL_STRING("unavailable", find(o2, "sensor.solar_power")->state.c_str());
 }
 
-// #57: the entity picker's render_template answer for 800 entities is one ~75 KB JSON string inside the event.
+// eink-ha-os#57: the entity picker's render_template answer for 800 entities is one ~75 KB JSON string inside the event.
 // ArduinoJson's default 16-bit string length refused it (NoMemory) and the list never arrived.
 void test_render_template_answer_over_64k() {
   std::string list = "[";
@@ -359,7 +359,7 @@ void test_render_template_answer_over_64k() {
   TEST_ASSERT_EQUAL_STRING("sensor.bulk_799", parsed[799][0] | "");
 }
 
-// #274: both grid shapes of energy/get_prefs (legacy flow_from / flow_to, HA 2025.12+ flat), spec/test-vectors/energy-prefs.json
+// eink-ha-os#274: both grid shapes of energy/get_prefs (legacy flow_from / flow_to, HA 2025.12+ flat), spec/test-vectors/energy-prefs.json
 void test_energy_prefs_vectors() {
   std::ifstream f(std::string(X4_REPO_ROOT) + "/spec/test-vectors/energy-prefs.json", std::ios::binary);
   std::stringstream ss; ss << f.rdbuf();
@@ -402,7 +402,7 @@ void test_energy_prefs_vectors() {
   TEST_ASSERT_GREATER_OR_EQUAL(5, n);
 }
 
-// ---------- route departures: departures / NS upcoming (spec/test-vectors/route-departures.json, emulator core/route.ts, #275)
+// ---------- route departures: departures / NS upcoming (spec/test-vectors/route-departures.json, emulator core/route.ts, eink-ha-os#275)
 void test_route_departures_vectors() {
   std::ifstream f(std::string(X4_REPO_ROOT) + "/spec/test-vectors/route-departures.json", std::ios::binary);
   std::stringstream ss; ss << f.rdbuf();
@@ -430,7 +430,7 @@ void test_route_departures_vectors() {
   TEST_ASSERT_GREATER_THAN(20, n);
 }
 
-// #308: today's energy from recorder statistics and the local day change, spec/test-vectors/energy-hourly.json
+// eink-ha-os#308: today's energy from recorder statistics and the local day change, spec/test-vectors/energy-hourly.json
 static void checkStatOut(JsonObjectConst want, const EntityUpdates& out, const std::string& name) {
   TEST_ASSERT_EQUAL_INT_MESSAGE(int(want.size()), int(out.size()), name.c_str());
   for (JsonPairConst kv : want) {

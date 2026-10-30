@@ -1,4 +1,4 @@
-// Guest Wi-Fi tile (#329), emulator src/core/guestWifi.ts.
+// Guest Wi-Fi tile (eink-ha-os#329), emulator src/core/guestWifi.ts.
 #include "core/guest_wifi.h"
 #include <algorithm>
 #include <cstring>

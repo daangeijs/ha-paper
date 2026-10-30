@@ -1,5 +1,5 @@
 {
-  "description": "Improv Wi-Fi serial frames (https://www.improv-wifi.com/serial/, issue #31). Firmware core/improv.cpp and flasher src/improv.ts both run these. frame = \"IMPROV\", version 1, type, data length, data, checksum (sum of all previous bytes mod 256), then '\\n'. frames: type + data (hex) -> full frame (hex). streams: bytes with log text around frames -> the packets a parser yields. bad: no packet; checksum_error = the device answers error 0x01. rpcs: RPC packet data -> command + length-prefixed strings (strings null = malformed payload; valid false = bad length byte).",
+  "description": "Improv Wi-Fi serial frames (https://www.improv-wifi.com/serial/, issue eink-ha-os#31). Firmware core/improv.cpp and flasher src/improv.ts both run these. frame = \"IMPROV\", version 1, type, data length, data, checksum (sum of all previous bytes mod 256), then '\\n'. frames: type + data (hex) -> full frame (hex). streams: bytes with log text around frames -> the packets a parser yields. bad: no packet; checksum_error = the device answers error 0x01. rpcs: RPC packet data -> command + length-prefixed strings (strings null = malformed payload; valid false = bad length byte).",
   "frames": [
     {
       "name": "get state (client)",

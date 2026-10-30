@@ -1,5 +1,5 @@
 {
-  "_doc": "PUT /api/v1/settings key and tz rules (#43). firmware core/settings_api.cpp putError() = emulator src/core/settings.ts settingsPutError(). tz is \"\" (follow Home Assistant, #147), a zone name from spec/test-vectors/locale.json zones, or a POSIX TZ string (newlib setenv(\"TZ\")/tzset(); other IANA names are not understood and would fall back to UTC, so they are rejected). Unknown keys are rejected on input; stored files keep them (#12 rollback rule, core/migrate).",
+  "_doc": "PUT /api/v1/settings key and tz rules (eink-ha-os#43). firmware core/settings_api.cpp putError() = emulator src/core/settings.ts settingsPutError(). tz is \"\" (follow Home Assistant, eink-ha-os#147), a zone name from spec/test-vectors/locale.json zones, or a POSIX TZ string (newlib setenv(\"TZ\")/tzset(); other IANA names are not understood and would fall back to UTC, so they are rejected). Unknown keys are rejected on input; stored files keep them (eink-ha-os#12 rollback rule, core/migrate).",
   "tz": [
     { "tz": "CET-1CEST,M3.5.0,M10.5.0/3", "ok": true },
     { "tz": "GMT0BST,M3.5.0/1,M10.5.0", "ok": true },
@@ -38,10 +38,10 @@
   "put": [
     { "name": "empty object", "body": {}, "error": null },
     { "name": "every known key", "body": { "display": { "brightness": 10, "otaAuto": "notify", "haReport": false }, "ota_channel": "beta", "tz": "UTC0", "name": "Hall", "entities": {} }, "error": null },
-    { "name": "power keys (glance, #10)", "body": { "display": { "powerSave": "glance", "wakeEvery": 30, "liveMin": 5 } }, "error": null },
-    { "name": "empty-house source (#331)", "body": { "display": { "emptyHouse": "zone.home" } }, "error": null },
-    { "name": "remote input switch (#214)", "body": { "display": { "debugInput": true } }, "error": null },
-    { "name": "front light timeout (#220)", "body": { "display": { "lightTimeout": 120 } }, "error": null },
+    { "name": "power keys (glance, eink-ha-os#10)", "body": { "display": { "powerSave": "glance", "wakeEvery": 30, "liveMin": 5 } }, "error": null },
+    { "name": "empty-house source (eink-ha-os#331)", "body": { "display": { "emptyHouse": "zone.home" } }, "error": null },
+    { "name": "remote input switch (eink-ha-os#214)", "body": { "display": { "debugInput": true } }, "error": null },
+    { "name": "front light timeout (eink-ha-os#220)", "body": { "display": { "lightTimeout": 120 } }, "error": null },
     { "name": "tz null = unchanged", "body": { "tz": null }, "error": null },
     { "name": "unknown top-level key", "body": { "powerSave": "auto" }, "error": "unknown key: powerSave" },
     { "name": "unknown key after a known one", "body": { "name": "Hall", "entity_sources": {} }, "error": "unknown key: entity_sources" },
@@ -50,8 +50,8 @@
     { "name": "unknown key wins over a bad tz", "body": { "tz": "Mars/Olympus", "timezone": "x" }, "error": "unknown key: timezone" },
     { "name": "unknown zone name", "body": { "tz": "Mars/Olympus" }, "error": "tz must be \"\", a known zone like Europe/Amsterdam or a POSIX TZ string like CET-1CEST,M3.5.0,M10.5.0/3" },
     { "name": "tz not a string", "body": { "tz": 1 }, "error": "tz must be \"\", a known zone like Europe/Amsterdam or a POSIX TZ string like CET-1CEST,M3.5.0,M10.5.0/3" },
-    { "name": "tz empty = follow Home Assistant (#147)", "body": { "tz": "" }, "error": null },
-    { "name": "tz a known zone name (#147)", "body": { "tz": "Europe/Amsterdam" }, "error": null },
+    { "name": "tz empty = follow Home Assistant (eink-ha-os#147)", "body": { "tz": "" }, "error": null },
+    { "name": "tz a known zone name (eink-ha-os#147)", "body": { "tz": "Europe/Amsterdam" }, "error": null },
     { "name": "tz zone names are case-sensitive", "body": { "tz": "europe/amsterdam" }, "error": "tz must be \"\", a known zone like Europe/Amsterdam or a POSIX TZ string like CET-1CEST,M3.5.0,M10.5.0/3" }
   ]
 }

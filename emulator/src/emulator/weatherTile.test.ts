@@ -1,4 +1,4 @@
-// Weather tile (#318): renders in both looks, full screen and top half, with the demo forecast of weather.home.
+// Weather tile (eink-ha-os#318): renders in both looks, full screen and top half, with the demo forecast of weather.home.
 import { describe, it, expect } from 'vitest';
 import { renderToString } from 'react-dom/server';
 import { Emulator, type EmuState } from './Emulator.tsx';
@@ -11,7 +11,7 @@ function emu(widgets: Record<string, unknown>[], look: 'classic' | 'sleek', patc
   return renderToString(e.render());
 }
 
-describe('weather tile (#318)', () => {
+describe('weather tile (eink-ha-os#318)', () => {
   for (const look of ['classic', 'sleek'] as const) {
     it(look + ': full screen has the hero and a 5-day strip', () => {
       const out = emu([{ type: 'weather', entity: 'weather.home', cs: 4, rs: 2 }], look);

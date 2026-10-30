@@ -138,7 +138,7 @@ bool ipv6(const std::string& h, std::vector<uint32_t>& g) {
 
 bool localV4(uint32_t a) { return (a >> 24) == 127 || (a >> 24) == 0 || (a >> 16) == 0xa9fe; }
 
-// Loopback (127/8, 0/8, ::1, ::, localhost) or link-local (169.254/16, fe80::/10): never HA for the display (#75).
+// Loopback (127/8, 0/8, ::1, ::, localhost) or link-local (169.254/16, fe80::/10): never HA for the display (eink-ha-os#75).
 bool localOnly(std::string h) {
   if (!h.empty() && h.back() == '.') h.pop_back();
   const std::string tld = ".localhost";
@@ -212,7 +212,7 @@ Parsed parse(const std::string& input) {
     }
     hasPort = true;
   }
-  // The other scheme keeps only HA's own 8123; another port belongs to the typed scheme (a proxy, #75).
+  // The other scheme keeps only HA's own 8123; another port belongs to the typed scheme (a proxy, eink-ha-os#75).
   const int altPort = port == kDefaultPort ? port : 0;
   if (!scheme.empty()) {
     p.url = origin(scheme, host, port);
@@ -264,7 +264,7 @@ Resolved resolve(const std::string& input, const std::function<Answer(const std:
     r.url = a.url;
     return r;
   }
-  // Only the https upgrade of the same host and port is followed (#75); any other redirect is refused.
+  // Only the https upgrade of the same host and port is followed (eink-ha-os#75); any other redirect is refused.
   const std::string moved = first.status >= 300 && first.status < 400 ? originOf(first.location) : std::string();
   const bool upgrade = a.url.rfind("http://", 0) == 0 && moved == "https://" + a.url.substr(7);
   const std::string next = upgrade ? moved : a.alt;

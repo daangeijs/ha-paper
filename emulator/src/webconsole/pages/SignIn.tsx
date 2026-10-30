@@ -1,4 +1,4 @@
-// Signed out (#142): device mark, device name, tagline, the button, one quiet line (or the sign-in error).
+// Signed out (eink-ha-os#142): device mark, device name, tagline, the button, one quiet line (or the sign-in error).
 // Version: Device tab. Centred; fits 360 px without horizontal scroll (console.css .x4-out).
 import type { ConsoleView } from '../useConsole.ts';
 

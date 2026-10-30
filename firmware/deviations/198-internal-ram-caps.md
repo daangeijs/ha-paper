@@ -10,4 +10,4 @@
 - TLS (x4pro only, `net/tls_pool.cpp`): mbedTLS allocations ≤ 16 KB (certs, MPI, handshake, cipher contexts) go to
   PSRAM, internal RAM if PSRAM is full; record buffers stay in the internal pool / internal heap. QEMU keeps all of it
   internal (its GDMA can't read PSRAM), so the contract suite does not cover the PSRAM path. Boot log:
-  `[I][NET] TLS: record buffers in a 4 x 16896 B internal pool (#198), other mbedTLS allocations in PSRAM|internal RAM`.
+  `[I][NET] TLS: record buffers in a 4 x 16896 B internal pool (eink-ha-os#198), other mbedTLS allocations in PSRAM|internal RAM`.

@@ -1,4 +1,4 @@
-// core/www_image (#350): www partition bounds, the erase-then-write order, sha verdict, version file, manifest entry.
+// core/www_image (eink-ha-os#350): www partition bounds, the erase-then-write order, sha verdict, version file, manifest entry.
 #include <unity.h>
 #include <string>
 #include <vector>
@@ -25,7 +25,7 @@ struct FakeFlash : Sink {
   }
   bool write(uint32_t off, const uint8_t* d, size_t n) override {
     if (failWrite) return false;
-    // only whole sectors, sector aligned (the Update pattern; #350 device run)
+    // only whole sectors, sector aligned (the Update pattern; eink-ha-os#350 device run)
     if (off % kErase || n != kErase) return false;
     ++writes;
     for (size_t i = 0; i < n; ++i) {
@@ -130,7 +130,7 @@ void test_version_and_manifest() {
   TEST_ASSERT_EQUAL_STRING("www.bin", m.path.c_str());
   TEST_ASSERT_EQUAL(3407872, m.size);
   TEST_ASSERT_EQUAL_STRING(std::string(64, 'f').c_str(), m.sha256.c_str());
-  TEST_ASSERT_FALSE(parseManifest("{\"version\":\"0.2.0\",\"sha256\":\"" + sha + "\",\"size\":1}", m));   // pre-#350
+  TEST_ASSERT_FALSE(parseManifest("{\"version\":\"0.2.0\",\"sha256\":\"" + sha + "\",\"size\":1}", m));   // pre-eink-ha-os#350
   TEST_ASSERT_FALSE(parseManifest("{\"www\":{\"path\":\"www.bin\",\"size\":0,\"sha256\":\"" + sha + "\"}}", m));
   TEST_ASSERT_FALSE(parseManifest("{\"www\":{\"path\":\"www.bin\",\"size\":5,\"sha256\":\"xyz\"}}", m));
   TEST_ASSERT_FALSE(parseManifest("not json", m));

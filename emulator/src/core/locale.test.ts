@@ -2,7 +2,7 @@ import { describe, it, expect } from 'vitest';
 import { TZ_TABLE, currencySymbol, ianaToPosix, money, tzFor, validPosixTz, validTzSetting } from './locale.ts';
 import { settingsPages, settingsPutError } from './settings.ts';
 
-describe('time zone from Home Assistant (#147)', () => {
+describe('time zone from Home Assistant (eink-ha-os#147)', () => {
   it('every table entry is a valid newlib POSIX TZ, names unique', () => {
     for (const [n, p] of TZ_TABLE) expect(validPosixTz(p), n + ' ' + p).toBe(true);
     expect(new Set(TZ_TABLE.map(([n]) => n)).size).toBe(TZ_TABLE.length);
@@ -23,7 +23,7 @@ describe('time zone from Home Assistant (#147)', () => {
   });
 });
 
-describe('currency from Home Assistant (#147)', () => {
+describe('currency from Home Assistant (eink-ha-os#147)', () => {
   it('symbols and prices', () => {
     expect([currencySymbol('EUR'), currencySymbol('USD'), currencySymbol('GBP'), currencySymbol('SEK'), currencySymbol(null)]).toEqual(['€', '$', '£', 'SEK', '€']);
     expect(money(0.234, '€')).toBe('€0.23');

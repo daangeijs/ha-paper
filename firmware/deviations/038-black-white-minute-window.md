@@ -1,6 +1,6 @@
 # Black/white only, minute window (issue #38)
 
-The panel preview (#25) showed gray content breaking after a partial refresh (B/W plane only: G1 → black, G2 →
+The panel preview (eink-ha-os#25) showed gray content breaking after a partial refresh (B/W plane only: G1 → black, G2 →
 white): Heating NOW "17.8°" read "'7.8" (the thin G1 `1` strokes went white), Home lost every gray after the first
 minute, price bars vanished. Not a handoff deviation in itself, but the handoff palette used G1/G2 for text and bars.
 

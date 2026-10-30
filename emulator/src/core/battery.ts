@@ -1,4 +1,4 @@
-// Battery history (#231): what the gauge said every 5 min over the last 24 h, so a drain can be measured on the device
+// Battery history (eink-ha-os#231): what the gauge said every 5 min over the last 24 h, so a drain can be measured on the device
 // itself. GET /api/v1/diagnostics `battery`; firmware core/battery_history.cpp (PSRAM ring, lost on reset and deep
 // sleep). Vectors: spec/test-vectors/battery-history.json.
 
@@ -37,7 +37,7 @@ export function battStep(s: BattState, i: BattIn): { s: BattState; log: string |
 export type BattHistory = { interval_s: number; fields: string[]; history: BattRow[] };
 export const battHistory = (s: BattState): BattHistory => ({ interval_s: BATT_SAMPLE_S, fields: [...BATT_FIELDS], history: s.rows });
 
-// Gauge filter (#327): the CW2017 % reads low under load and high after rest (92 → 94 % after a night asleep, no
+// Gauge filter (eink-ha-os#327): the CW2017 % reads low under load and high after rest (92 → 94 % after a night asleep, no
 // charger). The shown % never rises without a charger; a rise of GAUGE_RISE_PTS or more confirmed by GAUGE_RISE_READS
 // reads in a row is taken (a charge the board did not see). Falls pass at once. The state survives deep sleep (RTC
 // memory); power-on starts at none. Firmware core/gauge_filter.cpp; vectors spec/test-vectors/gauge-filter.json.

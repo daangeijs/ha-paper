@@ -1,4 +1,4 @@
-// Agenda and Next tiles (#316); see agenda.h. Port of emulator src/core/agenda.ts.
+// Agenda and Next tiles (eink-ha-os#316); see agenda.h. Port of emulator src/core/agenda.ts.
 #include "core/agenda.h"
 #include <algorithm>
 #include <cmath>

@@ -4,7 +4,7 @@ import { describe, expect, it } from 'vitest';
 import { logsVectors } from '../../scripts/gen-vectors.ts';
 import { LOG_CAP, logPush, logRing, logsQuery, logsQueryOf, logSplit, logTail, logText, redact } from './logs.ts';
 
-describe('device log ring (spec/test-vectors/logs.json, #200)', () => {
+describe('device log ring (spec/test-vectors/logs.json, eink-ha-os#200)', () => {
   it('the committed vectors are current', () => {
     const disk = JSON.parse(readFileSync(join(import.meta.dirname, '..', '..', '..', 'spec', 'test-vectors', 'logs.json'), 'utf8'));
     expect(disk).toEqual(JSON.parse(JSON.stringify(logsVectors())));
@@ -47,7 +47,7 @@ describe('device log ring (spec/test-vectors/logs.json, #200)', () => {
   });
 });
 
-describe('console Device log page (#200)', async () => {
+describe('console Device log page (eink-ha-os#200)', async () => {
   const { logsMerge, logsShown } = await import('../webconsole/logsView.ts');
   const l = (seq: number, level: 'E' | 'W' | 'I', tag: string) => ({ seq, ms: seq, epoch: null, level, tag, msg: 'm' });
   it('appends polls; a lower seq means the display restarted', () => {

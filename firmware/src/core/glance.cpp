@@ -1,12 +1,13 @@
 #include "core/glance.h"
 
 #include <algorithm>
+#include <cmath>
 #include <cstring>
 
 namespace x4::glance {
 
 namespace {
-constexpr uint32_t kRtcMagic = 0x474c4e44u;   // "GLND" (#178 tally); ^ sizeof(Rtc): another layout starts fresh. Bump on change
+constexpr uint32_t kRtcMagic = 0x474c4e44u;   // "GLND" (eink-ha-os#178 tally); ^ sizeof(Rtc): another layout starts fresh. Bump on change
 const uint8_t* body(const Rtc& r) { return reinterpret_cast<const uint8_t*>(&r) + offsetof(Rtc, hasSnap); }
 constexpr size_t kBody = sizeof(Rtc) - offsetof(Rtc, hasSnap);
 }  // namespace
@@ -59,7 +60,7 @@ StepOut step(const StepIn& i) {
   if (!i.ok) {
     const int fails = i.fails + 1;
     if (fails >= kOfflineAfter && !i.drawnOffline) return {true, "offline", fails, true};
-    if (i.hadSnapshot && i.changed > 0) return {true, "changed", fails, i.drawnOffline};   // #356: the face's date / quiet face
+    if (i.hadSnapshot && i.changed > 0) return {true, "changed", fails, i.drawnOffline};   // eink-ha-os#356: the face's date / quiet face
     return {false, "unreachable", fails, i.drawnOffline};
   }
   if (!i.hadSnapshot) return {true, "first", 0, false};
@@ -121,6 +122,19 @@ void tallySleep(Tally& t, uint32_t awakeMs, uint32_t full, uint32_t partial) {
   t.awakeMs += awakeMs;
   t.fullRefreshes += full;
   t.partialRefreshes += partial;
+}
+
+int32_t timerPpm(int32_t prevPpm, int64_t programmedS, int64_t realS) {
+  if (programmedS < kTimerLearnMinS || realS <= 0) return prevPpm;
+  const int64_t ppm = int64_t(std::floor(double(realS - programmedS) * 1e6 / double(programmedS) + 0.5));   // JS Math.round
+  return ppm > kTimerPpmMax || ppm < -kTimerPpmMax ? prevPpm : int32_t(ppm);
+}
+int64_t timerSeconds(int64_t realS, int32_t ppm) {
+  return std::max<int64_t>(1, int64_t(std::floor(double(realS) * 1e6 / (1e6 + ppm) + 0.5)));
+}
+Early earlyWake(int64_t wakeAtEpoch, int64_t nowEpoch) {
+  if (wakeAtEpoch <= 0 || nowEpoch <= 0 || nowEpoch >= wakeAtEpoch) return Early::Go;
+  return wakeAtEpoch - nowEpoch <= kEarlyWaitS ? Early::Wait : Early::Sleep;
 }
 
 void reset(Rtc& r) {

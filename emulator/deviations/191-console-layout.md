@@ -2,7 +2,7 @@
 
 - Tabs are Screens · Device settings · Advanced (was Screens, Data sources, Advanced, API access, Device). The
   in-browser emulator's address bar shows `/screens`, `/device`, `/advanced`; the device serves every SPA path.
-- No Data sources tab (#24). The screen editor shows each tile's source on one line: the HA entity, where it comes
+- No Data sources tab (eink-ha-os#24). The screen editor shows each tile's source on one line: the HA entity, where it comes
   from (from Energy dashboard / picked by you / same id in HA / none), Change, and HA's value. Logical ids stay
   hidden. For tiles that read a logical id (stat on `sensor.solar_power` …, price, bars series, gauge without
   entity; `webconsole/tileSource.ts` `tileLogical`) Change opens the old page's entity search, sign toggle (power ids
@@ -10,7 +10,7 @@
   read by other tiles (any screen) gets an amber line naming them. Tiles with their own entity show the same line;
   Change opens the entity picker (part of the draft, pushed with the screen). A new tile without an entity keeps
   its picker open.
-- Device settings: the settings fill the wide left column, each explained one with an (i) that opens the #190 text
+- Device settings: the settings fill the wide left column, each explained one with an (i) that opens the eink-ha-os#190 text
   (EN + NL from `strings.ts` `info*`). Wi-Fi is one line on top of the right column ("Wi-Fi <network> · <signal> ·
   Change"); Change opens the network list, password and Connect.
 - Advanced: a sidebar with two full pages, Screens as YAML (editor fills the page, Validate / Push top right) and API

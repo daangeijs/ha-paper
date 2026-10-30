@@ -1,4 +1,4 @@
-// Glance mode (#10; "glance by default" on battery, decided in #18). Between timer wakes the display deep-sleeps; each
+// Glance mode (eink-ha-os#10; "glance by default" on battery, decided in eink-ha-os#18). Between timer wakes the display deep-sleeps; each
 // wake connects Wi-Fi, fetches the visible entities once, compares what it would draw with what the panel shows (a
 // snapshot kept in RTC memory) and redraws only when that differs, then sleeps again. A key press wakes into live mode
 // (WebSocket + touch) for `liveMin` minutes. When to sleep and for how long: core/power.ts powerDecision().
@@ -33,7 +33,7 @@ export function snapshotDiff(prev: Snapshot | null, next: Snapshot, ignore: read
 
 export type GlanceIn = {
   ok: boolean;              // HA answered within the 20 s cap
-  changed: string[];        // snapshotDiff() of this wake (unreachable: what the face shows without new data, #356)
+  changed: string[];        // snapshotDiff() of this wake (unreachable: what the face shows without new data, eink-ha-os#356)
   hadSnapshot: boolean;     // a valid snapshot was in RTC memory
   fails: number;            // failed wakes in a row before this one
   drawnOffline: boolean;    // the panel shows the offline mark
@@ -47,7 +47,7 @@ export function glanceStep(i: GlanceIn): GlanceOut {
   if (!i.ok) {
     const fails = i.fails + 1;
     if (fails >= GLANCE_OFFLINE_AFTER && !i.drawnOffline) return { redraw: true, reason: 'offline', fails, drawnOffline: true };
-    // #356: a transition wake moves the face itself (its date at midnight, the quiet face): drawn without new data
+    // eink-ha-os#356: a transition wake moves the face itself (its date at midnight, the quiet face): drawn without new data
     if (i.hadSnapshot && i.changed.length) return { redraw: true, reason: 'changed', fails, drawnOffline: i.drawnOffline };
     return { redraw: false, reason: 'unreachable', fails, drawnOffline: i.drawnOffline };
   }
@@ -69,9 +69,9 @@ export function wifiFast(c: WifiCache, savedSsidHash: number, nowEpoch: number):
   return nowEpoch > 0 && c.ipAtEpoch > 0 && nowEpoch >= c.ipAtEpoch && nowEpoch - c.ipAtEpoch < WIFI_IP_MAX_AGE_S ? 'ip' : 'radio';
 }
 
-/** First-boot safety (#10, council): a wrong power latch or wake pin would make a sleeping display look dead and
+/** First-boot safety (eink-ha-os#10, council): a wrong power latch or wake pin would make a sleeping display look dead and
  *  invisible on USB. So an image deep-sleeps only once it is armed on this device: ARM_BOOTS boots that confirmed with
- *  the network up (the OTA confirm rule: 60 s up, Wi-Fi connected), or (#231) ARM_UPTIME_MIN minutes of one boot with
+ *  the network up (the OTA confirm rule: 60 s up, Wi-Fi connected), or (eink-ha-os#231) ARM_UPTIME_MIN minutes of one boot with
  *  the network up and the OTA image confirmed valid, whichever comes first. A new firmware version starts over. */
 export const ARM_BOOTS = 3;
 export const ARM_UPTIME_MIN = 30;
@@ -81,7 +81,7 @@ export type ArmRecord = { version: string; boots: number; uptime: boolean };
 export const armFor = (stored: Partial<ArmRecord> | null, version: string): ArmRecord => (stored && stored.version === version && Number.isInteger(stored.boots) && (stored.boots as number) >= 0 ? { version, boots: stored.boots as number, uptime: stored.uptime === true } : { version, boots: 0, uptime: false });
 /** This boot confirmed with the network up: count it (once per boot; stops counting at ARM_BOOTS). */
 export const armCount = (r: ArmRecord): ArmRecord => (r.boots >= ARM_BOOTS ? r : { ...r, boots: r.boots + 1 });
-/** #231: this boot has been online `netUpMin` minutes; arms once that reaches ARM_UPTIME_MIN with the image confirmed. */
+/** eink-ha-os#231: this boot has been online `netUpMin` minutes; arms once that reaches ARM_UPTIME_MIN with the image confirmed. */
 export const armUptime = (r: ArmRecord, netUpMin: number, pendingVerify: boolean): ArmRecord =>
   (armBootsLeft(r) === 0 || pendingVerify || netUpMin < ARM_UPTIME_MIN ? r : { ...r, uptime: true });
 /** powerDecision `armBootsLeft` (0 = armed); /diagnostics "glance armed after N more boots". */
@@ -97,7 +97,7 @@ export const BOOT_HOLD_LIVE_MIN = 10;
 /** Live mode is on while the last key press / touch is younger than `liveMin` minutes (null = none since the wake). */
 export const liveNow = (msSinceInput: number | null, liveMin: number): boolean => msSinceInput !== null && msSinceInput < liveMin * 60_000;
 
-/** Wake counters since power-on (#178, power measurements), RTC memory next to the snapshot. GET /status `power`
+/** Wake counters since power-on (eink-ha-os#178, power measurements), RTC memory next to the snapshot. GET /status `power`
  *  (wakes, redraws, failedWakes, awakeS, asleepS, lastWake) and `refreshes`. A restart that is no deep-sleep wake keeps
  *  them but loses that boot's awake time and refreshes; power-on (or a bad RTC record) zeroes them. */
 export type WakeTally = {
@@ -126,3 +126,28 @@ export const tallyGlance = (t: WakeTally, ok: boolean, redraw: boolean, wifiMs: 
 /** Going to deep sleep: this boot's awake time and refresh counts. */
 export const tallySleep = (t: WakeTally, awakeMs: number, full: number, partial: number): WakeTally =>
   ({ ...t, awakeMs: t.awakeMs + awakeMs, fullRefreshes: t.fullRefreshes + full, partialRefreshes: t.partialRefreshes + partial });
+
+/** Deep-sleep timer drift (eink-ha-os#364). The ESP32-S3 sleep timer runs on the RC slow clock: on a real X4 Pro it ran ~1 %
+ *  fast (woke 06:55 for 07:00, 22:59 for 23:00), and the BM8563 crystal clock read at boot showed the wake early,
+ *  so quiet hours sent it back to sleep for the last minutes: two wakes per transition. The device learns the rate
+ *  from each long timer sleep (programmed timer seconds vs crystal seconds) and scales the next timer by it. */
+export const TIMER_LEARN_MIN_S = 3600;   // shorter sleeps: boot/shutdown seconds would swamp the drift
+export const TIMER_PPM_MAX = 50_000;     // beyond ±5 %: a clock jump, not drift; the old rate stays
+/** A timer wake at most this early waits awake for the planned second (Wi-Fi and HA connect meanwhile); earlier
+ *  sleeps again for the rest (a glance wake costs more than a few seconds awake). */
+export const EARLY_WAIT_S = 15;
+
+/** Learned rate in ppm (+ = the timer runs slow, the real sleep was longer): programmedS = seconds given to the timer,
+ *  realS = crystal-clock seconds the sleep took (0 = unknown). */
+export function timerPpm(prevPpm: number, programmedS: number, realS: number): number {
+  if (programmedS < TIMER_LEARN_MIN_S || realS <= 0) return prevPpm;
+  const ppm = Math.round(((realS - programmedS) * 1_000_000) / programmedS);
+  return Math.abs(ppm) > TIMER_PPM_MAX ? prevPpm : ppm;
+}
+/** Timer seconds for a real sleep of realS at the learned rate (≥ 1). */
+export const timerSeconds = (realS: number, ppm: number): number => Math.max(1, Math.round((realS * 1_000_000) / (1_000_000 + ppm)));
+/** A timer wake against its planned epoch (0 = unknown): go on, wait awake until it, or sleep again for the rest. */
+export function earlyWake(wakeAtEpoch: number, nowEpoch: number): 'go' | 'wait' | 'sleep' {
+  if (wakeAtEpoch <= 0 || nowEpoch <= 0 || nowEpoch >= wakeAtEpoch) return 'go';
+  return wakeAtEpoch - nowEpoch <= EARLY_WAIT_S ? 'wait' : 'sleep';
+}

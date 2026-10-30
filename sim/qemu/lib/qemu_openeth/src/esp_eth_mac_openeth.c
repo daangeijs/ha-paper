@@ -189,7 +189,7 @@ static esp_err_t emac_opencores_set_link(esp_eth_mac_t *mac, eth_link_t link)
     emac_opencores_t *emac = __containerof(mac, emac_opencores_t, parent);
     switch (link) {
     case ETH_LINK_UP:
-        // X4 (#108): setting RXEN/TXEN makes QEMU restart at the first RX/TX descriptor (opencores_eth.c
+        // X4 (eink-ha-os#108): setting RXEN/TXEN makes QEMU restart at the first RX/TX descriptor (opencores_eth.c
         // open_eth_moder_host_write), but cur_rx_desc stayed where the last link left it. Out of step, the driver
         // only sees a frame once QEMU's write position reaches cur_rx_desc, so frames in the slots before it sit
         // unread for a ring turn (DHCP after `set_link on` took 1-2 min). Worse, if one of those unread slots is

@@ -1,4 +1,4 @@
-// Now playing tile (#319): core/media against spec/test-vectors/media.json, and the tile on the real App: taps send the
+// Now playing tile (eink-ha-os#319): core/media against spec/test-vectors/media.json, and the tile on the real App: taps send the
 // HA calls, ★ opens the favorites picker, a favorite starts and closes it, only title / state / volume redraw.
 #include <unity.h>
 #include <cstdio>
@@ -123,7 +123,7 @@ void test_media_vectors() {
 void test_media_attrs_kept() {
   for (const char* k : {"media_title", "media_artist", "volume_level"}) TEST_ASSERT_TRUE_MESSAGE(keepAttr(k), k);
   TEST_ASSERT_FALSE(keepAttr("media_position"));   // progress: dropped at ingest, never a redraw
-  TEST_ASSERT_TRUE(keepAttrFor("media_player.living_room", "supported_features"));   // #351: VOLUME_SET → slider
+  TEST_ASSERT_TRUE(keepAttrFor("media_player.living_room", "supported_features"));   // eink-ha-os#351: VOLUME_SET → slider
   TEST_ASSERT_FALSE(keepAttrFor("light.kitchen", "supported_features"));
 }
 
@@ -238,7 +238,7 @@ void test_media_narrow_and_tall() {
   TEST_ASSERT_TRUE(r.sig("t0").find("×") != std::string::npos);
 }
 
-// #351: a VOLUME_SET player gets the bar (region v0) from x 14 + 14 + 184 to ★ (380 − 14 − 48 − 8): 112 px wide
+// eink-ha-os#351: a VOLUME_SET player gets the bar (region v0) from x 14 + 14 + 184 to ★ (380 − 14 − 48 − 8): 112 px wide
 void test_media_volume_slider() {
   Rig r(kTile, false, "152511");
   const int bx = 14 + 14 + 184, bw = 380 - 28 - 184 - 56, by = 70 + 192 - 12 - 24;

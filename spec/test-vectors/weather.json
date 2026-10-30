@@ -1,5 +1,5 @@
 {
-  "_doc": "Weather tile (#318): emulator src/core/weather.ts (weatherError, wxIcon, wxEntries, weatherView). Firmware: core/weather.cpp, test_core test_weather_vectors. Times epoch ms; tz = local UTC offset in minutes; now = 2026-10-26T14:37:00+00:00. config: like config/*.json. icons: HA condition → drawing. entries: a weather.get_forecasts list → kept entries (t, icon, temp, low, mm; null = absent). views: entity state + attributes + both lists (raw, through wxEntries) → the tile text.",
+  "_doc": "Weather tile (eink-ha-os#318): emulator src/core/weather.ts (weatherError, wxIcon, wxEntries, weatherView). Firmware: core/weather.cpp, test_core test_weather_vectors. Times epoch ms; tz = local UTC offset in minutes; now = 2026-10-26T14:37:00+00:00. config: like config/*.json. icons: HA condition → drawing. entries: a weather.get_forecasts list → kept entries (t, icon, temp, low, mm; null = absent). views: entity state + attributes + both lists (raw, through wxEntries) → the tile text.",
   "now": 1793025420000,
   "icons": [
     "sun",

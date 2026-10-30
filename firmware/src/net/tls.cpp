@@ -21,7 +21,7 @@ void attachCaBundle(NetworkClientSecure& c) {
   c.setHandshakeTimeout(10);   // seconds; library default 120 s
 }
 
-// Every TLS caller runs on the net task, so handshakes never overlap. The -32512 in #123 was one handshake next to
+// Every TLS caller runs on the net task, so handshakes never overlap. The -32512 in eink-ha-os#123 was one handshake next to
 // the open WebSocket's two 16 KB record buffers (now in net/tls_pool.cpp's reserve); callers still handle
 // kHttpLowMemory (sign-in yields the WebSocket).
 int tlsConnect(NetworkClientSecure& c, const char* host, uint16_t port, uint32_t timeoutMs) {
@@ -55,7 +55,7 @@ bool lowHeapFor(const std::string& url) {
 }
 
 // The handshake gets the caller's timeout too (whole seconds, at most attachCaBundle's 10 s): a 5 s probe must not
-// sit 10 s in a stalled handshake (#79).
+// sit 10 s in a stalled handshake (eink-ha-os#79).
 std::unique_ptr<NetworkClient> clientFor(const std::string& url, uint32_t timeoutMs) {
   if (url.rfind("https://", 0) == 0) {
     auto* s = new NetworkClientSecure();
@@ -66,7 +66,7 @@ std::unique_ptr<NetworkClient> clientFor(const std::string& url, uint32_t timeou
   return std::unique_ptr<NetworkClient>(new NetworkClient());
 }
 
-// https:// connects here, before HTTPClient (it reuses a connected client), so the handshake is timed (#123).
+// https:// connects here, before HTTPClient (it reuses a connected client), so the handshake is timed (eink-ha-os#123).
 // 0, or the code to return: -1 (HTTPC_ERROR_CONNECTION_REFUSED, what HTTPClient gives) or kHttpLowMemory.
 int connectFor(NetworkClient& c, const std::string& url, uint32_t timeoutMs) {
   Url u;

@@ -1,4 +1,4 @@
-// Bin day tile (#317) = emulator src/core/bins.ts; vectors spec/test-vectors/bins.json. Pure: times are epoch ms, tz the
+// Bin day tile (eink-ha-os#317) = emulator src/core/bins.ts; vectors spec/test-vectors/bins.json. Pure: times are epoch ms, tz the
 // local UTC offset in minutes. Computed on each draw from the EntityStore; nothing is kept.
 #pragma once
 #include <cstdint>

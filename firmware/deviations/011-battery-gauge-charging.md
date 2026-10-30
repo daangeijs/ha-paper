@@ -7,7 +7,7 @@
   recovery, 30 s otherwise). Longest step: profile check + 81 writes (~25 ms at 100 kHz, only after a lost profile).
   Failed init/recovery retries at 30 s (vendor: next call ≥ 1 s). Boot still waits up to ~5 s for a recovery so the
   first frame has a real percentage. `BatteryMonitor` is kept for the STAT pin (GPIO21) and non-CW2017 boards.
-- VCELL (#73): `core/cw2017` reads 0x02/0x03 after every good SoC (5 reads per 30 s poll instead of 3) and decodes
+- VCELL (eink-ha-os#73): `core/cw2017` reads 0x02/0x03 after every good SoC (5 reads per 30 s poll instead of 3) and decodes
   with the vendor formula (`spec/test-vectors/cw2017-vcell.json`). A failed VCELL read keeps the SoC and reports the
   voltage as unknown (`PowerInfo.mv` 0, `/status` `battery_mv` null). `net/power.cpp` feeds it to `core/power` with
   `chargedAgoMin` = minutes since `inputs()` last saw STAT charging, since boot only (the emulator passes null). QEMU:

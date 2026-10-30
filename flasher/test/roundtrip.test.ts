@@ -1,4 +1,4 @@
-// Issue #65: backup -> install -> restore on a patterned 16 MB image. The backup is byte-identical, the install
+// Issue eink-ha-os#65: backup -> install -> restore on a patterned 16 MB image. The backup is byte-identical, the install
 // changes only the sectors of the five planned writes, and writing the backup back gives the original image.
 import { createHash } from "node:crypto";
 import { describe, expect, it } from "vitest";

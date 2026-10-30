@@ -8,7 +8,7 @@ import { validateYaml } from './config.ts';
 const NOW = Date.UTC(2026, 9, 28, 6, 42);   // Wed 28 Oct 2026 07:42 CET
 const KEY = 'calendar.family calendar.work';
 
-describe('agenda tile (#316)', () => {
+describe('agenda tile (eink-ha-os#316)', () => {
   it('spec/test-vectors/agenda.json is in sync with the generator', () => {
     const disk = JSON.parse(readFileSync(join(import.meta.dirname, '../../../spec/test-vectors/agenda.json'), 'utf8'));
     expect(disk).toEqual(JSON.parse(JSON.stringify(agendaVectors())));

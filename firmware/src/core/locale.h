@@ -1,4 +1,4 @@
-// Clock time zone and price currency from Home Assistant (#147); = emulator src/core/locale.ts,
+// Clock time zone and price currency from Home Assistant (eink-ha-os#147); = emulator src/core/locale.ts,
 // spec/test-vectors/locale.json. HA get_config gives an IANA `time_zone` and an ISO 4217 `currency`.
 #pragma once
 #include <string>

@@ -1,0 +1,10 @@
+{
+  "name": "332b-attr-list-wrong-domain",
+  "description": "Rule: an attrList entity is a sensor.",
+  "input": "# HA Paper display config\nversion: 1\nscreens:\n  - id: a\n    widgets:\n      - {type: attrList, entity: calendar.birds, cs: 2}\n",
+  "expect": {
+    "ok": false,
+    "line": 6,
+    "message": "attrList: “calendar.birds” is not a sensor entity"
+  }
+}

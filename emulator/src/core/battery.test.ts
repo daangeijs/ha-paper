@@ -6,7 +6,7 @@ import { batteryVectors, gaugeFilterVectors } from '../../scripts/gen-vectors.ts
 
 const file = join(import.meta.dirname, '..', '..', '..', 'spec', 'test-vectors', 'battery-history.json');
 
-describe('battery history (#231, GET /diagnostics battery)', () => {
+describe('battery history (eink-ha-os#231, GET /diagnostics battery)', () => {
   it('battery-history.json is in sync', () => {
     expect(JSON.parse(readFileSync(file, 'utf8'))).toEqual(batteryVectors());
   });
@@ -19,7 +19,7 @@ describe('battery history (#231, GET /diagnostics battery)', () => {
   });
 });
 
-describe('gaugeStep (#327)', () => {
+describe('gaugeStep (eink-ha-os#327)', () => {
   const run = (reads: [number, boolean][], s = GAUGE_ZERO) => reads.map(([r, c]) => (s = gaugeStep(s, r, c)).shown);
   it('never rises without a charger: the rest rebound is held', () => expect(run([[92, false], [94, false], [93, false], [92, false]])).toEqual([92, 92, 92, 92]));
   it('falls pass at once', () => expect(run([[92, false], [90, false], [91, false]])).toEqual([92, 90, 90]));

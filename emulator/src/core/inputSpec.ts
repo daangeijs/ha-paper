@@ -1,4 +1,4 @@
-// Remote input spec (#214) for POST /api/v1/debug/input (and QEMU's /__qemu/input): = firmware core/input_spec.cpp.
+// Remote input spec (eink-ha-os#214) for POST /api/v1/debug/input (and QEMU's /__qemu/input): = firmware core/input_spec.cpp.
 export type InputSpec = { kind: 'tap'; x: number; y: number } | { kind: 'key'; key: 'prev' | 'next' | 'home' | 'power' } | { kind: 'swipe'; dir: -1 | 1 };
 export const INPUT_SPEC_ERROR = 'use ?tap=x,y | ?key=prev|next|home|power | ?swipe=-1|1';
 

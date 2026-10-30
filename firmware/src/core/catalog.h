@@ -1,5 +1,5 @@
 // Static catalog from the emulator (Main.dc.html): widget types, apps, logical entities, settings.
-// Validation in parseConfig() uses exactly these sets (WIDGET_TYPES, APP, ENT). Routes are user tiles (#145).
+// Validation in parseConfig() uses exactly these sets (WIDGET_TYPES, APP, ENT). Routes are user tiles (eink-ha-os#145).
 #pragma once
 #include <string>
 #include <vector>

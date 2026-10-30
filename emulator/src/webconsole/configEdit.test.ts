@@ -6,7 +6,7 @@ import { addApp, capHides, cleanLabel, clearPicks, entitiesFor, entityIssue, has
 import { presetHasAway } from '../core/format.ts';
 
 describe('configEdit', () => {
-  it('scene tile (#146): picks scene / script entities, an entity drops scene: all_off, all off drops the entity', () => {
+  it('scene tile (eink-ha-os#146): picks scene / script entities, an entity drops scene: all_off, all off drops the entity', () => {
     expect(entitiesFor(HA_ENTITIES, 'scene', '').map((e) => e.id)).toEqual(['scene.movie_night', 'script.good_night']);
     const ws: Widget[] = [{ type: 'scene', scene: 'all_off', cs: 2 }];
     expect(entityIssue(ws[0], HA_ENTITIES)).toBeNull();
@@ -33,12 +33,12 @@ describe('configEdit', () => {
     expect(r2.cfg.screens[r2.index]).toMatchObject({ id: 'overview', app: 'house' });
     expect(r2.cfg.screens[r2.index - 1].app).toBe('house');
   });
-  it('categories: add, rename, reorder, remove only when empty, max 7 of your own (+ Settings, #159)', () => {
+  it('categories: add, rename, reorder, remove only when empty, max 7 of your own (+ Settings, eink-ha-os#159)', () => {
     let c = addApp(defaultConfig(), 'Garden') as ReturnType<typeof defaultConfig>;
     expect(c.apps.at(-1)).toEqual({ id: 'garden', title: 'Garden' });
     c = renameApp(c, 'garden', 'Tuin');
     expect(c.apps.at(-1)!.title).toBe('Tuin');
-    expect(moveApp(c, 2, 0).apps[0].id).toBe('garden');   // default apps: home, house (#145); Settings is built in (#159)
+    expect(moveApp(c, 2, 0).apps[0].id).toBe('garden');   // default apps: home, house (eink-ha-os#145); Settings is built in (eink-ha-os#159)
     expect(removeApp(c, 'home')).toBe('Move or delete its screens first.');
     expect((removeApp(c, 'garden') as typeof c).apps.length).toBe(2);
     expect(addApp(c, ' ')).toBe('Give the category a name.');
@@ -59,14 +59,14 @@ describe('configEdit', () => {
     expect(matches('xyz', 'Outdoor')).toBe(false);
     expect(cleanLabel(' Door: {front}, back ')).toBe('Door front back');
   });
-  it('cleanLabel keeps the space being typed (issue #80)', () => {
+  it('cleanLabel keeps the space being typed (issue eink-ha-os#80)', () => {
     let v = '';
     for (const ch of 'Batterij %') v = cleanLabel(v + ch, true);   // controlled input: cleaned on every keystroke
     expect(v).toBe('Batterij %');
     expect(cleanLabel('Température café ', true)).toBe('Température café ');
     expect(cleanLabel(' Batterij % ')).toBe('Batterij %');   // trimmed once editing ends
   });
-  it('list picks (#127): toggled in pick order, empty = key removed, YAML round trip', () => {
+  it('list picks (eink-ha-os#127): toggled in pick order, empty = key removed, YAML round trip', () => {
     let ws: Widget[] = [{ type: 'lightList', cs: 4, rs: 2 }];
     ws = togglePick(ws, 0, 'areas', 'kitchen'); ws = togglePick(ws, 0, 'entities', 'light.hall_stairs'); ws = togglePick(ws, 0, 'areas', 'living');
     expect(ws[0]).toEqual({ type: 'lightList', cs: 4, rs: 2, areas: 'kitchen living', entities: 'light.hall_stairs' });
@@ -86,7 +86,7 @@ describe('configEdit', () => {
     expect(z).toHaveLength(1); expect(z[0].rows.find((r) => r.id === 'climate.office')!.on).toBe(true);
     expect(pickGroups([{ id: 'light.x', name: 'X', unit: '' }], areas, { type: 'lightList' }, '', 'No area')).toEqual([{ area: '', name: 'No area', on: false, rows: [{ id: 'light.x', name: 'X', on: false, viaArea: false }] }]);
   });
-  it('capHides (#134): only an unpicked list the subscription cap cuts short', () => {
+  it('capHides (eink-ha-os#134): only an unpicked list the subscription cap cuts short', () => {
     const lists = { climate: { total: 14, shown: 14 }, lights: { total: 149, shown: 66 } };
     expect(capHides({ type: 'lightList' }, lists)).toEqual([66, 149]);
     expect(capHides({ type: 'lightList', areas: 'kitchen' }, lists)).toBeNull();
@@ -95,7 +95,7 @@ describe('configEdit', () => {
     expect(capHides({ type: 'lightList' }, undefined)).toBeNull();
     expect(capHides({ type: 'stat' }, lists)).toBeNull();
   });
-  it('thermo zone picker (#148): climate entities, the pick writes the object id to zone:', () => {
+  it('thermo zone picker (eink-ha-os#148): climate entities, the pick writes the object id to zone:', () => {
     expect(pickDomains('thermo')).toEqual(['climate']);
     expect(entitiesFor(HA_ENTITIES, 'thermo', 'office').map((e) => e.id)).toEqual(['climate.office']);
     const ws: Widget[] = [{ type: 'thermo', rs: 2 }];
@@ -108,12 +108,12 @@ describe('configEdit', () => {
     expect(ws[0].zone).toBeUndefined();   // input untouched
     expect(parseYaml(toYaml({ ...defaultConfig(), screens: [{ id: 'a', app: 'home', title: 'A', widgets: picked }] })).screens[0].widgets[0]).toEqual(picked[0]);
   });
-  it('bars series (#148) and label fields on price / bars / thermo', () => {
+  it('bars series (eink-ha-os#148) and label fields on price / bars / thermo', () => {
     expect(setBarsSeries([{ type: 'bars', series: 'prices', cs: 4 }], 0, 'solar')[0]).toEqual({ type: 'bars', series: 'solar', cs: 4 });
     expect(['price', 'bars', 'thermo', 'gauge', 'stat', 'route'].every(hasLabelField)).toBe(true);
     expect(['clock', 'zoneList', 'lightList'].some(hasLabelField)).toBe(false);
   });
-  it('history tile (#267): numeric entities, bucket choices per window, a new window drops a bucket that no longer fits', () => {
+  it('history tile (eink-ha-os#267): numeric entities, bucket choices per window, a new window drops a bucket that no longer fits', () => {
     const list = [...HA_ENTITIES, { id: 'sensor.weather_text', name: 'Weather', unit: '', state: 'sunny' }];
     const ids = entitiesFor(list, 'history', '').map((e) => e.id);
     expect(ids).toContain('sensor.outdoor_temperature'); expect(ids).toContain('input_number.target_temp');
@@ -134,7 +134,7 @@ describe('configEdit', () => {
     ws = setHistoryKey(ws, 0, 'max', ''); expect(ws[0].max).toBeUndefined(); expect(historyIssue(ws[0])).toBeNull();
     expect(parseYaml(toYaml({ ...cfg, screens: [{ ...cfg.screens[0], widgets: ws }] })).screens[0].widgets[0]).toEqual({ ...ws[0], min: 30 });   // the dialect reads a bare integer as a number
   });
-  it('presetHasAway (#148): a list or its JSON text', () => {
+  it('presetHasAway (eink-ha-os#148): a list or its JSON text', () => {
     expect(presetHasAway(['home', 'away'])).toBe(true);
     expect(presetHasAway('["none","away"]')).toBe(true);
     expect(presetHasAway(['none', 'eco'])).toBe(false);

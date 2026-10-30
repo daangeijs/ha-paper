@@ -1,4 +1,4 @@
-// Guest Wi-Fi tile (#329, emulator components/GuestWifiTile.tsx, data core/guest_wifi). The QR code in its white quiet
+// Guest Wi-Fi tile (eink-ha-os#329, emulator components/GuestWifiTile.tsx, data core/guest_wifi). The QR code in its white quiet
 // zone (Modern: a white rounded square on the card), the network and password in large type: under the code on a
 // 2×2, beside it on a 2×1 or 4-wide tile, the code alone on a 1-wide tile. Pure black modules, whole px per module.
 // The signature records a hash of the modules, never the payload.
