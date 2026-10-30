@@ -1,6 +1,8 @@
 // core/ws_reader (eink-ha-os#374): frame parsing (lengths, mask, ping/close, fragments), streamed and oversized frames (eink-ha-os#269),
 // and the backpressure that keeps a firehose server (fake HA --tick 1) from growing the buffer without bound.
 #include <unity.h>
+#include <algorithm>
+#include <initializer_list>
 #include <string>
 #include <vector>
 #include "core/ws_reader.h"
