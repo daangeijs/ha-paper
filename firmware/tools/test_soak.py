@@ -260,14 +260,19 @@ class Probe(unittest.TestCase):
             c, ip = soak.probe("http://localhost:%d" % port, "x4_t", 3, None)
             self.assertEqual(ip, "127.0.0.1")
             self.assertTrue(c["name_dns"].startswith("ok "))
+            self.assertRegex(c["name_any"], r"^ok \d+ v4")   # AF_UNSPEC: timed in its own column (ha-paper#20)
             self.assertEqual((c["ip_tcp"], c["ip_http"], c["name_http"]), ("ok", "200", "200"))
             c, ip = soak.probe("http://x4-gone.invalid:%d" % port, "x4_t", 3, "127.0.0.1")   # last good IP
             self.assertTrue(c["name_dns"].startswith("fail "))
+            self.assertTrue(c["name_any"].startswith("fail "))
             self.assertEqual((ip, c["ip_tcp"], c["ip_http"], c["name_http"]), ("127.0.0.1", "ok", "200", "dns"))
             rows = [dict(soak.unreachable_row(T0, "dns", None), **c)]
             self.assertIn("name gone while the IP answered: 1.", soak.summarize(rows, "2026-10-16"))
+            slow = [dict(rows[0], name_any=v) for v in ("ok 5012 v4", "ok 3 v4+v6", "ok 4 v4+v6")]
+            self.assertIn("AF_UNSPEC lookup: median 4 ms, max 5012 ms, 1 of 3 at or over 1000 ms.",
+                          soak.summarize(slow, "2026-10-16"))
             c, _ = soak.probe("http://127.0.0.1:%d" % port, "x4_t", 3, None)   # an IP in --url: no name columns
-            self.assertEqual((c["name_dns"], c["name_http"], c["ip_http"]), ("", "", "200"))
+            self.assertEqual((c["name_dns"], c["name_any"], c["name_http"], c["ip_http"]), ("", "", "", "200"))
         finally:
             srv.shutdown()
             srv.server_close()
