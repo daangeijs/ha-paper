@@ -8,6 +8,7 @@ import { HA_ENTITIES, HOST, FW_INSTALLED, REPO, ROOMS } from '../core/data.ts';
 import { listCounts } from '../core/paging.ts';
 import { bootsJson, diagClear, diagPush, diagTouch, lastCrash, type DiagRing } from '../core/diag.ts';
 import { BATT_ZERO, battHistory, battStep } from '../core/battery.ts';
+import { battEstimate, battEstimateJson, modelPctPerDay } from '../core/batteryDays.ts';
 import { powerDecision } from '../core/power.ts';
 import { logRing, logsQuery, LOG_LIMIT_MAX, LOG_TAIL_CAP } from '../core/logs.ts';
 import type { Emulator } from './Emulator.tsx';
@@ -87,7 +88,7 @@ function makeApi(emu: Emulator): DeviceApi {
       return { firmware: FW_INSTALLED, uptime_s: up, reset_reason: 'POWERON', boots: bootsJson(ring), last_crash: lastCrash(ring), last_wdt: null,
         heap: { free_internal: 182_344, min_free_internal: 141_020, largest_free_internal: 110_592, free_psram: 7_864_320, low_point: null },
         panel: { controller: 'UC8179', source: 'probe', verdict: 'ultrachip', promoted: true, ver: '00 00 01 FF FF', flg: 0, nvs_screen_type: 1, failed: false, failure: null },
-        coredump: null, touch_recoveries: 0, deep_sleep: { armed: emu.armLeft === 0, boots_left: emu.armLeft, armed_by: emu.armLeft === 0 ? 'boots' : null }, battery: battHistory(batt),
+        coredump: null, touch_recoveries: 0, deep_sleep: { armed: emu.armLeft === 0, boots_left: emu.armLeft, armed_by: emu.armLeft === 0 ? 'boots' : null }, battery: { ...battHistory(batt), estimate: battEstimateJson(battEstimate(emu.battery, st.usb, null, Math.floor(Date.now() / 1000), modelPctPerDay(0, 0))) },
         power_trail: { before_boot: null, lines: [], empty_house_sleeps: emu.emptySleeps, phases: { boot: null, wakes: [] } },
         web: { open: 1, served: 0, refused_503: 0, last_request_age_s: null },   // eink-ha-os#227: the emulator has no HTTP server
         mdns: { up: !!st.wifi.connected, restarts: 0, last_restart_reason: null, hostname: null, v4: false, last_announce_age_s: null },

@@ -10,6 +10,7 @@ import { binDays, binsView } from '../src/core/bins.ts';
 import { capList, listAgo, listRows, listSpec, listView, LIST_MAX_BYTES, LIST_MAX_ITEMS } from '../src/core/attrList.ts';
 import { fieldDecode, fieldEncode, guestLayout, guestPayload, guestQr, guestView } from '../src/core/guestWifi.ts';
 import { logPush, logRing, logsQuery, logTail, redact, LOG_CAP, LOG_TAIL_CAP, type LogLevel, type LogRing, type LogsQuery } from '../src/core/logs.ts';
+import { BATT_MAH, AWAKE_MA, SLEEP_MA, DEFAULT_AWAKE_MIN, TALLY_MIN_H, MEASURE_MIN_H, BLEND_PTS, BLEND_DAYS, DAYS_CAP, anchorStep, battDaysLine, battEstimate, battEstimateJson, modelPctPerDay, type BattAnchor } from '../src/core/batteryDays.ts';
 import { BATT_HISTORY_N, BATT_SAMPLE_S, BATT_ZERO, GAUGE_RISE_PTS, GAUGE_RISE_READS, GAUGE_ZERO, battHistory, battStep, gaugeStep, type BattIn } from '../src/core/battery.ts';
 import { bootsJson, diagApply, lastCrash, type DiagOp, type DiagRing } from '../src/core/diag.ts';
 import { seedAnswerOk, seedPlan, SEED_TEMPLATE, templateEventFinal, type HaSnapshot } from '../src/core/seed.ts';
@@ -866,6 +867,50 @@ export function gaugeFilterVectors() {
   };
 }
 
+export function batteryDaysVectors() {
+  const T = 1_762_000_000, H = 3600, D = 86400;
+  const m0 = modelPctPerDay(0, 0);
+  const model = [[0, 0], [600_000, 3 * H], [20 * 60_000, 24 * H], [3 * H * 1000, 21 * H], [0, 7 * D]].map(([awakeMs, asleepS]) => ({ awakeMs, asleepS, pctPerDay: modelPctPerDay(awakeMs, asleepS) }));
+  const seq = (name: string, reads: [number, boolean, number][]) => {
+    let a: BattAnchor = null;
+    return { name, reads: reads.map(([pct, charging, epoch]) => { a = anchorStep(a, pct, charging, epoch); return { pct, charging, epoch, anchor: a }; }) };
+  };
+  const est = (name: string, pct: number, charging: boolean, anchor: BattAnchor, epoch: number, mdl = m0) => {
+    const e = battEstimate(pct, charging, anchor, epoch, mdl);
+    return { name, pct, charging, anchor, epoch, model: mdl, days: e.days, measured: e.measured, weight: e.weight, en: battDaysLine('en', e), nl: battDaysLine('nl', e), json: JSON.stringify(battEstimateJson(e)) };
+  };
+  return {
+    description: 'Battery days left on the glance sleep face (ha-paper#30, emulator src/core/batteryDays.ts, firmware core/battery_days.cpp). ' +
+      'model: % a day = 24 h × (awake share × ' + AWAKE_MA + ' mA + asleep share × ' + SLEEP_MA + ' mA) / ' + BATT_MAH + ' mAh × 100; awake share from the wake tally (awakeMs, asleepS) once it covers ' + TALLY_MIN_H + ' h, else ' + DEFAULT_AWAKE_MIN + ' min a day. ' +
+      'anchor: the first filtered gauge % seen unplugged with a sane clock; charging clears it, a rise or a clock going back restarts it, pct < 0 keeps it. ' +
+      'estimate: after ' + MEASURE_MIN_H + ' h, measured = max(drop, 0.5) / days since the anchor, weight = min(1, max(drop / ' + BLEND_PTS + ', days / ' + BLEND_DAYS + ')); rate = weight × measured + (1 − weight) × model; days = floor(pct / rate + 0.5) clamped to 1…' + (DAYS_CAP + 1) + ' (' + (DAYS_CAP + 1) + ' = "' + DAYS_CAP + '+"). days null = charging or gauge unknown. en / nl: the face line ("" = none); json: GET /diagnostics battery.estimate (rates rounded to 3 decimals).',
+    model,
+    anchor: [
+      seq('first unplugged read with a clock anchors; falls keep it', [[80, false, T], [79, false, T + H], [75, false, T + D]]),
+      seq('no clock: nothing until it is known', [[80, false, 0], [80, false, T]]),
+      seq('charging clears it; unplugged anchors again', [[80, false, T], [85, true, T + H], [90, false, T + 2 * H], [89, false, T + 3 * H]]),
+      seq('a rise restarts it (a charge the board did not see)', [[40, false, T], [80, false, T + D], [79, false, T + D + H]]),
+      seq('not read keeps it; a clock going back restarts it', [[70, false, T], [-1, false, T + H], [-1, true, T + H], [69, false, T - D]]),
+    ],
+    estimate: [
+      est('first sleep: model only (no anchor)', 64, false, null, T),
+      est('full, model only', 100, false, null, T),
+      est('anchor younger than 1 h: model only', 64, false, { epoch: T - 1800, pct: 65 }, T),
+      est('2 points in a day: blended 20 %', 64, false, { epoch: T - D, pct: 66 }, T),
+      est('12 points in 4 days: measured only', 60, false, { epoch: T - 4 * D, pct: 72 }, T),
+      est('no drop in 7 days: under half a point a week, capped 99+', 90, false, { epoch: T - 7 * D, pct: 90 }, T),
+      est('fast drain: 20 points in a day', 30, false, { epoch: T - D, pct: 50 }, T),
+      est('almost empty: at least 1 day', 1, false, { epoch: T - D, pct: 21 }, T),
+      est('empty reads 0: still 1 day', 0, false, null, T),
+      est('3 points in a day at 6 %: blended 30 %', 6, false, { epoch: T - D, pct: 9 }, T),
+      est('counted usage (model from the tally)', 64, false, null, T, modelPctPerDay(3 * H * 1000, 21 * H)),
+      est('charging: no days', 64, true, { epoch: T - D, pct: 66 }, T),
+      est('gauge unknown: no line', -1, false, null, T),
+      est('clock unknown: model only', 64, false, { epoch: T - D, pct: 70 }, 0),
+    ],
+  };
+}
+
 export function diagVectors() {
   const boot = (reason: string, version = '0.3.0', panic: string | null = null, hw?: string): DiagOp => ({ op: 'boot', reason, version, panic, ...(hw ? { hw } : {}) });
   const touch = (uptime_s: number, min_free_heap: number, epoch = 0): DiagOp => ({ op: 'touch', uptime_s, min_free_heap, epoch });
@@ -1311,6 +1356,7 @@ if (process.argv[1] && process.argv[1].endsWith('gen-vectors.ts')) {
   writeFileSync(join(OUT, 'diag.json'), JSON.stringify(diagVectors(), null, 2) + '\n');
   writeFileSync(join(OUT, 'battery-history.json'), compactJson(batteryVectors()));
   writeFileSync(join(OUT, 'gauge-filter.json'), compactJson(gaugeFilterVectors()));
+  writeFileSync(join(OUT, 'battery-days.json'), JSON.stringify(batteryDaysVectors(), null, 2) + '\n');
   writeFileSync(join(OUT, 'logs.json'), JSON.stringify(logsVectors(), null, 2) + '\n');
   writeFileSync(join(OUT, 'seed.json'), JSON.stringify(seedVectors(), null, 2) + '\n');
   writeFileSync(join(OUT, 'energy-prefs.json'), JSON.stringify(energyPrefsVectors(), null, 2) + '\n');

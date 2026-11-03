@@ -26,6 +26,7 @@ that behaviour.
 - [Hardware-key factory reset, crash-loop offer (issue #21)](deviations/021-factory-reset-crash-loop.md)
 - [Ambient idle mode, night face poster (issue #27)](deviations/027-ambient-night-poster.md)
 - [Legibility at 2 m (issue #28)](deviations/028-legibility.md)
+- [Battery % and days left on the glance sleep face (issue #30)](deviations/030-battery-days-left.md)
 - [Improv Wi-Fi over the USB console (issue #31)](deviations/031-improv-usb-console.md)
 - [Device health as Home Assistant entities (issue #32)](deviations/032-health-ha-entities.md)
 - [Black/white only, minute window (issue #38)](deviations/038-black-white-minute-window.md)

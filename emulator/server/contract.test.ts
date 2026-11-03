@@ -1256,6 +1256,12 @@ describe('diagnostics (x-firmware)', () => {
     expect(d.battery.history.length).toBeGreaterThanOrEqual(1); expect(d.battery.history.length).toBeLessThanOrEqual(288);
     const row = d.battery.history[d.battery.history.length - 1];
     expect(row).toHaveLength(7); expect(row[1]).toBeGreaterThanOrEqual(0); expect([0, 1]).toContain(row[3]); expect([0, 1]).toContain(row[4]); expect(typeof row[5]).toBe('string');
+    // ha-paper#30: days left (core/batteryDays.ts); a fresh boot has no measured drain, so the model gives the days
+    const est = d.battery.estimate;
+    expect(est).toMatchObject({ charging: expect.any(Boolean), model_pct_per_day: expect.any(Number), measured_weight: expect.any(Number) });
+    expect(est.model_pct_per_day).toBeGreaterThan(0); expect(est.measured_weight).toBeGreaterThanOrEqual(0); expect(est.measured_weight).toBeLessThanOrEqual(1);
+    if (est.charging || est.pct === null) expect(est.days_left).toBeNull();
+    else { expect(Number.isInteger(est.days_left)).toBe(true); expect(est.days_left).toBeGreaterThanOrEqual(1); expect(est.days_left).toBeLessThanOrEqual(100); }
     // eink-ha-os#227 inbound path: this request is open; earlier ones were served; QEMU has no mDNS responder and no RSSI
     expect(d.web).toMatchObject({ open: expect.any(Number), served: expect.any(Number), refused_503: expect.any(Number) });
     // open is 0 on the firmware today: handleRequest's onDisconnect replaces the connection gate's (counted at dispatch)

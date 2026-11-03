@@ -209,6 +209,18 @@
       "en": "Asleep · press to wake",
       "nl": "Slaapt · druk om te wekken"
     },
+    "battDays": {
+      "en": "Battery {}% · about {} days left",
+      "nl": "Batterij {}% · nog ongeveer {} dagen"
+    },
+    "battDay1": {
+      "en": "Battery {}% · about 1 day left",
+      "nl": "Batterij {}% · nog ongeveer 1 dag"
+    },
+    "battCharging": {
+      "en": "Battery {}% · charging",
+      "nl": "Batterij {}% · laadt op"
+    },
     "sigWeak": {
       "en": "Weak",
       "nl": "Zwak"

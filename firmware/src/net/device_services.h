@@ -39,6 +39,7 @@ class DeviceServices : public Services {
   void otaCheck() override;
   void otaInstall() override;
   void factoryReset() override;
+  battdays::Estimate batteryEstimate(int pct, bool charging, int64_t epoch) override;
 
   // Used by the web server (any task).
   static std::set<std::string> entityIdsOf(const Config& c);

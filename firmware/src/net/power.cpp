@@ -227,6 +227,13 @@ void battSample(const PowerInputs& in, uint32_t now) {
     line = g_batt.step(b);
   }
   if (!line.empty()) LOG_INF("BATT", "%s", line.c_str());
+  // ha-paper#30: the anchor of the measured drain, sealed only when it moves
+  std::lock_guard<std::mutex> l(g_rtcMu);
+  const battdays::Anchor a = battdays::anchorStep(g_rtc.battAnchor, in.battery, in.charging || in.usb, in.nowEpoch);
+  if (a.epoch != g_rtc.battAnchor.epoch || a.pct != g_rtc.battAnchor.pct) {
+    g_rtc.battAnchor = a;
+    seal();
+  }
 }
 
 int armLeftNow() {
@@ -780,9 +787,28 @@ void powerKeyStage(const char* stage) {
   LOG_INF("POWER", "trail: %s · written in %u ms", line.c_str(), unsigned(millis() - t0));
 }
 
+battdays::Estimate powerBatteryEstimate(int pct, bool charging, int64_t epoch) {
+  std::lock_guard<std::mutex> l(g_rtcMu);
+  return battdays::estimate(pct, charging, g_rtc.battAnchor, epoch, battdays::modelPctPerDay(g_rtc.tally.awakeMs, g_rtc.tally.asleepS));
+}
+
 std::string powerBatteryJson() {
-  std::lock_guard<std::mutex> l(g_battMu);
-  return g_batt.json();
+  PowerInputs in;
+  bool ok;
+  {
+    std::lock_guard<std::mutex> l(g_inMu);
+    in = g_lastIn;
+    ok = g_lastInOk;
+  }
+  const battdays::Estimate e = powerBatteryEstimate(ok ? in.battery : -1, ok && (in.charging || in.usb), ok ? in.nowEpoch : 0);
+  std::string j;
+  {
+    std::lock_guard<std::mutex> l(g_battMu);
+    j = g_batt.json();
+  }
+  if (j.empty() || j.back() != '}') return j;
+  j.pop_back();
+  return j + ",\"estimate\":" + battdays::json(e) + "}";
 }
 const char* powerMode() { return g_mode; }
 int powerAppliedCpuMhz() { return g_cpuMhz; }
