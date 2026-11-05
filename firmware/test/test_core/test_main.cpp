@@ -17,6 +17,7 @@
 #include "core/cw2017.h"
 #include "core/diag.h"
 #include "core/empty_house.h"
+#include "core/battery_days.h"
 #include "core/gauge_filter.h"
 #include "core/glance.h"
 #include "core/ha_address.h"
@@ -1148,6 +1149,48 @@ void test_gauge_filter_vectors() {
     }
   }
   TEST_ASSERT_EQUAL(38, reads);
+}
+
+// ---------- battery days left (spec/test-vectors/battery-days.json, ha-paper#30) ----------
+static bool near(double a, double b) { return std::fabs(a - b) < 1e-9; }
+static battdays::Anchor anchorOf(const Json& j) {
+  battdays::Anchor a{};
+  if (!j.isNull()) a = {int64_t(j.get("epoch")->num), int16_t(j.get("pct")->num)};
+  return a;
+}
+void test_battery_days_vectors() {
+  Json j;
+  TEST_ASSERT_TRUE(parseJson(readFile(std::string(X4_REPO_ROOT) + "/spec/test-vectors/battery-days.json"), j));
+  int n = 0;
+  for (auto& m : j.get("model")->arr) {
+    TEST_ASSERT_TRUE(near(m.get("pctPerDay")->num, battdays::modelPctPerDay(uint64_t(m.get("awakeMs")->num), int64_t(m.get("asleepS")->num))));
+    ++n;
+  }
+  for (auto& c : j.get("anchor")->arr) {
+    const char* name = c.get("name")->str.c_str();
+    battdays::Anchor a{};
+    for (auto& r : c.get("reads")->arr) {
+      a = battdays::anchorStep(a, int(r.get("pct")->num), r.get("charging")->b, int64_t(r.get("epoch")->num));
+      const battdays::Anchor want = anchorOf(*r.get("anchor"));
+      TEST_ASSERT_EQUAL_INT64_MESSAGE(want.epoch, a.epoch, name);
+      if (battdays::has(want)) TEST_ASSERT_EQUAL_INT_MESSAGE(want.pct, a.pct, name);
+      ++n;
+    }
+  }
+  for (auto& c : j.get("estimate")->arr) {
+    const char* name = c.get("name")->str.c_str();
+    const battdays::Estimate e = battdays::estimate(int(c.get("pct")->num), c.get("charging")->b, anchorOf(*c.get("anchor")),
+                                                    int64_t(c.get("epoch")->num), c.get("model")->num);
+    TEST_ASSERT_EQUAL_INT_MESSAGE(c.get("days")->isNull() ? 0 : int(c.get("days")->num), e.days, name);
+    if (c.get("measured")->isNull()) TEST_ASSERT_TRUE_MESSAGE(e.measured < 0, name);
+    else TEST_ASSERT_TRUE_MESSAGE(near(c.get("measured")->num, e.measured), name);
+    TEST_ASSERT_TRUE_MESSAGE(near(c.get("weight")->num, e.weight), name);
+    TEST_ASSERT_EQUAL_STRING_MESSAGE(c.get("en")->str.c_str(), battdays::line(Lang::En, e).c_str(), name);
+    TEST_ASSERT_EQUAL_STRING_MESSAGE(c.get("nl")->str.c_str(), battdays::line(Lang::Nl, e).c_str(), name);
+    TEST_ASSERT_EQUAL_STRING_MESSAGE(c.get("json")->str.c_str(), battdays::json(e).c_str(), name);
+    ++n;
+  }
+  TEST_ASSERT_EQUAL(5 + 16 + 14, n);
 }
 
 void test_glance_vectors() {
@@ -2737,6 +2780,7 @@ int main(int, char**) {
   RUN_TEST(test_glance_vectors);
   RUN_TEST(test_battery_history_vectors);
   RUN_TEST(test_gauge_filter_vectors);
+  RUN_TEST(test_battery_days_vectors);
   RUN_TEST(test_glance_snapshot_and_rtc);
   RUN_TEST(test_sleep_now_vectors);
   RUN_TEST(test_migration_spec_vectors);

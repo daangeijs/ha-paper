@@ -4,6 +4,7 @@
 #include <vector>
 #include <functional>
 #include <cstdint>
+#include "core/battery_days.h"
 #include "core/ota_status.h"
 
 namespace x4 {
@@ -64,6 +65,11 @@ class Services {
   virtual void otaInstall() = 0;
   // Device
   virtual void factoryReset() = 0;
+  // Glance sleep face battery line (ha-paper#30): pct < 0 = unknown. Device: model from the wake tally + the RTC anchor;
+  // default (host): the model alone.
+  virtual battdays::Estimate batteryEstimate(int pct, bool charging, int64_t epoch) {
+    return battdays::estimate(pct, charging, battdays::Anchor{}, epoch, battdays::modelPctPerDay(0, 0));
+  }
 };
 
 }  // namespace x4

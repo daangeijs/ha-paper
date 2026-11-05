@@ -49,6 +49,10 @@ export const STRINGS = {
   asleepDate: ['{} · {}', '{} · {}'],   // under the big day number (clock tile, standby face): weekday · month
   asleepFoot: ['Asleep · press power to wake', 'Slaapt · druk op aan/uit'],   // standby face
   sleepHead: ['Asleep · press to wake', 'Slaapt · druk om te wekken'],   // glance sleep face (eink-ha-os#356), the quiet face's layout
+  // glance sleep face battery line (ha-paper#30, core/batteryDays.ts)
+  battDays: ['Battery {}% · about {} days left', 'Batterij {}% · nog ongeveer {} dagen'],
+  battDay1: ['Battery {}% · about 1 day left', 'Batterij {}% · nog ongeveer 1 dag'],
+  battCharging: ['Battery {}% · charging', 'Batterij {}% · laadt op'],
   sigWeak: ['Weak', 'Zwak'], sigFair: ['Fair', 'Redelijk'], sigGood: ['Good', 'Goed'], sigExcellent: ['Excellent', 'Uitstekend'],
 
   // display chrome and our own card headings

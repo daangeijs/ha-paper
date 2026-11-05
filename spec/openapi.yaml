@@ -362,6 +362,16 @@ components:
           required: [interval_s, fields, history]
           properties:
             interval_s: { type: integer, example: 300 }
+            estimate:
+              type: object
+              description: "ha-paper#30: the glance sleep face's battery line (emulator src/core/batteryDays.ts, spec/test-vectors/battery-days.json). A model (1100 mAh, 0.2 mA asleep, 40 mA awake; awake share from the wake tally once it covers 6 h, else 11 min a day) blended toward the drain measured since the first unplugged gauge % with a clock (RTC memory: survives deep sleep, not a power loss); full weight after 10 points or 7 days."
+              properties:
+                pct: { type: integer, nullable: true, example: 64, description: "filtered gauge %; null = not read" }
+                charging: { type: boolean, description: "charger STAT or USB host: no days" }
+                days_left: { type: integer, nullable: true, example: 58, description: "rounded, 1..100 (100 = shown as 99+); null = charging or gauge unknown" }
+                model_pct_per_day: { type: number, example: 1.1 }
+                measured_pct_per_day: { type: number, nullable: true, example: 2, description: "null = no anchor yet or younger than 1 h" }
+                measured_weight: { type: number, example: 0.2, description: "share of the measured rate, 0..1" }
             fields: { type: array, items: { type: string }, example: [t, pct, mv, chg, usb, power, rssi] }
             history:
               type: array

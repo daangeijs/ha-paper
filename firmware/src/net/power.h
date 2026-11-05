@@ -36,7 +36,9 @@ void powerOnSleep(std::function<void(int64_t seconds)> fn);
 void powerLoop(App& app, Board& board);   // main loop, every pass
 int powerArmBootsLeft();             // GET /diagnostics deep_sleep (any task)
 const char* powerArmedBy();          // "uptime" | "boots" | nullptr (eink-ha-os#231, any task)
-std::string powerBatteryJson();      // GET /diagnostics battery (eink-ha-os#231, any task)
+std::string powerBatteryJson();      // GET /diagnostics battery (eink-ha-os#231, any task), with estimate (ha-paper#30)
+// ha-paper#30: days left from the RTC anchor and the wake tally (any task); pct < 0 = unknown
+battdays::Estimate powerBatteryEstimate(int pct, bool charging, int64_t epoch);
 // GET /diagnostics power_trail (eink-ha-os#225, any task): last /power.txt line when this boot started, and the newest lines
 void powerTrail(std::string& beforeBoot, std::vector<std::string>& lines);
 uint32_t powerEmptySleeps();         // GET /diagnostics power_trail.empty_house_sleeps (eink-ha-os#331, any task)
