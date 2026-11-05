@@ -38,6 +38,10 @@ class X4Board : public Board {
   // Deep sleep (eink-ha-os#10, net/power.cpp): front light parked, rails down, GPIO1 latch held, wake on Power/Right, charger
   // STAT, and a timer (seconds > 0). Call after the panel's deep-sleep command. Does not return: a wake is a reset.
   [[noreturn]] void deepSleep(int64_t seconds);
+  // Standby step (ha-paper#32): input task parked between I2C transactions, then light sleep with level wakes on Left /
+  // Right / Power, the GT911 INT and the charger STAT (each on the level opposite to now), plus the timer. Touch rail
+  // and latch held. GT911 INT not seen working this boot: slices of kNapPollMs, the input task polls touch between.
+  const char* lightSleep(uint32_t ms) override;
   // Power held 2 s (eink-ha-os#258), after the "Turned off" face and the panel's deep-sleep command: waits for Power to be
   // released, releases the GPIO1 latch (battery: the board goes off). Still running 1 s later (USB) → deep sleep, only
   // Power wakes, latch held LOW (unplugging then switches it off). Does not return.

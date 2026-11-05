@@ -51,6 +51,9 @@ class Board {
   virtual void pause(uint32_t ms) { (void)ms; }   // block the calling task (hardware); no-op in host tests
   virtual uint8_t heldKeys() { return 0; }   // keys held now, core/recovery.h bits (kKeyPower | kKeyRight | kKeyLeft)
   virtual bool pushInput(const InputEvent&) { return false; }   // remote input (eink-ha-os#214), any task; false = queue full
+  // ha-paper#32 standby step: light sleep (RAM kept) until a key, a touch, the charger or `ms`. Returns why it woke:
+  // "gpio" | "timer" | "busy" (input in flight, not slept); nullptr = no light sleep here (host tests).
+  virtual const char* lightSleep(uint32_t ms) { (void)ms; return nullptr; }
   virtual void powerOff() {}   // Power held 2 s (eink-ha-os#258): hardware cuts its own power, no return; QEMU / host return
 };
 

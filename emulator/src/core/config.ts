@@ -166,8 +166,9 @@ const SETTINGS_SCREENS: Omit<Screen, 'app'>[] = [
   // Display styles (x4-display-styles): the look is a device setting; these tiles only step it (same screen as firmware/src/core/config.cpp).
   { id: 'style', title: 'Display style', widgets: [{ type: 'setting', key: 'style' }, { type: 'setting', key: 'typeface', cs: 2 }, { type: 'setting', key: 'surface' }, { type: 'setting', key: 'clock' }] },
   // Power saving (ROBUSTNESS_PLAN 3.1, glance eink-ha-os#10, emulator DEVIATIONS 10). Two rows tall (eink-ha-os#190); no hint line since eink-ha-os#310.
+  // Standby after / Deep sleep after standby (ha-paper#32) replace Check every (console only now) and Live after a press.
   // Quiet hours (eink-ha-os#295) sit here: on battery they are a power setting first. The Good morning page (eink-ha-os#330) next to them.
-  { id: 'power', title: 'Power', widgets: [{ type: 'setting', key: 'powerSave', cs: 2, rs: 2 }, { type: 'setting', key: 'quiet' }, { type: 'setting', key: 'morning' }, { type: 'setting', key: 'wakeEvery' }, { type: 'setting', key: 'liveMin' }] },
+  { id: 'power', title: 'Power', widgets: [{ type: 'setting', key: 'powerSave', cs: 2, rs: 2 }, { type: 'setting', key: 'quiet' }, { type: 'setting', key: 'morning' }, { type: 'setting', key: 'standbyAfter' }, { type: 'setting', key: 'deepAfter' }] },
   { id: 'updates', title: 'Updates', widgets: [{ type: 'ota', cs: 4, rs: 2 }] },
   { id: 'wifi', title: 'Wi-Fi', widgets: [{ type: 'wifi', cs: 4, rs: 2 }] },
   { id: 'ha', title: 'Home Assistant', widgets: [{ type: 'ha', cs: 4, rs: 2 }] },

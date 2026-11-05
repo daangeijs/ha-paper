@@ -62,12 +62,15 @@ struct App::Impl {
   std::function<void(const DisplaySettings&)> onSettings;
   std::function<void(const std::string&)> onLog;
   std::function<void(const char*)> onPowerStage;
+  std::function<void()> onNapWake;   // ha-paper#32: input ended the standby step (before its refresh)
 
   // ---- UI state (emulator `state`) ----
   Mode mode = Mode::Boot;
   std::string bootMsg = "Starting…";
   uint32_t bootUntil = 0;
   bool sleeping = false;
+  bool napping = false;      // ha-paper#32 standby step: the sleep face, light off; the next input only wakes
+  bool napPower = false;     // the input that ended the step was a Power press: its release is no standby toggle
   bool poweredOff = false;   // Power held 2 s (eink-ha-os#258): "Turned off" face; hardware never returns from Board::powerOff
   Menu menu = Menu::None;
   Setup setup = Setup::None;

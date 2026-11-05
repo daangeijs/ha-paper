@@ -648,6 +648,38 @@ void test_power_short_press_and_boot_hold() {
   TEST_ASSERT_FALSE(app.powerView().standby);
 }
 
+// ---- standby step (ha-paper#32): App::nap → the sleep face, light off; any key or touch ends it (consumed, onNapWake first) ----
+void test_standby_step_nap() {
+  DisplaySettings ds; ds.brightness = 40;
+  Rig r(true, 13, 0, 10, ds);
+  int wakes = 0;
+  r.app.onNapWake([&] { ++wakes; });
+  const std::string shown = r.app.shownScreen();
+  const uint32_t full = r.app.stats().fullRefreshes;
+  r.app.nap(true);
+  TEST_ASSERT_TRUE(r.app.powerView().napping);
+  TEST_ASSERT_TRUE(r.has("sleep")); TEST_ASSERT_FALSE(r.has("bar"));
+  TEST_ASSERT_EQUAL_UINT32(full + 1, r.app.stats().fullRefreshes);   // drawn once
+  TEST_ASSERT_EQUAL_UINT8(0, r.b.light);
+  r.step(120000);                                          // two minutes: no redraw, no standby face, light stays off
+  TEST_ASSERT_EQUAL_UINT32(full + 1, r.app.stats().fullRefreshes);
+  TEST_ASSERT_FALSE(r.app.powerView().standby); TEST_ASSERT_EQUAL_UINT8(0, r.b.light);
+  r.key(Key::Prev);                                        // Left: wakes, does not turn the page
+  TEST_ASSERT_FALSE(r.app.powerView().napping); TEST_ASSERT_EQUAL_INT(1, wakes);
+  TEST_ASSERT_TRUE(r.has("bar")); TEST_ASSERT_FALSE(r.has("sleep"));
+  TEST_ASSERT_EQUAL_STRING(shown.c_str(), r.app.shownScreen().c_str());
+  TEST_ASSERT_TRUE(r.b.light > 0);
+  r.app.nap(true);                                         // Power: wakes; its release is no standby toggle
+  r.b.held = kKeyPower; r.b.key(Key::Power); r.step(300); r.b.held = 0; r.step(100);
+  TEST_ASSERT_FALSE(r.app.powerView().napping); TEST_ASSERT_FALSE(r.app.powerView().standby); TEST_ASSERT_TRUE(r.has("bar"));
+  TEST_ASSERT_EQUAL_INT(2, wakes);
+  r.app.nap(true);                                         // a tap (the Home touch key works the same: any input)
+  r.tap(240, 400);
+  TEST_ASSERT_FALSE(r.app.powerView().napping); TEST_ASSERT_EQUAL_INT(3, wakes); TEST_ASSERT_TRUE(r.has("bar"));
+  r.app.nap(true); r.key(Key::Home);
+  TEST_ASSERT_FALSE(r.app.powerView().napping); TEST_ASSERT_FALSE(r.has("menu")); TEST_ASSERT_EQUAL_INT(4, wakes);
+}
+
 // ---- first install: Wi-Fi on the display → finish in your browser → Home ----
 void test_first_install_flow() {
   Rig r(false);
@@ -1746,6 +1778,7 @@ int main(int, char**) {
   RUN_TEST(test_key_restart);
   RUN_TEST(test_power_hold_off);
   RUN_TEST(test_power_short_press_and_boot_hold);
+  RUN_TEST(test_standby_step_nap);
   RUN_TEST(test_language_from_ha);
   RUN_TEST(test_settings_built_in);
   RUN_TEST(test_power_stages);

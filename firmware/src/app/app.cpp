@@ -265,6 +265,23 @@ void App::markAsleep(bool on) {
   if (is != was) I->fullRefresh(is ? kUp[is] : std::string(kUp[was]) + " · end");   // eink-ha-os#331, eink-ha-os#356: a whole other face
   else I->commit("asleep", true);
 }
+void App::nap(bool on) {
+  auto* I = impl_;
+  if (on == I->napping) return;
+  if (on) {
+    prepareSleep();
+    I->napping = true;
+    I->napPower = false;
+    I->applyFrontlight();
+    markAsleep(true);
+    I->note("standby step · sleep face, light off");
+  } else {
+    I->napping = false;
+    I->applyFrontlight();
+    markAsleep(false);
+  }
+}
+void App::onNapWake(std::function<void()> cb) { impl_->onNapWake = std::move(cb); }
 std::vector<std::string> App::clockRegions() const {
   std::vector<std::string> out;
   for (auto& kv : impl_->regions) {
@@ -276,7 +293,7 @@ std::vector<std::string> App::clockRegions() const {
 App::PowerView App::powerView() const {
   auto* I = impl_;
   return {I->mode == Mode::Main, I->setup != Setup::None, I->sleeping, I->peekUntil != 0 && !after(I->ms(), I->peekUntil),
-          I->userInput ? int64_t(I->ms() - I->userInputAt) : -1, I->ambient, I->houseEmptyNow()};
+          I->userInput ? int64_t(I->ms() - I->userInputAt) : -1, I->ambient, I->houseEmptyNow(), I->napping};
 }
 const Framebuffer& App::framebuffer() const { return impl_->fb; }
 std::vector<std::string> App::tileValues(const std::string& screenId) {
@@ -324,6 +341,9 @@ void App::loop() {
     else keys |= e.key == Key::Prev ? kKeyLeft : e.key == Key::Next ? kKeyRight : kKeyPower;
     if (e.kind == InputEvent::Kind::KeyDown && e.key == Key::Power && I->onPowerStage) I->onPowerStage("key");
   }
+  // ha-paper#32: any key or touch ends the standby step and does nothing else; a Power press there is no standby toggle
+  const bool napWake = I->napping && n > 0;
+  if (napWake) I->napPower = ev.kind == InputEvent::Kind::KeyDown && ev.key == Key::Power;
   bool swallow = false;
   if (I->mode != Mode::Updating) {
     const bool was = I->recovery.phase != RecoveryPhase::Idle;
@@ -335,6 +355,13 @@ void App::loop() {
     if (a != RecoveryAction::None) I->recoveryDone(a);
   }
   if (I->poweredOff) return;   // QEMU / host only: the board stays up; Power (a Press) restarts it
+  if (napWake) {
+    if (I->onNapWake) I->onNapWake();
+    I->input();
+    I->note("input → standby over (consumed)");
+    nap(false);
+    swallow = true;
+  }
   if (n > 1 && !swallow) I->note("input · " + std::to_string(n - 1) + " stale dropped · last wins");
   if (coalesceInput(n) >= 0 && !swallow) {
     // ambient (eink-ha-os#27): the first touch or key (not Power) brings the chrome back and does nothing else
@@ -1082,7 +1109,7 @@ void App::Impl::tick() {
 }
 
 void App::Impl::idleCheck() {
-  if (mode != Mode::Main || sleeping || setup != Setup::None) return;
+  if (mode != Mode::Main || sleeping || napping || setup != Setup::None) return;
   int homeIdx = -1;
   for (int i = 0; i < int(cfg.screens.size()); ++i) if (cfg.screens[i].id == "overview") { homeIdx = i; break; }
   bool away = homeIdx >= 0 && (idx != homeIdx || sub != 0 || menu != Menu::None);
@@ -1167,7 +1194,7 @@ void App::Impl::captureSnap() {
 }
 
 void App::Impl::applyFrontlight() {
-  board.setFrontlight(uint8_t(frontlightPct(set.brightness, sleeping || poweredOff || bootDark, lightOut)), set.warmth);
+  board.setFrontlight(uint8_t(frontlightPct(set.brightness, sleeping || poweredOff || bootDark || napping, lightOut)), set.warmth);
 }
 
 void App::Impl::settingsChanged() {
@@ -1404,6 +1431,8 @@ void App::Impl::setCfg(const std::string& key, int dir) {
   else if (key == "powerSave") ch = stepList({"glance", "standby", "off"}, set.powerSave);
   else if (key == "wakeEvery") { std::string c = std::to_string(set.wakeEvery); ch = stepList({"15", "30", "60"}, c); if (ch) set.wakeEvery = std::atoi(c.c_str()); }
   else if (key == "liveMin") { std::string c = std::to_string(set.liveMin); ch = stepList({"1", "3", "5", "10"}, c); if (ch) set.liveMin = std::atoi(c.c_str()); }
+  else if (key == "standbyAfter") { std::string c = std::to_string(set.standbyAfter); ch = stepList({"1", "3", "5"}, c); if (ch) set.standbyAfter = std::atoi(c.c_str()); }
+  else if (key == "deepAfter") { std::string c = std::to_string(set.deepAfter); ch = stepList({"5", "15", "30", "60", "0"}, c); if (ch) set.deepAfter = std::atoi(c.c_str()); }
   if (!ch) return;
   note("SET " + key);
   settingsChanged();
@@ -1489,6 +1518,7 @@ void App::Impl::recoveryDone(RecoveryAction a) {
   if (a == RecoveryAction::Reset) { note("BTN_NEXT · FACTORY RESET"); svc.factoryReset(); return; }
   if (a == RecoveryAction::Press) {   // eink-ha-os#258: a short Power press
     if (poweredOff) { note("BTN_POWER · power on (restart)"); board.restart(); return; }
+    if (napPower) { napPower = false; note("BTN_POWER · woke the standby step"); return; }
     power();
     return;
   }

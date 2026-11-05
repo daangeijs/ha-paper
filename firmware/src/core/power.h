@@ -38,7 +38,8 @@ struct PowerInputs {
   bool otaDue = false;           // an install (auto night) or the daily check is due
   bool setup = false;            // AP / setup wizard
   int64_t msSinceApi = -1;       // < 0 = no API request since boot
-  bool live = false;             // glance: key press / touch within liveMin minutes (or a key held at boot)
+  bool live = false;             // glance: key press / touch within standbyAfter minutes (or a key held at boot)
+  int64_t standbyLeftS = 0;      // glance (ha-paper#32): seconds left in the standby step after live mode; 0 = not in it
   int glanceFails = 0;           // glance: wakes in a row that could not reach HA (diagnostics; no backoff since eink-ha-os#356)
   int armBootsLeft = 0;          // first-boot safety: confirmed boots still needed before any deep sleep
   bool emptyHouse = false;       // glance (eink-ha-os#331): the presence source says nobody is home
@@ -47,6 +48,7 @@ struct PowerInputs {
 struct PowerDecision {
   bool deepSleepNow = false;
   int64_t wakeAtEpoch = 0;       // 0 = none (awake, or low battery: button/charger only)
+  int64_t lightSleepS = 0;       // ha-paper#32 standby step: light-sleep this long at most, then decide again (0 = none)
   bool buttonWakeOnly = false;
   CpuProfile cpuProfile = CpuProfile::Full;
   WifiPs wifiPs = WifiPs::None;
@@ -54,13 +56,18 @@ struct PowerDecision {
   const char* reason = "";       // same words as the emulator ("unconfirmed image", "quiet", …)
 };
 
+// Glance after a key press (ha-paper#32, emulator glancePhase, spec/test-vectors/standby-step.json): live for standbyAfter
+// minutes, then the standby step for deepAfter minutes (0 = never: kMaxSleepS at a time), then deep sleep.
+// msSinceInput < 0 = no key since the wake (a timer wake): neither. standbyLeftS = whole seconds left, rounded up.
+struct GlancePhase { bool live = false; int64_t standbyLeftS = 0; };
+GlancePhase glancePhase(int64_t msSinceInput, int standbyAfter, int deepAfter);
 int64_t secsUntil(int32_t localSec, int32_t targetSec);   // next targetSec of the day; equal = a full day
 int64_t glanceWaitS(int32_t localSec, const std::string& quiet);   // eink-ha-os#356: to midnight or quiet start, the first
 bool isExternalPower(const PowerInputs& i);
 PowerDecision powerDecision(const PowerInputs& i);
 
 // POST /api/v1/device/sleep {"seconds": N} (eink-ha-os#178, emulator sleepNowCheck, spec/test-vectors/sleep-now.json): deep sleep
-// now, skipping liveMin and the API quiet. 422 bad seconds; 409 "stays awake: <powerDecision word>" on an unconfirmed
+// now, skipping live mode, the standby step and the API quiet. 422 bad seconds; 409 "stays awake: <powerDecision word>" on an unconfirmed
 // image, OTA, external power, setup. isNumber false = missing / not a JSON number.
 constexpr int64_t kSleepNowMinS = 60, kSleepNowMaxS = 86400;
 struct SleepNowCheck { int status; std::string error; };   // 202 = sleep

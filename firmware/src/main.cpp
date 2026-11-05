@@ -214,6 +214,7 @@ void setup() {
   }
   g_app->onLog([](const std::string& s) { LOG_INF("APP", "%s", s.c_str()); });   // every refresh with its reason (eink-ha-os#71)
   g_app->onPowerStage([](const char* s) { x4::net::powerKeyStage(s); });   // eink-ha-os#225 power trail
+  g_app->onNapWake([] { x4::net::powerNapWake(); });   // ha-paper#32: Wi-Fi back before the dashboard refresh
   g_app->onSettingsChanged([](const x4::DisplaySettings& s) { x4::net::deviceServices().saveDeviceSettings(s); });
   g_app->begin(services.bootConfig(), services.bootSettings());
   // Safe recovery (eink-ha-os#21): ≥ 3 crash resets in a row → offer the factory reset screen (Right erases, 10 s timeout).
@@ -265,5 +266,6 @@ void loop() {
     qemuTaskWdtStandIn();
   }
 #endif
-  ulTaskNotifyTake(pdTRUE, pdMS_TO_TICKS(kLoopIdleMs));   // input wakes us at once; was delay(1), a 1 kHz spin
+  // input wakes us at once; was delay(1), a 1 kHz spin. Standby step (ha-paper#32): powerLoop light-slept, no idle wait awake
+  ulTaskNotifyTake(pdTRUE, pdMS_TO_TICKS(x4::net::powerNapping() ? 0 : kLoopIdleMs));
 }

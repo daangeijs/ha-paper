@@ -1,0 +1,248 @@
+{
+  "name": "11-standby-step",
+  "description": "Standby step (ha-paper#32): after live mode (standbyAfter minutes after a press) glance shows the sleep face and light-sleeps (RAM kept, Wi-Fi off; any key or the touch key wakes it at once) while standbyLeftS > 0 (core glancePhase, standby-step.json). lightSleepS = how long to light-sleep before deciding again: the rest of the step, cut at the next transition (midnight, quiet-hours start, the 03:00 install slot when due), at most 8 h. Every guard before live mode still holds; quiet hours win (deep sleep); deepAfter never = standbyLeftS 8 h each time. deepSleepNow stays false in the step.",
+  "base": {
+    "nowEpoch": 1800000000,
+    "localSec": 43200,
+    "powerSave": "glance",
+    "wakeEvery": 15,
+    "quiet": "23-07",
+    "peeking": false,
+    "standby": false,
+    "charging": false,
+    "usb": false,
+    "chargedAgoMin": null,
+    "voltage": 3.9,
+    "battery": 60,
+    "otaPendingVerify": false,
+    "otaBusy": false,
+    "otaAuto": "notify",
+    "otaDue": false,
+    "setup": false,
+    "msSinceApi": null,
+    "live": false,
+    "glanceFails": 0,
+    "armBootsLeft": 0,
+    "standbyLeftS": 900
+  },
+  "cases": [
+    {
+      "name": "live (a press within standbyAfter): awake, no light sleep",
+      "input": {
+        "live": true,
+        "standbyLeftS": 0
+      },
+      "expect": {
+        "deepSleepNow": false,
+        "lightSleepS": 0,
+        "reason": "live"
+      }
+    },
+    {
+      "name": "standby step at 12:00, 15 min left: light sleep 900 s",
+      "input": {},
+      "expect": {
+        "deepSleepNow": false,
+        "wakeAtEpoch": null,
+        "lightSleepS": 900,
+        "reason": "light sleep",
+        "buttonWakeOnly": false,
+        "cpuProfile": "auto",
+        "wifiPs": "min",
+        "external": false
+      }
+    },
+    {
+      "name": "22:50, quiet 23-07: light sleep only to the quiet-hours start (600 s)",
+      "input": {
+        "localSec": 82200
+      },
+      "expect": {
+        "deepSleepNow": false,
+        "wakeAtEpoch": null,
+        "lightSleepS": 600,
+        "reason": "light sleep",
+        "buttonWakeOnly": false,
+        "cpuProfile": "auto",
+        "wifiPs": "min",
+        "external": false
+      }
+    },
+    {
+      "name": "23:58, quiet off: light sleep to midnight (the face's date, 120 s)",
+      "input": {
+        "localSec": 86280,
+        "quiet": "off"
+      },
+      "expect": {
+        "deepSleepNow": false,
+        "wakeAtEpoch": null,
+        "lightSleepS": 120,
+        "reason": "light sleep",
+        "buttonWakeOnly": false,
+        "cpuProfile": "auto",
+        "wifiPs": "min",
+        "external": false
+      }
+    },
+    {
+      "name": "deepAfter never (standbyLeftS = 8 h) at 12:00, quiet off: 8 h at most",
+      "input": {
+        "standbyLeftS": 28800,
+        "quiet": "off"
+      },
+      "expect": {
+        "deepSleepNow": false,
+        "wakeAtEpoch": null,
+        "lightSleepS": 28800,
+        "reason": "light sleep",
+        "buttonWakeOnly": false,
+        "cpuProfile": "auto",
+        "wifiPs": "min",
+        "external": false
+      }
+    },
+    {
+      "name": "02:55, quiet off, auto install due: light sleep to the 03:00 slot",
+      "input": {
+        "localSec": 10500,
+        "quiet": "off",
+        "otaDue": true,
+        "otaAuto": "night"
+      },
+      "expect": {
+        "deepSleepNow": false,
+        "wakeAtEpoch": null,
+        "lightSleepS": 300,
+        "reason": "light sleep",
+        "buttonWakeOnly": false,
+        "cpuProfile": "auto",
+        "wifiPs": "min",
+        "external": false
+      }
+    },
+    {
+      "name": "03:10, install due: the OTA window keeps it awake",
+      "input": {
+        "localSec": 11400,
+        "quiet": "off",
+        "otaDue": true,
+        "otaAuto": "night"
+      },
+      "expect": {
+        "deepSleepNow": false,
+        "lightSleepS": 0,
+        "reason": "ota window"
+      }
+    },
+    {
+      "name": "quiet hours (02:00, 23-07) win: deep sleep to 07:00",
+      "input": {
+        "localSec": 7200
+      },
+      "expect": {
+        "deepSleepNow": true,
+        "wakeAtEpoch": 1800018000,
+        "lightSleepS": 0,
+        "reason": "quiet"
+      }
+    },
+    {
+      "name": "step over (standbyLeftS 0): deep sleep with the glance face",
+      "input": {
+        "standbyLeftS": 0
+      },
+      "expect": {
+        "deepSleepNow": true,
+        "wakeAtEpoch": 1800028800,
+        "lightSleepS": 0,
+        "reason": "glance"
+      }
+    },
+    {
+      "name": "nobody home: the press still gets its standby step",
+      "input": {
+        "emptyHouse": true
+      },
+      "expect": {
+        "deepSleepNow": false,
+        "wakeAtEpoch": null,
+        "lightSleepS": 900,
+        "reason": "light sleep",
+        "buttonWakeOnly": false,
+        "cpuProfile": "auto",
+        "wifiPs": "min",
+        "external": false
+      }
+    },
+    {
+      "name": "on USB: always live",
+      "input": {
+        "usb": true
+      },
+      "expect": {
+        "deepSleepNow": false,
+        "lightSleepS": 0,
+        "reason": "external power",
+        "external": true
+      }
+    },
+    {
+      "name": "low battery: deep sleep, keys or charger only",
+      "input": {
+        "battery": 3
+      },
+      "expect": {
+        "deepSleepNow": true,
+        "wakeAtEpoch": null,
+        "lightSleepS": 0,
+        "buttonWakeOnly": true,
+        "reason": "low battery"
+      }
+    },
+    {
+      "name": "recent API request: awake",
+      "input": {
+        "msSinceApi": 30000
+      },
+      "expect": {
+        "deepSleepNow": false,
+        "lightSleepS": 0,
+        "reason": "recent api"
+      }
+    },
+    {
+      "name": "not armed (first-boot safety): awake",
+      "input": {
+        "armBootsLeft": 2
+      },
+      "expect": {
+        "deepSleepNow": false,
+        "lightSleepS": 0,
+        "reason": "not armed"
+      }
+    },
+    {
+      "name": "powerSave standby: no standby step (its own face and timer)",
+      "input": {
+        "powerSave": "standby"
+      },
+      "expect": {
+        "deepSleepNow": false,
+        "lightSleepS": 0,
+        "reason": "awake"
+      }
+    },
+    {
+      "name": "powerSave off: no standby step",
+      "input": {
+        "powerSave": "off"
+      },
+      "expect": {
+        "deepSleepNow": false,
+        "lightSleepS": 0,
+        "reason": "power save off"
+      }
+    }
+  ]
+}

@@ -56,6 +56,7 @@ const std::vector<SettingDef>& settingDefs() {
       {"fullEvery", S::setCleanEvery},   // legacy tile key (eink-ha-os#26, eink-ha-os#44)
       {"style", S::setStyle}, {"typeface", S::setTypeface}, {"surface", S::setSurface},   // display styles (device setting)
       {"powerSave", S::setPowerSave}, {"wakeEvery", S::setWakeEvery}, {"liveMin", S::setLiveMin},   // glance (eink-ha-os#10)
+      {"standbyAfter", S::setStandbyAfter}, {"deepAfter", S::setDeepAfter},   // standby step (ha-paper#32)
       {"quiet", S::setQuiet},   // quiet hours (eink-ha-os#295)
       {"morning", S::setMorning},   // Good morning page (eink-ha-os#330)
   };
