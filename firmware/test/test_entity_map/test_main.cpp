@@ -411,10 +411,16 @@ void test_route_departures_vectors() {
   int n = 0;
   for (auto& c : j.get("cases")->arr) {
     setenv("TZ", c.get("posixTz")->str.c_str(), 1); tzset();
-    EntityValue e; e.state = "x";
-    for (auto& kv : c.get("attrs")->obj) e.attrs[kv.first] = kv.second.str;
+    auto ent = [](const Json& o) {
+      EntityValue e; e.state = o.get("state") ? o.get("state")->str : "x";
+      for (auto& kv : o.get("attrs")->obj) e.attrs[kv.first] = kv.second.str;
+      return e;
+    };
+    Lang lang = c.get("lang")->str == "nl" ? Lang::Nl : Lang::En;
     std::string name = c.get("name")->str + " " + c.get("lang")->str;
-    RouteState rs = routeState(&e, false, c.get("lang")->str == "nl" ? Lang::Nl : Lang::En);
+    EntityValue e = ent(c), v2;
+    if (auto* e2 = c.get("entity2")) v2 = ent(*e2);   // ha-paper#22
+    RouteState rs = routeState(&e, false, lang, c.get("entity2") ? &v2 : nullptr);
     auto& out = c.get("out")->arr;
     TEST_ASSERT_EQUAL_INT_MESSAGE(int(out.size()), int(rs.deps.size()), name.c_str());
     for (size_t i = 0; i < out.size(); ++i) {

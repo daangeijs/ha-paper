@@ -1234,7 +1234,8 @@ export function Device({ v }: { v: Vals }) {
             {/* SLEEP FACE (eink-ha-os#295 quiet hours, eink-ha-os#331 Nobody home, eink-ha-os#356 glance sleep): no clock (a sleeping panel would show a
                 wrong time). A title ("Back at 07:00" / "Nobody home" / "Asleep · press to wake"), a line under it (the date /
                 "Next update ~16:05"), then the Tomorrow / Today row (eink-ha-os#328, core/quiet.ts quietTomorrow: a head, one centred line
-                per item: weather drawing, bold part, text) or the Nobody home facts, and "as of 22:14" when the data was stale.
+                per item: weather drawing, bold part, text) or the Nobody home facts, the battery line on the glance face ("Battery 64% ·
+                about 58 days left", ha-paper#30) and "as of 22:14" when the data was stale.
                 Firmware app/ui_chrome.cpp sleepFace. */}
             {!!(v.face) && (<>
               <div style={{ position: "absolute", inset: "0", background: "#ECEBE5", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: "10px" }}>
@@ -1249,6 +1250,7 @@ export function Device({ v }: { v: Vals }) {
                 {!!(v.face.facts.length) && (<div style={{ display: "flex", flexWrap: "wrap", justifyContent: "center", maxWidth: "760px", columnGap: "40px", rowGap: "10px", marginTop: "22px", fontSize: "26px" }}>
                   {(v.face.facts).map((r: any, i_r: number) => (<Fragment key={i_r}><span>{r.label} <b>{r.value}</b></span></Fragment>))}
                 </div>)}
+                {!!(v.face.batt) && (<div style={{ fontSize: "18px", lineHeight: "22px", color: "#111", marginTop: "10px" }}>{v.face.batt}</div>)}
                 {!!(v.face.foot) && (<div style={{ fontSize: "18px", color: "#111", marginTop: "10px" }}>{v.face.foot}</div>)}
                 {!!(v.face.tap) && (<button aria-label="Show dashboard" onClick={v.peek} style={{ position: "absolute", inset: "0", background: "none", border: "0" }}></button>)}
               </div>

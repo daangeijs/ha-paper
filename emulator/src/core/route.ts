@@ -33,11 +33,44 @@ export function isoMs(s: unknown, tz: number): number {
 /** Local minute of day of an epoch (ms) at UTC offset tz minutes. */
 const minuteOf = (ms: number, tz: number) => ((Math.floor(ms / 60000) + tz) % 1440 + 1440) % 1440;
 
+/** A number attribute: a number, or the text of one (the HA stream keeps scalars as text). NaN otherwise. */
+function numOf(v: unknown): number {
+  if (typeof v === 'number') return v;
+  return typeof v === 'string' && /^[-+]?(\d+\.?\d*|\.\d+)([eE][-+]?\d+)?$/.test(v) ? Number(v) : NaN;
+}
+const textOf = (v: unknown): string => (typeof v === 'string' ? v : typeof v === 'number' ? String(v) : '');
+
+/** One departure from a single-departure entity (ha-paper#22, the OVapi integration): a timestamp state with
+ *  `scheduled_time` (its "departure time" sensors), or `expected_arrival` / `target_arrival` (its "vehicle" sensors, local ISO).
+ *  time = local HH:MM of the state (else expected_arrival, else the scheduled time); delay = `delay_minutes` (an early
+ *  bus is negative: 0), else
+ *  expected − scheduled (≥ 0); info = "‹line_number› · ‹destination›". Neither time → null. */
+export function departureOf(state: string, attrs: Record<string, unknown>, tz: number): RouteDeparture | null {
+  const atState = isoMs(state, tz), atAttr = isoMs(attrs.expected_arrival, tz);
+  const actual = Number.isNaN(atState) ? atAttr : atState;
+  const sched = isoMs(attrs.scheduled_time, tz), target = isoMs(attrs.target_arrival, tz);
+  const planned = Number.isNaN(sched) ? target : sched;
+  const t = Number.isNaN(actual) ? planned : actual;
+  if (Number.isNaN(t)) return null;
+  const dm = numOf(attrs.delay_minutes);
+  const delay = !Number.isNaN(dm) ? Math.max(0, dm) : Number.isNaN(actual) || Number.isNaN(planned) ? 0 : Math.max(0, Math.round((actual - planned) / 60000));
+  const info = [textOf(attrs.line_number), textOf(attrs.destination)].filter(Boolean).join(' · ');
+  return { time: hm(minuteOf(t, tz)), delay, cancelled: false, info };
+}
+
+/** A route tile's departures: `entity`'s, then `entity2`'s (ha-paper#22) unless that one has no state (empty,
+ *  unavailable, unknown). The caller shows the gap state when `entity` itself has none. */
+export function routeDeparturesOf(ents: { state: string; attrs: Record<string, unknown> }[], tz: number, lang: Lang): RouteDeparture[] {
+  return ents.filter((e, i) => i === 0 || (e.state !== '' && e.state !== 'unknown' && e.state !== 'unavailable'))
+    .flatMap((e) => routeDepartures(e.attrs, tz, lang, e.state));
+}
+
 /** Train/bus departures, upcoming first. `departures: [{time "HH:MM", delay, cancelled, info}]` wins; else the NS
  *  departures integration's `upcoming: [{planned, actual, delay, track, direction, status, …}]` (ISO timestamps):
  *  time = local HH:MM of actual (else planned), delay = `delay` minutes (else actual − planned, ≥ 0),
- *  cancelled = status "cancelled", info = "Track ‹n› · ‹direction›". tz = local UTC offset in minutes. */
-export function routeDepartures(attrs: Record<string, unknown>, tz: number, lang: Lang): RouteDeparture[] {
+ *  cancelled = status "cancelled", info = "Track ‹n› · ‹direction›". Neither list: the entity as one departure
+ *  (departureOf, `state` = the entity's state). tz = local UTC offset in minutes. */
+export function routeDepartures(attrs: Record<string, unknown>, tz: number, lang: Lang, state = ''): RouteDeparture[] {
   const out: RouteDeparture[] = [];
   const deps = listOf(attrs.departures);
   if (deps) {
@@ -52,7 +85,12 @@ export function routeDepartures(attrs: Record<string, unknown>, tz: number, lang
     }
     return out;
   }
-  for (const x of listOf(attrs.upcoming) ?? []) {
+  const up = listOf(attrs.upcoming);
+  if (!up) {
+    const one = departureOf(state, attrs, tz);
+    return one ? [one] : [];
+  }
+  for (const x of up) {
     if (!x || typeof x !== 'object') continue;
     const o = x as Record<string, unknown>;
     const planned = isoMs(o.planned, tz), actual = isoMs(o.actual, tz);

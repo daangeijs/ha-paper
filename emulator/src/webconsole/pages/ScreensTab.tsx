@@ -109,6 +109,14 @@ export function ScreensTab({ v }: { v: ConsoleView }) {
                     {(v.web.modes).map((o: any, i_o: number) => (<Fragment key={i_o}><button onClick={o.pick} aria-pressed={o.bg === '#1d1d1f'} style={{ height: "32px", padding: "0 10px", border: "1px solid #c9c6be", borderRadius: "6px", background: o.bg, color: o.fg, fontSize: "13px" }}>{o.label}</button></Fragment>))}
                   </div>
                 )}
+                {!!(v.web.routeShows2) && (
+                  <label style={{ display: "flex", flexDirection: "column", gap: "4px" }}>
+                    <span style={{ fontSize: "13px", color: "#5c5a55" }}>{v.web.t('routeEntity2')}</span>
+                    <input value={v.web.routeEntity2} onChange={v.web.setRouteEntity2} list="x4-route2" placeholder={v.web.route2Suggest} spellCheck={false} style={{ height: "32px", boxSizing: "border-box", border: "1px solid #c9c6be", borderRadius: "6px", padding: "0 8px", fontSize: "13px" }} />
+                    <datalist id="x4-route2">{(v.web.route2Entities).map((e: any) => <option key={e.id} value={e.id}>{e.name}</option>)}</datalist>
+                    <span style={{ fontSize: "12px", color: "#5c5a55" }}>{v.web.t('routeEntity2Hint')}</span>
+                  </label>
+                )}
                 {!!(v.web.isBars) && (
                   <div style={{ display: "flex", alignItems: "center", gap: "10px", flexWrap: "wrap" }}>
                     <span style={{ fontSize: "13px", color: "#5c5a55" }}>{v.web.t('barsSeries')}</span>

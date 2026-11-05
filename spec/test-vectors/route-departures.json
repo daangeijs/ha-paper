@@ -1,5 +1,5 @@
 {
-  "description": "Route tile departures (spec/SCHEMA.md route, eink-ha-os#275). `departures` [{time HH:MM, delay, cancelled, info}] wins; else `upcoming` [{planned, actual, delay, track, direction, status}] with ISO timestamps (the NS departures integration): time = local HH:MM of actual, else planned; delay = `delay`, else max(0, round(actual − planned in minutes)); cancelled = status \"cancelled\" (the integration's statuses: on_time, delayed, cancelled); info = \"Track ‹track› · ‹direction›\" (strings routeTrack). Timestamps without an offset are local.",
+  "description": "Route tile departures (spec/SCHEMA.md route, eink-ha-os#275). `departures` [{time HH:MM, delay, cancelled, info}] wins; else `upcoming` [{planned, actual, delay, track, direction, status}] with ISO timestamps (the NS departures integration): time = local HH:MM of actual, else planned; delay = `delay`, else max(0, round(actual − planned in minutes)); cancelled = status \"cancelled\" (the integration's statuses: on_time, delayed, cancelled); info = \"Track ‹track› · ‹direction›\" (strings routeTrack). Timestamps without an offset are local. Neither list (ha-paper#22): the entity is one departure (the OVapi integration): time = local HH:MM of a timestamp `state`, else `expected_arrival`, else `scheduled_time`, else `target_arrival`; delay = `delay_minutes` (a number, as text; below 0 = 0), else max(0, round(time − (`scheduled_time`, else `target_arrival`))); cancelled false; info = \"‹line_number› · ‹destination›\" (either may be absent). No time: no departure. `entity2` (optional): a second entity of the tile; its departures follow the first entity's (left out when unavailable / unknown). `state` absent = not a timestamp.",
   "cases": [
     {
       "name": "departures-shape",
@@ -322,6 +322,386 @@
       },
       "lang": "nl",
       "out": []
+    },
+    {
+      "name": "ovapi-departure-time-pair",
+      "tz": 60,
+      "posixTz": "CET-1CEST,M3.5.0,M10.5.0/3",
+      "state": "2026-10-30T07:58:00+00:00",
+      "attrs": {
+        "friendly_name": "Bus stop 12345678 Current departure time",
+        "line_number": "12",
+        "destination": "Central Station",
+        "delay_minutes": "3",
+        "scheduled_time": "2026-10-30T08:55:00+01:00"
+      },
+      "entity2": {
+        "state": "2026-10-30T08:13:00+00:00",
+        "attrs": {
+          "line_number": "12",
+          "destination": "Central Station",
+          "delay_minutes": "0",
+          "scheduled_time": "2026-10-30T09:13:00+01:00"
+        }
+      },
+      "lang": "en",
+      "out": [
+        {
+          "time": "08:58",
+          "delay": 3,
+          "cancelled": false,
+          "info": "12 · Central Station"
+        },
+        {
+          "time": "09:13",
+          "delay": 0,
+          "cancelled": false,
+          "info": "12 · Central Station"
+        }
+      ]
+    },
+    {
+      "name": "ovapi-departure-time-pair",
+      "tz": 60,
+      "posixTz": "CET-1CEST,M3.5.0,M10.5.0/3",
+      "state": "2026-10-30T07:58:00+00:00",
+      "attrs": {
+        "friendly_name": "Bus stop 12345678 Current departure time",
+        "line_number": "12",
+        "destination": "Central Station",
+        "delay_minutes": "3",
+        "scheduled_time": "2026-10-30T08:55:00+01:00"
+      },
+      "entity2": {
+        "state": "2026-10-30T08:13:00+00:00",
+        "attrs": {
+          "line_number": "12",
+          "destination": "Central Station",
+          "delay_minutes": "0",
+          "scheduled_time": "2026-10-30T09:13:00+01:00"
+        }
+      },
+      "lang": "nl",
+      "out": [
+        {
+          "time": "08:58",
+          "delay": 3,
+          "cancelled": false,
+          "info": "12 · Central Station"
+        },
+        {
+          "time": "09:13",
+          "delay": 0,
+          "cancelled": false,
+          "info": "12 · Central Station"
+        }
+      ]
+    },
+    {
+      "name": "ovapi-vehicle-pair",
+      "tz": 120,
+      "posixTz": "CET-1CEST,M3.5.0,M10.5.0/3",
+      "state": "5 → Harbour",
+      "attrs": {
+        "line_number": "5",
+        "destination": "Harbour",
+        "expected_arrival": "2026-09-29T07:57:00",
+        "target_arrival": "2026-09-29T07:55:00",
+        "delay_minutes": "2",
+        "minutes_until_departure": "4"
+      },
+      "entity2": {
+        "state": "5 → Harbour",
+        "attrs": {
+          "line_number": "5",
+          "destination": "Harbour",
+          "expected_arrival": "2026-09-29T08:10:30",
+          "target_arrival": "2026-09-29T08:10:00",
+          "minutes_until_departure": "17"
+        }
+      },
+      "lang": "en",
+      "out": [
+        {
+          "time": "07:57",
+          "delay": 2,
+          "cancelled": false,
+          "info": "5 · Harbour"
+        },
+        {
+          "time": "08:10",
+          "delay": 1,
+          "cancelled": false,
+          "info": "5 · Harbour"
+        }
+      ]
+    },
+    {
+      "name": "ovapi-vehicle-pair",
+      "tz": 120,
+      "posixTz": "CET-1CEST,M3.5.0,M10.5.0/3",
+      "state": "5 → Harbour",
+      "attrs": {
+        "line_number": "5",
+        "destination": "Harbour",
+        "expected_arrival": "2026-09-29T07:57:00",
+        "target_arrival": "2026-09-29T07:55:00",
+        "delay_minutes": "2",
+        "minutes_until_departure": "4"
+      },
+      "entity2": {
+        "state": "5 → Harbour",
+        "attrs": {
+          "line_number": "5",
+          "destination": "Harbour",
+          "expected_arrival": "2026-09-29T08:10:30",
+          "target_arrival": "2026-09-29T08:10:00",
+          "minutes_until_departure": "17"
+        }
+      },
+      "lang": "nl",
+      "out": [
+        {
+          "time": "07:57",
+          "delay": 2,
+          "cancelled": false,
+          "info": "5 · Harbour"
+        },
+        {
+          "time": "08:10",
+          "delay": 1,
+          "cancelled": false,
+          "info": "5 · Harbour"
+        }
+      ]
+    },
+    {
+      "name": "ovapi-early-and-no-delay",
+      "tz": 120,
+      "posixTz": "CET-1CEST,M3.5.0,M10.5.0/3",
+      "state": "2026-09-29T23:59:00+02:00",
+      "attrs": {
+        "line_number": "300",
+        "delay_minutes": "-1",
+        "scheduled_time": "2026-09-30T00:00:00+02:00"
+      },
+      "entity2": {
+        "state": "2026-09-30T00:20:00+02:00",
+        "attrs": {
+          "destination": "Airport",
+          "delay_minutes": "",
+          "scheduled_time": "2026-09-30T00:14:00+02:00"
+        }
+      },
+      "lang": "en",
+      "out": [
+        {
+          "time": "23:59",
+          "delay": 0,
+          "cancelled": false,
+          "info": "300"
+        },
+        {
+          "time": "00:20",
+          "delay": 6,
+          "cancelled": false,
+          "info": "Airport"
+        }
+      ]
+    },
+    {
+      "name": "ovapi-early-and-no-delay",
+      "tz": 120,
+      "posixTz": "CET-1CEST,M3.5.0,M10.5.0/3",
+      "state": "2026-09-29T23:59:00+02:00",
+      "attrs": {
+        "line_number": "300",
+        "delay_minutes": "-1",
+        "scheduled_time": "2026-09-30T00:00:00+02:00"
+      },
+      "entity2": {
+        "state": "2026-09-30T00:20:00+02:00",
+        "attrs": {
+          "destination": "Airport",
+          "delay_minutes": "",
+          "scheduled_time": "2026-09-30T00:14:00+02:00"
+        }
+      },
+      "lang": "nl",
+      "out": [
+        {
+          "time": "23:59",
+          "delay": 0,
+          "cancelled": false,
+          "info": "300"
+        },
+        {
+          "time": "00:20",
+          "delay": 6,
+          "cancelled": false,
+          "info": "Airport"
+        }
+      ]
+    },
+    {
+      "name": "ovapi-scheduled-only-and-empty",
+      "tz": 120,
+      "posixTz": "CET-1CEST,M3.5.0,M10.5.0/3",
+      "state": "7 → Harbour",
+      "attrs": {
+        "line_number": "7",
+        "target_arrival": "2026-09-29T09:05:00"
+      },
+      "entity2": {
+        "state": "none",
+        "attrs": {
+          "line_number": "7"
+        }
+      },
+      "lang": "en",
+      "out": [
+        {
+          "time": "09:05",
+          "delay": 0,
+          "cancelled": false,
+          "info": "7"
+        }
+      ]
+    },
+    {
+      "name": "ovapi-scheduled-only-and-empty",
+      "tz": 120,
+      "posixTz": "CET-1CEST,M3.5.0,M10.5.0/3",
+      "state": "7 → Harbour",
+      "attrs": {
+        "line_number": "7",
+        "target_arrival": "2026-09-29T09:05:00"
+      },
+      "entity2": {
+        "state": "none",
+        "attrs": {
+          "line_number": "7"
+        }
+      },
+      "lang": "nl",
+      "out": [
+        {
+          "time": "09:05",
+          "delay": 0,
+          "cancelled": false,
+          "info": "7"
+        }
+      ]
+    },
+    {
+      "name": "entity2-unavailable",
+      "tz": 120,
+      "posixTz": "CET-1CEST,M3.5.0,M10.5.0/3",
+      "state": "2026-09-29T09:20:00+02:00",
+      "attrs": {
+        "line_number": "1"
+      },
+      "entity2": {
+        "state": "unavailable",
+        "attrs": {
+          "line_number": "1",
+          "target_arrival": "2026-09-29T09:40:00"
+        }
+      },
+      "lang": "en",
+      "out": [
+        {
+          "time": "09:20",
+          "delay": 0,
+          "cancelled": false,
+          "info": "1"
+        }
+      ]
+    },
+    {
+      "name": "entity2-unavailable",
+      "tz": 120,
+      "posixTz": "CET-1CEST,M3.5.0,M10.5.0/3",
+      "state": "2026-09-29T09:20:00+02:00",
+      "attrs": {
+        "line_number": "1"
+      },
+      "entity2": {
+        "state": "unavailable",
+        "attrs": {
+          "line_number": "1",
+          "target_arrival": "2026-09-29T09:40:00"
+        }
+      },
+      "lang": "nl",
+      "out": [
+        {
+          "time": "09:20",
+          "delay": 0,
+          "cancelled": false,
+          "info": "1"
+        }
+      ]
+    },
+    {
+      "name": "list-then-single",
+      "tz": 120,
+      "posixTz": "CET-1CEST,M3.5.0,M10.5.0/3",
+      "attrs": {
+        "departures": "[{\"time\":\"09:00\",\"delay\":0,\"cancelled\":false,\"info\":\"Bus 1\"}]"
+      },
+      "entity2": {
+        "state": "2026-09-29T09:20:00+02:00",
+        "attrs": {
+          "line_number": "1",
+          "delay_minutes": "1"
+        }
+      },
+      "lang": "en",
+      "out": [
+        {
+          "time": "09:00",
+          "delay": 0,
+          "cancelled": false,
+          "info": "Bus 1"
+        },
+        {
+          "time": "09:20",
+          "delay": 1,
+          "cancelled": false,
+          "info": "1"
+        }
+      ]
+    },
+    {
+      "name": "list-then-single",
+      "tz": 120,
+      "posixTz": "CET-1CEST,M3.5.0,M10.5.0/3",
+      "attrs": {
+        "departures": "[{\"time\":\"09:00\",\"delay\":0,\"cancelled\":false,\"info\":\"Bus 1\"}]"
+      },
+      "entity2": {
+        "state": "2026-09-29T09:20:00+02:00",
+        "attrs": {
+          "line_number": "1",
+          "delay_minutes": "1"
+        }
+      },
+      "lang": "nl",
+      "out": [
+        {
+          "time": "09:00",
+          "delay": 0,
+          "cancelled": false,
+          "info": "Bus 1"
+        },
+        {
+          "time": "09:20",
+          "delay": 1,
+          "cancelled": false,
+          "info": "1"
+        }
+      ]
     }
   ]
 }

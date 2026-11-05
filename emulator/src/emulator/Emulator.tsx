@@ -35,6 +35,7 @@ import { subPages, flatPages, rects, PER_COL, PER_PAGE, lightGroupsOf, layoutGro
 import { bwAfter, SCREEN_W, TRACK, HATCH } from '../core/panel.ts';
 import { ambientDue, chromeFor, nightStale, AMBIENT_MS, type Chrome } from '../core/ambient.ts';
 import { emptyNextAt, houseEmpty, houseFacts, type HouseFacts } from '../core/emptyHouse.ts';
+import { battDaysLine, battEstimate, modelPctPerDay } from '../core/batteryDays.ts';
 import { DEFAULT_QUIET, PEEK_MS, TODAY_END, inQuietHours, peekOnBoot, quietBackAt, quietEndHour, quietSources, quietTomorrow, type QuietItem, type QuietRow, type WakeKind } from '../core/quiet.ts';
 import { DEFAULT_LIGHT_TIMEOUT, frontlightPct, lightOnBoot, lightTimedOut, lightWakeConsumes } from '../core/frontlight.ts';
 import { decidePartial, decideNav, minuteKeys, cleanDue, nextCleanMin, DEFAULT_CLEAN_EVERY, PowerHold } from '../core/refresh.ts';
@@ -118,8 +119,9 @@ export type EmuState = {
 };
 
 /** One sleep face (eink-ha-os#356): quiet hours, Nobody home and glance sleep; the quiet face's layout (firmware ui_chrome.cpp
- *  sleepFace). items: the Tomorrow / Today row; facts: the Nobody home facts; tap: a tap peeks (quiet hours only). */
-export type SleepFace = { title: string; sub: string; head: string; items: QuietItem[]; facts: { label: string; value: string }[]; foot: string; tap: boolean };
+ *  sleepFace). items: the Tomorrow / Today row; facts: the Nobody home facts; batt: the battery line (glance only, ha-paper#30);
+ *  tap: a tap peeks (quiet hours only). */
+export type SleepFace = { title: string; sub: string; head: string; items: QuietItem[]; facts: { label: string; value: string }[]; batt: string; foot: string; tap: boolean };
 export type EmulatorProps = { osName?: string; deviceBattery?: number; bodyColor?: 'Black' | 'White'; initial?: 'firstInstall' | 'installed'; look?: Look; lang?: string };
 
 const newInstallId = () => Math.random().toString(36).slice(2, 10);
@@ -1634,9 +1636,11 @@ export class Emulator extends Component<EmulatorProps, EmuState> {
     // one sleep face (eink-ha-os#356): quiet hours, Nobody home and glance sleep share the quiet face's layout with their own lines
     const glanceOn = this.glanceFaceActive(s), glance = glanceOn ? this.quietSnapOf(s, TODAY_END) : null;
     const face: SleepFace | null = quietOn
-      ? { title: tx('quietBack', quietBackAt(s.cfg.quiet, s.cfg.clock)), sub: dateText, head: quiet.row.head, items: quiet.row.items, facts: [], foot: quiet.at ? tx('asOf', quiet.at) : '', tap: true }
-      : emptyOn ? { title: tx('emptyTitle'), sub: tx('emptyNext', this.emptyNext(s)), head: '', items: [], facts: this.emptyRows(s, tx), foot: '', tap: false }
-      : glance ? { title: tx('sleepHead'), sub: dateText, head: glance.row.head, items: glance.row.items, facts: [], foot: glance.at ? tx('asOf', glance.at) : '', tap: false }
+      ? { title: tx('quietBack', quietBackAt(s.cfg.quiet, s.cfg.clock)), sub: dateText, head: quiet.row.head, items: quiet.row.items, facts: [], batt: '', foot: quiet.at ? tx('asOf', quiet.at) : '', tap: true }
+      : emptyOn ? { title: tx('emptyTitle'), sub: tx('emptyNext', this.emptyNext(s)), head: '', items: [], facts: this.emptyRows(s, tx), batt: '', foot: '', tap: false }
+      // ha-paper#30: battery % and days left; the emulator has no wake tally and no gauge history, so the model only
+      : glance ? { title: tx('sleepHead'), sub: dateText, head: glance.row.head, items: glance.row.items, facts: [],
+          batt: battDaysLine(ui, battEstimate(this.battery, s.usb && this.battery < 100, null, Math.floor(now.getTime() / 1000), modelPctPerDay(0, 0))), foot: glance.at ? tx('asOf', glance.at) : '', tap: false }
       : null;
 
     return {

@@ -460,6 +460,16 @@ export function useConsole(api: DeviceApi, initial: DeviceSnapshot | null = null
     isRoute: !!sw && sw.type === 'route',
     modes: ROUTE_MODES.map((m) => ({ label: t(({ train: 'modeTrain', bus: 'modeBus', car: 'modeCar' } as const)[m as 'train' | 'bus' | 'car']), ...seg(!!sw && (sw.mode || 'train') === m),
       pick: () => { if (cur && sw) commit(cur.widgets.map((x, k) => (k === selW ? { ...x, mode: m } : x)), selW); } })),
+    // a second departure entity (ha-paper#22): train / bus only; empty = none
+    routeEntity2: sw && sw.type === 'route' ? String(sw.entity2 ?? '') : '',
+    routeShows2: !!sw && sw.type === 'route' && sw.mode !== 'car',
+    setRouteEntity2: (e: ChangeEvent<HTMLInputElement>) => {
+      const v = e.target.value.replace(/[,;\s]/g, '');
+      if (cur && sw) commit(cur.widgets.map((x, k) => { if (k !== selW) return x; const { entity2: _, ...rest } = x; return v ? { ...rest, entity2: v } : rest; }), selW);
+    },
+    // OVapi names its sensors …_current_… / …_next_…: offer the next one first
+    route2Suggest: sw && sw.type === 'route' && typeof sw.entity === 'string' && sw.entity.includes('_current_') ? sw.entity.replace('_current_', '_next_') : 'sensor.…',
+    route2Entities: sw && sw.type === 'route' ? ents.list.filter((e) => e.id.startsWith('sensor.') && e.id !== sw.entity).map((e) => ({ id: e.id, name: e.name })) : [],
     // bar chart series (eink-ha-os#148)
     isBars: !!sw && sw.type === 'bars',
     seriesOpts: BARS_SERIES.map((m) => ({ label: t(({ prices: 'seriesPrices', usage: 'seriesUsage', solar: 'seriesSolar' } as const)[m as 'prices' | 'usage' | 'solar']), ...seg(!!sw && (sw.series || 'usage') === m),

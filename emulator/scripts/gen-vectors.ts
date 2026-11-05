@@ -5,11 +5,12 @@ import { readFileSync, writeFileSync, mkdirSync, readdirSync, rmSync } from 'nod
 import { join } from 'node:path';
 import { validateYaml, cellsUsed, toYaml, sceneAction } from '../src/core/config.ts';
 import { sevOf, routeLevel, carEta, carLevel, SEV, CAR_FACTOR } from '../src/core/severity.ts';
-import { routeDepartures } from '../src/core/route.ts';
+import { routeDeparturesOf } from '../src/core/route.ts';
 import { binDays, binsView } from '../src/core/bins.ts';
 import { capList, listAgo, listRows, listSpec, listView, LIST_MAX_BYTES, LIST_MAX_ITEMS } from '../src/core/attrList.ts';
 import { fieldDecode, fieldEncode, guestLayout, guestPayload, guestQr, guestView } from '../src/core/guestWifi.ts';
 import { logPush, logRing, logsQuery, logTail, redact, LOG_CAP, LOG_TAIL_CAP, type LogLevel, type LogRing, type LogsQuery } from '../src/core/logs.ts';
+import { BATT_MAH, AWAKE_MA, SLEEP_MA, DEFAULT_AWAKE_MIN, TALLY_MIN_H, MEASURE_MIN_H, BLEND_PTS, BLEND_DAYS, DAYS_CAP, anchorStep, battDaysLine, battEstimate, battEstimateJson, modelPctPerDay, type BattAnchor } from '../src/core/batteryDays.ts';
 import { BATT_HISTORY_N, BATT_SAMPLE_S, BATT_ZERO, GAUGE_RISE_PTS, GAUGE_RISE_READS, GAUGE_ZERO, battHistory, battStep, gaugeStep, type BattIn } from '../src/core/battery.ts';
 import { bootsJson, diagApply, lastCrash, type DiagOp, type DiagRing } from '../src/core/diag.ts';
 import { seedAnswerOk, seedPlan, SEED_TEMPLATE, templateEventFinal, type HaSnapshot } from '../src/core/seed.ts';
@@ -96,6 +97,8 @@ export const CONFIG_CASES: [string, string, string][] = [
   ['49-zonelist-bad-entity', 'Rule: zoneList entities are climate.* ids (any integration).', H + scr('a', ['type: zoneList, entities: sensor.living_temperature'])],
   ['50-user-routes', 'Routes are user tiles (eink-ha-os#145): free label, mode train | bus | car (absent = train), entity = a sensor.* id; the route id is optional free text.', H + scr('t', ['type: route, label: To work, mode: train, entity: sensor.commute_departures, cs: 2', 'type: route, label: Bus 52, mode: bus, entity: sensor.bus_52, cs: 2', 'type: route, label: Drive, mode: car, entity: sensor.drive_time, cs: 2', 'type: route, route: my_line, entity: sensor.x4_route_my_line, cs: 2'], '    app: travel\n')],
   ['51-legacy-route', 'Old catalog routes (`route: home_centre`, `route: car`, …, before eink-ha-os#145) still parse: an empty user route without entity (the tile asks for a sensor; the console blocks saving until one is picked).', H + scr('t', ['type: route, route: home_centre, cs: 2', 'type: route, route: car, cs: 2'], '    app: travel\n')],
+  ['52a-route-entity2', 'A train/bus route may name a second departure entity (ha-paper#22): `entity2`, a sensor.* id; its departures follow the first entity\'s.', H + scr('t', ['type: route, label: Bus 12, mode: bus, entity: sensor.bus_stop_12345678_current_departure_time, entity2: sensor.bus_stop_12345678_next_departure_time, cs: 2'], '    app: travel\n')],
+  ['52b-route-entity2-domain', 'Rule: a route entity2 must be a sensor.* id (ha-paper#22).', H + scr('t', ['type: route, label: Bus 12, mode: bus, entity: sensor.bus_12, entity2: switch.bus'], '    app: travel\n')],
   ['52-route-wrong-domain', 'Rule: a route entity must be a sensor.* id.', H + scr('t', ['type: route, label: Drive, entity: switch.car'], '    app: travel\n')],
   // eink-ha-os#319: the now playing tile on a media_player, with favorites (Name=type:id or Name=script.<id> / scene.<id>, split by ;)
   ['319a-media-favorites', 'A media tile takes a media_player entity, an optional label and up to 6 favorites (eink-ha-os#319); ids may hold colons and slashes.', H + scr('a', ['type: media, entity: media_player.living_room, cs: 2, favorites: Radio 1=music:http://icecast.omroep.nl/radio1-bb-mp3; Bedtime=script.good_night; Movie=scene.movie_night', 'type: media, entity: media_player.kitchen, label: Kitchen'])],
@@ -521,7 +524,8 @@ export function routeVectors() {
   const up = (xs: Record<string, unknown>[]) => JSON.stringify(xs);
   const ns = (planned: string, actual: string, delay: number | undefined, track: string, direction: string, status: string, message: string | null = null) =>
     ({ planned, actual, ...(delay === undefined ? {} : { delay }), track, planned_track: track, track_changed: false, direction, train: 'IC 1234', status, message });
-  const cases: { name: string; tz: number; posixTz: string; attrs: Record<string, string> }[] = [
+  type Ent = { state?: string; attrs: Record<string, string> };
+  const cases: ({ name: string; tz: number; posixTz: string; entity2?: Ent } & Ent)[] = [
     { name: 'departures-shape', tz: 120, posixTz: CET, attrs: { departures: JSON.stringify([{ time: '08:04', delay: 0, cancelled: false, info: 'Intercity' }, { time: '08:19', delay: 6, cancelled: false, info: 'Sprinter · track 4' }, { time: '8:34', delay: 0, cancelled: true }]) } },
     { name: 'departures-wins-over-upcoming', tz: 120, posixTz: CET, attrs: { departures: JSON.stringify([{ time: '09:00', delay: 1, cancelled: false, info: 'Bus 1' }]), upcoming: up([ns('2026-09-29T07:55:00+02:00', '2026-09-29T07:55:00+02:00', 0, '5', 'Harbour', 'on_time')]) } },
     { name: 'upcoming-ns', tz: 120, posixTz: CET, attrs: { upcoming: up([
@@ -544,10 +548,28 @@ export function routeVectors() {
       ns('2026-09-29T10:00:00+02:00', '2026-09-29T10:00:00+02:00', 0, '', '', 'on_time'),
     ]) } },
     { name: 'upcoming-not-a-list', tz: 120, posixTz: CET, attrs: { upcoming: 'none' } },
+    // ha-paper#22: single-departure entities (the OVapi integration, made-up stop 12345678), entity then entity2
+    { name: 'ovapi-departure-time-pair', tz: 60, posixTz: CET, state: '2026-10-30T07:58:00+00:00',
+      attrs: { friendly_name: 'Bus stop 12345678 Current departure time', line_number: '12', destination: 'Central Station', delay_minutes: '3', scheduled_time: '2026-10-30T08:55:00+01:00' },
+      entity2: { state: '2026-10-30T08:13:00+00:00', attrs: { line_number: '12', destination: 'Central Station', delay_minutes: '0', scheduled_time: '2026-10-30T09:13:00+01:00' } } },
+    { name: 'ovapi-vehicle-pair', tz: 120, posixTz: CET, state: '5 → Harbour',
+      attrs: { line_number: '5', destination: 'Harbour', expected_arrival: '2026-09-29T07:57:00', target_arrival: '2026-09-29T07:55:00', delay_minutes: '2', minutes_until_departure: '4' },
+      entity2: { state: '5 → Harbour', attrs: { line_number: '5', destination: 'Harbour', expected_arrival: '2026-09-29T08:10:30', target_arrival: '2026-09-29T08:10:00', minutes_until_departure: '17' } } },
+    { name: 'ovapi-early-and-no-delay', tz: 120, posixTz: CET, state: '2026-09-29T23:59:00+02:00',
+      attrs: { line_number: '300', delay_minutes: '-1', scheduled_time: '2026-09-30T00:00:00+02:00' },
+      entity2: { state: '2026-09-30T00:20:00+02:00', attrs: { destination: 'Airport', delay_minutes: '', scheduled_time: '2026-09-30T00:14:00+02:00' } } },
+    { name: 'ovapi-scheduled-only-and-empty', tz: 120, posixTz: CET, state: '7 → Harbour',
+      attrs: { line_number: '7', target_arrival: '2026-09-29T09:05:00' },
+      entity2: { state: 'none', attrs: { line_number: '7' } } },
+    { name: 'entity2-unavailable', tz: 120, posixTz: CET, state: '2026-09-29T09:20:00+02:00', attrs: { line_number: '1' },
+      entity2: { state: 'unavailable', attrs: { line_number: '1', target_arrival: '2026-09-29T09:40:00' } } },
+    { name: 'list-then-single', tz: 120, posixTz: CET, attrs: { departures: JSON.stringify([{ time: '09:00', delay: 0, cancelled: false, info: 'Bus 1' }]) },
+      entity2: { state: '2026-09-29T09:20:00+02:00', attrs: { line_number: '1', delay_minutes: '1' } } },
   ];
   return {
-    description: 'Route tile departures (spec/SCHEMA.md route, eink-ha-os#275). `departures` [{time HH:MM, delay, cancelled, info}] wins; else `upcoming` [{planned, actual, delay, track, direction, status}] with ISO timestamps (the NS departures integration): time = local HH:MM of actual, else planned; delay = `delay`, else max(0, round(actual − planned in minutes)); cancelled = status "cancelled" (the integration\'s statuses: on_time, delayed, cancelled); info = "Track ‹track› · ‹direction›" (strings routeTrack). Timestamps without an offset are local.',
-    cases: cases.flatMap((c) => (['en', 'nl'] as const).map((lang) => ({ ...c, lang, out: routeDepartures(c.attrs, c.tz, lang) }))),
+    description: 'Route tile departures (spec/SCHEMA.md route, eink-ha-os#275). `departures` [{time HH:MM, delay, cancelled, info}] wins; else `upcoming` [{planned, actual, delay, track, direction, status}] with ISO timestamps (the NS departures integration): time = local HH:MM of actual, else planned; delay = `delay`, else max(0, round(actual − planned in minutes)); cancelled = status "cancelled" (the integration\'s statuses: on_time, delayed, cancelled); info = "Track ‹track› · ‹direction›" (strings routeTrack). Timestamps without an offset are local. Neither list (ha-paper#22): the entity is one departure (the OVapi integration): time = local HH:MM of a timestamp `state`, else `expected_arrival`, else `scheduled_time`, else `target_arrival`; delay = `delay_minutes` (a number, as text; below 0 = 0), else max(0, round(time − (`scheduled_time`, else `target_arrival`))); cancelled false; info = "‹line_number› · ‹destination›" (either may be absent). No time: no departure. `entity2` (optional): a second entity of the tile; its departures follow the first entity\'s (left out when unavailable / unknown). `state` absent = not a timestamp.',
+    cases: cases.flatMap((c) => (['en', 'nl'] as const).map((lang) => ({ ...c, lang,
+      out: routeDeparturesOf([{ state: c.state ?? '', attrs: c.attrs }, ...(c.entity2 ? [{ state: c.entity2.state ?? '', attrs: c.entity2.attrs }] : [])], c.tz, lang) }))),
   };
 }
 
@@ -841,6 +863,50 @@ export function gaugeFilterVectors() {
       c('a charge the board did not see: 3 reads in a row ≥ 5 points up', [[40, false], [80, false], [80, false], [81, false], [82, false]]),
       c('a read below the confirm level restarts the count', [[40, false], [80, false], [80, false], [44, false], [80, false], [80, false], [80, false]]),
       c('not read keeps the state, also before the first read', [[-1, false], [70, false], [-1, false], [90, false], [-1, false], [90, false], [90, false]]),
+    ],
+  };
+}
+
+export function batteryDaysVectors() {
+  const T = 1_762_000_000, H = 3600, D = 86400;
+  const m0 = modelPctPerDay(0, 0);
+  const model = [[0, 0], [600_000, 3 * H], [20 * 60_000, 24 * H], [3 * H * 1000, 21 * H], [0, 7 * D]].map(([awakeMs, asleepS]) => ({ awakeMs, asleepS, pctPerDay: modelPctPerDay(awakeMs, asleepS) }));
+  const seq = (name: string, reads: [number, boolean, number][]) => {
+    let a: BattAnchor = null;
+    return { name, reads: reads.map(([pct, charging, epoch]) => { a = anchorStep(a, pct, charging, epoch); return { pct, charging, epoch, anchor: a }; }) };
+  };
+  const est = (name: string, pct: number, charging: boolean, anchor: BattAnchor, epoch: number, mdl = m0) => {
+    const e = battEstimate(pct, charging, anchor, epoch, mdl);
+    return { name, pct, charging, anchor, epoch, model: mdl, days: e.days, measured: e.measured, weight: e.weight, en: battDaysLine('en', e), nl: battDaysLine('nl', e), json: JSON.stringify(battEstimateJson(e)) };
+  };
+  return {
+    description: 'Battery days left on the glance sleep face (ha-paper#30, emulator src/core/batteryDays.ts, firmware core/battery_days.cpp). ' +
+      'model: % a day = 24 h × (awake share × ' + AWAKE_MA + ' mA + asleep share × ' + SLEEP_MA + ' mA) / ' + BATT_MAH + ' mAh × 100; awake share from the wake tally (awakeMs, asleepS) once it covers ' + TALLY_MIN_H + ' h, else ' + DEFAULT_AWAKE_MIN + ' min a day. ' +
+      'anchor: the first filtered gauge % seen unplugged with a sane clock; charging clears it, a rise or a clock going back restarts it, pct < 0 keeps it. ' +
+      'estimate: after ' + MEASURE_MIN_H + ' h, measured = max(drop, 0.5) / days since the anchor, weight = min(1, max(drop / ' + BLEND_PTS + ', days / ' + BLEND_DAYS + ')); rate = weight × measured + (1 − weight) × model; days = floor(pct / rate + 0.5) clamped to 1…' + (DAYS_CAP + 1) + ' (' + (DAYS_CAP + 1) + ' = "' + DAYS_CAP + '+"). days null = charging or gauge unknown. en / nl: the face line ("" = none); json: GET /diagnostics battery.estimate (rates rounded to 3 decimals).',
+    model,
+    anchor: [
+      seq('first unplugged read with a clock anchors; falls keep it', [[80, false, T], [79, false, T + H], [75, false, T + D]]),
+      seq('no clock: nothing until it is known', [[80, false, 0], [80, false, T]]),
+      seq('charging clears it; unplugged anchors again', [[80, false, T], [85, true, T + H], [90, false, T + 2 * H], [89, false, T + 3 * H]]),
+      seq('a rise restarts it (a charge the board did not see)', [[40, false, T], [80, false, T + D], [79, false, T + D + H]]),
+      seq('not read keeps it; a clock going back restarts it', [[70, false, T], [-1, false, T + H], [-1, true, T + H], [69, false, T - D]]),
+    ],
+    estimate: [
+      est('first sleep: model only (no anchor)', 64, false, null, T),
+      est('full, model only', 100, false, null, T),
+      est('anchor younger than 1 h: model only', 64, false, { epoch: T - 1800, pct: 65 }, T),
+      est('2 points in a day: blended 20 %', 64, false, { epoch: T - D, pct: 66 }, T),
+      est('12 points in 4 days: measured only', 60, false, { epoch: T - 4 * D, pct: 72 }, T),
+      est('no drop in 7 days: under half a point a week, capped 99+', 90, false, { epoch: T - 7 * D, pct: 90 }, T),
+      est('fast drain: 20 points in a day', 30, false, { epoch: T - D, pct: 50 }, T),
+      est('almost empty: at least 1 day', 1, false, { epoch: T - D, pct: 21 }, T),
+      est('empty reads 0: still 1 day', 0, false, null, T),
+      est('3 points in a day at 6 %: blended 30 %', 6, false, { epoch: T - D, pct: 9 }, T),
+      est('counted usage (model from the tally)', 64, false, null, T, modelPctPerDay(3 * H * 1000, 21 * H)),
+      est('charging: no days', 64, true, { epoch: T - D, pct: 66 }, T),
+      est('gauge unknown: no line', -1, false, null, T),
+      est('clock unknown: model only', 64, false, { epoch: T - D, pct: 70 }, 0),
     ],
   };
 }
@@ -1290,6 +1356,7 @@ if (process.argv[1] && process.argv[1].endsWith('gen-vectors.ts')) {
   writeFileSync(join(OUT, 'diag.json'), JSON.stringify(diagVectors(), null, 2) + '\n');
   writeFileSync(join(OUT, 'battery-history.json'), compactJson(batteryVectors()));
   writeFileSync(join(OUT, 'gauge-filter.json'), compactJson(gaugeFilterVectors()));
+  writeFileSync(join(OUT, 'battery-days.json'), JSON.stringify(batteryDaysVectors(), null, 2) + '\n');
   writeFileSync(join(OUT, 'logs.json'), JSON.stringify(logsVectors(), null, 2) + '\n');
   writeFileSync(join(OUT, 'seed.json'), JSON.stringify(seedVectors(), null, 2) + '\n');
   writeFileSync(join(OUT, 'energy-prefs.json'), JSON.stringify(energyPrefsVectors(), null, 2) + '\n');

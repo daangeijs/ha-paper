@@ -20,6 +20,7 @@
 #include "net/hub.h"
 #include "net/ota.h"
 #include "net/png.h"
+#include "net/power.h"
 #include "net/psram.h"
 #include "net/storage.h"
 #include "net/tls.h"
@@ -393,6 +394,10 @@ void DeviceServices::otaInstall() {
 
 void DeviceServices::factoryReset() {
   hub().post([] { doFactoryReset(); });
+}
+
+battdays::Estimate DeviceServices::batteryEstimate(int pct, bool charging, int64_t epoch) {
+  return powerBatteryEstimate(pct, charging, epoch);
 }
 
 // History tiles (eink-ha-os#269): the config's series, fetched only for the app on screen. Posted when the config or that app
