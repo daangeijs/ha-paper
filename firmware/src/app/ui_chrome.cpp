@@ -344,6 +344,7 @@ struct SleepFace {
   std::string title, sub;
   const quiet::Row* row = nullptr;
   std::vector<std::pair<std::string, std::string>> facts;   // label, bold value
+  std::string batt;   // ha-paper#30: battery line (glance face only)
   std::string foot;
 };
 
@@ -362,9 +363,9 @@ void sleepFace(Canvas& c, const SleepFace& f) {
   }
   const int nl = int(lines.size());
   // flex column, gap 10: title 52, sub 34, row (margin 22, head 22, then gap 10 + 44 px per item) or facts (margin 22,
-  // 31 px lines, gap 10), footer (margin 10, 22)
+  // 31 px lines, gap 10), battery line and footer (margin 10, 22 each)
   const int h = 52 + 10 + 34 + (n ? 10 + 22 + 22 + n * (10 + 44) : 0) + (nl ? 10 + 22 + nl * 31 + (nl - 1) * 10 : 0) +
-                (f.foot.empty() ? 0 : 10 + 10 + 22);
+                (f.batt.empty() ? 0 : 10 + 10 + 22) + (f.foot.empty() ? 0 : 10 + 10 + 22);
   int y = (kScreenH - h) / 2;
   c.textCenter(kScreenW / 2, baseline(y, B(52), 1.0), f.title, B(52));
   y += 52 + 10;
@@ -395,6 +396,10 @@ void sleepFace(Canvas& c, const SleepFace& f) {
     for (int i = lines[size_t(k)].first; i <= lines[size_t(k)].second; ++i)
       x += boldPair(c, x, bl, f.facts[size_t(i)].first, f.facts[size_t(i)].second, 26) + kFaceStatGap;
     y += 31 + (k + 1 < nl ? 10 : 0);
+  }
+  if (!f.batt.empty()) {
+    c.textCenter(kScreenW / 2, baseline(y + 10 + 10, R(18), 1.2), f.batt, R(18), C(Ink::Black));
+    y += 10 + 10 + 22;
   }
   if (!f.foot.empty()) c.textCenter(kScreenW / 2, baseline(y + 10 + 10, R(18), 1.2), f.foot, R(18), C(Ink::Black));
 }
@@ -438,13 +443,15 @@ void emptyFace(Canvas& c, I& a) {
 }
 
 // Glance sleep face (eink-ha-os#356): "Asleep · press to wake", the date, the "Today" row (values that stay true until the next
-// timer wake), "as of HH:MM" only when the data was stale. Built at each render: a glance wake compares its signature.
+// timer wake), the battery line (ha-paper#30), "as of HH:MM" only when the data was stale. Built at each render: a glance wake compares its signature.
 void glanceFace(Canvas& c, I& a) {
   SleepFace f;
   f.title = a.t(S::sleepHead);
   f.sub = a.now.date;
   const quiet::Row row = quietRow(a, quiet::kTodayEnd);
   f.row = &row;
+  const PowerInfo p = a.board.power();   // ha-paper#30: "Battery 64% · about 58 days left" / "· charging"
+  f.batt = battdays::line(a.lang, a.svc.batteryEstimate(p.known ? p.batteryPct : -1, p.charging || p.usb, a.board.epochSeconds()));
   const std::string at = staleAt(a);
   if (!at.empty()) f.foot = a.t(S::asOf, at);
   sleepFace(c, f);

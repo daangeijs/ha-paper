@@ -173,8 +173,32 @@ HomeData deriveHome(const EntityStore& st) {
   return d;
 }
 
-RouteState routeState(const EntityValue* e, bool car, Lang lang) {
+bool departureOf(const EntityValue* e, DepartureState& dep) {
+  auto iso = [e](const char* k) { std::string v = attr(e, k); return v.empty() ? int64_t(-1) : parseIsoTime(v); };
+  int64_t actual = parseIsoTime(e->state.str()), planned = iso("scheduled_time");
+  if (actual < 0) actual = iso("expected_arrival");
+  if (planned < 0) planned = iso("target_arrival");
+  int64_t t = actual >= 0 ? actual : planned;
+  if (t < 0) return false;
+  time_t tt = time_t(t);
+  struct tm tm {};
+  localtime_r(&tt, &tm);
+  dep.minuteOfDay = tm.tm_hour * 60 + tm.tm_min;
+  double dm;
+  if (parseNum(attr(e, "delay_minutes"), dm)) dep.delay = std::max(0.0, dm);
+  else if (actual >= 0 && planned >= 0) dep.delay = std::max(0.0, jsRound(double(actual - planned) / 60.0));
+  std::string line = attr(e, "line_number"), dest = attr(e, "destination");
+  dep.info = line.empty() ? dest : dest.empty() ? line : line + " · " + dest;
+  return true;
+}
+
+RouteState routeState(const EntityValue* e, bool car, Lang lang, const EntityValue* e2) {
   RouteState rs;
+  if (e && !car && entityAvailable(e2)) {
+    rs = routeState(e, false, lang);
+    for (auto& d : routeState(e2, false, lang).deps) rs.deps.push_back(d);
+    return rs;
+  }
   if (!e) return rs;
   rs.has = true;
   rs.note = attr(e, "note");
@@ -197,7 +221,11 @@ RouteState routeState(const EntityValue* e, bool car, Lang lang) {
     }
     return rs;
   }
-  if (!parseJson(attr(e, "upcoming"), j) || !j.isArr()) return rs;
+  if (!parseJson(attr(e, "upcoming"), j) || !j.isArr()) {
+    DepartureState dep;
+    if (departureOf(e, dep)) rs.deps.push_back(dep);
+    return rs;
+  }
   for (auto& x : j.arr) {   // NS departures integration (eink-ha-os#275): ISO planned/actual, status on_time | delayed | cancelled
     auto iso = [&x](const char* k) { auto* v = x.get(k); return v && v->isStr() ? parseIsoTime(v->str) : int64_t(-1); };
     int64_t planned = iso("planned"), actual = iso("actual"), t = actual >= 0 ? actual : planned;

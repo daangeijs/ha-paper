@@ -296,6 +296,7 @@ export function parseYaml(text: string): Config {
       if (w.type === 'media') { const err = favoritesError(w); if (err) fail(n, err); }   // eink-ha-os#319
       if (w.type === 'attrList') { const err = listError(w); if (err) fail(n, err); }   // eink-ha-os#332
       if (w.type === 'route' && w.mode !== undefined && !ROUTE_MODES.includes(w.mode as string)) fail(n, 'route: mode must be train, bus or car');
+      if (w.type === 'route' && w.entity2 !== undefined && !entityFits(w.entity2, ['sensor'])) fail(n, 'route: entity2 “' + w.entity2 + '” is not a sensor entity');   // ha-paper#22
       if (w.type === 'bins') {   // eink-ha-os#317
         const ents = listOf(w as Widget, 'entities');
         for (const id of ents) if (!entityFits(id, BIN_DOMAINS)) fail(n, 'bins: “' + id + '” is not a sensor entity');

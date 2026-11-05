@@ -15,7 +15,8 @@ namespace x4 {
 std::string pad2(int n);                         // pad(n)
 std::string hhmm(int minutesOfDay);              // hhmm(t), wraps around 24 h
 struct ValueUnit { std::string v, u; };
-// The one number formatter (eink-ha-os#85, spec/test-vectors/format.json): HA display_precision (dp ≥ 0) wins, else per unit
+// The one number formatter (eink-ha-os#85, spec/test-vectors/format.json): "min" whole (ha-paper#22), else HA display_precision
+// (dp ≥ 0), else per unit
 // W 0, kW 2, kWh 1, % 0, °C/°F/V/A 1, else up to 2 decimals with trailing zeros trimmed. Zero never shows "-".
 std::string fmtNum(double v, const std::string& unit, int dp = -1);
 std::string fmtValue(const std::string& state, const std::string& unit, int dp = -1);   // non-numbers unchanged
