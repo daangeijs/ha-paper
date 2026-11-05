@@ -87,6 +87,7 @@ Per mode. "Estimate" quotes what the repo already says; nothing here is measured
 | A. Live with automatic light sleep (3.5) | 3.3-9.2 mA: 5-14 days (ROBUSTNESS_PLAN 3.5) | | continuous | — |
 | B. Glance wake | 10.5 s, 0.67 C = 0.19 mAh per wake (TRMNL's figure, `emulator/src/core/power.ts`); ours is "unmeasured (Wi-Fi + TLS to HA + a gray refresh)" | | | |
 | C. Deep sleep | ~100 µA (TRMNL); our target < 200 µA (ROBUSTNESS_PLAN hardware test list) | | — | — |
+| F. Standby step (ha-paper#32: light sleep, Wi-Fi off, GT911 scanning) | ~3.5-4 mA: ESP32-S3 light sleep ~0.25 mA (datasheet) + GT911 green mode ~3.3 mA (datasheet) + the deep-sleep board floor; 15 min ≈ 1 mAh per use. Without a working GT911 INT: + ~0.3-1 mA for 200 ms touch polling | | `deepAfter` (15 min) | — |
 | D. Wi-Fi connect | none in the repo (inside TRMNL's 10.5 s) | | | |
 | E. Full refresh | ~3 s (comment in `main.cpp`); no current estimate in the repo | | | |
 | E. Partial refresh | none in the repo | | | |

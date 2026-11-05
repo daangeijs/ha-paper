@@ -11,7 +11,7 @@
 import { quietFromNight } from './quiet.ts';
 
 /** userdata /settings.json `schema`. 0 = file from before versioning (no key). */
-export const SETTINGS_SCHEMA = 2;
+export const SETTINGS_SCHEMA = 3;
 /** NVS x4dev/schema, one number for x4wifi, x4ha, x4tok, x4dev and x4ota. 0 = no key. */
 export const DEVICE_SCHEMA = 1;
 
@@ -25,7 +25,13 @@ const SETTINGS_STEPS: ((d: Obj) => void)[] = [
     if (!('quiet' in d)) d.quiet = quietFromNight(d.night);
     if (d.powerSave === 'night') d.powerSave = 'glance';
   },
+  // 2 → 3 (ha-paper#32): the standby step. New key `standbyAfter` from `liveMin` (kept for a rollback): 1 and 5 stay, 10
+  // becomes 5; 3 (the old default, untouched on most displays) and anything else become the new default 1.
+  (d) => { if (!('standbyAfter' in d)) d.standbyAfter = standbyFromLive(d.liveMin); },
 ];
+
+/** Schema 3: `standbyAfter` for a stored `liveMin`. */
+export const standbyFromLive = (live: unknown): number => (live === 5 || live === 10 ? 5 : 1);
 
 export const schemaStatus = (stored: number, current: number): MigrateStatus => (stored < 0 ? 'unknown' : stored === current ? 'current' : stored < current ? 'upgrade' : 'newer');
 

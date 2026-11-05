@@ -37,6 +37,9 @@ class HaClient : private WsStream {
   void stop();                       // unlink / factory reset
   // Close the WebSocket so a second TLS session gets its heap; reconnects on the next loop(). False: nothing open.
   bool yieldTls();
+  // ha-paper#32 standby step, before Wi-Fi goes off: close the WebSocket, keep the entities, reconnect at once when the
+  // network is back (no backoff).
+  void pauseForStandby();
   // Internal RAM under the floor (eink-ha-os#248): close the WebSocket and stay off for waitMs (the TLS guard then decides).
   bool shedHeap(uint32_t waitMs);
   void callService(const std::string& domain, const std::string& service, const std::string& jsonData);

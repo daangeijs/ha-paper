@@ -412,6 +412,7 @@ not own, so an OTA rollback still reads it (rules: `emulator/src/core/migrate.ts
 |---|---|
 | 0 → 1 | files from before versioning (eink-ha-os#12): only stamped |
 | 1 → 2 | quiet hours (eink-ha-os#295): new key `quiet` (`off` or `HH-HH`) from `night` when that held a window, else `23-07` (on, also for existing installs). `night` stays in the file for a rollback but is no longer read or served. `powerSave: night` ("Sleep at night") becomes `glance`. A `quiet` key already in the file wins. |
+| 2 → 3 | standby step (ha-paper#32): new key `standbyAfter` (minutes live after a press, then the standby step) from `liveMin`: 1 and 5 stay, 10 becomes 5, 3 (the old default) and anything else become the new default 1. `liveMin` stays in the file for a rollback, no effect. `deepAfter` is not written (missing = 15). A `standbyAfter` key already in the file wins. |
 
 A `screens.yaml` from before eink-ha-os#295 may still hold a Settings tile `{type: setting, key: night}`: like every system tile
 it is checked and dropped (see "Settings is built in").

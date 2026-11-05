@@ -241,6 +241,16 @@ bool HaClient::yieldTls() {
   return true;
 }
 
+void HaClient::pauseForStandby() {
+  if (state_ == St::Idle || state_ == St::Revoked) return;
+  if (state_ != St::Backoff) LOG_INF("HA", "WebSocket closed for the standby step");
+  ws_.close();
+  state_ = St::Backoff;
+  backoffMs_ = 2000;
+  nextTryMs_ = millis();
+  entitySubs_.clear();
+}
+
 bool HaClient::shedHeap(uint32_t waitMs) {
   if (state_ == St::Idle || state_ == St::Backoff || state_ == St::Revoked) return false;
   LOG_WRN("HA", "WebSocket closed: internal RAM under the floor · retry in %us", unsigned(waitMs / 1000));

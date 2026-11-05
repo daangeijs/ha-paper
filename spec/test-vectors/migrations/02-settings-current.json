@@ -3,10 +3,10 @@
   "description": "schema equals the firmware's: nothing to do, nothing written at boot.",
   "cases": [
     {
-      "name": "schema 2, not the first key",
+      "name": "schema 3, not the first key",
       "op": "migrate",
-      "stored": { "brightness": 30, "schema": 2, "extra": "kept" },
-      "expect": { "status": "current", "from": 2, "version": 2, "output": { "brightness": 30, "schema": 2, "extra": "kept" } }
+      "stored": { "brightness": 30, "schema": 3, "extra": "kept" },
+      "expect": { "status": "current", "from": 3, "version": 3, "output": { "brightness": 30, "schema": 3, "extra": "kept" } }
     }
   ]
 }

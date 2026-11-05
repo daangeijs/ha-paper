@@ -71,6 +71,8 @@ std::mutex g_trailMu;                  // g_trailLines / g_trailBefore: main tas
 std::vector<std::string> g_trailLines;
 std::string g_trailBefore;             // last trail line when this boot started
 bool g_standbyLogged = false;          // last standby face state logged
+std::atomic<bool> g_nap{false};        // ha-paper#32 standby step: sleep face, Wi-Fi off, light sleep between passes
+uint32_t g_napAtMs = 0, g_napSlices = 0;
 uint32_t g_powerDownMs = 0;            // Power key held since (heldKeys), valid when g_powerDown
 bool g_powerDown = false;
 uint32_t g_resetMs = 0;                // QEMU: millis() keeps counting through esp_restart; hardware: 0
@@ -97,6 +99,9 @@ constexpr int64_t kSaneEpoch = 1700000000;
 constexpr uint32_t kLongPressLogMs = 1000;  // Power held this long or more: logged on release (eink-ha-os#225)
 constexpr size_t kTrailShown = 8;           // /diagnostics power_trail.lines and the POWERON log line
 constexpr const char* kTrailFile = "/power.txt";   // core/power_trail.h: last power transition, survives a power loss
+// ha-paper#32: longest light sleep before the rules run again (a USB host, the clock); under the 30 s task watchdog in
+// case its timer runs on through light sleep
+constexpr uint32_t kNapSliceMaxMs = 20000;
 constexpr uint32_t kSleepReqDelayMs = 500;  // POST /device/sleep: let the 202 leave before Wi-Fi goes off
 #if X4_QEMU
 constexpr uint32_t kQemuSleepMaxMs = 8000;  // simulated deep sleep: real waits would be minutes (sim/qemu/glance-test.sh)
@@ -284,9 +289,12 @@ PowerInputs inputs(App& app, Board& board) {
     i.setup = v.setup || hub().softAp;
     i.msSinceApi = hub().apiUsed ? int64_t(now - hub().lastApiMs) : -1;
   }
-  // a boot that is not a timer wake (power-on, Power/Right key, charger) counts as a key press: live for liveMin
+  // a boot that is not a timer wake (power-on, Power/Right key, charger) counts as a key press: live for standbyAfter,
+  // then the standby step (ha-paper#32)
   const int64_t sinceInput = v.msSinceUserInput >= 0 || g_wake == WakeKind::Timer ? v.msSinceUserInput : int64_t(now - g_bootMs);
-  i.live = glance::liveNow(sinceInput, s.liveMin) || (g_hold && int32_t(now - g_holdUntilMs) < 0);
+  const GlancePhase ph = glancePhase(sinceInput, s.standbyAfter, s.deepAfter);
+  i.live = ph.live || (g_hold && int32_t(now - g_holdUntilMs) < 0);
+  i.standbyLeftS = i.live ? 0 : ph.standbyLeftS;
   i.glanceFails = g_rtc.fails;
   i.armBootsLeft = armLeftNow();
   i.emptyHouse = v.emptyHouse;   // eink-ha-os#331: the presence source says nobody is home
@@ -526,6 +534,35 @@ void wakeHoldLoop(App& app, uint32_t now) {
   app.redraw(std::string("key wake · ") + why);
 }
 
+// ha-paper#32 standby step: the sleep face once, front light off, WebSocket closed and Wi-Fi off (net task), then powerLoop
+// light-sleeps pass after pass. RAM, the HA entities and the panel content stay.
+void napEnter(App& app, const PowerDecision& d) {
+  g_nap = true;
+  g_mode = "standby";
+  g_napAtMs = millis();
+  g_napSlices = 0;
+  app.nap(true);
+  static std::atomic<bool> done;
+  done = false;
+  hub().post([] {
+    haClient().pauseForStandby();
+    wifiMgr().standby(true);
+    done = true;
+  });
+  for (uint32_t t0 = millis(); !done && millis() - t0 < 1000;) delay(10);
+  LOG_INF("POWER", "standby step · sleep face · Wi-Fi off · light sleep, any key or the touch key wakes · decides again in %lld s",
+          static_cast<long long>(d.lightSleepS));
+}
+
+// Out of the step (a key or touch, or the rules): Wi-Fi back from the RTC cache at once (not on the way into deep sleep);
+// HA reconnects when it is up.
+void napResume(const char* why, bool wifi = true) {
+  if (!g_nap.exchange(false)) return;
+  g_mode = "awake";
+  if (wifi) hub().post([] { wifiMgr().standby(false); });
+  LOG_INF("POWER", "standby step over (%s) · %u s · %u light sleep(s)", why, unsigned((millis() - g_napAtMs) / 1000), unsigned(g_napSlices));
+}
+
 // the next timer wake compares against what the panel shows now
 void snapshotForSleep(App& app, Board& board) {
   app.prepareSleep();
@@ -678,12 +715,31 @@ void powerLoop(App& app, Board& board) {
   checkTimerWake(app, board);
   if (g_wakeHold) wakeHoldLoop(app, now);
   if (g_glance) return glanceLoop(app, board);
+  if (g_nap) {   // ha-paper#32: light sleep again, or out of the step (input ended it in App::loop: onNapWake → napResume)
+    const PowerDecision d = powerDecision(inputs(app, board));
+    if (d.lightSleepS > 0 && app.powerView().napping) {
+      ++g_napSlices;
+      const char* why = board.lightSleep(uint32_t(std::min<int64_t>(d.lightSleepS * 1000, kNapSliceMaxMs)));
+      if (!why) delay(kCheckMs);   // no light sleep on this board
+      return;
+    }
+    if (d.deepSleepNow && app.powerView().napping) {   // the same face stays up: no refresh on the way into deep sleep
+      napResume(d.reason, false);
+      snapshotForSleep(app, board);
+      enterSleep(d, app, board);
+    }
+    napResume(d.reason);
+    app.nap(false);
+    g_lastCheckMs = now;
+    return;
+  }
   if (now - g_lastCheckMs < kCheckMs) return;
   g_lastCheckMs = now;
   const PowerDecision d = powerDecision(inputs(app, board));
   applyProfile(d, now);
   const App::PowerView v = app.powerView();
   if (!v.main || now - g_bootMs < kAwakeMinMs || (v.msSinceUserInput >= 0 && v.msSinceUserInput < kAwakeMinMs)) return;
+  if (d.lightSleepS > 0 && !g_profile.settling()) return napEnter(app, d);   // ha-paper#32
   if (!d.deepSleepNow || g_profile.settling()) {   // power source just changed: no deep sleep until it holds 2 s
     const char* why = d.deepSleepNow ? "power source settling" : d.reason;
     if (strcmp(why, g_lastReason)) LOG_INF("POWER", "stays awake: %s", why);
@@ -693,6 +749,9 @@ void powerLoop(App& app, Board& board) {
   if (app.settings().powerSave == "glance") snapshotForSleep(app, board);
   enterSleep(d, app, board);
 }
+
+void powerNapWake() { napResume("key or touch"); }
+bool powerNapping() { return g_nap; }
 
 SleepNowCheck powerSleepRequest(bool isNumber, double seconds) {
   SleepNowCheck c;

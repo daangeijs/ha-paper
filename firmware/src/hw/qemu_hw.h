@@ -42,6 +42,7 @@ class QemuBoard : public Board {
   uint32_t millis() override;
   int64_t epochSeconds() override;
   void restart() override;
+  const char* lightSleep(uint32_t ms) override;   // ha-paper#32: no light sleep in QEMU, a short wait (input ends it next pass)
   void powerOff() override;   // eink-ha-os#258: no latch in QEMU; logs, returns (the App keeps the face, Power restarts)
   void writeRtcFromSystemClock() {}
   void notifyOnInput(void* task);   // TaskHandle_t woken by qemuPushInput (same contract as X4Board)
