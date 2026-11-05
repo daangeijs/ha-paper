@@ -29,6 +29,7 @@ import { authorizeUrl, exchangeCode, HaHttpError, HaSocket, randomToken, refresh
 import { latestFor, sha256, type Manifest, type SimRelease } from './ota.ts';
 import type { OtaErr } from '../src/core/otaStatus.ts';
 import { BATT_ZERO, battHistory, battStep, type BattState } from '../src/core/battery.ts';
+import { anchorStep, battEstimate, battEstimateJson, modelPctPerDay, type BattAnchor } from '../src/core/batteryDays.ts';
 import { bootsJson, diagClear, diagPush, diagTouch, lastCrash, type DiagRing } from '../src/core/diag.ts';
 import { DEVICE_SCHEMA, SETTINGS_SCHEMA, migrate, schemaStatus } from '../src/core/migrate.ts';
 import { reportDue, reportStates, type ReportLast, type ReportPhase, type ReportStatus } from '../src/core/haReport.ts';
@@ -218,6 +219,7 @@ export class DeviceSim {
   private reportT: ReturnType<typeof setInterval> | null = null;
   /** GET /diagnostics battery (eink-ha-os#231): PSRAM on the device, so a reset or deep-sleep wake starts it over. */
   batt: BattState = BATT_ZERO;
+  battAnchor: BattAnchor = null;   // ha-paper#30: survives deep sleep (RTC memory on the device), not a power-on
   display = { mode: 'main' as 'main' | 'boot' | 'updating', idx: 0, full: 0, clean: 0, fast: 0, partial: 0, skipped: 0, sinceFull: 0, navSinceClean: 0, regions: {} as RegionMap, events: [] as DisplayEvent[], progress: null as null | { version: string; pct: number; step: string } };
   authFailures = new Map<string, number[]>();
   /** Power (ROBUSTNESS_PLAN Phase 3): USB plugged (= external power, charging below 100 %), deep sleep, last API request. */
@@ -1107,7 +1109,7 @@ export class DeviceSim {
       firmware: this.p.ota.fw, uptime_s: Math.floor((Date.now() - this.bootAt) / 1000), reset_reason: this.resetReason,
       boots: bootsJson(ring), last_crash: lastCrash(ring), last_wdt: null, heap: { ...SIM_HEAP, low_point: SIM_LOW_POINT },
       panel: { controller: 'UC8179', source: 'probe', verdict: 'ultrachip', promoted: true, ver: '00 00 01 FF FF', flg: 0, nvs_screen_type: 1, failed: false, failure: null },
-      coredump: d.coredump, touch_recoveries: 0, deep_sleep: { armed: true, boots_left: 0, armed_by: 'boots' }, battery: battHistory(this.battTick()),
+      coredump: d.coredump, touch_recoveries: 0, deep_sleep: { armed: true, boots_left: 0, armed_by: 'boots' }, battery: { ...battHistory(this.battTick()), estimate: this.battEstimateJson() },
       power_trail: { before_boot: null, lines: ['awake'], empty_house_sleeps: 0, phases: { boot: null, wakes: [] } },   // eink-ha-os#225: a fresh device marks itself awake on /power.txt
       // eink-ha-os#227 inbound path; served counts finished responses (http.ts), this request is still open
       web: { open: 1, served: this.web.served, refused_503: 0, last_request_age_s: this.web.lastAt ? Math.floor((Date.now() - this.web.lastAt) / 1000) : null },
@@ -1193,7 +1195,12 @@ export class DeviceSim {
       power: this.powerCheck().reason, rssi: NETWORKS.find((n) => n.ssid === this.p.wifi.connected)?.rssi ?? null });
     if (r.log) this.log('BATT ' + r.log);
     this.batt = r.s;
+    this.battAnchor = anchorStep(this.battAnchor, this.battery, this.power.usb, Math.floor(Date.now() / 1000));
     return r.s;
+  }
+  /** GET /diagnostics battery.estimate (ha-paper#30); no wake tally here: the default model. */
+  battEstimateJson() {
+    return battEstimateJson(battEstimate(this.battery, this.power.usb, this.battAnchor, Math.floor(Date.now() / 1000), modelPctPerDay(0, 0)));
   }
   setUsb(on: boolean) { this.power.usb = on; this.log('POWER USB ' + (on ? 'plugged' : 'unplugged')); if (on) this.wake('charger'); }
 

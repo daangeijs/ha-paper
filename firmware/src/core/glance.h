@@ -8,8 +8,10 @@
 #include <cstdint>
 #include <map>
 #include <string>
+#include <type_traits>
 #include <vector>
 
+#include "core/battery_days.h"
 #include "core/phases.h"
 
 namespace x4::glance {
@@ -112,7 +114,9 @@ struct Rtc {
   phases::Ring wakes;             // eink-ha-os#327: awake phases of the newest boots that ended in deep sleep
   int64_t timerS;                 // eink-ha-os#364: seconds given to the last sleep timer (0 = none)
   int32_t timerPpm;               // eink-ha-os#364: learned sleep-timer rate
+  battdays::Anchor battAnchor;    // ha-paper#30: where the measured battery drain starts
 };
+static_assert(std::is_trivial<Rtc>::value, "RTC_NOINIT: a constructor would overwrite it at startup");
 void reset(Rtc& r);              // zeroes it (padding included) and seals
 void seal(Rtc& r);
 bool valid(const Rtc& r);

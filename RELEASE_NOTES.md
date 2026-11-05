@@ -5,6 +5,16 @@ display lists under "What's new" on its Updates screen (manifest.json `notes`): 
 most 34 characters. The release workflow fails if the tag's section is missing or a bullet is too long
 (`firmware/tools/release_notes.py`). Prose below the bullets goes only into the GitHub release.
 
+## 0.2.0-beta.7
+
+- Bus tile reads OVapi sensors
+- Next bus on the same route tile
+- Minutes shown as whole minutes
+
+Route tiles take OVapi's single-departure sensors directly (no template sensor) and an optional second sensor for
+the next departure. Sensors in `min` show whole minutes. CI: font generation no longer depends on the runner's
+Pillow layout engine.
+
 ## 0.2.0-beta.6
 
 - List tile: rare birds nearby

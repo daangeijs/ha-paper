@@ -1,0 +1,420 @@
+{
+  "description": "Battery days left on the glance sleep face (ha-paper#30, emulator src/core/batteryDays.ts, firmware core/battery_days.cpp). model: % a day = 24 h × (awake share × 40 mA + asleep share × 0.2 mA) / 1100 mAh × 100; awake share from the wake tally (awakeMs, asleepS) once it covers 6 h, else 11 min a day. anchor: the first filtered gauge % seen unplugged with a sane clock; charging clears it, a rise or a clock going back restarts it, pct < 0 keeps it. estimate: after 1 h, measured = max(drop, 0.5) / days since the anchor, weight = min(1, max(drop / 10, days / 7)); rate = weight × measured + (1 − weight) × model; days = floor(pct / rate + 0.5) clamped to 1…100 (100 = \"99+\"). days null = charging or gauge unknown. en / nl: the face line (\"\" = none); json: GET /diagnostics battery.estimate (rates rounded to 3 decimals).",
+  "model": [
+    {
+      "awakeMs": 0,
+      "asleepS": 0,
+      "pctPerDay": 1.0996969696969696
+    },
+    {
+      "awakeMs": 600000,
+      "asleepS": 10800,
+      "pctPerDay": 1.0996969696969696
+    },
+    {
+      "awakeMs": 1200000,
+      "asleepS": 86400,
+      "pctPerDay": 1.6259028642590283
+    },
+    {
+      "awakeMs": 10800000,
+      "asleepS": 75600,
+      "pctPerDay": 11.29090909090909
+    },
+    {
+      "awakeMs": 0,
+      "asleepS": 604800,
+      "pctPerDay": 0.4363636363636364
+    }
+  ],
+  "anchor": [
+    {
+      "name": "first unplugged read with a clock anchors; falls keep it",
+      "reads": [
+        {
+          "pct": 80,
+          "charging": false,
+          "epoch": 1762000000,
+          "anchor": {
+            "epoch": 1762000000,
+            "pct": 80
+          }
+        },
+        {
+          "pct": 79,
+          "charging": false,
+          "epoch": 1762003600,
+          "anchor": {
+            "epoch": 1762000000,
+            "pct": 80
+          }
+        },
+        {
+          "pct": 75,
+          "charging": false,
+          "epoch": 1762086400,
+          "anchor": {
+            "epoch": 1762000000,
+            "pct": 80
+          }
+        }
+      ]
+    },
+    {
+      "name": "no clock: nothing until it is known",
+      "reads": [
+        {
+          "pct": 80,
+          "charging": false,
+          "epoch": 0,
+          "anchor": null
+        },
+        {
+          "pct": 80,
+          "charging": false,
+          "epoch": 1762000000,
+          "anchor": {
+            "epoch": 1762000000,
+            "pct": 80
+          }
+        }
+      ]
+    },
+    {
+      "name": "charging clears it; unplugged anchors again",
+      "reads": [
+        {
+          "pct": 80,
+          "charging": false,
+          "epoch": 1762000000,
+          "anchor": {
+            "epoch": 1762000000,
+            "pct": 80
+          }
+        },
+        {
+          "pct": 85,
+          "charging": true,
+          "epoch": 1762003600,
+          "anchor": null
+        },
+        {
+          "pct": 90,
+          "charging": false,
+          "epoch": 1762007200,
+          "anchor": {
+            "epoch": 1762007200,
+            "pct": 90
+          }
+        },
+        {
+          "pct": 89,
+          "charging": false,
+          "epoch": 1762010800,
+          "anchor": {
+            "epoch": 1762007200,
+            "pct": 90
+          }
+        }
+      ]
+    },
+    {
+      "name": "a rise restarts it (a charge the board did not see)",
+      "reads": [
+        {
+          "pct": 40,
+          "charging": false,
+          "epoch": 1762000000,
+          "anchor": {
+            "epoch": 1762000000,
+            "pct": 40
+          }
+        },
+        {
+          "pct": 80,
+          "charging": false,
+          "epoch": 1762086400,
+          "anchor": {
+            "epoch": 1762086400,
+            "pct": 80
+          }
+        },
+        {
+          "pct": 79,
+          "charging": false,
+          "epoch": 1762090000,
+          "anchor": {
+            "epoch": 1762086400,
+            "pct": 80
+          }
+        }
+      ]
+    },
+    {
+      "name": "not read keeps it; a clock going back restarts it",
+      "reads": [
+        {
+          "pct": 70,
+          "charging": false,
+          "epoch": 1762000000,
+          "anchor": {
+            "epoch": 1762000000,
+            "pct": 70
+          }
+        },
+        {
+          "pct": -1,
+          "charging": false,
+          "epoch": 1762003600,
+          "anchor": {
+            "epoch": 1762000000,
+            "pct": 70
+          }
+        },
+        {
+          "pct": -1,
+          "charging": true,
+          "epoch": 1762003600,
+          "anchor": {
+            "epoch": 1762000000,
+            "pct": 70
+          }
+        },
+        {
+          "pct": 69,
+          "charging": false,
+          "epoch": 1761913600,
+          "anchor": {
+            "epoch": 1761913600,
+            "pct": 69
+          }
+        }
+      ]
+    }
+  ],
+  "estimate": [
+    {
+      "name": "first sleep: model only (no anchor)",
+      "pct": 64,
+      "charging": false,
+      "anchor": null,
+      "epoch": 1762000000,
+      "model": 1.0996969696969696,
+      "days": 58,
+      "measured": null,
+      "weight": 0,
+      "en": "Battery 64% · about 58 days left",
+      "nl": "Batterij 64% · nog ongeveer 58 dagen",
+      "json": "{\"pct\":64,\"charging\":false,\"days_left\":58,\"model_pct_per_day\":1.1,\"measured_pct_per_day\":null,\"measured_weight\":0}"
+    },
+    {
+      "name": "full, model only",
+      "pct": 100,
+      "charging": false,
+      "anchor": null,
+      "epoch": 1762000000,
+      "model": 1.0996969696969696,
+      "days": 91,
+      "measured": null,
+      "weight": 0,
+      "en": "Battery 100% · about 91 days left",
+      "nl": "Batterij 100% · nog ongeveer 91 dagen",
+      "json": "{\"pct\":100,\"charging\":false,\"days_left\":91,\"model_pct_per_day\":1.1,\"measured_pct_per_day\":null,\"measured_weight\":0}"
+    },
+    {
+      "name": "anchor younger than 1 h: model only",
+      "pct": 64,
+      "charging": false,
+      "anchor": {
+        "epoch": 1761998200,
+        "pct": 65
+      },
+      "epoch": 1762000000,
+      "model": 1.0996969696969696,
+      "days": 58,
+      "measured": null,
+      "weight": 0,
+      "en": "Battery 64% · about 58 days left",
+      "nl": "Batterij 64% · nog ongeveer 58 dagen",
+      "json": "{\"pct\":64,\"charging\":false,\"days_left\":58,\"model_pct_per_day\":1.1,\"measured_pct_per_day\":null,\"measured_weight\":0}"
+    },
+    {
+      "name": "2 points in a day: blended 20 %",
+      "pct": 64,
+      "charging": false,
+      "anchor": {
+        "epoch": 1761913600,
+        "pct": 66
+      },
+      "epoch": 1762000000,
+      "model": 1.0996969696969696,
+      "days": 50,
+      "measured": 2,
+      "weight": 0.2,
+      "en": "Battery 64% · about 50 days left",
+      "nl": "Batterij 64% · nog ongeveer 50 dagen",
+      "json": "{\"pct\":64,\"charging\":false,\"days_left\":50,\"model_pct_per_day\":1.1,\"measured_pct_per_day\":2,\"measured_weight\":0.2}"
+    },
+    {
+      "name": "12 points in 4 days: measured only",
+      "pct": 60,
+      "charging": false,
+      "anchor": {
+        "epoch": 1761654400,
+        "pct": 72
+      },
+      "epoch": 1762000000,
+      "model": 1.0996969696969696,
+      "days": 20,
+      "measured": 3,
+      "weight": 1,
+      "en": "Battery 60% · about 20 days left",
+      "nl": "Batterij 60% · nog ongeveer 20 dagen",
+      "json": "{\"pct\":60,\"charging\":false,\"days_left\":20,\"model_pct_per_day\":1.1,\"measured_pct_per_day\":3,\"measured_weight\":1}"
+    },
+    {
+      "name": "no drop in 7 days: under half a point a week, capped 99+",
+      "pct": 90,
+      "charging": false,
+      "anchor": {
+        "epoch": 1761395200,
+        "pct": 90
+      },
+      "epoch": 1762000000,
+      "model": 1.0996969696969696,
+      "days": 100,
+      "measured": 0.07142857142857142,
+      "weight": 1,
+      "en": "Battery 90% · about 99+ days left",
+      "nl": "Batterij 90% · nog ongeveer 99+ dagen",
+      "json": "{\"pct\":90,\"charging\":false,\"days_left\":100,\"model_pct_per_day\":1.1,\"measured_pct_per_day\":0.071,\"measured_weight\":1}"
+    },
+    {
+      "name": "fast drain: 20 points in a day",
+      "pct": 30,
+      "charging": false,
+      "anchor": {
+        "epoch": 1761913600,
+        "pct": 50
+      },
+      "epoch": 1762000000,
+      "model": 1.0996969696969696,
+      "days": 2,
+      "measured": 20,
+      "weight": 1,
+      "en": "Battery 30% · about 2 days left",
+      "nl": "Batterij 30% · nog ongeveer 2 dagen",
+      "json": "{\"pct\":30,\"charging\":false,\"days_left\":2,\"model_pct_per_day\":1.1,\"measured_pct_per_day\":20,\"measured_weight\":1}"
+    },
+    {
+      "name": "almost empty: at least 1 day",
+      "pct": 1,
+      "charging": false,
+      "anchor": {
+        "epoch": 1761913600,
+        "pct": 21
+      },
+      "epoch": 1762000000,
+      "model": 1.0996969696969696,
+      "days": 1,
+      "measured": 20,
+      "weight": 1,
+      "en": "Battery 1% · about 1 day left",
+      "nl": "Batterij 1% · nog ongeveer 1 dag",
+      "json": "{\"pct\":1,\"charging\":false,\"days_left\":1,\"model_pct_per_day\":1.1,\"measured_pct_per_day\":20,\"measured_weight\":1}"
+    },
+    {
+      "name": "empty reads 0: still 1 day",
+      "pct": 0,
+      "charging": false,
+      "anchor": null,
+      "epoch": 1762000000,
+      "model": 1.0996969696969696,
+      "days": 1,
+      "measured": null,
+      "weight": 0,
+      "en": "Battery 0% · about 1 day left",
+      "nl": "Batterij 0% · nog ongeveer 1 dag",
+      "json": "{\"pct\":0,\"charging\":false,\"days_left\":1,\"model_pct_per_day\":1.1,\"measured_pct_per_day\":null,\"measured_weight\":0}"
+    },
+    {
+      "name": "3 points in a day at 6 %: blended 30 %",
+      "pct": 6,
+      "charging": false,
+      "anchor": {
+        "epoch": 1761913600,
+        "pct": 9
+      },
+      "epoch": 1762000000,
+      "model": 1.0996969696969696,
+      "days": 4,
+      "measured": 3,
+      "weight": 0.3,
+      "en": "Battery 6% · about 4 days left",
+      "nl": "Batterij 6% · nog ongeveer 4 dagen",
+      "json": "{\"pct\":6,\"charging\":false,\"days_left\":4,\"model_pct_per_day\":1.1,\"measured_pct_per_day\":3,\"measured_weight\":0.3}"
+    },
+    {
+      "name": "counted usage (model from the tally)",
+      "pct": 64,
+      "charging": false,
+      "anchor": null,
+      "epoch": 1762000000,
+      "model": 11.29090909090909,
+      "days": 6,
+      "measured": null,
+      "weight": 0,
+      "en": "Battery 64% · about 6 days left",
+      "nl": "Batterij 64% · nog ongeveer 6 dagen",
+      "json": "{\"pct\":64,\"charging\":false,\"days_left\":6,\"model_pct_per_day\":11.291,\"measured_pct_per_day\":null,\"measured_weight\":0}"
+    },
+    {
+      "name": "charging: no days",
+      "pct": 64,
+      "charging": true,
+      "anchor": {
+        "epoch": 1761913600,
+        "pct": 66
+      },
+      "epoch": 1762000000,
+      "model": 1.0996969696969696,
+      "days": null,
+      "measured": null,
+      "weight": 0,
+      "en": "Battery 64% · charging",
+      "nl": "Batterij 64% · laadt op",
+      "json": "{\"pct\":64,\"charging\":true,\"days_left\":null,\"model_pct_per_day\":1.1,\"measured_pct_per_day\":null,\"measured_weight\":0}"
+    },
+    {
+      "name": "gauge unknown: no line",
+      "pct": -1,
+      "charging": false,
+      "anchor": null,
+      "epoch": 1762000000,
+      "model": 1.0996969696969696,
+      "days": null,
+      "measured": null,
+      "weight": 0,
+      "en": "",
+      "nl": "",
+      "json": "{\"pct\":null,\"charging\":false,\"days_left\":null,\"model_pct_per_day\":1.1,\"measured_pct_per_day\":null,\"measured_weight\":0}"
+    },
+    {
+      "name": "clock unknown: model only",
+      "pct": 64,
+      "charging": false,
+      "anchor": {
+        "epoch": 1761913600,
+        "pct": 70
+      },
+      "epoch": 0,
+      "model": 1.0996969696969696,
+      "days": 58,
+      "measured": null,
+      "weight": 0,
+      "en": "Battery 64% · about 58 days left",
+      "nl": "Batterij 64% · nog ongeveer 58 dagen",
+      "json": "{\"pct\":64,\"charging\":false,\"days_left\":58,\"model_pct_per_day\":1.1,\"measured_pct_per_day\":null,\"measured_weight\":0}"
+    }
+  ]
+}

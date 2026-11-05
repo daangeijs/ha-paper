@@ -1,0 +1,10 @@
+{
+  "name": "52b-route-entity2-domain",
+  "description": "Rule: a route entity2 must be a sensor.* id (ha-paper#22).",
+  "input": "# HA Paper display config\nversion: 1\nscreens:\n  - id: t\n    app: travel\n    widgets:\n      - {type: route, label: Bus 12, mode: bus, entity: sensor.bus_12, entity2: switch.bus}\n",
+  "expect": {
+    "ok": false,
+    "line": 7,
+    "message": "route: entity2 “switch.bus” is not a sensor entity"
+  }
+}
