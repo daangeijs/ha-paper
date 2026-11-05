@@ -100,6 +100,14 @@ std::string qemuIp() {
   return b;
 }
 #endif
+// ha-paper#20: every STA join asks for an IPv6 link-local address (Arduino adds it on STA_CONNECTED), so the mDNS
+// responder answers AAAA and getaddrinfo(AF_UNSPEC) on <name>.local returns at once instead of after ~5 s. Set before
+// each begin: WIFI_OFF destroys the netif and its "want IPv6" bit. The web server binds IPADDR_TYPE_ANY (v4 + v6).
+void staBegin(const char* ssid, const char* pw, int32_t channel = 0, const uint8_t* bssid = nullptr) {
+  WiFi.enableIPv6(true);
+  WiFi.begin(ssid, pw, channel, bssid);
+}
+
 bool linkUp() {
 #if X4_QEMU
   return g_qemuLinkWanted && g_ethIp != 0;
@@ -300,7 +308,7 @@ void WifiMgr::connect(const std::string& ssid, const std::string& password,
   delay(100);
   g_lastReason = 0;
   WiFi.setAutoReconnect(true);
-  WiFi.begin(ssid.c_str(), password.empty() ? nullptr : password.c_str());
+  staBegin(ssid.c_str(), password.empty() ? nullptr : password.c_str());
   const uint32_t t0 = millis();
   wl_status_t st = WL_IDLE_STATUS;
   while (millis() - t0 < 20000) {
@@ -351,7 +359,7 @@ void WifiMgr::connect(const std::string& ssid, const std::string& password,
     if (!haveSaved) hub().status.ssid.clear();
     hub().markStatus();
   }
-  if (haveSaved) WiFi.begin(saved.ssid.c_str(), saved.password.empty() ? nullptr : saved.password.c_str());
+  if (haveSaved) staBegin(saved.ssid.c_str(), saved.password.empty() ? nullptr : saved.password.c_str());
   else setWifi(ws);
   if (done) done(false, err);
 }
@@ -412,7 +420,8 @@ void WifiMgr::checkMdns(bool up) {
   mdnsSample(host, v4);
   if (!up) return;
   const uint32_t now = millis();
-  const MdnsFix f = mdnsPlan_.check(v4, strcasecmp(host, hostname()) == 0, now);
+  const bool v6Lost = WiFi.STA.hasLinkLocalIPv6() && !mdns_priv_if_ready(0, MDNS_IP_PROTOCOL_V6);
+  const MdnsFix f = mdnsPlan_.check(v4, v6Lost, strcasecmp(host, hostname()) == 0, now);
   if (f == MdnsFix::None) return;
   const String ip = WiFi.localIP().toString();
   esp_err_t e = ESP_OK;
@@ -421,6 +430,14 @@ void WifiMgr::checkMdns(bool up) {
     e = sta ? mdns_netif_action(sta, mdns_event_actions_t(MDNS_EVENT_ENABLE_IP4 | MDNS_EVENT_ANNOUNCE_IP4))
             : ESP_ERR_INVALID_STATE;
     LOG_WRN("WIFI", "mDNS IPv4 off with the link up · enable + announce %s.local → %s: %s", hostname(), ip.c_str(), esp_err_to_name(e));
+  } else if (f == MdnsFix::Enable6) {
+    esp_netif_t* sta = WiFi.STA.netif();
+    e = sta ? mdns_netif_action(sta, mdns_event_actions_t(MDNS_EVENT_ENABLE_IP6 | MDNS_EVENT_ANNOUNCE_IP6))
+            : ESP_ERR_INVALID_STATE;
+    // not a /diagnostics restart: only AAAA was missing (lookups slow, not failing)
+    LOG_WRN("WIFI", "mDNS IPv6 off with a link-local address · enable + announce: %s", esp_err_to_name(e));
+    mdnsPlan_.did(f, now);
+    return;
   } else {
     e = mdns_hostname_set(hostname());   // bye + re-probe on every pcb; services follow the name
     LOG_WRN("WIFI", "mDNS answers as %s.local (lost a probe tie-break?) · reclaim %s.local → %s: %s", host[0] ? host : "-",
@@ -631,7 +648,20 @@ void WifiMgr::loop() {
   else escalate();
   checkStale(up);
   // eink-ha-os#227: the responder can miss a lease renewal (netif re-bound, no re-announce) or a roam to another AP
-  if (up && (g_ipEvent || g_bssidEvent)) startMdns(g_bssidEvent ? "bssid" : "got_ip");
+  if (up && (g_ipEvent || g_bssidEvent)) {
+    if (g_ipEvent && dhcpAsked_) {
+      dhcpAsked_ = false;
+      fastDone(true);   // the lease is fresh: the next timer wake may use the cached IP for another hour
+    }
+    startMdns(g_bssidEvent ? "bssid" : "got_ip");
+  }
+  if (lease_.due(up, strcmp(powerMode(), "glance") == 0)) {
+    // esp_netif zeroes the address in place (no netif_set_ipaddr, so lwIP aborts no TCP pcb); for the DHCP exchange
+    // (DISCOVER → ACK + ARP check) sends get no route, then the same address binds and open connections carry on
+    const esp_err_t e = esp_netif_dhcpc_start(WiFi.STA.netif());
+    dhcpAsked_ = e == ESP_OK;
+    LOG_INF("WIFI", "awake on the cached IP · DHCP client start: %s", esp_err_to_name(e));
+  }
   checkInbound(up);
 }
 
@@ -742,11 +772,11 @@ void WifiMgr::beginFast(const WifiCreds& c) {
   const time_t t = time(nullptr);   // kept across deep sleep by the RTC timer
   fast_ = powerWake() == WakeKind::Timer ? glance::wifiFast(w, glance::fnv1a(c.ssid), t > 1700000000 ? int64_t(t) : 0) : glance::WifiFast::None;
   if (fast_ == glance::WifiFast::None) {
-    WiFi.begin(c.ssid.c_str(), pw);
+    staBegin(c.ssid.c_str(), pw);
     return;
   }
   if (fast_ == glance::WifiFast::Ip) WiFi.config(IPAddress(w.ip), IPAddress(w.gw), IPAddress(w.mask), IPAddress(w.dns));
-  WiFi.begin(c.ssid.c_str(), pw, w.channel, w.bssid);
+  staBegin(c.ssid.c_str(), pw, w.channel, w.bssid);
   fastAtMs_ = millis();
   LOG_INF("WIFI", "fast join · channel %u · %s", unsigned(w.channel), glance::wifiFastName(fast_));
 }
@@ -756,6 +786,7 @@ void WifiMgr::fastDone(bool ok) {
   const glance::WifiFast was = fast_;
   fast_ = glance::WifiFast::None;
   if (!ok) {
+    lease_.pending = false;
     powerWifiCache([](glance::WifiCache& r) { r.fails++; });
     LOG_WRN("WIFI", "fast join (%s) failed · normal join", glance::wifiFastName(was));
     if (was == glance::WifiFast::Ip) WiFi.config(IPAddress(), IPAddress(), IPAddress());   // 0.0.0.0 = back to DHCP
@@ -763,6 +794,7 @@ void WifiMgr::fastDone(bool ok) {
     beginSaved();
     return;
   }
+  if (was == glance::WifiFast::Ip) lease_.pending = true;
   const time_t t = time(nullptr);
   const std::string ssid = WiFi.SSID().c_str();
   const uint8_t* bssid = WiFi.BSSID();
@@ -784,7 +816,7 @@ void WifiMgr::fastDone(bool ok) {
 void WifiMgr::beginSaved() {
   WifiCreds c;
   if (!storage().loadWifi(c)) return;
-  WiFi.begin(c.ssid.c_str(), c.password.empty() ? nullptr : c.password.c_str());
+  staBegin(c.ssid.c_str(), c.password.empty() ? nullptr : c.password.c_str());
 }
 
 void WifiMgr::escalate() {

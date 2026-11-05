@@ -49,12 +49,14 @@ class WifiMgr {
  private:
   void onConnected();
   void startMdns(const char* reason);   // "connect" | "got_ip" | "bssid" | "idle" (eink-ha-os#227 /diagnostics mdns)
-  void checkMdns(bool up);              // eink-ha-os#376: minute sample + repair ("v4_off" | "renamed")
+  void checkMdns(bool up);              // eink-ha-os#376: minute sample + repair ("v4_off" | "renamed"; IPv6: log only)
   void beginSaved();     // WiFi.begin() with the saved credentials
   void beginFast(const WifiCreds& c);   // boot: deep-sleep wake → cached BSSID/channel (+ IP), else beginSaved
   void fastDone(bool ok);               // connected → refresh the RTC cache; fast join timed out → normal join
   glance::WifiFast fast_ = glance::WifiFast::None;
   uint32_t fastAtMs_ = 0;
+  CachedIpLease lease_;     // ha-paper#20: cached-IP join → DHCP client once the wake stays up
+  bool dhcpAsked_ = false;  // that DHCP start is waiting for its GOT_IP (then the RTC cache gets the fresh lease)
   void escalate();       // link down and wanted: core WifiEscalation → reconnect / radio reset / maintenance restart
   bool mdns_ = false;
   bool mdnsOnce_ = false;

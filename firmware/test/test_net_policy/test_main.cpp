@@ -339,25 +339,51 @@ void test_mdns_check() {
   MdnsPlan p;
   const uint32_t t0 = 0xFFFFF000u, S = MdnsPlan::kSettleMs, R = MdnsPlan::kReclaimMs;   // wraps during the test
   p.lastMs = t0;                                                        // re-bind posted DISABLE, ENABLE dropped
-  TEST_ASSERT_TRUE(p.check(false, true, t0 + S - 1) == MdnsFix::None);   // the pair may still be in the queue
-  TEST_ASSERT_TRUE(p.check(false, true, t0 + S) == MdnsFix::Enable);
-  TEST_ASSERT_TRUE(p.check(false, false, t0 + S) == MdnsFix::Enable);   // off and renamed: enable first
+  TEST_ASSERT_TRUE(p.check(false, false, true, t0 + S - 1) == MdnsFix::None);   // the pair may still be in the queue
+  TEST_ASSERT_TRUE(p.check(false, false, true, t0 + S) == MdnsFix::Enable);
+  TEST_ASSERT_TRUE(p.check(false, false, false, t0 + S) == MdnsFix::Enable);   // off and renamed: enable first
   p.did(MdnsFix::Enable, t0 + S);
-  TEST_ASSERT_TRUE(p.check(false, true, t0 + 2 * S - 1) == MdnsFix::None);   // one repair per settle window
-  TEST_ASSERT_TRUE(p.check(true, true, t0 + 2 * S) == MdnsFix::None);
+  TEST_ASSERT_TRUE(p.check(false, false, true, t0 + 2 * S - 1) == MdnsFix::None);   // one repair per settle window
+  TEST_ASSERT_TRUE(p.check(true, false, true, t0 + 2 * S) == MdnsFix::None);
   // renamed: reclaim, then not again for kReclaimMs (a real twin on the LAN wins every probe)
   const uint32_t t1 = t0 + 2 * S;
-  TEST_ASSERT_TRUE(p.check(true, false, t1) == MdnsFix::Reclaim);
+  TEST_ASSERT_TRUE(p.check(true, false, false, t1) == MdnsFix::Reclaim);
   p.did(MdnsFix::Reclaim, t1);
-  TEST_ASSERT_TRUE(p.check(true, false, t1 + S) == MdnsFix::None);
-  TEST_ASSERT_TRUE(p.check(true, false, t1 + R - 1) == MdnsFix::None);
-  TEST_ASSERT_TRUE(p.check(true, false, t1 + R) == MdnsFix::Reclaim);
-  TEST_ASSERT_TRUE(p.check(false, false, t1 + S) == MdnsFix::Enable);   // the reclaim limit never blocks an enable
+  TEST_ASSERT_TRUE(p.check(true, false, false, t1 + S) == MdnsFix::None);
+  TEST_ASSERT_TRUE(p.check(true, false, false, t1 + R - 1) == MdnsFix::None);
+  TEST_ASSERT_TRUE(p.check(true, false, false, t1 + R) == MdnsFix::Reclaim);
+  TEST_ASSERT_TRUE(p.check(false, false, false, t1 + S) == MdnsFix::Enable);   // the reclaim limit never blocks an enable
   // a re-bind inside the window holds every fix back
   p.lastMs = t1 + R;
-  TEST_ASSERT_TRUE(p.check(false, false, t1 + R + 5) == MdnsFix::None);
+  TEST_ASSERT_TRUE(p.check(false, false, false, t1 + R + 5) == MdnsFix::None);
   p.did(MdnsFix::None, t1 + R + S);
   TEST_ASSERT_TRUE(p.lastMs == t1 + R);
+}
+
+// ha-paper#20: the IPv6 pcb lost while v4 runs; v4 off first, a rename waits for the v6 enable
+void test_mdns_check_v6() {
+  MdnsPlan p;
+  const uint32_t t0 = 0xFFFFF000u, S = MdnsPlan::kSettleMs;
+  p.lastMs = t0;
+  TEST_ASSERT_TRUE(p.check(true, true, true, t0 + S - 1) == MdnsFix::None);
+  TEST_ASSERT_TRUE(p.check(true, true, true, t0 + S) == MdnsFix::Enable6);
+  TEST_ASSERT_TRUE(p.check(false, true, true, t0 + S) == MdnsFix::Enable);
+  TEST_ASSERT_TRUE(p.check(true, true, false, t0 + S) == MdnsFix::Enable6);
+  p.did(MdnsFix::Enable6, t0 + S);
+  TEST_ASSERT_TRUE(p.lastMs == t0 + S && !p.reclaimed);
+  TEST_ASSERT_TRUE(p.check(true, true, true, t0 + 2 * S - 1) == MdnsFix::None);   // one repair per settle window
+  TEST_ASSERT_TRUE(p.check(true, false, true, t0 + 2 * S) == MdnsFix::None);
+}
+
+// ha-paper#20: a cached-IP join restarts DHCP once, the first time the link is up outside a glance
+void test_cached_ip_lease() {
+  CachedIpLease l;
+  TEST_ASSERT_FALSE(l.due(true, false));   // a DHCP join: nothing to do
+  l.pending = true;
+  TEST_ASSERT_FALSE(l.due(true, true));    // glance: sleeps again soon, keep the fast path
+  TEST_ASSERT_FALSE(l.due(false, false));  // link down: wait for it
+  TEST_ASSERT_TRUE(l.due(true, false));    // key press / live mode with the link up
+  TEST_ASSERT_FALSE(l.due(true, false));   // once
 }
 
 void test_bssid_tag() {
@@ -397,5 +423,7 @@ int main(int, char**) {
   RUN_TEST(test_bssid_tag);
   RUN_TEST(test_mdns_plan);
   RUN_TEST(test_mdns_check);
+  RUN_TEST(test_mdns_check_v6);
+  RUN_TEST(test_cached_ip_lease);
   return UNITY_END();
 }

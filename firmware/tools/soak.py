@@ -14,7 +14,9 @@ woke with reset reason DEEPSLEEP afterwards, otherwise `down`.
 
 Inbound path (eink-ha-os#227: one night the .local name stopped resolving on the Mac while the display kept pushing to HA).
 With a name in --url every poll checks the name and the IP separately, one column each:
-  name_dns   ok <ms> | fail <error>               getaddrinfo of the name (mDNS on macOS); an ok updates the IP
+  name_dns   ok <ms> | fail <error>               getaddrinfo(AF_INET) of the name (mDNS on macOS); an ok updates the IP
+  name_any   ok <ms> v4|v4+v6 | fail <error>      getaddrinfo(AF_UNSPEC), what browsers and curl do; timed only
+             (ha-paper#20: no AAAA answer made every one ~5 s while AF_INET was instant)
   ip         the address used: this resolve, else the last good one, else --ip
   ip_tcp     ok | timeout | refused | unreachable | <errno name>   bare TCP connect to ip:port
   ip_http    200 | HTTP <code> | <same failure words>   GET /api/v1/status by IP
@@ -41,8 +43,9 @@ COLUMNS = ["time", "state", "error", "uptime_s", "firmware", "battery", "source"
            "heap_min_free", "heap_largest_block", "free_psram", "rssi", "home_assistant", "ha_report",
            "ha_report_last_push", "reset_reason", "new_boots", "power_mode", "next_wake_epoch", "refreshes",
            "name_dns", "ip", "ip_tcp", "ip_http", "name_http", "web_served", "web_refused_503", "web_last_req_s",
-           "mdns_up", "mdns_restarts", "mdns_reason", "bssid", "idle_checks", "idle_reconnects"]
-PROBE = ("name_dns", "ip", "ip_tcp", "ip_http", "name_http")
+           "mdns_up", "mdns_restarts", "mdns_reason", "bssid", "idle_checks", "idle_reconnects", "name_any"]
+PROBE = ("name_dns", "ip", "ip_tcp", "ip_http", "name_http", "name_any")
+SLOW_LOOKUP_MS = 1000  # name_any at or above this counts as a slow lookup in the summary
 CRASH = {"PANIC", "INT_WDT", "TASK_WDT", "WDT", "BROWNOUT", "CPU_LOCKUP"}
 BOOT_SLACK_S = 120     # boot time (poll time - uptime) may drift this much without counting as a reboot
 WAKE_GRACE_S = 600     # after nextWakeEpoch the display should answer again within this
@@ -253,6 +256,10 @@ def summarize(rows, day):
         L += ["## Inbound path", "", "%d polls: name_dns failed %d, ip_tcp failed %d, ip_http failed %d, name_http failed %d; "
               "name gone while the IP answered: %d." % (len(pr), bad("name_dns"), bad("ip_tcp"), bad("ip_http"),
                                                          bad("name_http"), only_name), ""]
+        ms = sorted(_int(r["name_any"].split(" ")[1]) for r in pr if r.get("name_any", "").startswith("ok "))
+        if ms:
+            L[-1:-1] = ["AF_UNSPEC lookup: median %d ms, max %d ms, %d of %d at or over %d ms." % (
+                ms[len(ms) // 2], ms[-1], sum(1 for m in ms if m >= SLOW_LOOKUP_MS), len(ms), SLOW_LOOKUP_MS)]
 
     L += ["## Unreachable", ""]
     gaps = [g for g in _gaps(rows) if g[0]["time"][:10] == day]
@@ -349,6 +356,13 @@ def probe(base, token, timeout, last_ip):
         except OSError as e:
             c["name_dns"] = "fail " + (str(e) or type(e).__name__)
             ip = last_ip
+        t0 = time.monotonic()
+        try:
+            fam = {a[0] for a in socket.getaddrinfo(host, port, socket.AF_UNSPEC, socket.SOCK_STREAM)}
+            c["name_any"] = "ok %d %s" % ((time.monotonic() - t0) * 1000,
+                                          "+".join(n for f, n in ((socket.AF_INET, "v4"), (socket.AF_INET6, "v6")) if f in fam))
+        except OSError as e:
+            c["name_any"] = "fail " + (str(e) or type(e).__name__)
     if ip:
         c["ip"] = ip
         try:

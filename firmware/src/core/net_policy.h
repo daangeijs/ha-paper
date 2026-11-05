@@ -116,8 +116,11 @@ class InboundWatch {
 // minute NET tick with the link up: IPv4 pcb off → Enable (one ENABLE|ANNOUNCE action, idempotent); the responder's
 // hostname not ours → Reclaim (hostname set again: re-probe), at most once per kReclaimMs so a real twin cannot
 // make us probe-storm. Both wait kSettleMs after the last action (a re-bind's pair may still be queued).
+// ha-paper#20: the STA has an IPv6 link-local address so the responder answers AAAA (no NSEC in 1.11.3; without an
+// answer macOS getaddrinfo(AF_UNSPEC) waits ~5 s per lookup). Its IPv6 pcb rides the same queue: link-local up, pcb
+// off → Enable6, after a v4 enable and before a reclaim.
 enum class MdnsStep : uint8_t { Init, Rebind, Skip };
-enum class MdnsFix : uint8_t { None, Enable, Reclaim };
+enum class MdnsFix : uint8_t { None, Enable, Enable6, Reclaim };
 struct MdnsPlan {
   static constexpr uint32_t kSettleMs = 30000;
   static constexpr uint32_t kReclaimMs = 10 * 60000;
@@ -125,9 +128,10 @@ struct MdnsPlan {
     if (!inited) return MdnsStep::Init;
     return now - lastMs < kSettleMs ? MdnsStep::Skip : MdnsStep::Rebind;
   }
-  MdnsFix check(bool v4Ready, bool nameOurs, uint32_t now) const {
+  MdnsFix check(bool v4Ready, bool v6Lost, bool nameOurs, uint32_t now) const {
     if (now - lastMs < kSettleMs) return MdnsFix::None;
     if (!v4Ready) return MdnsFix::Enable;   // first: a reclaim only re-probes pcbs that are up
+    if (v6Lost) return MdnsFix::Enable6;
     if (!nameOurs && (!reclaimed || now - reclaimMs >= kReclaimMs)) return MdnsFix::Reclaim;
     return MdnsFix::None;
   }
@@ -139,6 +143,19 @@ struct MdnsPlan {
   uint32_t lastMs = 0;   // last Init, Rebind or fix
   uint32_t reclaimMs = 0;
   bool reclaimed = false;
+};
+
+// ---------- cached-IP lease (ha-paper#20) ----------
+// A timer wake joins with the cached IP (glance WifiFast::Ip): DHCP client off, no DHCP round trip. A glance sleeps
+// again within seconds, but a wake that stays up (key press, live mode) would keep the address with no lease to renew.
+// due() is true once, the first pass with the link up outside a glance: the net task then starts the DHCP client.
+struct CachedIpLease {
+  bool pending = false;   // joined on the cached IP, DHCP not restarted yet
+  bool due(bool up, bool glance) {
+    if (!pending || !up || glance) return false;
+    pending = false;
+    return true;
+  }
 };
 
 // Short, non-reversible AP tag for logs and /diagnostics: 4 hex digits of FNV-1a over the 6 BSSID bytes. Tells a
