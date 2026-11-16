@@ -51,6 +51,7 @@ class HaClient : private WsStream {
   void requestEntityList();
   // Access token for the current link (refreshing if needed). Blocking. "" if unavailable.
   std::string accessToken(bool* revoked = nullptr);
+  void forgetToken();                // drop the access token, the RTC copy too (#19)
   // History tiles of the config (eink-ha-os#269); active = on the current app's screens, the only ones fetched. Net task.
   void setHistoryTiles(const std::vector<hist::Fetcher::Want>& want, bool configChanged);
   // Weather tiles of the config (eink-ha-os#318): their entities' forecasts, kept in RTC memory across deep sleep. Net task.
@@ -100,6 +101,8 @@ class HaClient : private WsStream {
   uint32_t nextId_ = 1;
   std::string access_;
   uint32_t accessAtMs_ = 0, accessTtlMs_ = 0;
+  bool accessFromRtc_ = false;   // access_ came from the RTC copy (#19)
+  void keepToken();              // access_ → the RTC copy with the time left (#19)
   bool restartRequested_ = false;
   bool paused_ = false;   // ha-paper#37: the standby step holds the WebSocket closed
 
@@ -134,5 +137,6 @@ class HaClient : private WsStream {
 };
 
 HaClient& haClient();
+void forgetAccessToken();   // wipe the RTC copy only (#19): before a reboot, any task
 
 }  // namespace x4::net

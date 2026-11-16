@@ -83,6 +83,19 @@ describe('fake HA https faults (eink-ha-os#87)', () => {
     const st = await fetch(url + '/__fake/state').then((r) => r.json());
     expect(st.tls).toMatchObject({ mode: 'ok', accepted: { ok: 2, hang: 1, slow: 1, reset: 1 } });
   });
+
+  it('counts refresh grants (#19: a glance wake with a kept access token asks none)', async () => {
+    ha = new FakeHa({ port: 0, host: '127.0.0.1', tickMs: 0 });
+    const url = await ha.listen();
+    const refresh = ha.issueRefreshToken('alex', 'http://x4.test/');
+    const grant = (rt: string) => fetch(url + '/auth/token', { method: 'POST', headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      body: new URLSearchParams({ grant_type: 'refresh_token', refresh_token: rt, client_id: 'http://x4.test/' }) });
+    const grants = async () => (await fetch(url + '/__fake/state').then((r) => r.json())).refresh_grants;
+    expect(await grants()).toBe(0);
+    expect((await grant(refresh)).status).toBe(200);
+    expect((await grant('nope')).status).toBe(400);
+    expect(await grants()).toBe(1);
+  });
 });
 
 describe('fake HA real-shaped house (eink-ha-os#88)', () => {

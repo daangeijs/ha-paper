@@ -93,6 +93,7 @@ void haReportLoop() {
   const int code = token.empty() ? -1 : httpPostJsonEach(url, token, reqs);
   heapReportInFlight(false);
   heapCheckpoint("ha report");
+  if (code == 401) haClient().forgetToken();   // #19: a kept token HA no longer takes; the next ask refreshes
   if (code >= 200 && code < 300) {
     g_last = {now, h.battery, h.charging};
     g_have = true;
