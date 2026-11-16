@@ -241,14 +241,20 @@ bool HaClient::yieldTls() {
   return true;
 }
 
-void HaClient::pauseForStandby() {
-  if (state_ == St::Idle || state_ == St::Revoked) return;
-  if (state_ != St::Backoff) LOG_INF("HA", "WebSocket closed for the standby step");
-  ws_.close();
-  state_ = St::Backoff;
+void HaClient::pause(bool on) {
+  if (on == paused_) return;
+  paused_ = on;
+  if (on) {
+    if (state_ == St::Idle || state_ == St::Revoked) return;
+    if (state_ != St::Backoff) LOG_INF("HA", "WebSocket closed for the standby step · Wi-Fi stays on");
+    ws_.close();
+    state_ = St::Backoff;
+    entitySubs_.clear();
+    return;
+  }
   backoffMs_ = 2000;
   nextTryMs_ = millis();
-  entitySubs_.clear();
+  LOG_INF("HA", "standby step over · reconnecting");
 }
 
 bool HaClient::shedHeap(uint32_t waitMs) {
@@ -393,6 +399,7 @@ void HaClient::loop() {
     nextTryMs_ = millis();   // now, not 0: signed compare below breaks when millis() >= 2^31
   }
   if (state_ == St::Revoked) return;   // wait for re-link (restart())
+  if (paused_) return;                  // ha-paper#37 standby step: no reconnect until it ends
   if (!netConnected()) {
     if (state_ != St::Idle && state_ != St::Backoff) fail("wifi down");
     setHaState(static_cast<int>(HaState::Offline));

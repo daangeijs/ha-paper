@@ -87,13 +87,13 @@ mark
 sleep 70   # past the 1 min live window
 newlog | grep -qF "deep sleep (" && { echo "FAIL: slept on USB"; exit 1; }
 
-echo "== on battery: live window over → standby step (ha-paper#32, 5 min) → deep sleep (glance), no second refresh → timer wake without a boot screen"
+echo "== on battery: live window over → standby step (ha-paper#37, 5 min: dashboard kept, HA paused, Wi-Fi on) → deep sleep (glance) → timer wake without a boot screen"
 mark
 sim_power "source=battery&armed=1"
-wait_log 90 "EPD clean refresh (sleep face)"
-wait_log 30 "standby step · sleep face · Wi-Fi off"
-wait_log 360 "deep sleep (glance) · timer wake in"
-[[ $(newlog | grep -cF "EPD clean refresh (sleep face)") == 1 ]] || { echo "FAIL: the sleep face was drawn again on the way into deep sleep"; exit 1; }
+wait_log 90 "standby step · dashboard kept, no redraws"
+newlog | grep -qF "EPD clean refresh (sleep face)" && { echo "FAIL: the standby step drew the sleep face (ha-paper#37: the dashboard stays)"; exit 1; }
+wait_log 420 "deep sleep (glance) · timer wake in"
+[[ $(newlog | grep -cF "EPD clean refresh (sleep face)") == 1 ]] || { echo "FAIL: the sleep face not drawn once on the way into deep sleep"; exit 1; }
 transition_wait
 wait_log 30 "simulated deep sleep over · wake timer"
 wait_log 90 "wake: timer · glance (panel held, no boot screen)"
@@ -153,7 +153,7 @@ wait_log 60 "stays awake: unconfirmed image"
 wait_log 120 "health check passed"
 pre=$(newlog | grep -nF "health check passed" | head -1 | cut -d: -f1)
 newlog | head -n "$pre" | grep -qF "deep sleep (" && { echo "FAIL: slept with an unconfirmed image"; exit 1; }
-wait_log 420 "deep sleep (glance)"   # the boot counts as a press: 1 min live + the 5 min standby step (ha-paper#32)
+wait_log 420 "deep sleep (glance)"   # the boot counts as a press: 1 min live + the 5 min standby step (ha-paper#32, #37)
 
 echo "== fake HA down → the wake gives up after 20 s, keeps the panel, no backoff (eink-ha-os#356: the same transition)"
 prev=$(glance_wait)

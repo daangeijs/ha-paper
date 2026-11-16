@@ -11,7 +11,7 @@
 import { quietFromNight } from './quiet.ts';
 
 /** userdata /settings.json `schema`. 0 = file from before versioning (no key). */
-export const SETTINGS_SCHEMA = 3;
+export const SETTINGS_SCHEMA = 4;
 /** NVS x4dev/schema, one number for x4wifi, x4ha, x4tok, x4dev and x4ota. 0 = no key. */
 export const DEVICE_SCHEMA = 1;
 
@@ -28,6 +28,9 @@ const SETTINGS_STEPS: ((d: Obj) => void)[] = [
   // 2 → 3 (ha-paper#32): the standby step. New key `standbyAfter` from `liveMin` (kept for a rollback): 1 and 5 stay, 10
   // becomes 5; 3 (the old default, untouched on most displays) and anything else become the new default 1.
   (d) => { if (!('standbyAfter' in d)) d.standbyAfter = standbyFromLive(d.liveMin); },
+  // 3 → 4 (ha-paper#37): the Standby battery mode is gone; it becomes Save battery (glance). wakeEvery and the display
+  // `standby` key stay stored for a rollback, ignored.
+  (d) => { if (d.powerSave === 'standby') d.powerSave = 'glance'; },
 ];
 
 /** Schema 3: `standbyAfter` for a stored `liveMin`. */

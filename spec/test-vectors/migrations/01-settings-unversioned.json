@@ -7,21 +7,21 @@
       "op": "migrate",
       "stored": { "brightness": 30, "warmth": 40, "night": "23-07", "returnHome": "5", "standby": "never", "clock": "24", "intervalSec": 30, "fullEvery": 8, "otaAuto": "notify", "style": "classic", "typeface": "archivo", "surface": "dither" },
       "expect": {
-        "status": "upgrade", "from": 0, "version": 3,
-        "output": { "schema": 3, "brightness": 30, "warmth": 40, "night": "23-07", "returnHome": "5", "standby": "never", "clock": "24", "intervalSec": 30, "fullEvery": 8, "otaAuto": "notify", "style": "classic", "typeface": "archivo", "surface": "dither", "quiet": "23-07", "standbyAfter": 1 }
+        "status": "upgrade", "from": 0, "version": 4,
+        "output": { "schema": 4, "brightness": 30, "warmth": 40, "night": "23-07", "returnHome": "5", "standby": "never", "clock": "24", "intervalSec": 30, "fullEvery": 8, "otaAuto": "notify", "style": "classic", "typeface": "archivo", "surface": "dither", "quiet": "23-07", "standbyAfter": 1 }
       }
     },
     {
       "name": "file from before display styles, plus a key nobody knows",
       "op": "migrate",
       "stored": { "brightness": 0, "clock": "12", "future": { "a": [1, 2.5, null, true, "é\n"] } },
-      "expect": { "status": "upgrade", "from": 0, "version": 3, "output": { "schema": 3, "brightness": 0, "clock": "12", "future": { "a": [1, 2.5, null, true, "é\n"] }, "quiet": "23-07", "standbyAfter": 1 } }
+      "expect": { "status": "upgrade", "from": 0, "version": 4, "output": { "schema": 4, "brightness": 0, "clock": "12", "future": { "a": [1, 2.5, null, true, "é\n"] }, "quiet": "23-07", "standbyAfter": 1 } }
     },
     {
       "name": "empty object",
       "op": "migrate",
       "stored": {},
-      "expect": { "status": "upgrade", "from": 0, "version": 3, "output": { "schema": 3, "quiet": "23-07", "standbyAfter": 1 } }
+      "expect": { "status": "upgrade", "from": 0, "version": 4, "output": { "schema": 4, "quiet": "23-07", "standbyAfter": 1 } }
     }
   ]
 }

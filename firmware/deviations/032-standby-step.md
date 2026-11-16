@@ -1,5 +1,7 @@
 # Standby step between live mode and deep sleep (issue #32)
 
+- Reworked in ha-paper#37 (`037-three-power-phases.md`): the step keeps the dashboard and Wi-Fi on, no light sleep, no sleep face.
+
 - ha-paper#32 (Daan). On battery, glance now has three steps: live for `standbyAfter` minutes after a key or touch
   (1 / 3 / 5, default 1), then the standby step for `deepAfter` minutes (5 / 15 / 30 / 60 / 0 = never, default 15),
   then deep sleep as before. Rules: `core/power` `glancePhase` + `powerDecision` `lightSleepS` (reason "light sleep"),

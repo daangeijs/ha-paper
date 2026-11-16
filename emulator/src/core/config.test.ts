@@ -2,7 +2,7 @@ import { describe, it, expect } from 'vitest';
 import { readFileSync, readdirSync } from 'node:fs';
 import { join } from 'node:path';
 import { parseYaml, toYaml, validateYaml, defaultConfig, ConfigError, gridLayout, entityGaps, withSettings, userConfig, settingsScreens, SYSTEM_TILES, GAUGE_DEFAULT_ENTITY } from './config.ts';
-import { settingsPages, DISPLAY_FIELDS } from './settings.ts';
+import { settingsPages, powerStepsShown, powerSummary, DISPLAY_FIELDS } from './settings.ts';
 import { configVectors, CONFIG_CASES } from '../../scripts/gen-vectors.ts';
 import { PALETTE } from './data.ts';
 import { LIST_BUDGET, LIST_MAX, entityListAnswer, listLowValue } from './entityList.ts';
@@ -127,6 +127,23 @@ describe('built-in Settings (eink-ha-os#159)', () => {
     for (const k of tiles) expect(keys).toContain(k);
     for (const f of DISPLAY_FIELDS) expect(keys).toContain(f.key);
     expect(keys).toEqual(expect.arrayContaining(['ota_channel', 'otaAuto']));
+  });
+  it('ha-paper#37: Power = Save battery / Always live, quiet hours, morning, Live for, Then standby for, empty house; no Check every, no Display › Standby', () => {
+    expect(settingsPages().find((p) => p.id === 'power')!.fields.map((f) => f.key)).toEqual(['powerSave', 'quiet', 'morning', 'standbyAfter', 'deepAfter', 'emptyHouse']);
+    const keys = settingsPages().flatMap((p) => p.fields.map((f) => f.key));
+    expect(keys).not.toContain('wakeEvery'); expect(keys).not.toContain('standby');
+    const ps = settingsPages().find((p) => p.id === 'power')!.fields[0];
+    expect(ps.values.map((v) => ps.fmt(v, 'en'))).toEqual(['Save battery (recommended)', 'Always live']);
+    expect(ps.values.map((v) => ps.fmt(v, 'nl'))).toEqual(['Batterij sparen (aanbevolen)', 'Altijd live']);
+    expect(powerStepsShown('glance')).toBe(true); expect(powerStepsShown('off')).toBe(false);
+    expect(powerSummary('en', 1, 15)).toBe('Live 1 min → standby 15 min → deep sleep until you press power.');
+    expect(powerSummary('nl', 5, 60)).toBe('Live 5 min → stand-by 60 min → diepe slaap tot je op aan/uit drukt.');
+    expect(powerSummary('en', 3, 0)).toBe('Live 3 min → then standby until you press a key.');
+    expect(powerSummary('en', 1, -1)).toBe('Live 1 min → deep sleep until you press power.');
+    expect(powerSummary('nl', 1, -1)).toBe('Live 1 min → diepe slaap tot je op aan/uit drukt.');
+    const da = settingsPages().find((p) => p.id === 'power')!.fields.find((f) => f.key === 'deepAfter')!;
+    expect(da.values.map((v) => da.fmt(v, 'en'))).toEqual(['None, deep sleep right away', '5 min', '15 min', '30 min', '60 min', 'Never']);
+    expect(da.fmt(-1, 'nl')).toBe('Geen, meteen diepe slaap');
   });
 });
 

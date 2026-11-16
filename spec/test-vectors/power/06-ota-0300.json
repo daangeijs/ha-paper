@@ -4,11 +4,9 @@
   "base": {
     "nowEpoch": 1800000000,
     "localSec": 43200,
-    "powerSave": "standby",
-    "wakeEvery": 15,
+    "powerSave": "glance",
     "quiet": "23-07",
     "peeking": false,
-    "standby": true,
     "charging": false,
     "usb": false,
     "chargedAgoMin": null,
@@ -77,15 +75,15 @@
       }
     },
     {
-      "name": "daily check due by day: standby cadence is sooner",
+      "name": "daily check due by day: the 8 h cap comes before 03:00",
       "input": {
         "otaDue": true
       },
       "expect": {
         "deepSleepNow": true,
-        "wakeAtEpoch": 1800000900,
+        "wakeAtEpoch": 1800028800,
         "buttonWakeOnly": false,
-        "reason": "standby"
+        "reason": "glance"
       }
     },
     {

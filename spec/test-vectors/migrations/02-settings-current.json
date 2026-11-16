@@ -5,8 +5,8 @@
     {
       "name": "schema 3, not the first key",
       "op": "migrate",
-      "stored": { "brightness": 30, "schema": 3, "extra": "kept" },
-      "expect": { "status": "current", "from": 3, "version": 3, "output": { "brightness": 30, "schema": 3, "extra": "kept" } }
+      "stored": { "brightness": 30, "schema": 4, "extra": "kept" },
+      "expect": { "status": "current", "from": 4, "version": 4, "output": { "brightness": 30, "schema": 4, "extra": "kept" } }
     }
   ]
 }

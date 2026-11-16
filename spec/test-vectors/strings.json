@@ -1590,12 +1590,32 @@
       "nl": "Live na een druk"
     },
     "setStandbyAfter": {
-      "en": "Standby after",
-      "nl": "Stand-by na"
+      "en": "Live for",
+      "nl": "Live voor"
     },
     "setDeepAfter": {
-      "en": "Deep sleep after standby",
-      "nl": "Diepe slaap na stand-by"
+      "en": "Then standby for",
+      "nl": "Daarna stand-by voor"
+    },
+    "powerSummary": {
+      "en": "Live {} min → standby {} → deep sleep until you press power.",
+      "nl": "Live {} min → stand-by {} → diepe slaap tot je op aan/uit drukt."
+    },
+    "powerSummaryNever": {
+      "en": "Live {} min → then standby until you press a key.",
+      "nl": "Live {} min → daarna stand-by tot je op een knop drukt."
+    },
+    "powerSummaryNone": {
+      "en": "Live {} min → deep sleep until you press power.",
+      "nl": "Live {} min → diepe slaap tot je op aan/uit drukt."
+    },
+    "deepNone": {
+      "en": "None",
+      "nl": "Geen"
+    },
+    "deepNoneLong": {
+      "en": "None, deep sleep right away",
+      "nl": "Geen, meteen diepe slaap"
     },
     "setQuiet": {
       "en": "Quiet hours",
@@ -1610,8 +1630,8 @@
       "nl": "E-paper houdt vage resten van oude beelden vast. Af en toe knippert het scherm één keer zwart en wit om ze weg te halen."
     },
     "infoPowerSave": {
-      "en": "How the display saves battery when not on USB. Always live stays connected and updates within seconds (days of battery). Standby sleeps while the standby screen is on. Glance shows a calm sleep screen and sleeps until you press a button: it wakes on its own only at midnight and around quiet hours. A press shows the dashboard for a few minutes (weeks of battery).",
-      "nl": "Hoe het scherm batterij spaart als het niet aan USB hangt. Altijd live blijft verbonden en werkt binnen seconden bij (dagen batterij). Stand-by slaapt zolang het stand-by-beeld aan staat. Oogopslag toont een rustig slaapscherm en slaapt tot je op een knop drukt: het wordt alleen om middernacht en rond de stille uren vanzelf wakker. Een knopdruk toont een paar minuten het dashboard (weken batterij)."
+      "en": "How the display saves battery when not on USB. Save battery: after a press the dashboard updates live for a short while, then stays on screen without updating (standby), then the display sleeps deeply until you press power (weeks of battery). Always live stays connected and updates within seconds (days of battery).",
+      "nl": "Hoe het scherm batterij spaart als het niet aan USB hangt. Batterij sparen: na een druk werkt het dashboard even live bij, blijft het daarna staan zonder bij te werken (stand-by) en slaapt het scherm daarna diep tot je op aan/uit drukt (weken batterij). Altijd live blijft verbonden en werkt binnen seconden bij (dagen batterij)."
     },
     "infoQuiet": {
       "en": "Between these hours the display rests. On battery it sleeps and does not wake on its own. On USB it stays connected, but the screen does not change. A press shows the dashboard.",
@@ -1622,20 +1642,20 @@
       "nl": "In Stand-by: hoe vaak het scherm vanzelf wakker wordt om het beeld bij te werken. Oogopslag wordt alleen om middernacht en rond de stille uren wakker."
     },
     "infoEmptyHouse": {
-      "en": "In Glance: while nobody is home, the display updates every 2 hours instead and shows \"Nobody home\". Pick what tells it: the Home zone (number of people in it) or an on/off helper (off = nobody home). A press shows the dashboard as usual; quiet hours come first.",
-      "nl": "In Oogopslag: als niemand thuis is, ververst het scherm elke 2 uur en toont het \"Niemand thuis\". Kies wat dat vertelt: de zone Thuis (aantal mensen erin) of een aan/uit-helper (uit = niemand thuis). Een druk toont het dashboard zoals altijd; stille uren gaan voor."
+      "en": "With Save battery: while nobody is home, the display updates every 2 hours instead and shows \"Nobody home\". Pick what tells it: the Home zone (number of people in it) or an on/off helper (off = nobody home). A press shows the dashboard as usual; quiet hours come first.",
+      "nl": "Met Batterij sparen: als niemand thuis is, ververst het scherm elke 2 uur en toont het \"Niemand thuis\". Kies wat dat vertelt: de zone Thuis (aantal mensen erin) of een aan/uit-helper (uit = niemand thuis). Een druk toont het dashboard zoals altijd; stille uren gaan voor."
     },
     "infoLiveMin": {
       "en": "In Glance: how long the display stays live after you press a button.",
       "nl": "In Oogopslag: hoe lang het scherm live blijft nadat je op een knop drukt."
     },
     "infoStandbyAfter": {
-      "en": "In Glance: after this long without a press, the display shows its sleep screen and naps. Any button or the touch key wakes it at once, straight to the dashboard.",
-      "nl": "In Oogopslag: na zo lang zonder knopdruk toont het scherm het slaapscherm en dut het in. Elke knop of de aanraaktoets wekt het meteen, direct naar het dashboard."
+      "en": "After a press the dashboard updates live for this long.",
+      "nl": "Na een druk werkt het dashboard zo lang live bij."
     },
     "infoDeepAfter": {
-      "en": "In Glance: how long the display naps before it sleeps deeply. Deep sleep saves the most battery, but only the buttons on the right wake it and that takes a few seconds. Never keeps napping (uses more battery).",
-      "nl": "In Oogopslag: hoe lang het scherm dut voordat het diep gaat slapen. Diepe slaap spaart de meeste batterij, maar alleen de knoppen rechts wekken het en dat duurt een paar seconden. Nooit blijft dutten (kost meer batterij)."
+      "en": "The dashboard stays on screen but stops updating. Wi-Fi stays on. Touch the screen or press any key to update at once. Then the display sleeps deeply until you press power. Never: no deep sleep (uses more battery). None: deep sleep right after the live time (saves the most).",
+      "nl": "Het dashboard blijft staan maar werkt niet meer bij. Wi-Fi blijft aan. Raak het scherm aan of druk op een knop om meteen bij te werken. Daarna slaapt het scherm diep tot je op aan/uit drukt. Nooit: geen diepe slaap (kost meer batterij). Geen: meteen diepe slaap na de live-tijd (spaart het meest)."
     },
     "infoInterval": {
       "en": "How often the screen updates while the display is live.",
@@ -1709,13 +1729,13 @@
       "en": "Always live",
       "nl": "Altijd live"
     },
-    "psStandby": {
-      "en": "Standby",
-      "nl": "Stand-by"
-    },
     "psGlance": {
-      "en": "Glance",
-      "nl": "Oogopslag"
+      "en": "Save battery",
+      "nl": "Batterij sparen"
+    },
+    "psGlanceRec": {
+      "en": "Save battery (recommended)",
+      "nl": "Batterij sparen (aanbevolen)"
     },
     "firmware": {
       "en": "Firmware",

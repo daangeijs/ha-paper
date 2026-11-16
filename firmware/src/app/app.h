@@ -30,11 +30,11 @@ struct DisplaySettings {   // Settings › Display (SPEC §8); persisted by net/
   std::string surface = "dither";     // dither | dots: how the Sleek card surface is drawn on the panel
   bool haReport = true;               // push device health to HA as entities (eink-ha-os#32, net/ha_report)
   // Power saving on battery (eink-ha-os#10; glance by default per eink-ha-os#18). On USB always live. New keys: no schema bump.
-  std::string powerSave = "glance";   // off | standby | glance
-  int wakeEvery = 15;                  // minutes between glance / standby timer wakes: 15 | 30 | 60
+  std::string powerSave = "glance";   // off (Always live) | glance (Save battery); standby left in ha-paper#37 (schema 4)
+  int wakeEvery = 15;                  // legacy (ha-paper#37, the Standby mode's timer wake): stored and served, no effect
   int liveMin = 3;                     // legacy (ha-paper#32): stored and served, no effect
-  int standbyAfter = 1;                // glance (ha-paper#32): live minutes after a key press, then the standby step: 1 | 3 | 5
-  int deepAfter = 15;                  // glance (ha-paper#32): standby-step minutes before deep sleep: 5 | 15 | 30 | 60 | 0 = never
+  int standbyAfter = 1;                // glance (ha-paper#32, "Live for"): live minutes after a key press, then the standby step: 1 | 3 | 5
+  int deepAfter = 5;                   // glance (ha-paper#37, "Then standby for"): standby-step minutes before deep sleep: -1 = none | 5 | 15 | 30 | 60 | 0 = never
   std::string emptyHouse;              // eink-ha-os#331: presence entity for empty-house sleep, "" = off (web console only)
   bool debugInput = false;             // POST /api/v1/debug/input allowed (eink-ha-os#214, measuring on hardware)
   bool morning = true;                 // Good morning page on the first wake after quiet hours (eink-ha-os#330)
@@ -95,8 +95,8 @@ class App {
   void redraw(const std::string& reason); // release the panel + one full refresh (a visible value changed)
   void prepareSleep();                    // before deep sleep from live mode: home page, ambient chrome, no standby face
   void markAsleep(bool on);               // eink-ha-os#299: clocks drawn as "asleep · updated HH:MM" (on = before deep sleep)
-  // ha-paper#32 standby step: on = home page, the sleep face (one full refresh), light off; off = the dashboard again. The
-  // next key or touch ends it by itself (consumed), calling onNapWake first.
+  // ha-paper#32, #37 standby step: on = the panel stays as drawn (no commit, no clock), light off; off = redraws again. The
+  // next key or touch ends it by itself (consumed), calling onNapWake first; what changed is drawn once HA data landed.
   void nap(bool on);
   void onNapWake(std::function<void()> cb);
   std::vector<std::string> clockRegions() const;   // regions that only show the time ("time", clock tiles "k<i>")

@@ -268,18 +268,10 @@ void App::markAsleep(bool on) {
 void App::nap(bool on) {
   auto* I = impl_;
   if (on == I->napping) return;
-  if (on) {
-    prepareSleep();
-    I->napping = true;
-    I->napPower = false;
-    I->applyFrontlight();
-    markAsleep(true);
-    I->note("standby step · sleep face, light off");
-  } else {
-    I->napping = false;
-    I->applyFrontlight();
-    markAsleep(false);
-  }
+  I->napping = on;
+  if (on) I->napPower = false;
+  I->applyFrontlight();
+  I->note(on ? "standby step · dashboard kept, no redraws, light off" : "standby step over");
 }
 void App::onNapWake(std::function<void()> cb) { impl_->onNapWake = std::move(cb); }
 std::vector<std::string> App::clockRegions() const {
@@ -341,7 +333,7 @@ void App::loop() {
     else keys |= e.key == Key::Prev ? kKeyLeft : e.key == Key::Next ? kKeyRight : kKeyPower;
     if (e.kind == InputEvent::Kind::KeyDown && e.key == Key::Power && I->onPowerStage) I->onPowerStage("key");
   }
-  // ha-paper#32: any key or touch ends the standby step and does nothing else; a Power press there is no standby toggle
+  // ha-paper#32, #37: any key or touch ends the standby step and does nothing else; a Power press there is no standby toggle
   const bool napWake = I->napping && n > 0;
   if (napWake) I->napPower = ev.kind == InputEvent::Kind::KeyDown && ev.key == Key::Power;
   bool swallow = false;
@@ -360,6 +352,8 @@ void App::loop() {
     I->input();
     I->note("input → standby over (consumed)");
     nap(false);
+    I->expectData(1000, 10000);   // HA reconnects: draw what changed once its snapshot landed
+    if (I->ambient) { I->ambient = false; I->commit("chrome"); }   // as the first input after ambient
     swallow = true;
   }
   if (n > 1 && !swallow) I->note("input · " + std::to_string(n - 1) + " stale dropped · last wins");
@@ -802,7 +796,7 @@ void App::Impl::partialRefresh(const std::string& reason, const RegionMap& next,
 }
 
 void App::Impl::commit(const std::string& reason, bool quiet) {
-  if (mode == Mode::Boot) return;
+  if (mode == Mode::Boot || napping) return;   // ha-paper#37 standby step: the panel stays as drawn (commit catches up after)
   if (quietActive()) { if (reason != "clock") note("quiet hours · redraw skipped (" + reason + ")"); return; }   // eink-ha-os#295: no clock either
   if (sleeping && reason != "clock" && reason != "asleep") return;
   // display style / typeface / card surface changed: every region looks different → one full refresh, no partial
@@ -1027,6 +1021,7 @@ bool App::Impl::slide(int x, int y, int ex) {
 }
 
 void App::Impl::tick() {
+  if (napping) return;   // ha-paper#37 standby step: no clock, no data redraws (the WebSocket is closed anyway)
   uint32_t t = ms();
   // acknowledgements (entity state caught up with our optimistic value)
   if (store.revision() != lastRev) {
@@ -1117,8 +1112,8 @@ void App::Impl::idleCheck() {
   if (!lightOut && lightTimedOut(idle, set.lightTimeout)) { lightOut = true; applyFrontlight(); note("IDLE → front light off"); }
   if (morningActive()) return;   // eink-ha-os#330: the page stays until its timeout or a press
   bool amb = !ambient && ambientDue(idle, menu != Menu::None, false) && !quietActive();
-  IdleDecision d = ::x4::idleCheck(idle, idleMinutes(set.standby), idleMinutes(set.returnHome), idleHomed, away);
-  if (d.standby) { sleeping = true; menu = Menu::None; peekUntil = 0; applyFrontlight(); note("IDLE → standby"); fullRefresh("standby"); return; }
+  // Display › Standby (the standby face after N min) is gone since ha-paper#37: set.standby is stored, ignored
+  IdleDecision d = ::x4::idleCheck(idle, 0, idleMinutes(set.returnHome), idleHomed, away);
   if (d.goHome) {
     idleHomed = true;
     if (amb) ambient = true;   // drawn by the screen change below
@@ -1428,11 +1423,11 @@ void App::Impl::setCfg(const std::string& key, int dir) {
   else if (key == "style") ch = stepList({"classic", "sleek"}, set.style);
   else if (key == "typeface") ch = stepList({"archivo", "bricolage", "fraunces", "geist"}, set.typeface);
   else if (key == "surface") ch = stepList({"dither", "dots"}, set.surface);
-  else if (key == "powerSave") ch = stepList({"glance", "standby", "off"}, set.powerSave);
+  else if (key == "powerSave") ch = stepList({"glance", "off"}, set.powerSave);   // Save battery | Always live (ha-paper#37)
   else if (key == "wakeEvery") { std::string c = std::to_string(set.wakeEvery); ch = stepList({"15", "30", "60"}, c); if (ch) set.wakeEvery = std::atoi(c.c_str()); }
   else if (key == "liveMin") { std::string c = std::to_string(set.liveMin); ch = stepList({"1", "3", "5", "10"}, c); if (ch) set.liveMin = std::atoi(c.c_str()); }
   else if (key == "standbyAfter") { std::string c = std::to_string(set.standbyAfter); ch = stepList({"1", "3", "5"}, c); if (ch) set.standbyAfter = std::atoi(c.c_str()); }
-  else if (key == "deepAfter") { std::string c = std::to_string(set.deepAfter); ch = stepList({"5", "15", "30", "60", "0"}, c); if (ch) set.deepAfter = std::atoi(c.c_str()); }
+  else if (key == "deepAfter") { std::string c = std::to_string(set.deepAfter); ch = stepList({"-1", "5", "15", "30", "60", "0"}, c); if (ch) set.deepAfter = std::atoi(c.c_str()); }
   if (!ch) return;
   note("SET " + key);
   settingsChanged();

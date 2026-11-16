@@ -271,7 +271,7 @@ void test_empty_house_face() {
     EntityValue v; v.state = "0"; r.app.entities().set("zone.home", v); r.step(50);
     r.app.markAsleep(true);
     TEST_ASSERT_FALSE(r.has("empty")); TEST_ASSERT_FALSE(r.app.powerView().emptyHouse);
-    DisplaySettings st = ds; st.powerSave = "standby";
+    DisplaySettings st = ds; st.powerSave = "off";
     Rig q(true, 13, 0, 10, st);
     zone(q, "0"); q.app.markAsleep(true);
     TEST_ASSERT_FALSE(q.has("empty"));
@@ -510,14 +510,12 @@ void test_home_key_and_idle() {
   TEST_ASSERT_TRUE(r.barHas(":Home;"));
   TEST_ASSERT_FALSE(r.barHas(":1 / 4;"));                 // no pager
   TEST_ASSERT_FALSE(r.has("time"));                       // Home has a clock tile: no bar clock
-  r.step(9 * 60000 + 1000);                               // idle 10 min → standby
+  r.step(9 * 60000 + 1000);                               // idle 10 min: no standby face (Display › Standby gone, ha-paper#37)
+  TEST_ASSERT_FALSE(r.has("standby")); TEST_ASSERT_TRUE(r.has("bar"));
+  r.key(Key::Power);                                      // the Power key still toggles it
   TEST_ASSERT_TRUE(r.has("standby"));
   TEST_ASSERT_TRUE(r.sig("standby").find("Standby") != std::string::npos);
   r.snap("standby");
-  r.key(Key::Next);                                       // any key wakes
-  TEST_ASSERT_TRUE(r.has("bar"));
-  r.key(Key::Power);
-  TEST_ASSERT_TRUE(r.has("standby"));
   r.key(Key::Power);
   TEST_ASSERT_TRUE(r.has("bar"));
 }
@@ -648,34 +646,36 @@ void test_power_short_press_and_boot_hold() {
   TEST_ASSERT_FALSE(app.powerView().standby);
 }
 
-// ---- standby step (ha-paper#32): App::nap → the sleep face, light off; any key or touch ends it (consumed, onNapWake first) ----
+// ---- standby step (ha-paper#37): App::nap → the dashboard stays as drawn (no refresh, no clock), light off; any key or
+// touch ends it (consumed, onNapWake first) ----
 void test_standby_step_nap() {
   DisplaySettings ds; ds.brightness = 40;
   Rig r(true, 13, 0, 10, ds);
   int wakes = 0;
   r.app.onNapWake([&] { ++wakes; });
   const std::string shown = r.app.shownScreen();
-  const uint32_t full = r.app.stats().fullRefreshes;
+  const uint32_t full = r.app.stats().fullRefreshes, part = r.app.stats().partialRefreshes;
   r.app.nap(true);
   TEST_ASSERT_TRUE(r.app.powerView().napping);
-  TEST_ASSERT_TRUE(r.has("sleep")); TEST_ASSERT_FALSE(r.has("bar"));
-  TEST_ASSERT_EQUAL_UINT32(full + 1, r.app.stats().fullRefreshes);   // drawn once
+  TEST_ASSERT_TRUE(r.has("bar")); TEST_ASSERT_FALSE(r.has("sleep"));   // the dashboard, not the sleep face
   TEST_ASSERT_EQUAL_UINT8(0, r.b.light);
-  r.step(120000);                                          // two minutes: no redraw, no standby face, light stays off
-  TEST_ASSERT_EQUAL_UINT32(full + 1, r.app.stats().fullRefreshes);
+  EntityValue v; v.state = "19.5"; r.app.entities().set("sensor.living_temperature", v);
+  r.step(180000);                                          // three minutes, a value changed: no redraw, no clock, light off
+  TEST_ASSERT_EQUAL_UINT32(full, r.app.stats().fullRefreshes); TEST_ASSERT_EQUAL_UINT32(part, r.app.stats().partialRefreshes);
   TEST_ASSERT_FALSE(r.app.powerView().standby); TEST_ASSERT_EQUAL_UINT8(0, r.b.light);
   r.key(Key::Prev);                                        // Left: wakes, does not turn the page
   TEST_ASSERT_FALSE(r.app.powerView().napping); TEST_ASSERT_EQUAL_INT(1, wakes);
-  TEST_ASSERT_TRUE(r.has("bar")); TEST_ASSERT_FALSE(r.has("sleep"));
   TEST_ASSERT_EQUAL_STRING(shown.c_str(), r.app.shownScreen().c_str());
   TEST_ASSERT_TRUE(r.b.light > 0);
+  r.step(3000);                                            // what changed is drawn once the data landed
+  TEST_ASSERT_TRUE(r.app.stats().partialRefreshes + r.app.stats().fullRefreshes > part + full);
   r.app.nap(true);                                         // Power: wakes; its release is no standby toggle
   r.b.held = kKeyPower; r.b.key(Key::Power); r.step(300); r.b.held = 0; r.step(100);
-  TEST_ASSERT_FALSE(r.app.powerView().napping); TEST_ASSERT_FALSE(r.app.powerView().standby); TEST_ASSERT_TRUE(r.has("bar"));
+  TEST_ASSERT_FALSE(r.app.powerView().napping); TEST_ASSERT_FALSE(r.app.powerView().standby);
   TEST_ASSERT_EQUAL_INT(2, wakes);
   r.app.nap(true);                                         // a tap (the Home touch key works the same: any input)
   r.tap(240, 400);
-  TEST_ASSERT_FALSE(r.app.powerView().napping); TEST_ASSERT_EQUAL_INT(3, wakes); TEST_ASSERT_TRUE(r.has("bar"));
+  TEST_ASSERT_FALSE(r.app.powerView().napping); TEST_ASSERT_EQUAL_INT(3, wakes);
   r.app.nap(true); r.key(Key::Home);
   TEST_ASSERT_FALSE(r.app.powerView().napping); TEST_ASSERT_FALSE(r.has("menu")); TEST_ASSERT_EQUAL_INT(4, wakes);
 }
