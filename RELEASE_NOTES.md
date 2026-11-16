@@ -5,6 +5,16 @@ display lists under "What's new" on its Updates screen (manifest.json `notes`): 
 most 34 characters. The release workflow fails if the tag's section is missing or a bullet is too long
 (`firmware/tools/release_notes.py`). Prose below the bullets goes only into the GitHub release.
 
+## 0.2.0-beta.8
+
+- Sleep face: battery days left
+- Faster .local name lookup
+
+The sleep face shows the battery percentage and an estimate of the days left ("about N days left", or "charging").
+The estimate starts from a power model and moves toward the measured drain as the battery drops. The `.local` name
+now answers IPv6 (AAAA) lookups too, so browsers find the device in well under a second instead of about 5 s, and a
+wake on a cached IP renews its DHCP lease when it stays up. Dependency updates for the font tools and the emulator.
+
 ## 0.2.0-beta.7
 
 - Bus tile reads OVapi sensors
