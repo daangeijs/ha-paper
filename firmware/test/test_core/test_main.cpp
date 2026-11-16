@@ -1101,6 +1101,7 @@ void test_power_summary() {
   TEST_ASSERT_EQUAL_STRING("Live 1 min → standby 15 min → deep sleep until you press power.", powerSummary(Lang::En, 1, 15).c_str());
   TEST_ASSERT_EQUAL_STRING("Live 5 min → stand-by 60 min → diepe slaap tot je op aan/uit drukt.", powerSummary(Lang::Nl, 5, 60).c_str());
   TEST_ASSERT_EQUAL_STRING("Live 3 min → then standby until you press a key.", powerSummary(Lang::En, 3, 0).c_str());
+  TEST_ASSERT_EQUAL_STRING("Live 1 min → deep sleep until you press power.", powerSummary(Lang::En, 1, -1).c_str());
 }
 
 // ---------- standby step (spec/test-vectors/standby-step.json, ha-paper#32) ----------

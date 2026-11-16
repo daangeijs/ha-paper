@@ -1605,6 +1605,18 @@
       "en": "Live {} min → then standby until you press a key.",
       "nl": "Live {} min → daarna stand-by tot je op een knop drukt."
     },
+    "powerSummaryNone": {
+      "en": "Live {} min → deep sleep until you press power.",
+      "nl": "Live {} min → diepe slaap tot je op aan/uit drukt."
+    },
+    "deepNone": {
+      "en": "None",
+      "nl": "Geen"
+    },
+    "deepNoneLong": {
+      "en": "None, deep sleep right away",
+      "nl": "Geen, meteen diepe slaap"
+    },
     "setQuiet": {
       "en": "Quiet hours",
       "nl": "Stille uren"
@@ -1642,8 +1654,8 @@
       "nl": "Na een druk werkt het dashboard zo lang live bij."
     },
     "infoDeepAfter": {
-      "en": "The dashboard stays on screen but stops updating. Wi-Fi stays on. Touch the screen or press any key to update at once. Then the display sleeps deeply until you press power. Never: no deep sleep (uses more battery).",
-      "nl": "Het dashboard blijft staan maar werkt niet meer bij. Wi-Fi blijft aan. Raak het scherm aan of druk op een knop om meteen bij te werken. Daarna slaapt het scherm diep tot je op aan/uit drukt. Nooit: geen diepe slaap (kost meer batterij)."
+      "en": "The dashboard stays on screen but stops updating. Wi-Fi stays on. Touch the screen or press any key to update at once. Then the display sleeps deeply until you press power. Never: no deep sleep (uses more battery). None: deep sleep right after the live time (saves the most).",
+      "nl": "Het dashboard blijft staan maar werkt niet meer bij. Wi-Fi blijft aan. Raak het scherm aan of druk op een knop om meteen bij te werken. Daarna slaapt het scherm diep tot je op aan/uit drukt. Nooit: geen diepe slaap (kost meer batterij). Geen: meteen diepe slaap na de live-tijd (spaart het meest)."
     },
     "infoInterval": {
       "en": "How often the screen updates while the display is live.",

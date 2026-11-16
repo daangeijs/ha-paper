@@ -5,8 +5,12 @@
   sleep with timer wakes every `wakeEvery` minutes while the standby face is on) is gone: settings schema 4 moves it to
   glance. `wakeEvery` and the Display › Standby key (`standby`, the standby face after N min) stay stored and served for a
   rollback, ignored, in no menu. The Power key still toggles the standby face by hand.
-- Save battery: Live for `standbyAfter` (1 / 3 / 5 min) after a key or touch, then Standby for `deepAfter` (5 / 15 / 30 /
-  60 min / never), then deep sleep with the glance sleep face, as before. Labels "Live for" / "Then standby for"; the
+- Save battery: Live for `standbyAfter` (1 / 3 / 5 min) after a key or touch, then Standby for `deepAfter` (none / 5 / 15
+  / 30 / 60 min / never, default 5), then deep sleep with the glance sleep face, as before. Encoding: 0 = never (as in
+  #32), -1 = none (deep sleep right after live mode). Negative so 0 keeps its meaning; a rollback to a firmware from
+  before #37 ignores -1 on load and falls back to its default 15. The default went 15 → 5 (Daan): no migration, stored
+  values stay, only a missing key reads as 5. Device tile "None", console "None, deep sleep right away"; summary
+  "Live 1 min → deep sleep until you press power.". Labels "Live for" / "Then standby for"; the
   Save battery tile and the console show a summary line ("Live 1 min → standby 15 min → deep sleep until you press
   power."). Both settings hide with Always live: the device draws an empty cell, the console drops the rows.
 - Standby: `powerDecision` returns `standby: true` (reason `standby`, awake, no timer); the device decides again every

@@ -34,7 +34,7 @@ struct DisplaySettings {   // Settings › Display (SPEC §8); persisted by net/
   int wakeEvery = 15;                  // legacy (ha-paper#37, the Standby mode's timer wake): stored and served, no effect
   int liveMin = 3;                     // legacy (ha-paper#32): stored and served, no effect
   int standbyAfter = 1;                // glance (ha-paper#32, "Live for"): live minutes after a key press, then the standby step: 1 | 3 | 5
-  int deepAfter = 15;                  // glance (ha-paper#37, "Then standby for"): standby-step minutes before deep sleep: 5 | 15 | 30 | 60 | 0 = never
+  int deepAfter = 5;                   // glance (ha-paper#37, "Then standby for"): standby-step minutes before deep sleep: -1 = none | 5 | 15 | 30 | 60 | 0 = never
   std::string emptyHouse;              // eink-ha-os#331: presence entity for empty-house sleep, "" = off (web console only)
   bool debugInput = false;             // POST /api/v1/debug/input allowed (eink-ha-os#214, measuring on hardware)
   bool morning = true;                 // Good morning page on the first wake after quiet hours (eink-ha-os#330)

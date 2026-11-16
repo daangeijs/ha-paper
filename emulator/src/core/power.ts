@@ -8,7 +8,7 @@ import { emptyWaitS } from './emptyHouse.ts';
 // until a key, the charger, or the next transition: midnight (the face's date) or the start of quiet hours, whichever
 // comes first (at most MAX_SLEEP_S). No periodic data wakes. A transition wake fetches a snapshot and redraws only when
 // what the panel shows changed (core/glance.ts). A key press wakes into live mode for `standbyAfter` minutes ("Live for"),
-// then the standby step (ha-paper#32, reworked in ha-paper#37) for `deepAfter` minutes ("Then standby for", 0 = never): the
+// then the standby step (ha-paper#32, reworked in ha-paper#37) for `deepAfter` minutes ("Then standby for", 0 = never, -1 = none): the
 // dashboard stays on the panel unchanged, no HA updates (WebSocket closed), Wi-Fi stays associated (API and console
 // reachable), any key or touch goes live at once; then deep sleep as above (glancePhase).
 // Quiet hours (eink-ha-os#295, core/quiet.ts) win over standby and glance: no timer wakes in the window. "Sleep at night" is gone
@@ -80,6 +80,7 @@ export function glancePhase(msSinceInput: number | null, standbyAfter: number, d
   const liveMs = standbyAfter * 60_000;
   if (msSinceInput < liveMs) return { live: true, standbyLeftS: 0 };
   if (deepAfter === 0) return { live: false, standbyLeftS: MAX_SLEEP_S };
+  if (deepAfter < 0) return { live: false, standbyLeftS: 0 };   // none: straight to deep sleep
   return { live: false, standbyLeftS: Math.max(0, Math.ceil((liveMs + deepAfter * 60_000 - msSinceInput) / 1000)) };
 }
 

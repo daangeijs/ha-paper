@@ -1,6 +1,6 @@
 {
   "name": "08-settings-standby-step",
-  "description": "Step 2 → 3 (ha-paper#32): the standby step between live mode and deep sleep. New key standbyAfter, appended, from liveMin: 1 and 5 stay, 10 becomes 5 (the largest step), 3 (the old default, untouched on most displays) and a missing or odd liveMin become the new default 1. liveMin stays for an OTA rollback (no effect any more). deepAfter is not written: missing = 15. A standbyAfter already there (written by a newer firmware) wins.",
+  "description": "Step 2 → 3 (ha-paper#32): the standby step between live mode and deep sleep. New key standbyAfter, appended, from liveMin: 1 and 5 stay, 10 becomes 5 (the largest step), 3 (the old default, untouched on most displays) and a missing or odd liveMin become the new default 1. liveMin stays for an OTA rollback (no effect any more). deepAfter is not written: missing = the default (15 then, 5 since ha-paper#37). A standbyAfter already there (written by a newer firmware) wins.",
   "cases": [
     {
       "name": "liveMin 1 stays 1",

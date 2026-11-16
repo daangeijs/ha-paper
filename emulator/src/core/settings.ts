@@ -30,8 +30,8 @@ export type DisplaySettings = { brightness: number; warmth: number; quiet: strin
    *  New keys with defaults (migrate.ts rules): a firmware without them ignores them. */
   powerSave: PowerSave; wakeEvery: number; liveMin: number;
   /** Glance (ha-paper#32, #37): minutes live after a key press ("Live for"), then the standby step (dashboard unchanged,
-   *  Wi-Fi on, no HA updates) for `deepAfter` minutes ("Then standby for", 0 = never), then deep sleep. liveMin and
-   *  wakeEvery stay for a rollback, no effect. Missing = 1 / 15. */
+   *  Wi-Fi on, no HA updates) for `deepAfter` minutes ("Then standby for", 0 = never, -1 = none), then deep sleep. liveMin and
+   *  wakeEvery stay for a rollback, no effect. Missing = 1 / 5. */
   standbyAfter?: number; deepAfter?: number;
   /** Empty-house sleep (eink-ha-os#331, core/emptyHouse.ts): '' = off, else the presence entity. Missing = off. */
   emptyHouse?: string;
@@ -93,7 +93,7 @@ export const DISPLAY_FIELDS: { key: keyof DisplaySettings; label: StrKey; info?:
   { key: 'quiet', label: SETTINGS.quiet.lk, info: SETTINGS.quiet.info, values: QUIET_STEPS, fmt: (v, lg) => SETTINGS.quiet.fmt(v, lg) },
   { key: 'morning', label: SETTINGS.morning.lk, info: SETTINGS.morning.info, values: [true, false], fmt: (v, lg) => SETTINGS.morning.fmt(v, lg) },
   { key: 'standbyAfter', label: SETTINGS.standbyAfter.lk, info: SETTINGS.standbyAfter.info, values: STANDBY_AFTER, fmt: (v, lg) => SETTINGS.standbyAfter.fmt(v, lg) },
-  { key: 'deepAfter', label: SETTINGS.deepAfter.lk, info: SETTINGS.deepAfter.info, values: DEEP_AFTER, fmt: (v, lg) => SETTINGS.deepAfter.fmt(v, lg) },
+  { key: 'deepAfter', label: SETTINGS.deepAfter.lk, info: SETTINGS.deepAfter.info, values: DEEP_AFTER, fmt: (v, lg) => (v === -1 ? tr(lg, 'deepNoneLong') : SETTINGS.deepAfter.fmt(v, lg)) },
 ];
 
 /** A setting the browser's Settings page edits (eink-ha-os#159): `display.<key>`, or a top-level key when `top`. */
@@ -118,6 +118,7 @@ export const POWER_STEP_KEYS = ['standbyAfter', 'deepAfter'];
 export const powerStepsShown = (powerSave: string): boolean => powerSave === 'glance';
 /** ha-paper#37: the line under Save battery: "Live 1 min → standby 15 min → deep sleep until you press power." */
 export function powerSummary(lang: Lang, standbyAfter: number, deepAfter: number): string {
+  if (deepAfter === -1) return tr(lang, 'powerSummaryNone', standbyAfter);
   return deepAfter === 0 ? tr(lang, 'powerSummaryNever', standbyAfter) : tr(lang, 'powerSummary', standbyAfter, deepAfter + ' min');
 }
 const PAGE_TITLE: Record<string, StrKey> = { display: 'display', style: 'menuStyle', power: 'menuPower', updates: 'menuUpdates', ha: 'menuHa' };
@@ -160,7 +161,7 @@ export function displayError(d: DisplaySettings): string | null {
   if (!WAKE_EVERY.includes(d.wakeEvery)) return 'display.wakeEvery must be 15, 30 or 60';
   if (!LIVE_MIN.includes(d.liveMin)) return 'display.liveMin must be 1, 3, 5 or 10';
   if (d.standbyAfter !== undefined && !STANDBY_AFTER.includes(d.standbyAfter)) return 'display.standbyAfter must be 1, 3 or 5';
-  if (d.deepAfter !== undefined && !DEEP_AFTER.includes(d.deepAfter)) return 'display.deepAfter must be 0, 5, 15, 30 or 60';
+  if (d.deepAfter !== undefined && !DEEP_AFTER.includes(d.deepAfter)) return 'display.deepAfter must be -1, 0, 5, 15, 30 or 60';
   if (d.emptyHouse !== undefined && !validEmptySource(d.emptyHouse)) return EMPTY_HOUSE_ERROR;
   // Firmware-only key (Settings › Updates); the simulators accept it so a firmware GET round-trips.
   const otaAuto = (d as { otaAuto?: unknown }).otaAuto;

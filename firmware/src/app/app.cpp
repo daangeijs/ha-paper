@@ -1427,7 +1427,7 @@ void App::Impl::setCfg(const std::string& key, int dir) {
   else if (key == "wakeEvery") { std::string c = std::to_string(set.wakeEvery); ch = stepList({"15", "30", "60"}, c); if (ch) set.wakeEvery = std::atoi(c.c_str()); }
   else if (key == "liveMin") { std::string c = std::to_string(set.liveMin); ch = stepList({"1", "3", "5", "10"}, c); if (ch) set.liveMin = std::atoi(c.c_str()); }
   else if (key == "standbyAfter") { std::string c = std::to_string(set.standbyAfter); ch = stepList({"1", "3", "5"}, c); if (ch) set.standbyAfter = std::atoi(c.c_str()); }
-  else if (key == "deepAfter") { std::string c = std::to_string(set.deepAfter); ch = stepList({"5", "15", "30", "60", "0"}, c); if (ch) set.deepAfter = std::atoi(c.c_str()); }
+  else if (key == "deepAfter") { std::string c = std::to_string(set.deepAfter); ch = stepList({"-1", "5", "15", "30", "60", "0"}, c); if (ch) set.deepAfter = std::atoi(c.c_str()); }
   if (!ch) return;
   note("SET " + key);
   settingsChanged();

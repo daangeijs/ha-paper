@@ -139,6 +139,11 @@ describe('built-in Settings (eink-ha-os#159)', () => {
     expect(powerSummary('en', 1, 15)).toBe('Live 1 min → standby 15 min → deep sleep until you press power.');
     expect(powerSummary('nl', 5, 60)).toBe('Live 5 min → stand-by 60 min → diepe slaap tot je op aan/uit drukt.');
     expect(powerSummary('en', 3, 0)).toBe('Live 3 min → then standby until you press a key.');
+    expect(powerSummary('en', 1, -1)).toBe('Live 1 min → deep sleep until you press power.');
+    expect(powerSummary('nl', 1, -1)).toBe('Live 1 min → diepe slaap tot je op aan/uit drukt.');
+    const da = settingsPages().find((p) => p.id === 'power')!.fields.find((f) => f.key === 'deepAfter')!;
+    expect(da.values.map((v) => da.fmt(v, 'en'))).toEqual(['None, deep sleep right away', '5 min', '15 min', '30 min', '60 min', 'Never']);
+    expect(da.fmt(-1, 'nl')).toBe('Geen, meteen diepe slaap');
   });
 });
 

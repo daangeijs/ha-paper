@@ -792,7 +792,7 @@ std::string settingValue(const I& a, const std::string& key) {
   if (key == "wakeEvery") return std::to_string(s.wakeEvery) + " min";
   if (key == "liveMin") return std::to_string(s.liveMin) + " min";
   if (key == "standbyAfter") return std::to_string(s.standbyAfter) + " min";   // ha-paper#32
-  if (key == "deepAfter") return s.deepAfter == 0 ? std::string(a.t(S::never)) : std::to_string(s.deepAfter) + " min";
+  if (key == "deepAfter") return s.deepAfter == 0 ? std::string(a.t(S::never)) : s.deepAfter < 0 ? std::string(a.t(S::deepNone)) : std::to_string(s.deepAfter) + " min";
   return "?";
 }
 

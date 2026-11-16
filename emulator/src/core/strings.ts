@@ -358,6 +358,8 @@ export const STRINGS = {
   // ha-paper#37: the line under the Save battery choice (device tile and web console)
   powerSummary: ['Live {} min → standby {} → deep sleep until you press power.', 'Live {} min → stand-by {} → diepe slaap tot je op aan/uit drukt.'],
   powerSummaryNever: ['Live {} min → then standby until you press a key.', 'Live {} min → daarna stand-by tot je op een knop drukt.'],
+  powerSummaryNone: ['Live {} min → deep sleep until you press power.', 'Live {} min → diepe slaap tot je op aan/uit drukt.'],
+  deepNone: ['None', 'Geen'], deepNoneLong: ['None, deep sleep right away', 'Geen, meteen diepe slaap'],   // Then standby for: device tile / console
   setQuiet: ['Quiet hours', 'Stille uren'],
   setEmptyHouse: ['Sleep longer when nobody is home', 'Standby als niemand thuis is'],   // eink-ha-os#331, console only
   // what a setting does (eink-ha-os#190): the (i) in the browser (no hint line on the device, eink-ha-os#310)
@@ -373,8 +375,8 @@ export const STRINGS = {
     'Met Batterij sparen: als niemand thuis is, ververst het scherm elke 2 uur en toont het "Niemand thuis". Kies wat dat vertelt: de zone Thuis (aantal mensen erin) of een aan/uit-helper (uit = niemand thuis). Een druk toont het dashboard zoals altijd; stille uren gaan voor.'],
   infoLiveMin: ['In Glance: how long the display stays live after you press a button.', 'In Oogopslag: hoe lang het scherm live blijft nadat je op een knop drukt.'],
   infoStandbyAfter: ['After a press the dashboard updates live for this long.', 'Na een druk werkt het dashboard zo lang live bij.'],
-  infoDeepAfter: ['The dashboard stays on screen but stops updating. Wi-Fi stays on. Touch the screen or press any key to update at once. Then the display sleeps deeply until you press power. Never: no deep sleep (uses more battery).',
-    'Het dashboard blijft staan maar werkt niet meer bij. Wi-Fi blijft aan. Raak het scherm aan of druk op een knop om meteen bij te werken. Daarna slaapt het scherm diep tot je op aan/uit drukt. Nooit: geen diepe slaap (kost meer batterij).'],
+  infoDeepAfter: ['The dashboard stays on screen but stops updating. Wi-Fi stays on. Touch the screen or press any key to update at once. Then the display sleeps deeply until you press power. Never: no deep sleep (uses more battery). None: deep sleep right after the live time (saves the most).',
+    'Het dashboard blijft staan maar werkt niet meer bij. Wi-Fi blijft aan. Raak het scherm aan of druk op een knop om meteen bij te werken. Daarna slaapt het scherm diep tot je op aan/uit drukt. Nooit: geen diepe slaap (kost meer batterij). Geen: meteen diepe slaap na de live-tijd (spaart het meest).'],
   infoInterval: ['How often the screen updates while the display is live.', 'Hoe vaak het beeld wordt bijgewerkt terwijl het scherm live is.'],
   infoLightTimeout: ['After this long without a press or tap, the front light turns off. The next press or tap only turns it back on.',
     'Na zo lang zonder knopdruk of tik gaat de verlichting uit. De volgende druk of tik zet hem alleen weer aan.'],

@@ -57,7 +57,7 @@ struct PowerDecision {
 };
 
 // Glance after a key press (ha-paper#32, #37, emulator glancePhase, spec/test-vectors/standby-step.json): live for standbyAfter
-// minutes, then the standby step for deepAfter minutes (0 = never: kMaxSleepS at a time), then deep sleep.
+// minutes, then the standby step for deepAfter minutes (0 = never: kMaxSleepS at a time; -1 = none, ha-paper#37), then deep sleep.
 // msSinceInput < 0 = no key since the wake (a timer wake): neither. standbyLeftS = whole seconds left, rounded up.
 struct GlancePhase { bool live = false; int64_t standbyLeftS = 0; };
 GlancePhase glancePhase(int64_t msSinceInput, int standbyAfter, int deepAfter);

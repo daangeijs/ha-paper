@@ -996,10 +996,11 @@ describe('settings (x-firmware)', () => {
     const g = await http(base, 'GET', '/api/v1/settings', { token: rw });
     expect(g.json.display).toMatchObject({ powerSave: expect.stringMatching(/^(off|glance)$/), wakeEvery: expect.any(Number), liveMin: expect.any(Number), standbyAfter: expect.any(Number), deepAfter: expect.any(Number) });
     const orig = { powerSave: g.json.display.powerSave, wakeEvery: g.json.display.wakeEvery, liveMin: g.json.display.liveMin, standbyAfter: g.json.display.standbyAfter, deepAfter: g.json.display.deepAfter };
-    for (const [display, msg] of [[{ powerSave: 'deep' }, 'display.powerSave must be off or glance'], [{ powerSave: 'night' }, 'display.powerSave must be off or glance'], [{ powerSave: 'standby' }, 'display.powerSave must be off or glance'], [{ quiet: '7-23' }, 'display.quiet must be "off" or "HH-HH"'], [{ wakeEvery: 5 }, 'display.wakeEvery must be 15, 30 or 60'], [{ liveMin: 2 }, 'display.liveMin must be 1, 3, 5 or 10'], [{ standbyAfter: 10 }, 'display.standbyAfter must be 1, 3 or 5'], [{ deepAfter: 10 }, 'display.deepAfter must be 0, 5, 15, 30 or 60']] as const) {
+    for (const [display, msg] of [[{ powerSave: 'deep' }, 'display.powerSave must be off or glance'], [{ powerSave: 'night' }, 'display.powerSave must be off or glance'], [{ powerSave: 'standby' }, 'display.powerSave must be off or glance'], [{ quiet: '7-23' }, 'display.quiet must be "off" or "HH-HH"'], [{ wakeEvery: 5 }, 'display.wakeEvery must be 15, 30 or 60'], [{ liveMin: 2 }, 'display.liveMin must be 1, 3, 5 or 10'], [{ standbyAfter: 10 }, 'display.standbyAfter must be 1, 3 or 5'], [{ deepAfter: 10 }, 'display.deepAfter must be -1, 0, 5, 15, 30 or 60']] as const) {
       const r = await put(display);
       expect(r.status, JSON.stringify(display)).toBe(422); expect(r.json.error).toBe(msg);
     }
+    expect((await put({ deepAfter: -1 })).json.display.deepAfter).toBe(-1);   // ha-paper#37: none, deep sleep right after live mode
     const p = await put({ powerSave: 'off', wakeEvery: 30, liveMin: 5, standbyAfter: 3, deepAfter: 0 });
     expect(p.status).toBe(200); expect(p.json.display).toMatchObject({ powerSave: 'off', wakeEvery: 30, liveMin: 5, standbyAfter: 3, deepAfter: 0 });
     expect((await put(orig)).status).toBe(200);

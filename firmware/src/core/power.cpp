@@ -20,6 +20,7 @@ GlancePhase glancePhase(int64_t msSinceInput, int standbyAfter, int deepAfter) {
   const int64_t liveMs = int64_t(standbyAfter) * 60000;
   if (msSinceInput < liveMs) { p.live = true; return p; }
   if (deepAfter == 0) { p.standbyLeftS = kMaxSleepS; return p; }
+  if (deepAfter < 0) return p;   // ha-paper#37 none: straight to deep sleep
   const int64_t left = liveMs + int64_t(deepAfter) * 60000 - msSinceInput;
   p.standbyLeftS = left > 0 ? (left + 999) / 1000 : 0;
   return p;
