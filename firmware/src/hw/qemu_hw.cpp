@@ -133,6 +133,10 @@ int64_t QemuBoard::epochSeconds() {
 }
 
 void QemuBoard::restart() { esp_restart(); }
+const char* QemuBoard::lightSleep(uint32_t ms) {
+  ::delay(ms < 200 ? ms : 200);
+  return "timer";
+}
 void QemuBoard::powerOff() { LOG_INF("POWER", "off by Power hold · QEMU: no latch, stays on the face until Power"); }
 
 bool QemuBoard::pushInput(const InputEvent& e) { return qemuPushEvent(e); }

@@ -29,6 +29,7 @@ that behaviour.
 - [Battery % and days left on the glance sleep face (issue #30)](deviations/030-battery-days-left.md)
 - [Improv Wi-Fi over the USB console (issue #31)](deviations/031-improv-usb-console.md)
 - [Device health as Home Assistant entities (issue #32)](deviations/032-health-ha-entities.md)
+- [Standby step between live mode and deep sleep (issue #32)](deviations/032-standby-step.md)
 - [Black/white only, minute window (issue #38)](deviations/038-black-white-minute-window.md)
 - [PUT /settings: unknown keys and tz (issue #43)](deviations/043-put-settings-unknown-keys-tz.md)
 - [HA attributes: whitelist at ingest, one mirror (issue #76)](deviations/076-ha-attribute-whitelist.md)

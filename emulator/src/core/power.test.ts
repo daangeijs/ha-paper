@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import { readdirSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { batteryLabel, CPU_MHZ, powerDecision, powerSource, secsUntil, sleepNowCheck, MAX_SLEEP_S, type PowerInputs, type SleepNowCheck } from './power.ts';
+import { batteryLabel, CPU_MHZ, glancePhase, powerDecision, powerSource, secsUntil, sleepNowCheck, MAX_SLEEP_S, type PowerInputs, type SleepNowCheck } from './power.ts';
 
 const dir = join(import.meta.dirname, '..', '..', '..', 'spec', 'test-vectors', 'power');
 const files = readdirSync(dir).filter((f) => f.endsWith('.json')).sort();
@@ -25,6 +25,11 @@ describe('powerDecision (spec/test-vectors/power)', () => {
     expect(secsUntil(23 * 3600, 7 * 3600)).toBe(8 * 3600);
     expect(secsUntil(3 * 3600, 3 * 3600)).toBe(86400);
   });
+});
+
+describe('glancePhase (spec/test-vectors/standby-step.json, ha-paper#32)', () => {
+  const v = JSON.parse(readFileSync(join(dir, '..', 'standby-step.json'), 'utf8')) as { cases: { name: string; msSinceInput: number | null; standbyAfter: number; deepAfter: number; live: boolean; standbyLeftS: number }[] };
+  for (const c of v.cases) it(c.name, () => expect(glancePhase(c.msSinceInput, c.standbyAfter, c.deepAfter)).toEqual({ live: c.live, standbyLeftS: c.standbyLeftS }));
 });
 
 describe('CPU_MHZ (eink-ha-os#177)', () => {

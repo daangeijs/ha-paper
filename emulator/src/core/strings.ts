@@ -353,6 +353,8 @@ export const STRINGS = {
   setPowerSave: ['On battery', 'Op batterij'],
   setWakeEvery: ['Check every', 'Kijk elke'],
   setLiveMin: ['Live after a press', 'Live na een druk'],
+  setStandbyAfter: ['Standby after', 'Stand-by na'],   // ha-paper#32
+  setDeepAfter: ['Deep sleep after standby', 'Diepe slaap na stand-by'],
   setQuiet: ['Quiet hours', 'Stille uren'],
   setEmptyHouse: ['Sleep longer when nobody is home', 'Standby als niemand thuis is'],   // eink-ha-os#331, console only
   // what a setting does (eink-ha-os#190): the (i) in the browser (no hint line on the device, eink-ha-os#310)
@@ -367,6 +369,10 @@ export const STRINGS = {
   infoEmptyHouse: ['In Glance: while nobody is home, the display updates every 2 hours instead and shows "Nobody home". Pick what tells it: the Home zone (number of people in it) or an on/off helper (off = nobody home). A press shows the dashboard as usual; quiet hours come first.',
     'In Oogopslag: als niemand thuis is, ververst het scherm elke 2 uur en toont het "Niemand thuis". Kies wat dat vertelt: de zone Thuis (aantal mensen erin) of een aan/uit-helper (uit = niemand thuis). Een druk toont het dashboard zoals altijd; stille uren gaan voor.'],
   infoLiveMin: ['In Glance: how long the display stays live after you press a button.', 'In Oogopslag: hoe lang het scherm live blijft nadat je op een knop drukt.'],
+  infoStandbyAfter: ['In Glance: after this long without a press, the display shows its sleep screen and naps. Any button or the touch key wakes it at once, straight to the dashboard.',
+    'In Oogopslag: na zo lang zonder knopdruk toont het scherm het slaapscherm en dut het in. Elke knop of de aanraaktoets wekt het meteen, direct naar het dashboard.'],
+  infoDeepAfter: ['In Glance: how long the display naps before it sleeps deeply. Deep sleep saves the most battery, but only the buttons on the right wake it and that takes a few seconds. Never keeps napping (uses more battery).',
+    'In Oogopslag: hoe lang het scherm dut voordat het diep gaat slapen. Diepe slaap spaart de meeste batterij, maar alleen de knoppen rechts wekken het en dat duurt een paar seconden. Nooit blijft dutten (kost meer batterij).'],
   infoInterval: ['How often the screen updates while the display is live.', 'Hoe vaak het beeld wordt bijgewerkt terwijl het scherm live is.'],
   infoLightTimeout: ['After this long without a press or tap, the front light turns off. The next press or tap only turns it back on.',
     'Na zo lang zonder knopdruk of tik gaat de verlichting uit. De volgende druk of tik zet hem alleen weer aan.'],

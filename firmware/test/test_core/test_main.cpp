@@ -1047,6 +1047,7 @@ static void applyPowerInput(const Json& o, PowerInputs& i) {
     else if (k == "setup") i.setup = flag();
     else if (k == "msSinceApi") i.msSinceApi = v.isNull() ? -1 : int64_t(v.num);
     else if (k == "live") i.live = flag();
+    else if (k == "standbyLeftS") i.standbyLeftS = int64_t(v.num);
     else if (k == "glanceFails") i.glanceFails = int(v.num);
     else if (k == "armBootsLeft") i.armBootsLeft = int(v.num);
     else if (k == "emptyHouse") i.emptyHouse = flag();
@@ -1080,6 +1081,7 @@ void test_power_spec_vectors() {
         else if (k == "external") TEST_ASSERT_EQUAL_MESSAGE(v.b, d.external, name.c_str());
         else if (k == "wakeAtEpoch") TEST_ASSERT_EQUAL_INT64_MESSAGE(v.isNull() ? 0 : int64_t(v.num), d.wakeAtEpoch, name.c_str());
         else if (k == "reason") TEST_ASSERT_EQUAL_STRING_MESSAGE(v.str.c_str(), d.reason, name.c_str());
+        else if (k == "lightSleepS") TEST_ASSERT_EQUAL_INT64_MESSAGE(int64_t(v.num), d.lightSleepS, name.c_str());
         else if (k == "cpuProfile") TEST_ASSERT_EQUAL_STRING_MESSAGE(v.str.c_str(), cpuProfileName(d.cpuProfile), name.c_str());
         else if (k == "wifiPs") TEST_ASSERT_EQUAL_STRING_MESSAGE(v.str.c_str(), wifiPsName(d.wifiPs), name.c_str());
         else TEST_FAIL_MESSAGE(("unknown power expect " + k).c_str());
@@ -1093,6 +1095,21 @@ void test_power_spec_vectors() {
   closedir(dp);
   TEST_ASSERT_GREATER_OR_EQUAL(8, files);
   std::printf("spec power vectors: %d files, %d cases\n", files, cases);
+}
+
+// ---------- standby step (spec/test-vectors/standby-step.json, ha-paper#32) ----------
+void test_standby_step_vectors() {
+  Json j;
+  TEST_ASSERT_TRUE(parseJson(readFile(std::string(X4_REPO_ROOT) + "/spec/test-vectors/standby-step.json"), j));
+  int n = 0;
+  for (auto& c : j.get("cases")->arr) {
+    const Json* ms = c.get("msSinceInput");
+    const GlancePhase p = glancePhase(ms->isNull() ? -1 : int64_t(ms->num), int(c.get("standbyAfter")->num), int(c.get("deepAfter")->num));
+    TEST_ASSERT_EQUAL_MESSAGE(c.get("live")->b, p.live, c.get("name")->str.c_str());
+    TEST_ASSERT_EQUAL_INT64_MESSAGE(int64_t(c.get("standbyLeftS")->num), p.standbyLeftS, c.get("name")->str.c_str());
+    ++n;
+  }
+  TEST_ASSERT_GREATER_OR_EQUAL(8, n);
 }
 
 // ---------- glance (spec/test-vectors/glance.json, emulator src/core/glance.ts, eink-ha-os#10) ----------
@@ -2776,6 +2793,7 @@ int main(int, char**) {
   RUN_TEST(test_log_ring_wrap_and_garbage);
   RUN_TEST(test_diag_merge_and_report);
   RUN_TEST(test_power_spec_vectors);
+  RUN_TEST(test_standby_step_vectors);
   RUN_TEST(test_cpu_mhz_for);
   RUN_TEST(test_glance_vectors);
   RUN_TEST(test_battery_history_vectors);

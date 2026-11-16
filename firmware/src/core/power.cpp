@@ -14,6 +14,17 @@ int64_t secsUntil(int32_t localSec, int32_t targetSec) {
   return d == 0 ? 86400 : d;
 }
 
+GlancePhase glancePhase(int64_t msSinceInput, int standbyAfter, int deepAfter) {
+  GlancePhase p;
+  if (msSinceInput < 0) return p;
+  const int64_t liveMs = int64_t(standbyAfter) * 60000;
+  if (msSinceInput < liveMs) { p.live = true; return p; }
+  if (deepAfter == 0) { p.standbyLeftS = kMaxSleepS; return p; }
+  const int64_t left = liveMs + int64_t(deepAfter) * 60000 - msSinceInput;
+  p.standbyLeftS = left > 0 ? (left + 999) / 1000 : 0;
+  return p;
+}
+
 int64_t glanceWaitS(int32_t localSec, const std::string& quiet) {
   const int64_t midnight = secsUntil(localSec, 0);
   return nightEndHour(quiet) < 0 ? midnight : std::min(midnight, secsUntil(localSec, std::atoi(quiet.c_str()) * 3600));
@@ -48,6 +59,12 @@ PowerDecision powerDecision(const PowerInputs& i) {
   int64_t wait = kMaxSleepS;
   if (quiet) { d.reason = "quiet"; wait = std::min(wait, secsUntil(i.localSec, nightEndHour(i.quiet) * 3600)); }
   else if (i.powerSave == PowerSave::Standby && i.standby) { d.reason = "standby"; wait = std::min<int64_t>(wait, int64_t(i.wakeEvery) * 60); }
+  else if (i.powerSave == PowerSave::Glance && i.standbyLeftS > 0) {   // ha-paper#32: up to the step's end or the next transition
+    int64_t s = std::min({wait, i.standbyLeftS, glanceWaitS(i.localSec, i.quiet)});
+    if (otaWanted) s = std::min(s, secsUntil(i.localSec, kOtaHour * 3600));
+    d.lightSleepS = s;
+    return awake("light sleep");
+  }
   else if (i.powerSave == PowerSave::Glance && i.emptyHouse) { d.reason = "empty house"; wait = std::min(wait, emptyWaitS(i.localSec, i.quiet)); }   // eink-ha-os#331
   else if (i.powerSave == PowerSave::Glance) { d.reason = "glance"; wait = std::min(wait, glanceWaitS(i.localSec, i.quiet)); }   // eink-ha-os#356
   else return awake("awake");

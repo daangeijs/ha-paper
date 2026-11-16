@@ -237,7 +237,7 @@ const std::vector<Screen>& settingsScreens() {
     // the clock format sits with the look since eink-ha-os#220; night mode left for Power › Quiet hours (eink-ha-os#295)
     o.push_back({"style", kSettingsApp, "Display style", {setting("style"), setting("typeface", 2), setting("surface"), setting("clock")}});
     // power saving two rows tall: room for its hint (eink-ha-os#190); quiet hours (eink-ha-os#295) are a power setting first
-    o.push_back({"power", kSettingsApp, "Power", {setting("powerSave", 2, 2), setting("quiet"), setting("morning"), setting("wakeEvery"), setting("liveMin")}});   // morning: eink-ha-os#330
+    o.push_back({"power", kSettingsApp, "Power", {setting("powerSave", 2, 2), setting("quiet"), setting("morning"), setting("standbyAfter"), setting("deepAfter")}});   // morning: eink-ha-os#330; standby step: ha-paper#32
     o.push_back({"updates", kSettingsApp, "Updates", {tile("ota", nullptr, 4, 2)}});
     o.push_back({"wifi", kSettingsApp, "Wi-Fi", {tile("wifi", nullptr, 4, 2)}});
     o.push_back({"ha", kSettingsApp, "Home Assistant", {tile("ha", nullptr, 4, 2)}});

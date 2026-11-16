@@ -45,13 +45,16 @@ class WifiMgr {
   // eink-ha-os#326: mdns_free() while the STA netif still exists. Call before anything that turns Wi-Fi off (WIFI_OFF destroys
   // the netif that queued rx packets point at). Net task.
   void stopMdns(const char* why);
+  // ha-paper#32 standby step (net task): on = mDNS down, Wi-Fi off, no reconnect attempts; off = join again from the RTC
+  // cache (cached BSSID/channel, cached IP while the lease is young). QEMU: no radio, nothing to do.
+  void standby(bool on);
 
  private:
   void onConnected();
   void startMdns(const char* reason);   // "connect" | "got_ip" | "bssid" | "idle" (eink-ha-os#227 /diagnostics mdns)
   void checkMdns(bool up);              // eink-ha-os#376: minute sample + repair ("v4_off" | "renamed"; IPv6: log only)
   void beginSaved();     // WiFi.begin() with the saved credentials
-  void beginFast(const WifiCreds& c);   // boot: deep-sleep wake → cached BSSID/channel (+ IP), else beginSaved
+  void beginFast(const WifiCreds& c, bool cached);   // cached: RTC BSSID/channel (+ IP), else a normal join
   void fastDone(bool ok);               // connected → refresh the RTC cache; fast join timed out → normal join
   glance::WifiFast fast_ = glance::WifiFast::None;
   uint32_t fastAtMs_ = 0;
@@ -72,6 +75,7 @@ class WifiMgr {
   bool wasConnected_ = false;
   bool scanRunning_ = false;
   bool userDisconnected_ = false;   // "Disconnect" pressed: no reconnect until a network is picked
+  bool standby_ = false;            // ha-paper#32: Wi-Fi off for the standby step
 };
 
 WifiMgr& wifiMgr();

@@ -154,7 +154,10 @@ const SETTING_DEFS: Record<string, Omit<SettingDef, 'label'>> = {
   // Good morning page (eink-ha-os#330, core/morning.ts): on / off, under Quiet hours.
   morning: { lk: 'setMorning', info: 'infoMorning', fmt: (v, lg = 'en') => tr(lg, v ? 'on' : 'off'), steps: [true, false] },
   wakeEvery: { lk: 'setWakeEvery', info: 'infoWakeEvery', fmt: (v) => v + ' min', steps: [15, 30, 60] },
-  liveMin: { lk: 'setLiveMin', info: 'infoLiveMin', fmt: (v) => v + ' min', steps: [1, 3, 5, 10] },
+  liveMin: { lk: 'setLiveMin', info: 'infoLiveMin', fmt: (v) => v + ' min', steps: [1, 3, 5, 10] },   // legacy: no tile since ha-paper#32
+  // Standby step (ha-paper#32, core/power.ts glancePhase): live → standby face + light sleep → deep sleep. 0 = never.
+  standbyAfter: { lk: 'setStandbyAfter', info: 'infoStandbyAfter', fmt: (v) => v + ' min', steps: [1, 3, 5] },
+  deepAfter: { lk: 'setDeepAfter', info: 'infoDeepAfter', fmt: (v, lg = 'en') => (v === 0 ? tr(lg, 'never') : v + ' min'), steps: [5, 15, 30, 60, 0] },
 };
 export const SETTINGS: Record<string, SettingDef> = Object.fromEntries(Object.entries(SETTING_DEFS).map(([k, d]) => [k, { ...d, label: tr('en', d.lk) }]));
 /** Settings tile key (screens.yaml) → emulator cfg key, where they differ. Legacy `fullEvery` tiles step the clean interval (eink-ha-os#26, eink-ha-os#44). */

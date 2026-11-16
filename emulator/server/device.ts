@@ -94,7 +94,7 @@ export type Settings = {
   entities?: EntityOverrides;
 };
 export const DEFAULT_SETTINGS = (): Settings => ({
-  display: { brightness: 0, warmth: 40, lightTimeout: 60, quiet: '23-07', returnHome: '5', standby: 'never', clock: '24', intervalSec: 30, fullEvery: 8, cleanEvery: 30, style: 'classic', typeface: 'archivo', surface: 'dither', haReport: true, powerSave: 'glance', wakeEvery: 15, liveMin: 3, emptyHouse: '', debugInput: false, morning: true },
+  display: { brightness: 0, warmth: 40, lightTimeout: 60, quiet: '23-07', returnHome: '5', standby: 'never', clock: '24', intervalSec: 30, fullEvery: 8, cleanEvery: 30, style: 'classic', typeface: 'archivo', surface: 'dither', haReport: true, powerSave: 'glance', wakeEvery: 15, liveMin: 3, emptyHouse: '', debugInput: false, morning: true, standbyAfter: 1, deepAfter: 15 },
   ota_channel: 'stable', tz: '', name: 'HA Paper',
 });
 /** Merge a partial settings object; returns an error message (422) or null. */

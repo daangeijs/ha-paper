@@ -105,7 +105,11 @@ constexpr uint32_t kFastPollMs = 8;        // key debounce or touch contact in f
 constexpr uint32_t kFallbackPollMs = 15;   // GT911 INT not yet seen working: the old polling cadence
 constexpr uint32_t kIdleCapMs = 1000;      // longest sleep on interrupts (a lost edge costs at most this)
 
+constexpr uint32_t kNapPollMs = 200;       // standby step without a proven GT911 INT: touch polled this often
+
 uint32_t g_touchRecoveries = 0;
+std::atomic<bool> g_napReq{false}, g_napParked{false};   // ha-paper#32: input task parked for a light sleep
+std::atomic<bool> g_touchIrqOk{false};                    // a touch came with a GT911 INT edge this boot
 TaskHandle_t g_inputTask = nullptr;
 volatile uint32_t g_touchEdges = 0;
 bool g_touchIrqArmed = false;
@@ -328,6 +332,14 @@ void X4Board::task() {
   wdt::subscribe();
   for (;;) {
     wdt::feedIfSubscribed();
+    if (g_napReq) {   // ha-paper#32: parked here, between I2C transactions, while the main task light-sleeps
+      g_napParked = true;
+      while (g_napReq) {
+        wdt::feedIfSubscribed();
+        ulTaskNotifyTake(pdTRUE, pdMS_TO_TICKS(500));
+      }
+      g_napParked = false;
+    }
     const uint32_t edges = g_touchEdges;
     const bool touchEdge = edges != seenEdges;
     seenEdges = edges;
@@ -342,6 +354,7 @@ void X4Board::task() {
     const bool touchDown = g_input.wasTouchPressedAt(nx, ny);
     if ((touchDown || homeKey) && touchEdge && !touchIrqOk) {
       touchIrqOk = true;
+      g_touchIrqOk = true;
       LOG_INF("BOARD", "GT911 INT seen · input task now sleeps on interrupts");
     }
     if (touchDown) {
@@ -536,6 +549,57 @@ void X4Board::sleepNow(int64_t seconds, bool offHold) {
           static_cast<unsigned long long>(keys), BoardConfig::ACTIVE.power.latch0, powerLatchHigh() ? "HIGH" : offHold ? "LOW" : "LOW?!");
   Serial.flush();
   freeink::PowerManager::deepSleep();
+}
+
+const char* X4Board::lightSleep(uint32_t ms) {
+  auto* task = static_cast<TaskHandle_t>(inputTask_);
+  if (!task) return nullptr;
+  if (!g_touchIrqOk) ms = std::min(ms, kNapPollMs);
+  g_napReq = true;
+  xTaskNotifyGive(task);
+  for (uint32_t t0 = ::millis(); !g_napParked && ::millis() - t0 < 50;) ::delay(1);
+  if (!g_napParked) {
+    g_napReq = false;
+    return "busy";
+  }
+  const auto& in = BoardConfig::ACTIVE.input;
+  const auto& t = BoardConfig::ACTIVE.touch;
+  struct Pin { int8_t pin; bool isr; };
+  const Pin pins[] = {{in.up, true}, {in.down, true}, {in.power, true}, {g_touchIrqArmed ? t.irq : int8_t(-1), true},
+                      {BoardConfig::ACTIVE.batteryChargeStatus, false}};
+  for (const Pin& p : pins) {
+    if (p.pin < 0) continue;
+    const auto g = static_cast<gpio_num_t>(p.pin);
+    if (p.isr) gpio_intr_disable(g);
+    // keys: their pressed level; INT and STAT (no known idle level): the level opposite to now
+    bool high;
+    if (p.pin == in.power) high = in.powerActiveHigh;
+    else if (p.pin == in.up || p.pin == in.down) high = false;
+    else high = gpio_get_level(g) == 0;
+    gpio_wakeup_enable(g, high ? GPIO_INTR_HIGH_LEVEL : GPIO_INTR_LOW_LEVEL);
+  }
+  const int8_t rail = touchRailGated() ? t.powerEnable : int8_t(-1);
+  if (rail >= 0) gpio_hold_en(static_cast<gpio_num_t>(rail));
+  if (t.reset >= 0) gpio_hold_en(static_cast<gpio_num_t>(t.reset));
+  esp_sleep_enable_gpio_wakeup();
+  esp_sleep_enable_timer_wakeup(uint64_t(ms) * 1000ULL);
+  Serial.flush();
+  esp_light_sleep_start();
+  const esp_sleep_wakeup_cause_t cause = esp_sleep_get_wakeup_cause();
+  esp_sleep_disable_wakeup_source(ESP_SLEEP_WAKEUP_GPIO);
+  esp_sleep_disable_wakeup_source(ESP_SLEEP_WAKEUP_TIMER);
+  if (rail >= 0) gpio_hold_dis(static_cast<gpio_num_t>(rail));
+  if (t.reset >= 0) gpio_hold_dis(static_cast<gpio_num_t>(t.reset));
+  for (const Pin& p : pins) {
+    if (p.pin < 0) continue;
+    const auto g = static_cast<gpio_num_t>(p.pin);
+    gpio_wakeup_disable(g);
+    gpio_set_intr_type(g, p.isr ? GPIO_INTR_ANYEDGE : GPIO_INTR_DISABLE);
+    if (p.isr) gpio_intr_enable(g);
+  }
+  g_napReq = false;
+  xTaskNotifyGive(task);   // poll keys and touch now: the press that woke us
+  return cause == ESP_SLEEP_WAKEUP_GPIO ? "gpio" : cause == ESP_SLEEP_WAKEUP_TIMER ? "timer" : "other";
 }
 
 // Plain GPIO reads, safe from loopTask (no I2C): Left GPIO0 / Right GPIO7 active-LOW, Power per board polarity.

@@ -1,0 +1,86 @@
+{
+  "name": "standby-step",
+  "description": "glancePhase (ha-paper#32, emulator src/core/power.ts, firmware core/power.cpp): ms since the last key / touch (null = none since a timer wake) and the settings standbyAfter / deepAfter (minutes, 0 = never) give live (awake, the dashboard) and standbyLeftS (whole seconds left in the standby step, rounded up; 0 = not in it; never = 8 h, MAX_SLEEP_S). powerDecision then light-sleeps (power/11-standby-step.json).",
+  "cases": [
+    {
+      "name": "no press since the wake (timer wake): neither live nor standby",
+      "msSinceInput": null,
+      "standbyAfter": 1,
+      "deepAfter": 15,
+      "live": false,
+      "standbyLeftS": 0
+    },
+    {
+      "name": "just pressed: live",
+      "msSinceInput": 0,
+      "standbyAfter": 1,
+      "deepAfter": 15,
+      "live": true,
+      "standbyLeftS": 0
+    },
+    {
+      "name": "59.999 s: still live",
+      "msSinceInput": 59999,
+      "standbyAfter": 1,
+      "deepAfter": 15,
+      "live": true,
+      "standbyLeftS": 0
+    },
+    {
+      "name": "1 min: standby step, 15 min left",
+      "msSinceInput": 60000,
+      "standbyAfter": 1,
+      "deepAfter": 15,
+      "live": false,
+      "standbyLeftS": 900
+    },
+    {
+      "name": "part seconds round up",
+      "msSinceInput": 60500,
+      "standbyAfter": 1,
+      "deepAfter": 15,
+      "live": false,
+      "standbyLeftS": 900
+    },
+    {
+      "name": "15:59.5 after the press: 1 s left",
+      "msSinceInput": 959500,
+      "standbyAfter": 1,
+      "deepAfter": 15,
+      "live": false,
+      "standbyLeftS": 1
+    },
+    {
+      "name": "16 min: step over (deep sleep)",
+      "msSinceInput": 960000,
+      "standbyAfter": 1,
+      "deepAfter": 15,
+      "live": false,
+      "standbyLeftS": 0
+    },
+    {
+      "name": "standbyAfter 5, deepAfter 60: live for 5 min",
+      "msSinceInput": 240000,
+      "standbyAfter": 5,
+      "deepAfter": 60,
+      "live": true,
+      "standbyLeftS": 0
+    },
+    {
+      "name": "standbyAfter 5, deepAfter 60, at 6 min: 59 min left",
+      "msSinceInput": 360000,
+      "standbyAfter": 5,
+      "deepAfter": 60,
+      "live": false,
+      "standbyLeftS": 3540
+    },
+    {
+      "name": "deepAfter never: 8 h at a time, however long ago",
+      "msSinceInput": 108000000,
+      "standbyAfter": 3,
+      "deepAfter": 0,
+      "live": false,
+      "standbyLeftS": 28800
+    }
+  ]
+}

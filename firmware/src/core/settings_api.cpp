@@ -16,7 +16,8 @@ const char* const kDisplayKeys[] = {"brightness", "warmth", "lightTimeout", "qui
                                     "powerSave",  "wakeEvery", "liveMin",   // glance (eink-ha-os#10)
                                     "emptyHouse",                          // eink-ha-os#331
                                     "debugInput",                          // eink-ha-os#214
-                                    "morning"};                            // eink-ha-os#330
+                                    "morning",                             // eink-ha-os#330
+                                    "standbyAfter", "deepAfter"};          // ha-paper#32
 
 template <size_t N>
 bool known(const char* const (&table)[N], const std::string& k) {

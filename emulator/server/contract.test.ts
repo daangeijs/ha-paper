@@ -991,17 +991,17 @@ describe('settings (x-firmware)', () => {
     expect((await put(orig)).status).toBe(200);
     await fullLanded(pre);   // the old look back: one more full refresh, seconds of render under QEMU
   });
-  it.skipIf(NO_RW)('power saving (eink-ha-os#10): powerSave / wakeEvery / liveMin, glance by default, exact 422 messages', async () => {
+  it.skipIf(NO_RW)('power saving (eink-ha-os#10, ha-paper#32): powerSave / wakeEvery / liveMin / standbyAfter / deepAfter, glance by default, exact 422 messages', async () => {
     const put = (display: object) => http(base, 'PUT', '/api/v1/settings', { token: rw, body: JSON.stringify({ display }), type: 'application/json' });
     const g = await http(base, 'GET', '/api/v1/settings', { token: rw });
-    expect(g.json.display).toMatchObject({ powerSave: expect.stringMatching(/^(off|standby|glance)$/), wakeEvery: expect.any(Number), liveMin: expect.any(Number) });
-    const orig = { powerSave: g.json.display.powerSave, wakeEvery: g.json.display.wakeEvery, liveMin: g.json.display.liveMin };
-    for (const [display, msg] of [[{ powerSave: 'deep' }, 'display.powerSave must be off, standby or glance'], [{ powerSave: 'night' }, 'display.powerSave must be off, standby or glance'], [{ quiet: '7-23' }, 'display.quiet must be "off" or "HH-HH"'], [{ wakeEvery: 5 }, 'display.wakeEvery must be 15, 30 or 60'], [{ liveMin: 2 }, 'display.liveMin must be 1, 3, 5 or 10']] as const) {
+    expect(g.json.display).toMatchObject({ powerSave: expect.stringMatching(/^(off|standby|glance)$/), wakeEvery: expect.any(Number), liveMin: expect.any(Number), standbyAfter: expect.any(Number), deepAfter: expect.any(Number) });
+    const orig = { powerSave: g.json.display.powerSave, wakeEvery: g.json.display.wakeEvery, liveMin: g.json.display.liveMin, standbyAfter: g.json.display.standbyAfter, deepAfter: g.json.display.deepAfter };
+    for (const [display, msg] of [[{ powerSave: 'deep' }, 'display.powerSave must be off, standby or glance'], [{ powerSave: 'night' }, 'display.powerSave must be off, standby or glance'], [{ quiet: '7-23' }, 'display.quiet must be "off" or "HH-HH"'], [{ wakeEvery: 5 }, 'display.wakeEvery must be 15, 30 or 60'], [{ liveMin: 2 }, 'display.liveMin must be 1, 3, 5 or 10'], [{ standbyAfter: 10 }, 'display.standbyAfter must be 1, 3 or 5'], [{ deepAfter: 10 }, 'display.deepAfter must be 0, 5, 15, 30 or 60']] as const) {
       const r = await put(display);
       expect(r.status, JSON.stringify(display)).toBe(422); expect(r.json.error).toBe(msg);
     }
-    const p = await put({ powerSave: 'off', wakeEvery: 30, liveMin: 5 });
-    expect(p.status).toBe(200); expect(p.json.display).toMatchObject({ powerSave: 'off', wakeEvery: 30, liveMin: 5 });
+    const p = await put({ powerSave: 'off', wakeEvery: 30, liveMin: 5, standbyAfter: 3, deepAfter: 0 });
+    expect(p.status).toBe(200); expect(p.json.display).toMatchObject({ powerSave: 'off', wakeEvery: 30, liveMin: 5, standbyAfter: 3, deepAfter: 0 });
     expect((await put(orig)).status).toBe(200);
   });
   it.skipIf(NO_RW)('empty-house source (eink-ha-os#331): emptyHouse round trip, default off, exact 422 message', async () => {

@@ -1,0 +1,49 @@
+{
+  "name": "08-settings-standby-step",
+  "description": "Step 2 → 3 (ha-paper#32): the standby step between live mode and deep sleep. New key standbyAfter, appended, from liveMin: 1 and 5 stay, 10 becomes 5 (the largest step), 3 (the old default, untouched on most displays) and a missing or odd liveMin become the new default 1. liveMin stays for an OTA rollback (no effect any more). deepAfter is not written: missing = 15. A standbyAfter already there (written by a newer firmware) wins.",
+  "cases": [
+    {
+      "name": "liveMin 1 stays 1",
+      "op": "migrate",
+      "stored": { "schema": 2, "powerSave": "glance", "liveMin": 1 },
+      "expect": { "status": "upgrade", "from": 2, "version": 3, "output": { "schema": 3, "powerSave": "glance", "liveMin": 1, "standbyAfter": 1 } }
+    },
+    {
+      "name": "liveMin 3 (old default): the new default 1",
+      "op": "migrate",
+      "stored": { "schema": 2, "liveMin": 3, "wakeEvery": 15 },
+      "expect": { "status": "upgrade", "from": 2, "version": 3, "output": { "schema": 3, "liveMin": 3, "wakeEvery": 15, "standbyAfter": 1 } }
+    },
+    {
+      "name": "liveMin 5 stays 5",
+      "op": "migrate",
+      "stored": { "schema": 2, "liveMin": 5 },
+      "expect": { "status": "upgrade", "from": 2, "version": 3, "output": { "schema": 3, "liveMin": 5, "standbyAfter": 5 } }
+    },
+    {
+      "name": "liveMin 10: 5, the largest step",
+      "op": "migrate",
+      "stored": { "schema": 2, "liveMin": 10 },
+      "expect": { "status": "upgrade", "from": 2, "version": 3, "output": { "schema": 3, "liveMin": 10, "standbyAfter": 5 } }
+    },
+    {
+      "name": "no liveMin: 1",
+      "op": "migrate",
+      "stored": { "schema": 2, "brightness": 30 },
+      "expect": { "status": "upgrade", "from": 2, "version": 3, "output": { "schema": 3, "brightness": 30, "standbyAfter": 1 } }
+    },
+    {
+      "name": "standbyAfter already there: kept",
+      "op": "migrate",
+      "stored": { "schema": 2, "liveMin": 10, "standbyAfter": 3, "deepAfter": 0 },
+      "expect": { "status": "upgrade", "from": 2, "version": 3, "output": { "schema": 3, "liveMin": 10, "standbyAfter": 3, "deepAfter": 0 } }
+    },
+    {
+      "name": "save over a schema 2 file: upgraded, then merged",
+      "op": "persist",
+      "stored": { "schema": 2, "liveMin": 5, "powerSave": "glance" },
+      "known": { "liveMin": 5, "powerSave": "glance", "standbyAfter": 3, "deepAfter": 30 },
+      "expect": { "output": { "schema": 3, "liveMin": 5, "powerSave": "glance", "standbyAfter": 3, "deepAfter": 30 } }
+    }
+  ]
+}

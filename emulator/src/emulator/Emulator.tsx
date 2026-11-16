@@ -15,8 +15,8 @@ import { defaultScreens, withSettings, userConfig, SETTINGS_APP, SETUP_SCREENS, 
 import { cfgToDisplay, displayToCfg, displayError, nameError, settingsPutError, LOOK_KEYS, DEFAULT_POWER, type Cfg, type DeviceSettings, type OtaAutoMode, type OtaChannel, type SettingsPatch } from '../core/settings.ts';
 import { DEMO_ROUTES, DELAY_SETS, TRAVEL, demoTravelScreen } from './demoTravel.ts';
 import { LOGICAL, formatSource, mergeEntities, splitRef, type EntityOverrides } from '../core/entityMap.ts';
-import { batteryLabel, powerDecision, type OtaAuto, type PowerInputs } from '../core/power.ts';
-import { glanceStep, liveNow, snapshotDiff, snapshotOf, BOOT_HOLD_LIVE_MIN, type Snapshot } from '../core/glance.ts';
+import { batteryLabel, glancePhase, powerDecision, type OtaAuto, type PowerDecision, type PowerInputs } from '../core/power.ts';
+import { glanceStep, snapshotDiff, snapshotOf, BOOT_HOLD_LIVE_MIN, type Snapshot } from '../core/glance.ts';
 import { recoveryInit, recoveryOffer, recoveryStep, RESET_HOLD_MS, RESET_CONFIRM_MS, RESTART_HOLD_MS, POWER_OFF_HOLD_MS, CRASH_LOOP_BOOTS, KEY_POWER, KEY_RIGHT, KEY_LEFT, KEY_OTHER, type RecoveryState, type RecoveryAction } from '../core/recovery.ts';
 import { binDays, binLabels, binsView, TONIGHT_DEFAULT } from '../core/bins.ts';
 import { listRows, listSpec, listView } from '../core/attrList.ts';
@@ -78,7 +78,8 @@ type TermLine = { t: string; c: string };
 export type EmuState = {
   mode: 'boot' | 'main' | 'updating' | 'onboard' | 'off'; sleeping: boolean; idx: number; sub: number; menu: Menu;
   /** Deep sleep (power saving, src/core/power.ts): the panel keeps its last image, Wi-Fi and the API are off. `sleeping` is the standby face. */
-  asleep: { wakeAt: number | null; clock: string; wasStandby: boolean; glance?: boolean } | null;
+  /** light: the standby step (ha-paper#32), light sleep with RAM kept: any key or touch wakes it at once, no boot. */
+  asleep: { wakeAt: number | null; clock: string; wasStandby: boolean; glance?: boolean; light?: boolean } | null;
   /** Simulation › USB plugged: external power (charging below 100 %). */
   usb: boolean;
   apps: AppDef[]; screens: Screen[]; cfg: Cfg; name: string;
@@ -120,7 +121,7 @@ export type EmuState = {
 
 /** One sleep face (eink-ha-os#356): quiet hours, Nobody home and glance sleep; the quiet face's layout (firmware ui_chrome.cpp
  *  sleepFace). items: the Tomorrow / Today row; facts: the Nobody home facts; batt: the battery line (glance only, ha-paper#30);
- *  tap: a tap peeks (quiet hours only). */
+ *  tap: a tap peeks (quiet hours), or wakes the standby step (ha-paper#32). */
 export type SleepFace = { title: string; sub: string; head: string; items: QuietItem[]; facts: { label: string; value: string }[]; batt: string; foot: string; tap: boolean };
 export type EmulatorProps = { osName?: string; deviceBattery?: number; bodyColor?: 'Black' | 'White'; initial?: 'firstInstall' | 'installed'; look?: Look; lang?: string };
 
@@ -148,7 +149,9 @@ export class Emulator extends Component<EmulatorProps, EmuState> {
   /** Deep sleeps with reason "empty house" (eink-ha-os#331, GET /diagnostics power_trail.empty_house_sleeps). */
   emptySleeps = 0;
   swipe: { x: number; y: number; t: number } | null = null; swallowClick = false;
-  heldBootUntil = 0;   // eink-ha-os#299 key wake without a boot screen: the boot window for "Right held at boot"
+  heldBootUntil = 0;
+  /** No key or touch since the last deep sleep (a timer wake): glancePhase gets null, as on the device (ha-paper#32). */
+  noInputSinceSleep = false;   // eink-ha-os#299 key wake without a boot screen: the boot window for "Right held at boot"
   clockT?: ReturnType<typeof setInterval>; tickT?: ReturnType<typeof setInterval>; dirtyT?: ReturnType<typeof setTimeout>;
   listeners = new Set<() => void>();
   api: DeviceApi;
@@ -305,7 +308,7 @@ export class Emulator extends Component<EmulatorProps, EmuState> {
     if (f.alarm) rows.push({ label: tx('factAlarm'), value: tx(f.alarm === 'armed' ? 'alarmArmed' : f.alarm === 'triggered' ? 'alarmTriggered' : 'alarmOff') });
     return rows;
   }
-  input() { this.lastInput = Date.now(); this.idleHomed = false; if (this.state.lightOut || this.state.bootDark) this.setState({ lightOut: false, bootDark: false }); }
+  input() { this.lastInput = Date.now(); this.noInputSinceSleep = false; this.idleHomed = false; if (this.state.lightOut || this.state.bootDark) this.setState({ lightOut: false, bootDark: false }); }
   idleCheck() {
     const s = this.state; if (s.mode !== 'main' || s.sleeping || s.asleep) return;
     const idleMs = Date.now() - this.lastInput, idleMin = idleMs / 60000;
@@ -355,11 +358,15 @@ export class Emulator extends Component<EmulatorProps, EmuState> {
       charging: s.usb && this.battery < 100, usb: s.usb, chargedAgoMin: null, voltage: null, battery: this.battery,
       otaPendingVerify: s.ota.pendingVerify, otaBusy: s.mode === 'updating', otaAuto: auto, otaDue: !!s.ota.avail && auto === 'night',
       setup: !!s.setup, msSinceApi: this.lastApi === null ? null : now - this.lastApi,
-      live: this.liveNow(now), glanceFails: this.rtc.fails, armBootsLeft: this.armLeft, emptyHouse: this.emptyNow(s),
+      ...this.phase(now), glanceFails: this.rtc.fails, armBootsLeft: this.armLeft, emptyHouse: this.emptyNow(s),
     };
   }
-  /** Live mode (glance): a key press / touch within `liveMin` minutes, or a key held through the boot screen. */
-  liveNow(now = Date.now()): boolean { return liveNow(now - this.lastInput, this.state.cfg.liveMin) || now < this.holdLiveUntil; }
+  /** Glance after a press (ha-paper#32): live for `standbyAfter` minutes (or a key held through the boot screen), then the
+   *  standby step for `deepAfter` minutes. */
+  phase(now = Date.now()): { live: boolean; standbyLeftS: number } {
+    const p = glancePhase(this.noInputSinceSleep ? null : now - this.lastInput, this.state.cfg.standbyAfter, this.state.cfg.deepAfter);
+    return now < this.holdLiveUntil ? { live: true, standbyLeftS: 0 } : p;
+  }
   /** Clock tiles of a state: the time alone never wakes the panel in glance. */
   clockKeys(s: EmuState): string[] { const sc = s.screens[s.idx]; return sc && !s.setup && !s.menu ? sc.widgets.map((w, i) => (w.type === 'clock' ? 't' + i : '')).filter(Boolean) : []; }
   glanceSnap(s: EmuState): Snapshot { return snapshotOf(this.regions(s)); }
@@ -393,6 +400,7 @@ export class Emulator extends Component<EmulatorProps, EmuState> {
     const asleep = { wakeAt, clock: s.asleep?.clock ?? this.clockText(s), wasStandby: s.sleeping, glance: d.reason === 'glance' || d.reason === 'empty house' };
     const next = { ...s, asleep, menu: false } as EmuState;
     if (d.reason === 'empty house') this.emptySleeps++;
+    this.noInputSinceSleep = true;
     // eink-ha-os#331, eink-ha-os#356: the snapshot holds what the sleeping panel shows; a face going up or down is a full refresh
     const was = this.sleepKind(s), is = this.sleepKind(next);
     if (!fromWake || is !== was) { this.rtc = { ...this.rtc, snap: this.glanceSnap(next), drawnAt: now }; }
@@ -402,19 +410,50 @@ export class Emulator extends Component<EmulatorProps, EmuState> {
   }
   powerTick() {
     const s = this.state; const now = Date.now();
-    if (s.asleep) { if (s.asleep.wakeAt !== null && now >= s.asleep.wakeAt) { if (s.asleep.glance) this.glanceWake(); else this.wakeUp('TIMER'); } return; }
+    if (s.asleep) { if (s.asleep.wakeAt !== null && now >= s.asleep.wakeAt) { if (s.asleep.light) this.napCheck(); else if (s.asleep.glance) this.glanceWake(); else this.wakeUp('TIMER'); } return; }
     if (s.mode !== 'main' || now - this.lastInput < AWAKE_MIN_MS) return;
     const d = powerDecision(this.powerInputs(s, now));
+    if (d.lightSleepS > 0) { this.napEnter(d); return; }
     if (!d.deepSleepNow) return;
     if (d.reason === 'glance' || d.reason === 'empty house') { this.glanceSleep(false); return; }
     const wakeAt = d.wakeAtEpoch === null ? null : d.wakeAtEpoch * 1000;
+    this.noInputSinceSleep = true;
     this.setState({ asleep: { wakeAt, clock: this.clockText(s), wasStandby: s.sleeping }, menu: false });
     this.fullRefresh('asleep');
     this.log('POWER deep sleep (' + d.reason + ') · ' + (wakeAt ? 'timer wake ' + hm(new Date(wakeAt)) : 'Power key or charger only') + ' · Wi-Fi off, API unreachable');
   }
+  /** Standby step (ha-paper#32): the sleep face once, front light off, Wi-Fi off, light sleep (RAM kept) until a key, a touch,
+   *  the charger or d.lightSleepS (then napCheck decides again). */
+  napEnter(d: PowerDecision) {
+    const s = this.state; const now = Date.now();
+    const asleep = { wakeAt: now + d.lightSleepS * 1000, clock: this.clockText(s), wasStandby: false, glance: true, light: true };
+    const next = { ...s, asleep, sleeping: false, menu: false, ambient: true } as EmuState;
+    const was = this.sleepKind(s), is = this.sleepKind(next);
+    this.setState({ asleep, sleeping: false, menu: false, ambient: true });
+    if (is !== was) this.fullRefresh(is === 'empty' ? 'nobody home' : 'sleep face');
+    this.log('POWER standby (light sleep) · ' + (is === 'empty' ? 'Nobody home' : 'the sleep face') + ' · Wi-Fi off · any key or touch wakes · decides again ' + hm(new Date(asleep.wakeAt)));
+  }
+  /** A timer end of a light sleep: more standby, deep sleep (the same face: no refresh) or awake (the OTA window). */
+  napCheck() {
+    const s = this.state; const a = s.asleep; if (!a?.light) return;
+    const now = Date.now();
+    const d = powerDecision(this.powerInputs({ ...s, asleep: null }, now));
+    if (d.lightSleepS > 0) { this.setState({ asleep: { ...a, wakeAt: now + d.lightSleepS * 1000 } }); this.log('POWER standby · light sleep again ' + d.lightSleepS + ' s'); return; }
+    if (d.deepSleepNow) { this.log('POWER standby over (' + d.reason + ')'); this.glanceSleep(false); return; }
+    this.napWake('POWER ' + d.reason);
+  }
+  /** Out of the standby step: the dashboard from RAM at once (one full refresh), Wi-Fi and HA reconnect behind it. A key or
+   *  touch here only wakes (consumed). */
+  napWake(src: string) {
+    this.input();
+    this.setState({ asleep: null, ambient: false, lightOut: false });
+    this.fullRefresh('standby → live');
+    this.log(src + ' → standby over · dashboard, Wi-Fi + Home Assistant reconnect (input consumed)');
+  }
   /** Timer, Power / Right key or charger. A deep-sleep wake is a reset: boot screen, Wi-Fi + HA, full refresh. */
   wakeUp(src: string) {
     const a = this.state.asleep; if (!a) return;
+    if (a.light) { this.napWake(src); return; }
     this.setState({ asleep: null });
     this.bootWake = src === 'TIMER' ? 'timer' : src === 'CHARGER' ? 'charger' : 'button';
     this.log(src + ' → wake from deep sleep (reset)');
@@ -432,6 +471,7 @@ export class Emulator extends Component<EmulatorProps, EmuState> {
   /** Touch can't wake (rail off in deep sleep), nor Left / Home (not wake sources). True = the input was swallowed. */
   asleepIgnores(src: string): boolean {
     if (!this.state.asleep) return false;
+    if (this.state.asleep.light) { this.napWake(src); return true; }   // ha-paper#32: every key and touch wakes the standby step
     this.log(src + ' ignored · asleep (only Power, Right or the charger wake it)'); return true;
   }
   clockText(s: EmuState) { const h = this.hourOf(s); return (s.cfg.clock === '12' ? String(h % 12 || 12) : pad(h)) + ':' + pad(s.now.getMinutes()); }
@@ -1637,10 +1677,10 @@ export class Emulator extends Component<EmulatorProps, EmuState> {
     const glanceOn = this.glanceFaceActive(s), glance = glanceOn ? this.quietSnapOf(s, TODAY_END) : null;
     const face: SleepFace | null = quietOn
       ? { title: tx('quietBack', quietBackAt(s.cfg.quiet, s.cfg.clock)), sub: dateText, head: quiet.row.head, items: quiet.row.items, facts: [], batt: '', foot: quiet.at ? tx('asOf', quiet.at) : '', tap: true }
-      : emptyOn ? { title: tx('emptyTitle'), sub: tx('emptyNext', this.emptyNext(s)), head: '', items: [], facts: this.emptyRows(s, tx), batt: '', foot: '', tap: false }
+      : emptyOn ? { title: tx('emptyTitle'), sub: tx('emptyNext', this.emptyNext(s)), head: '', items: [], facts: this.emptyRows(s, tx), batt: '', foot: '', tap: !!s.asleep?.light }
       // ha-paper#30: battery % and days left; the emulator has no wake tally and no gauge history, so the model only
       : glance ? { title: tx('sleepHead'), sub: dateText, head: glance.row.head, items: glance.row.items, facts: [],
-          batt: battDaysLine(ui, battEstimate(this.battery, s.usb && this.battery < 100, null, Math.floor(now.getTime() / 1000), modelPctPerDay(0, 0))), foot: glance.at ? tx('asOf', glance.at) : '', tap: false }
+          batt: battDaysLine(ui, battEstimate(this.battery, s.usb && this.battery < 100, null, Math.floor(now.getTime() / 1000), modelPctPerDay(0, 0))), foot: glance.at ? tx('asOf', glance.at) : '', tap: !!s.asleep?.light }
       : null;
 
     return {
