@@ -10,10 +10,10 @@ export const GLANCE_AWAKE_CAP_MS = 20_000;
 /** Live mode after a key press, minutes (legacy setting `liveMin`: stored and served, no effect since ha-paper#32). */
 export const LIVE_MIN = [1, 3, 5, 10];
 export const DEFAULT_LIVE_MIN = 3;
-/** ha-paper#32: minutes live after a key press before the standby step (setting `standbyAfter`, replaces liveMin). */
+/** ha-paper#32: minutes live after a key press before the standby step (setting `standbyAfter`, "Live for", replaces liveMin). */
 export const STANDBY_AFTER = [1, 3, 5];
 export const DEFAULT_STANDBY_AFTER = 1;
-/** ha-paper#32: minutes in the standby step (light sleep) before deep sleep (setting `deepAfter`); 0 = never. */
+/** ha-paper#32, #37: minutes in the standby step (dashboard unchanged, Wi-Fi on, no HA updates) before deep sleep (setting `deepAfter`, "Then standby for"); 0 = never. */
 export const DEEP_AFTER = [5, 15, 30, 60, 0];
 export const DEFAULT_DEEP_AFTER = 15;
 /** Failed wakes in a row before the panel says so (one redraw with the offline mark). */

@@ -45,9 +45,6 @@ class WifiMgr {
   // eink-ha-os#326: mdns_free() while the STA netif still exists. Call before anything that turns Wi-Fi off (WIFI_OFF destroys
   // the netif that queued rx packets point at). Net task.
   void stopMdns(const char* why);
-  // ha-paper#32 standby step (net task): on = mDNS down, Wi-Fi off, no reconnect attempts; off = join again from the RTC
-  // cache (cached BSSID/channel, cached IP while the lease is young). QEMU: no radio, nothing to do.
-  void standby(bool on);
 
  private:
   void onConnected();
@@ -75,7 +72,6 @@ class WifiMgr {
   bool wasConnected_ = false;
   bool scanRunning_ = false;
   bool userDisconnected_ = false;   // "Disconnect" pressed: no reconnect until a network is picked
-  bool standby_ = false;            // ha-paper#32: Wi-Fi off for the standby step
 };
 
 WifiMgr& wifiMgr();

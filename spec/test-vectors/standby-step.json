@@ -1,6 +1,6 @@
 {
   "name": "standby-step",
-  "description": "glancePhase (ha-paper#32, emulator src/core/power.ts, firmware core/power.cpp): ms since the last key / touch (null = none since a timer wake) and the settings standbyAfter / deepAfter (minutes, 0 = never) give live (awake, the dashboard) and standbyLeftS (whole seconds left in the standby step, rounded up; 0 = not in it; never = 8 h, MAX_SLEEP_S). powerDecision then light-sleeps (power/11-standby-step.json).",
+  "description": "glancePhase (ha-paper#32, emulator src/core/power.ts, firmware core/power.cpp): ms since the last key / touch (null = none since a timer wake) and the settings standbyAfter / deepAfter (minutes, 0 = never) give live (awake, the dashboard) and standbyLeftS (whole seconds left in the standby step, rounded up; 0 = not in it; never = 8 h, MAX_SLEEP_S). powerDecision then keeps the standby step (ha-paper#37: dashboard unchanged, Wi-Fi on, no HA updates; power/11-standby-step.json).",
   "cases": [
     {
       "name": "no press since the wake (timer wake): neither live nor standby",

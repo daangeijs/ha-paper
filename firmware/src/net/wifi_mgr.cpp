@@ -537,37 +537,6 @@ void WifiMgr::forget() {
   setWifi(WifiState::NotConfigured);
 }
 
-void WifiMgr::standby(bool on) {
-#if X4_QEMU
-  (void)on;   // open_eth: no radio to save; the link stays up
-#else
-  if (on == standby_) return;
-  standby_ = on;
-  if (on) {
-    stopMdns("standby");
-    WiFi.disconnect(true);
-    WiFi.mode(WIFI_OFF);
-    wasConnected_ = false;
-    std::lock_guard<std::recursive_mutex> l(hub().mu);
-    hub().status.wifi = WifiState::Offline;
-    hub().status.ip.clear();
-    hub().markStatus();
-    LOG_INF("WIFI", "off for the standby step");
-    return;
-  }
-  esc_.reset();
-  WifiCreds c;
-  if (userDisconnected_ || !storage().loadWifi(c)) return;
-  WiFi.mode(WIFI_STA);
-  WiFi.setAutoReconnect(true);
-  beginFast(c, true);
-  std::lock_guard<std::recursive_mutex> l(hub().mu);
-  hub().status.wifi = WifiState::Connecting;
-  hub().markStatus();
-  LOG_INF("WIFI", "standby step over · joining \"%s\"", c.ssid.c_str());
-#endif
-}
-
 void WifiMgr::disconnect() {
   userDisconnected_ = true;
 #if X4_QEMU
@@ -624,7 +593,6 @@ void WifiMgr::loop() {
   }
   return;
 #endif
-  if (standby_) return;   // ha-paper#32: off for the standby step, no reconnect or escalation
   if (g_dnsUp) g_dns.processNextRequest();
   if (fast_ != glance::WifiFast::None && !linkUp() && millis() - fastAtMs_ > kFastMs) fastDone(false);
   if (apStopAtMs_ && static_cast<int32_t>(millis() - apStopAtMs_) >= 0) {

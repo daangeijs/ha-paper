@@ -1,0 +1,37 @@
+{
+  "name": "09-settings-standby-mode",
+  "description": "Step 3 → 4 (ha-paper#37): the Standby battery mode is gone. powerSave \"standby\" becomes \"glance\" (Save battery); off and glance stay. wakeEvery (its timer wake) and the display standby key stay stored for an OTA rollback, ignored. standbyAfter and deepAfter keep their keys and values (now labelled Live for / Then standby for).",
+  "cases": [
+    {
+      "name": "standby becomes glance, wakeEvery and standby kept",
+      "op": "migrate",
+      "stored": { "schema": 3, "powerSave": "standby", "wakeEvery": 30, "standby": "10", "standbyAfter": 3, "deepAfter": 15 },
+      "expect": { "status": "upgrade", "from": 3, "version": 4, "output": { "schema": 4, "powerSave": "glance", "wakeEvery": 30, "standby": "10", "standbyAfter": 3, "deepAfter": 15 } }
+    },
+    {
+      "name": "off stays off",
+      "op": "migrate",
+      "stored": { "schema": 3, "powerSave": "off", "standbyAfter": 5, "deepAfter": 0 },
+      "expect": { "status": "upgrade", "from": 3, "version": 4, "output": { "schema": 4, "powerSave": "off", "standbyAfter": 5, "deepAfter": 0 } }
+    },
+    {
+      "name": "glance stays glance",
+      "op": "migrate",
+      "stored": { "schema": 3, "powerSave": "glance", "standbyAfter": 1 },
+      "expect": { "status": "upgrade", "from": 3, "version": 4, "output": { "schema": 4, "powerSave": "glance", "standbyAfter": 1 } }
+    },
+    {
+      "name": "from schema 2: standbyAfter from liveMin, then standby becomes glance",
+      "op": "migrate",
+      "stored": { "schema": 2, "powerSave": "standby", "liveMin": 5 },
+      "expect": { "status": "upgrade", "from": 2, "version": 4, "output": { "schema": 4, "powerSave": "glance", "liveMin": 5, "standbyAfter": 5 } }
+    },
+    {
+      "name": "save over a schema 3 file in Standby mode: upgraded, then merged",
+      "op": "persist",
+      "stored": { "schema": 3, "powerSave": "standby", "wakeEvery": 60 },
+      "known": { "brightness": 20 },
+      "expect": { "output": { "schema": 4, "powerSave": "glance", "wakeEvery": 60, "brightness": 20 } }
+    }
+  ]
+}

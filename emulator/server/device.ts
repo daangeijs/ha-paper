@@ -1148,13 +1148,13 @@ export class DeviceSim {
     const boot = { full: d.full - b.full, partial: d.partial - b.partial, fast: d.fast - b.fast, clean: d.clean - b.clean };
     return { full: this.tally.fullRefreshes + boot.full, partial: this.tally.partialRefreshes + boot.partial, boot };
   }
-  /** The shared power rules, as with power saving "Standby", the standby face on and the quiet hours set. */
+  /** The shared power rules, as with Save battery (glance) past its live window and standby step, and the quiet hours set. */
   powerCheck(now = new Date()): PowerDecision { return powerDecision(this.powerInputs(now)); }
   powerInputs(now = new Date()): PowerInputs {
     const auto = this.p.ota.auto;
     return {
       nowEpoch: Math.floor(now.getTime() / 1000), localSec: now.getHours() * 3600 + now.getMinutes() * 60 + now.getSeconds(),
-      powerSave: 'standby', wakeEvery: 15, quiet: this.p.settings.display.quiet, peeking: false, standby: true,
+      powerSave: 'glance', quiet: this.p.settings.display.quiet, peeking: false,
       charging: this.power.usb && this.battery < 100, usb: this.power.usb, chargedAgoMin: null, voltage: this.batteryMv === null ? null : this.batteryMv / 1000, battery: this.battery,
       otaPendingVerify: this.otaRun.status === 'verifying', otaBusy: this.otaBusy, otaAuto: auto, otaDue: !!this.otaRun.avail && auto === 'night',
       setup: this.p.setup !== null, msSinceApi: this.power.lastApi === null ? null : Date.now() - this.power.lastApi,

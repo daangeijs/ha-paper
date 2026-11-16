@@ -30,6 +30,7 @@ that behaviour.
 - [Improv Wi-Fi over the USB console (issue #31)](deviations/031-improv-usb-console.md)
 - [Device health as Home Assistant entities (issue #32)](deviations/032-health-ha-entities.md)
 - [Standby step between live mode and deep sleep (issue #32)](deviations/032-standby-step.md)
+- [Three power phases: Live, Standby (Wi-Fi on), Deep sleep (issue #37)](deviations/037-three-power-phases.md)
 - [Black/white only, minute window (issue #38)](deviations/038-black-white-minute-window.md)
 - [PUT /settings: unknown keys and tz (issue #43)](deviations/043-put-settings-unknown-keys-tz.md)
 - [HA attributes: whitelist at ingest, one mirror (issue #76)](deviations/076-ha-attribute-whitelist.md)

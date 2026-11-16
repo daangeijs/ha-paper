@@ -1,8 +1,8 @@
 // Power saving on the device (eink-ha-os#10, ROBUSTNESS_PLAN Phase 3): runs core/power.h powerDecision() from the main loop and
 // takes the display into deep sleep; glance wakes (core/glance.h): Wi-Fi from the RTC cache, one HA snapshot, redraw
 // only when a visible value changed, sleep again, 20 s cap. A key press means live mode for `standbyAfter` minutes, then
-// the standby step (ha-paper#32: sleep face, Wi-Fi off, light sleep; any key or touch wakes it at once) for `deepAfter`
-// minutes, then deep sleep; on USB it is always live. First-boot safety: no deep sleep before kArmBoots confirmed boots of this version or 30 min online
+// the standby step (ha-paper#32, #37: the panel kept, HA paused, Wi-Fi on; any key or touch goes live at once) for
+// `deepAfter` minutes, then deep sleep; on USB it is always live. First-boot safety: no deep sleep before kArmBoots confirmed boots of this version or 30 min online
 // with a confirmed image (eink-ha-os#231, userdata /arm.json), a Right key held through the boot screen keeps it live 10 min, a USB host blocks sleep (external power).
 //
 // Sleep entry: home page + ambient chrome drawn (App::prepareSleep), snapshot → RTC, WebSocket closed, Wi-Fi off, then
@@ -47,8 +47,7 @@ std::string powerPhasesJson();       // GET /diagnostics power_trail.phases (ein
 // App::onPowerStage (main task): append the Power key stage to /power.txt, closed before the App goes on
 void powerKeyStage(const char* stage);
 const char* powerMode();             // GET /status power.mode: awake | glance (a glance wake in progress) | standby (ha-paper#32)
-void powerNapWake();                 // App::onNapWake (main task): a key or touch ended the standby step: Wi-Fi back now
-bool powerNapping();                 // in the standby step: main loop() skips its idle wait (any task)
+void powerNapWake();                 // App::onNapWake (main task): a key or touch ended the standby step: HA reconnects now
 // POST /api/v1/device/sleep (eink-ha-os#178, any task): core sleepNowCheck on the last power inputs; 202 = powerLoop enters deep
 // sleep within a second (checked once more there), skipping live mode, the standby step and the API quiet.
 SleepNowCheck powerSleepRequest(bool isNumber, double seconds);

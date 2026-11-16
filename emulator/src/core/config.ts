@@ -161,12 +161,13 @@ export const defaultConfig = (): Config => {
 const SETTINGS_SCREENS: Omit<Screen, 'app'>[] = [
   { id: 'display', title: 'Display', widgets: [
     { type: 'setting', key: 'brightness' }, { type: 'setting', key: 'warmth' }, { type: 'setting', key: 'lightTimeout' },
-    { type: 'setting', key: 'returnHome' }, { type: 'setting', key: 'standby' }, { type: 'setting', key: 'interval' }, { type: 'setting', key: 'cleanEvery' } ] },
+    { type: 'setting', key: 'returnHome' }, { type: 'setting', key: 'interval' }, { type: 'setting', key: 'cleanEvery' } ] },   // Standby left in ha-paper#37
   // The clock format sits with the look since eink-ha-os#220; night mode left for Power › Quiet hours (eink-ha-os#295).
   // Display styles (x4-display-styles): the look is a device setting; these tiles only step it (same screen as firmware/src/core/config.cpp).
   { id: 'style', title: 'Display style', widgets: [{ type: 'setting', key: 'style' }, { type: 'setting', key: 'typeface', cs: 2 }, { type: 'setting', key: 'surface' }, { type: 'setting', key: 'clock' }] },
   // Power saving (ROBUSTNESS_PLAN 3.1, glance eink-ha-os#10, emulator DEVIATIONS 10). Two rows tall (eink-ha-os#190); no hint line since eink-ha-os#310.
-  // Standby after / Deep sleep after standby (ha-paper#32) replace Check every (console only now) and Live after a press.
+  // Live for / Then standby for (ha-paper#32, #37) replace Check every and Live after a press; both only with Save battery
+  // (hidden with Always live, core/settings.ts powerStepsShown). The Save battery tile carries the one-line summary.
   // Quiet hours (eink-ha-os#295) sit here: on battery they are a power setting first. The Good morning page (eink-ha-os#330) next to them.
   { id: 'power', title: 'Power', widgets: [{ type: 'setting', key: 'powerSave', cs: 2, rs: 2 }, { type: 'setting', key: 'quiet' }, { type: 'setting', key: 'morning' }, { type: 'setting', key: 'standbyAfter' }, { type: 'setting', key: 'deepAfter' }] },
   { id: 'updates', title: 'Updates', widgets: [{ type: 'ota', cs: 4, rs: 2 }] },

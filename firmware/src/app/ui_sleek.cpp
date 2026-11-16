@@ -463,6 +463,8 @@ void settingCard(Canvas& c, I& a, const Widget& w, Rect r, const std::string& va
   Font lf = T6(16);
   TextOpts lo; lo.maxW = r.w - 32;
   c.text(r.x + 16, r.y + 14 + asc(lf), d ? a.t(d->label) : key, lf, lo);
+  const std::string sub = settingSub(a, key);   // ha-paper#37: Save battery says what happens when
+  if (!sub.empty()) c.paragraph(r.x + 16, r.y + 14 + asc(lf) + 10, r.w - 32, 20, sub, T6(15), TextOpts(), 2);
   Rect cap = rc(r.x + 12, r.y + r.h - 12 - 56, r.w - 24, 56);
   c.box(cap, 28, Ink::Paper);
   int cy = cap.y + 28;

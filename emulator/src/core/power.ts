@@ -7,17 +7,18 @@ import { emptyWaitS } from './emptyHouse.ts';
 // glance (eink-ha-os#10, decided in eink-ha-os#18: the default on battery; eink-ha-os#356): the panel shows the sleep face and the display deep-sleeps
 // until a key, the charger, or the next transition: midnight (the face's date) or the start of quiet hours, whichever
 // comes first (at most MAX_SLEEP_S). No periodic data wakes. A transition wake fetches a snapshot and redraws only when
-// what the panel shows changed (core/glance.ts). A key press wakes into live mode for `standbyAfter` minutes, then the
-// standby step (ha-paper#32): the same sleep face, light sleep with RAM kept and Wi-Fi off, any key or the touch key wakes
-// it at once (no boot); after `deepAfter` more minutes (0 = never) deep sleep as above (glancePhase).
+// what the panel shows changed (core/glance.ts). A key press wakes into live mode for `standbyAfter` minutes ("Live for"),
+// then the standby step (ha-paper#32, reworked in ha-paper#37) for `deepAfter` minutes ("Then standby for", 0 = never): the
+// dashboard stays on the panel unchanged, no HA updates (WebSocket closed), Wi-Fi stays associated (API and console
+// reachable), any key or touch goes live at once; then deep sleep as above (glancePhase).
 // Quiet hours (eink-ha-os#295, core/quiet.ts) win over standby and glance: no timer wakes in the window. "Sleep at night" is gone
 // (settings schema 2 moves it to glance). Empty house (eink-ha-os#331, core/emptyHouse.ts): glance waits EMPTY_WAIT_S (cut at
 // the start of quiet hours) while nobody is home; quiet hours and live mode win.
-export type PowerSave = 'off' | 'standby' | 'glance';
-export const POWER_SAVES: PowerSave[] = ['off', 'standby', 'glance'];
-// Standby timer wake, minutes. Budget from TRMNL's measurements (usetrmnl/trmnl-firmware README, power): ~100 µA in
-// deep sleep, ~10.5 s and 0.67 C (0.19 mAh) per wake + update. Every 15 min: 96 × 0.19 + 2.4 ≈ 20 mAh/day, ~55 days
-// on 1100 mAh. Our own wake cost is unmeasured (Wi-Fi + TLS to HA + a gray refresh).
+// off = "Always live", glance = "Save battery". The Standby mode (timer wakes every `wakeEvery` minutes with the standby face
+// on) is gone since ha-paper#37: settings schema 4 moves it to glance.
+export type PowerSave = 'off' | 'glance';
+export const POWER_SAVES: PowerSave[] = ['glance', 'off'];
+// Legacy `wakeEvery` (the old Standby mode's timer wake, minutes): stored and served for a rollback, no effect since ha-paper#37.
 export const WAKE_EVERY = [15, 30, 60];
 export type OtaAuto = 'off' | 'notify' | 'night';
 
@@ -32,10 +33,8 @@ export type PowerInputs = {
   nowEpoch: number;            // seconds (UTC)
   localSec: number;            // seconds since local midnight
   powerSave: PowerSave;
-  wakeEvery: number;           // minutes, standby timer wake
   quiet: string;               // quiet hours "23-07" | "off"
   peeking: boolean;            // dashboard shown for 60 s after a press in quiet hours
-  standby: boolean;            // standby face is on
   charging: boolean;
   usb: boolean;                // USB host connected (USB-JTAG)
   chargedAgoMin: number | null; // minutes since charging stopped; null = not since boot
@@ -48,7 +47,7 @@ export type PowerInputs = {
   setup: boolean;              // AP / setup wizard
   msSinceApi: number | null;   // null = no API request since boot
   live?: boolean;              // glance: a key press / touch within the last `standbyAfter` minutes (absent = false)
-  standbyLeftS?: number;       // glance (ha-paper#32): seconds left in the standby step after live mode (absent / 0 = not in it)
+  standbyLeftS?: number;       // glance (ha-paper#32, #37): seconds left in the standby step after live mode (absent / 0 = not in it)
   glanceFails?: number;        // glance: wakes in a row that could not reach HA (diagnostics; no backoff since eink-ha-os#356)
   armBootsLeft?: number;       // first-boot safety (eink-ha-os#10): confirmed boots this image still needs before any deep sleep (absent = 0)
   emptyHouse?: boolean;        // glance (eink-ha-os#331): the presence source says nobody is home (absent = false)
@@ -60,13 +59,12 @@ export type WifiPs = 'none' | 'min';
  *  fixed 80 MHz, the lowest clock that keeps APB at 80 MHz (UART, SPI to the panel, I2C and Wi-Fi unchanged). */
 export const CPU_MHZ: Record<CpuProfile, number> = { full: 240, auto: 80 };
 export type PowerReason = 'unconfirmed image' | 'ota running' | 'external power' | 'battery unknown' | 'low battery' | 'setup mode'
-  | 'recent api' | 'ota window' | 'power save off' | 'awake' | 'quiet' | 'standby' | 'live' | 'glance' | 'empty house' | 'not armed'
-  | 'light sleep';
+  | 'recent api' | 'ota window' | 'power save off' | 'quiet' | 'standby' | 'live' | 'glance' | 'empty house' | 'not armed';
 
 export type PowerDecision = {
   deepSleepNow: boolean;
   wakeAtEpoch: number | null;  // timer wake; null when awake, or low battery (button/charger only)
-  lightSleepS: number;         // ha-paper#32 standby step: light-sleep this long at most, then decide again (0 = none)
+  standby: boolean;            // ha-paper#37 standby step: awake, Wi-Fi on, no HA updates, the panel unchanged
   buttonWakeOnly: boolean;     // low battery: no timer, wake on Power/Right key or charger only
   cpuProfile: CpuProfile;      // full = 240 MHz; auto = 80 MHz (CPU_MHZ, Phase 3.2)
   wifiPs: WifiPs;              // none = no modem sleep; min = modem sleep (DTIM)
@@ -74,7 +72,7 @@ export type PowerDecision = {
   reason: PowerReason;
 };
 
-/** Glance after a key press (ha-paper#32): live for `standbyAfter` minutes, then the standby step for `deepAfter` minutes
+/** Glance after a key press (ha-paper#32, #37): live for `standbyAfter` minutes, then the standby step for `deepAfter` minutes
  *  (0 = never: MAX_SLEEP_S at a time), then deep sleep. msSinceInput null = no key since the wake (a timer wake): neither.
  *  standbyLeftS = whole seconds left in the step (rounded up). Vectors: spec/test-vectors/standby-step.json. */
 export function glancePhase(msSinceInput: number | null, standbyAfter: number, deepAfter: number): { live: boolean; standbyLeftS: number } {
@@ -115,35 +113,32 @@ export function powerDecision(i: PowerInputs): PowerDecision {
   const cpuProfile: CpuProfile = external || i.otaBusy || i.battery === null ? 'full' : 'auto';
   const wifiPs: WifiPs = external || i.otaBusy || i.setup ? 'none' : 'min';
   const out = (reason: PowerReason, wakeAtEpoch: number | null = null): PowerDecision =>
-    ({ deepSleepNow: wakeAtEpoch !== null, wakeAtEpoch, lightSleepS: 0, buttonWakeOnly: false, cpuProfile, wifiPs, external, reason });
+    ({ deepSleepNow: wakeAtEpoch !== null, wakeAtEpoch, standby: false, buttonWakeOnly: false, cpuProfile, wifiPs, external, reason });
 
   if (i.otaPendingVerify) return out('unconfirmed image');
   if (i.otaBusy) return out('ota running');
   if (external) return out('external power');
   if ((i.armBootsLeft ?? 0) > 0) return out('not armed');
   if (i.battery === null) return out('battery unknown');
-  if (i.battery < LOW_BATTERY_PCT) return { deepSleepNow: true, wakeAtEpoch: null, lightSleepS: 0, buttonWakeOnly: true, cpuProfile, wifiPs, external, reason: 'low battery' };
+  if (i.battery < LOW_BATTERY_PCT) return { deepSleepNow: true, wakeAtEpoch: null, standby: false, buttonWakeOnly: true, cpuProfile, wifiPs, external, reason: 'low battery' };
   if (i.setup) return out('setup mode');
-  if (i.msSinceApi !== null && i.msSinceApi < API_QUIET_MS) return out('recent api');
   const hour = Math.floor(i.localSec / 3600) % 24;
   const otaWanted = i.otaDue && i.otaAuto !== 'off';
-  if (otaWanted && hour === OTA_HOUR) return out('ota window');
-  if (i.powerSave === 'off') return out('power save off');
-  if (i.powerSave === 'glance' && i.live) return out('live');
-
+  const otaNow = otaWanted && hour === OTA_HOUR;
   const quiet = inQuietHours(hour, i.quiet) && !i.peeking;
+  // ha-paper#37 standby step: wins over a recent API request (the console stays reachable without waking HA); quiet hours
+  // (deep sleep) and the install window win over it
+  if (i.powerSave === 'glance' && !i.live && (i.standbyLeftS ?? 0) > 0 && !quiet && !otaNow) return { ...out('standby'), standby: true };
+  if (i.msSinceApi !== null && i.msSinceApi < API_QUIET_MS) return out('recent api');
+  if (otaNow) return out('ota window');
+  if (i.powerSave === 'off') return out('power save off');
+  if (i.live) return out('live');
+
   let wait = MAX_SLEEP_S;
   let reason: PowerReason;
   if (quiet) { reason = 'quiet'; wait = Math.min(wait, secsUntil(i.localSec, quietEndHour(i.quiet) * 3600)); }
-  else if (i.powerSave === 'standby' && i.standby) { reason = 'standby'; wait = Math.min(wait, i.wakeEvery * 60); }
-  else if (i.powerSave === 'glance' && (i.standbyLeftS ?? 0) > 0) {   // ha-paper#32: up to the step's end or the next transition
-    let s = Math.min(wait, i.standbyLeftS!, glanceWaitS(i.localSec, i.quiet));
-    if (otaWanted) s = Math.min(s, secsUntil(i.localSec, OTA_HOUR * 3600));
-    return { ...out('light sleep'), lightSleepS: s };
-  }
-  else if (i.powerSave === 'glance' && i.emptyHouse) { reason = 'empty house'; wait = Math.min(wait, emptyWaitS(i.localSec, i.quiet)); }   // eink-ha-os#331
-  else if (i.powerSave === 'glance') { reason = 'glance'; wait = Math.min(wait, glanceWaitS(i.localSec, i.quiet)); }   // eink-ha-os#356
-  else return out('awake');
+  else if (i.emptyHouse) { reason = 'empty house'; wait = Math.min(wait, emptyWaitS(i.localSec, i.quiet)); }   // eink-ha-os#331
+  else { reason = 'glance'; wait = Math.min(wait, glanceWaitS(i.localSec, i.quiet)); }   // eink-ha-os#356
   if (otaWanted) wait = Math.min(wait, secsUntil(i.localSec, OTA_HOUR * 3600));
   return out(reason, i.nowEpoch + wait);
 }

@@ -63,6 +63,11 @@ const std::vector<SettingDef>& settingDefs() {
   return v;
 }
 
+bool powerStepsShown(const std::string& powerSave) { return powerSave == "glance"; }
+std::string powerSummary(Lang l, int standbyAfter, int deepAfter) {
+  const std::string live = std::to_string(standbyAfter);
+  return deepAfter == 0 ? tr(l, S::powerSummaryNever, live) : tr(l, S::powerSummary, live, std::to_string(deepAfter) + " min");
+}
 const SettingDef* findSetting(const std::string& key) {
   for (auto& s : settingDefs()) if (key == s.key) return &s;
   return nullptr;

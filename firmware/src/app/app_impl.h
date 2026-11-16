@@ -62,14 +62,14 @@ struct App::Impl {
   std::function<void(const DisplaySettings&)> onSettings;
   std::function<void(const std::string&)> onLog;
   std::function<void(const char*)> onPowerStage;
-  std::function<void()> onNapWake;   // ha-paper#32: input ended the standby step (before its refresh)
+  std::function<void()> onNapWake;   // ha-paper#32, #37: input ended the standby step (HA resumes)
 
   // ---- UI state (emulator `state`) ----
   Mode mode = Mode::Boot;
   std::string bootMsg = "Starting…";
   uint32_t bootUntil = 0;
   bool sleeping = false;
-  bool napping = false;      // ha-paper#32 standby step: the sleep face, light off; the next input only wakes
+  bool napping = false;      // ha-paper#37 standby step: the panel stays as drawn, light off; the next input only wakes
   bool napPower = false;     // the input that ended the step was a Power press: its release is no standby toggle
   bool poweredOff = false;   // Power held 2 s (eink-ha-os#258): "Turned off" face; hardware never returns from Board::powerOff
   Menu menu = Menu::None;
@@ -342,6 +342,10 @@ void guestTile(Canvas& c, I& a, const Widget& w, Rect r);    // guest Wi-Fi (ein
 void listTile(Canvas& c, I& a, const Widget& w, Rect r);     // list from attributes (eink-ha-os#332, ui_list.cpp)
 std::string listValue(I& a, const Widget& w);
 std::string settingValue(const I& a, const std::string& key);
+// ha-paper#37 (core powerStepsShown / powerSummary): Live for / Then standby for only with Save battery (else an empty
+// cell); the Save battery tile's summary line ("" with Always live)
+bool settingHidden(const I& a, const std::string& key);
+std::string settingSub(const I& a, const std::string& key);
 void rule(Canvas& c, int x, int y, int len, bool vertical);   // divider: Classic 2 px ink, Sleek 1 px dotted ink
 void btnBox(Canvas& c, Rect r, bool dark, int radius = 8);    // custom button background: Classic outlined, Sleek pill
 // Sleek display style (ui_sleek.cpp)

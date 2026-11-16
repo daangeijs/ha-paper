@@ -637,6 +637,7 @@ export function Device({ v }: { v: Vals }) {
                       {!!(w.sSetting) && (<>
                         <div style={{ flex: "1", minHeight: "0", padding: "14px 12px 12px", display: "flex", flexDirection: "column", justifyContent: "space-between" }}>
                           <div style={{ fontSize: "16px", fontWeight: "600", padding: "0 4px" }}>{w.label}</div>
+                          {!!w.sub && (<div style={{ fontSize: "15px", lineHeight: "20px", padding: "0 4px", display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", overflow: "hidden" }}>{w.sub}</div>)}
                           <div style={{ height: "56px", borderRadius: "28px", background: "#ECEBE5", display: "flex", alignItems: "center", justifyContent: "space-between", padding: "0 6px", gap: "4px" }}>
                             <button className="ink-btn" aria-label={`Decrease ${w.label}`} onClick={w.dec} style={{ flex: "none", width: "44px", height: "44px", border: "0", borderRadius: "50%", background: "#DEDCD5", fontSize: "22px", fontWeight: "600", lineHeight: "1" }}>−</button>
                             <span style={{ minWidth: "0", fontFamily: "var(--fd)", fontStretch: "var(--fs)", fontSize: "calc(20px * var(--fk))", fontWeight: "700", fontVariantNumeric: "tabular-nums", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{w.value}</span>
@@ -846,6 +847,7 @@ export function Device({ v }: { v: Vals }) {
                         <div style={{ flex: "1", padding: "12px 14px", display: "flex", flexDirection: "column", justifyContent: "space-between" }}>
                           <div style={{ fontSize: "20px", fontWeight: "700", textTransform: "uppercase", lineHeight: "24px", display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", overflow: "hidden" }}>{w.label}</div>
                           <div style={{ fontSize: "26px", fontWeight: "700", fontVariantNumeric: "tabular-nums", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{w.value}</div>
+                          {!!w.sub && (<div style={{ fontSize: "18px", lineHeight: "22px", display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", overflow: "hidden" }}>{w.sub}</div>)}
                           <div style={{ display: "flex", gap: "8px" }}>
                             <button className="ink-btn" aria-label={`Decrease ${w.label}`} onClick={w.dec} style={{ flex: "1", height: "46px", border: "2px solid #111", borderRadius: "8px", background: "#ECEBE5", fontSize: "24px", fontWeight: "700" }}>−</button>
                             <button className="ink-btn" aria-label={`Increase ${w.label}`} onClick={w.inc} style={{ flex: "1", height: "46px", border: "2px solid #111", borderRadius: "8px", background: "#ECEBE5", fontSize: "24px", fontWeight: "700" }}>+</button>

@@ -1,14 +1,12 @@
 {
   "name": "07-quiet-end",
-  "description": "Quiet hours (eink-ha-os#295, every power saving mode but Always live): sleep until the window ends, never longer than 8 h; no timer wakes inside it. Peeking (a press in the window: dashboard for 60 s) keeps it awake.",
+  "description": "Quiet hours (eink-ha-os#295, every power saving mode but Always live): sleep until the window ends, never longer than 8 h; no timer wakes inside it. Peeking (a press in the window: dashboard for 60 s) lifts the window; since ha-paper#37 (no Standby mode) the glance rules then apply.",
   "base": {
     "nowEpoch": 1800000000,
     "localSec": 43200,
-    "powerSave": "standby",
-    "wakeEvery": 15,
+    "powerSave": "glance",
     "quiet": "23-07",
     "peeking": false,
-    "standby": true,
     "charging": false,
     "usb": false,
     "chargedAgoMin": null,
@@ -25,22 +23,7 @@
     {
       "name": "23:30, 23-07: wake at 07:00",
       "input": {
-        "powerSave": "standby",
-        "standby": false,
-        "localSec": 84600
-      },
-      "expect": {
-        "deepSleepNow": true,
-        "wakeAtEpoch": 1800027000,
-        "buttonWakeOnly": false,
-        "reason": "quiet"
-      }
-    },
-    {
-      "name": "glance at 23:30, 23-07: wake at 07:00, not every 15 min",
-      "input": {
         "powerSave": "glance",
-        "standby": false,
         "localSec": 84600
       },
       "expect": {
@@ -53,8 +36,7 @@
     {
       "name": "22:00, 22-06: exactly 8 h",
       "input": {
-        "powerSave": "standby",
-        "standby": false,
+        "powerSave": "glance",
         "quiet": "22-06",
         "localSec": 79200
       },
@@ -68,8 +50,7 @@
     {
       "name": "22:00, 22-07: capped at 8 h",
       "input": {
-        "powerSave": "standby",
-        "standby": false,
+        "powerSave": "glance",
         "quiet": "22-07",
         "localSec": 79200
       },
@@ -83,8 +64,7 @@
     {
       "name": "05:59:30, 00-06: 30 s",
       "input": {
-        "powerSave": "standby",
-        "standby": false,
+        "powerSave": "glance",
         "quiet": "00-06",
         "localSec": 21570
       },
@@ -96,29 +76,16 @@
       }
     },
     {
-      "name": "peeking at the dashboard in quiet hours",
+      "name": "peeking in quiet hours (live over): not quiet, the glance wait",
       "input": {
-        "powerSave": "standby",
-        "standby": false,
+        "powerSave": "glance",
         "peeking": true,
         "localSec": 3600
       },
       "expect": {
-        "deepSleepNow": false,
-        "wakeAtEpoch": null,
-        "reason": "awake"
-      }
-    },
-    {
-      "name": "Standby mode, standby face off, by day: awake",
-      "input": {
-        "powerSave": "standby",
-        "standby": false
-      },
-      "expect": {
-        "deepSleepNow": false,
-        "wakeAtEpoch": null,
-        "reason": "awake"
+        "deepSleepNow": true,
+        "wakeAtEpoch": 1800028800,
+        "reason": "glance"
       }
     },
     {
@@ -136,17 +103,16 @@
       }
     },
     {
-      "name": "quiet hours off",
+      "name": "quiet hours off at 01:00: glance, 8 h cap",
       "input": {
-        "powerSave": "standby",
+        "powerSave": "glance",
         "quiet": "off",
-        "localSec": 3600,
-        "standby": false
+        "localSec": 3600
       },
       "expect": {
-        "deepSleepNow": false,
-        "wakeAtEpoch": null,
-        "reason": "awake"
+        "deepSleepNow": true,
+        "wakeAtEpoch": 1800028800,
+        "reason": "glance"
       }
     }
   ]

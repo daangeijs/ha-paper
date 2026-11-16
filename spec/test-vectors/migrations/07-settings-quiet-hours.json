@@ -6,38 +6,38 @@
       "name": "night window kept",
       "op": "migrate",
       "stored": { "schema": 1, "night": "22-06", "powerSave": "standby" },
-      "expect": { "status": "upgrade", "from": 1, "version": 3, "output": { "schema": 3, "night": "22-06", "powerSave": "standby", "quiet": "22-06", "standbyAfter": 1 } }
+      "expect": { "status": "upgrade", "from": 1, "version": 4, "output": { "schema": 4, "night": "22-06", "powerSave": "glance", "quiet": "22-06", "standbyAfter": 1 } }
     },
     {
       "name": "night off: quiet hours on (the default)",
       "op": "migrate",
       "stored": { "schema": 1, "night": "off" },
-      "expect": { "status": "upgrade", "from": 1, "version": 3, "output": { "schema": 3, "night": "off", "quiet": "23-07", "standbyAfter": 1 } }
+      "expect": { "status": "upgrade", "from": 1, "version": 4, "output": { "schema": 4, "night": "off", "quiet": "23-07", "standbyAfter": 1 } }
     },
     {
       "name": "Sleep at night becomes glance",
       "op": "migrate",
       "stored": { "schema": 1, "brightness": 30, "night": "23-07", "powerSave": "night", "wakeEvery": 30 },
-      "expect": { "status": "upgrade", "from": 1, "version": 3, "output": { "schema": 3, "brightness": 30, "night": "23-07", "powerSave": "glance", "wakeEvery": 30, "quiet": "23-07", "standbyAfter": 1 } }
+      "expect": { "status": "upgrade", "from": 1, "version": 4, "output": { "schema": 4, "brightness": 30, "night": "23-07", "powerSave": "glance", "wakeEvery": 30, "quiet": "23-07", "standbyAfter": 1 } }
     },
     {
       "name": "night not a window: the default",
       "op": "migrate",
       "stored": { "schema": 1, "night": 7 },
-      "expect": { "status": "upgrade", "from": 1, "version": 3, "output": { "schema": 3, "night": 7, "quiet": "23-07", "standbyAfter": 1 } }
+      "expect": { "status": "upgrade", "from": 1, "version": 4, "output": { "schema": 4, "night": 7, "quiet": "23-07", "standbyAfter": 1 } }
     },
     {
       "name": "quiet already there: kept",
       "op": "migrate",
       "stored": { "schema": 1, "night": "22-06", "quiet": "off" },
-      "expect": { "status": "upgrade", "from": 1, "version": 3, "output": { "schema": 3, "night": "22-06", "quiet": "off", "standbyAfter": 1 } }
+      "expect": { "status": "upgrade", "from": 1, "version": 4, "output": { "schema": 4, "night": "22-06", "quiet": "off", "standbyAfter": 1 } }
     },
     {
       "name": "save over a schema 1 file: upgraded, then merged",
       "op": "persist",
       "stored": { "schema": 1, "night": "00-06", "powerSave": "night" },
       "known": { "quiet": "00-06", "powerSave": "glance", "brightness": 20 },
-      "expect": { "output": { "schema": 3, "night": "00-06", "powerSave": "glance", "quiet": "00-06", "standbyAfter": 1, "brightness": 20 } }
+      "expect": { "output": { "schema": 4, "night": "00-06", "powerSave": "glance", "quiet": "00-06", "standbyAfter": 1, "brightness": 20 } }
     }
   ]
 }

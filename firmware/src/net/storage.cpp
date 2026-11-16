@@ -321,7 +321,7 @@ bool Storage::settingsFromJson(const std::string& json, DisplaySettings& s, std:
     if (!d["haReport"].isNull() && !d["haReport"].is<bool>()) return fail("haReport must be true or false");
     if (!d["debugInput"].isNull() && !d["debugInput"].is<bool>()) return fail("debugInput must be true or false");
     if (!d["morning"].isNull() && !d["morning"].is<bool>()) return fail("morning must be true or false");
-    if (!strIn("powerSave", {"off", "standby", "glance"})) return fail("powerSave must be off, standby or glance");
+    if (!strIn("powerSave", {"off", "glance"})) return fail("powerSave must be off or glance");   // standby left in ha-paper#37
     auto oneOf = [&](const char* k, std::initializer_list<int> ok) {
       JsonVariant v = d[k];
       if (v.isNull()) return true;
@@ -361,7 +361,7 @@ bool Storage::settingsFromJson(const std::string& json, DisplaySettings& s, std:
   if (d["haReport"].is<bool>()) s.haReport = d["haReport"].as<bool>();
   if (d["debugInput"].is<bool>()) s.debugInput = d["debugInput"].as<bool>();
   if (d["morning"].is<bool>()) s.morning = d["morning"].as<bool>();
-  pick("powerSave", {"off", "standby", "glance"}, s.powerSave);
+  pick("powerSave", {"off", "glance"}, s.powerSave);   // a stored standby (before schema 4) reads as the default glance
   if (d["wakeEvery"].is<int>()) { int w = d["wakeEvery"].as<int>(); if (w == 15 || w == 30 || w == 60) s.wakeEvery = w; }
   if (d["liveMin"].is<int>()) { int l = d["liveMin"].as<int>(); if (l == 1 || l == 3 || l == 5 || l == 10) s.liveMin = l; }
   if (d["standbyAfter"].is<int>()) { int v = d["standbyAfter"].as<int>(); if (v == 1 || v == 3 || v == 5) s.standbyAfter = v; }

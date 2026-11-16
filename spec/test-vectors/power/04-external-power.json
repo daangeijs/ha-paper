@@ -4,11 +4,9 @@
   "base": {
     "nowEpoch": 1800000000,
     "localSec": 43200,
-    "powerSave": "standby",
-    "wakeEvery": 15,
+    "powerSave": "glance",
     "quiet": "23-07",
     "peeking": false,
-    "standby": true,
     "charging": false,
     "usb": false,
     "chargedAgoMin": null,
@@ -70,9 +68,9 @@
       },
       "expect": {
         "deepSleepNow": true,
-        "wakeAtEpoch": 1800000900,
+        "wakeAtEpoch": 1800028800,
         "buttonWakeOnly": false,
-        "reason": "standby",
+        "reason": "glance",
         "external": false,
         "cpuProfile": "auto",
         "wifiPs": "min"
@@ -86,9 +84,9 @@
       },
       "expect": {
         "deepSleepNow": true,
-        "wakeAtEpoch": 1800000900,
+        "wakeAtEpoch": 1800028800,
         "buttonWakeOnly": false,
-        "reason": "standby",
+        "reason": "glance",
         "external": false
       }
     },
