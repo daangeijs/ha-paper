@@ -4,7 +4,7 @@
 #   1. v1 boots, links to the fake HA (--tick 0: values only change when the test says so), API token, quiet hours off
 #   2. POST /__qemu/power?source=battery&armed=1 (QEMU default is USB = always live; armed skips the first-boot count)
 #      → after the live window: the sleep face (eink-ha-os#356, one full refresh) → "deep sleep (glance)" → simulated wake "timer"
-#      → no boot screen, the front light off (eink-ha-os#357), one HA snapshot
+#      → no boot screen, the front light off (eink-ha-os#357), one HA snapshot, the access token kept in RTC (ha-paper#19)
 #   3. a wake with nothing changed draws nothing ("0 region(s) changed · no refresh")
 #   4. the fake HA changes sensor.home_power: not on the sleep face → the next wake draws nothing
 #   5. USB → charger wake, live; upload v2 → PENDING_VERIFY: on battery it stays awake ("unconfirmed image") until
@@ -94,11 +94,16 @@ wait_log 90 "standby step · dashboard kept, no redraws"
 newlog | grep -qF "EPD clean refresh (sleep face)" && { echo "FAIL: the standby step drew the sleep face (ha-paper#37: the dashboard stays)"; exit 1; }
 wait_log 420 "deep sleep (glance) · timer wake in"
 [[ $(newlog | grep -cF "EPD clean refresh (sleep face)") == 1 ]] || { echo "FAIL: the sleep face not drawn once on the way into deep sleep"; exit 1; }
+grants() { curl -sf -m 3 "$HA/__fake/state" | sed -E 's/.*"refresh_grants":([0-9]+).*/\1/'; }
+G0=$(grants)
 transition_wait
 wait_log 30 "simulated deep sleep over · wake timer"
 wait_log 90 "wake: timer · glance (panel held, no boot screen)"
 wait_log 30 "boot (timer) · front light off until a key or tap"
 wait_log 60 "glance wake ·"
+# ha-paper#19: the access token from before the sleep is still valid → kept in RTC memory, no /auth/token on the wake
+newlog | grep -qF "access token from RTC" || { echo "FAIL: the wake did not reuse the access token kept in RTC memory"; exit 1; }
+[[ "$(grants)" == "$G0" ]] || { echo "FAIL: the wake asked HA for a new access token ($G0 → $(grants) refresh grants)"; exit 1; }
 wait_log 60 "deep sleep (glance)" 2
 newlog | grep -F "glance wake ·" | head -1
 

@@ -23,6 +23,7 @@ that behaviour.
 - [Task watchdog (`hw/watchdog.h`, robustness plan phase 2)](deviations/000-task-watchdog.md)
 - [Battery gauge off the blocking path, charging wording (issue #11)](deviations/011-battery-gauge-charging.md)
 - [Flash layout: `www` + `userdata` (issue #16)](deviations/016-flash-layout-www-userdata.md)
+- [HA access token kept in RTC memory across deep sleep (issue #19)](deviations/019-access-token-rtc.md)
 - [Hardware-key factory reset, crash-loop offer (issue #21)](deviations/021-factory-reset-crash-loop.md)
 - [Ambient idle mode, night face poster (issue #27)](deviations/027-ambient-night-poster.md)
 - [Legibility at 2 m (issue #28)](deviations/028-legibility.md)
