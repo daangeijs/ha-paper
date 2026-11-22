@@ -5,6 +5,22 @@ display lists under "What's new" on its Updates screen (manifest.json `notes`): 
 most 34 characters. The release workflow fails if the tag's section is missing or a bullet is too long
 (`firmware/tools/release_notes.py`). Prose below the bullets goes only into the GitHub release.
 
+## 0.3.0
+
+- First release out of beta
+- Battery: live, standby, deep sleep
+- Standby: touch updates at once
+- Fewer power settings
+- Faster wake from deep sleep
+
+The first stable release. On battery, *Save battery* now runs three phases after the last key press or touch:
+**Live for** 1, 3 or 5 minutes (the dashboard updates), **Then standby for** none, 5 (default), 15, 30 or 60 minutes
+or never (the dashboard stays on screen and stops updating; Wi-Fi stays on, so a touch or any key brings it up to date
+at once and the web console stays reachable), then deep sleep (the sleep face; Power wakes it). The old Standby
+battery mode, *Check every* and *Display › Standby* are gone; stored settings move over on their own. Standby with
+Wi-Fi on uses more power than deep sleep, so pick *None* for the longest battery life. A wake from deep sleep reuses
+the Home Assistant access token kept in RTC memory while it is still valid, instead of asking for a new one.
+
 ## 0.2.0-beta.8
 
 - Sleep face: battery days left
