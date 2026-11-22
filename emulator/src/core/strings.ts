@@ -353,20 +353,30 @@ export const STRINGS = {
   setPowerSave: ['On battery', 'Op batterij'],
   setWakeEvery: ['Check every', 'Kijk elke'],
   setLiveMin: ['Live after a press', 'Live na een druk'],
+  setStandbyAfter: ['Live for', 'Live voor'],   // ha-paper#32, labels ha-paper#37
+  setDeepAfter: ['Then standby for', 'Daarna stand-by voor'],
+  // ha-paper#37: the line under the Save battery choice (device tile and web console)
+  powerSummary: ['Live {} min → standby {} → deep sleep until you press power.', 'Live {} min → stand-by {} → diepe slaap tot je op aan/uit drukt.'],
+  powerSummaryNever: ['Live {} min → then standby until you press a key.', 'Live {} min → daarna stand-by tot je op een knop drukt.'],
+  powerSummaryNone: ['Live {} min → deep sleep until you press power.', 'Live {} min → diepe slaap tot je op aan/uit drukt.'],
+  deepNone: ['None', 'Geen'], deepNoneLong: ['None, deep sleep right away', 'Geen, meteen diepe slaap'],   // Then standby for: device tile / console
   setQuiet: ['Quiet hours', 'Stille uren'],
   setEmptyHouse: ['Sleep longer when nobody is home', 'Standby als niemand thuis is'],   // eink-ha-os#331, console only
   // what a setting does (eink-ha-os#190): the (i) in the browser (no hint line on the device, eink-ha-os#310)
   infoCleanEvery: ['E-paper leaves faint traces of old images. Every so often the display flashes black and white once to clear them.',
     'E-paper houdt vage resten van oude beelden vast. Af en toe knippert het scherm één keer zwart en wit om ze weg te halen.'],
-  infoPowerSave: ['How the display saves battery when not on USB. Always live stays connected and updates within seconds (days of battery). Standby sleeps while the standby screen is on. Glance shows a calm sleep screen and sleeps until you press a button: it wakes on its own only at midnight and around quiet hours. A press shows the dashboard for a few minutes (weeks of battery).',
-    'Hoe het scherm batterij spaart als het niet aan USB hangt. Altijd live blijft verbonden en werkt binnen seconden bij (dagen batterij). Stand-by slaapt zolang het stand-by-beeld aan staat. Oogopslag toont een rustig slaapscherm en slaapt tot je op een knop drukt: het wordt alleen om middernacht en rond de stille uren vanzelf wakker. Een knopdruk toont een paar minuten het dashboard (weken batterij).'],
+  infoPowerSave: ['How the display saves battery when not on USB. Save battery: after a press the dashboard updates live for a short while, then stays on screen without updating (standby), then the display sleeps deeply until you press power (weeks of battery). Always live stays connected and updates within seconds (days of battery).',
+    'Hoe het scherm batterij spaart als het niet aan USB hangt. Batterij sparen: na een druk werkt het dashboard even live bij, blijft het daarna staan zonder bij te werken (stand-by) en slaapt het scherm daarna diep tot je op aan/uit drukt (weken batterij). Altijd live blijft verbonden en werkt binnen seconden bij (dagen batterij).'],
   infoQuiet: ['Between these hours the display rests. On battery it sleeps and does not wake on its own. On USB it stays connected, but the screen does not change. A press shows the dashboard.',
     'Tussen deze uren rust het scherm. Op batterij slaapt het en wordt het niet vanzelf wakker. Aan USB blijft het verbonden, maar verandert het beeld niet. Een knopdruk toont het dashboard.'],
   infoWakeEvery: ['In Standby: how often the display wakes on its own to update the screen. Glance wakes only at midnight and around quiet hours.',
     'In Stand-by: hoe vaak het scherm vanzelf wakker wordt om het beeld bij te werken. Oogopslag wordt alleen om middernacht en rond de stille uren wakker.'],
-  infoEmptyHouse: ['In Glance: while nobody is home, the display updates every 2 hours instead and shows "Nobody home". Pick what tells it: the Home zone (number of people in it) or an on/off helper (off = nobody home). A press shows the dashboard as usual; quiet hours come first.',
-    'In Oogopslag: als niemand thuis is, ververst het scherm elke 2 uur en toont het "Niemand thuis". Kies wat dat vertelt: de zone Thuis (aantal mensen erin) of een aan/uit-helper (uit = niemand thuis). Een druk toont het dashboard zoals altijd; stille uren gaan voor.'],
+  infoEmptyHouse: ['With Save battery: while nobody is home, the display updates every 2 hours instead and shows "Nobody home". Pick what tells it: the Home zone (number of people in it) or an on/off helper (off = nobody home). A press shows the dashboard as usual; quiet hours come first.',
+    'Met Batterij sparen: als niemand thuis is, ververst het scherm elke 2 uur en toont het "Niemand thuis". Kies wat dat vertelt: de zone Thuis (aantal mensen erin) of een aan/uit-helper (uit = niemand thuis). Een druk toont het dashboard zoals altijd; stille uren gaan voor.'],
   infoLiveMin: ['In Glance: how long the display stays live after you press a button.', 'In Oogopslag: hoe lang het scherm live blijft nadat je op een knop drukt.'],
+  infoStandbyAfter: ['After a press the dashboard updates live for this long.', 'Na een druk werkt het dashboard zo lang live bij.'],
+  infoDeepAfter: ['The dashboard stays on screen but stops updating. Wi-Fi stays on. Touch the screen or press any key to update at once. Then the display sleeps deeply until you press power. Never: no deep sleep (uses more battery). None: deep sleep right after the live time (saves the most).',
+    'Het dashboard blijft staan maar werkt niet meer bij. Wi-Fi blijft aan. Raak het scherm aan of druk op een knop om meteen bij te werken. Daarna slaapt het scherm diep tot je op aan/uit drukt. Nooit: geen diepe slaap (kost meer batterij). Geen: meteen diepe slaap na de live-tijd (spaart het meest).'],
   infoInterval: ['How often the screen updates while the display is live.', 'Hoe vaak het beeld wordt bijgewerkt terwijl het scherm live is.'],
   infoLightTimeout: ['After this long without a press or tap, the front light turns off. The next press or tap only turns it back on.',
     'Na zo lang zonder knopdruk of tik gaat de verlichting uit. De volgende druk of tik zet hem alleen weer aan.'],
@@ -383,7 +393,7 @@ export const STRINGS = {
   every2h: ['every 2 h', 'elke 2 u'],
   styleClassic: ['Classic', 'Klassiek'], styleSleek: ['Sleek', 'Strak'],
   surfDots: ['Dots', 'Stippen'], surfDither: ['Dither', 'Raster'],
-  psOff: ['Always live', 'Altijd live'], psStandby: ['Standby', 'Stand-by'], psGlance: ['Glance', 'Oogopslag'],
+  psOff: ['Always live', 'Altijd live'], psGlance: ['Save battery', 'Batterij sparen'], psGlanceRec: ['Save battery (recommended)', 'Batterij sparen (aanbevolen)'],
   // Settings › Updates
   firmware: ['Firmware', 'Firmware'],
   installed: ['installed', 'geïnstalleerd'],

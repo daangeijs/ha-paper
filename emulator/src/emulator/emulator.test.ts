@@ -456,66 +456,55 @@ describe('display styles', () => {
 });
 
 describe('power saving: asleep (deep sleep) vs sleeping (standby face)', () => {
-  const standbyOn = (emu: Emulator) => { emu.lastInput = Date.now() - 60_000; (emu as any).state = { ...emu.state, sleeping: true, cfg: { ...emu.state.cfg, powerSave: 'standby', wakeEvery: 15 } }; };
-  it('Settings › Power steps Glance / Standby / Always live, Quiet hours, Good morning page, Check every, Live after a press', () => {
+  const pastStep = (emu: Emulator) => { emu.lastInput = Date.now() - 17 * 60_000; };   // past live (1 min) + standby (15 min)
+  it('Settings › Power (ha-paper#37): Save battery / Always live, Quiet hours, Good morning, Live for, Then standby for, the summary; the steps hide with Always live', () => {
     const { emu } = harness();
     const p = emu.state.screens.findIndex((s) => s.id === 'power');
     (emu as any).state = { ...emu.state, idx: p, sub: 0 };
     const ws = emu.renderVals().widgets;
-    expect(ws.map((w: any) => [w.label, w.value])).toEqual([['On battery', 'Glance'], ['Quiet hours', '23–07'], ['Good morning', 'On'], ['Check every', '15 min'], ['Live after a press', '3 min']]);
-    ws[0].inc(); expect(emu.renderVals().widgets[0].value).toBe('Standby');
-    emu.renderVals().widgets[0].inc(); expect(emu.renderVals().widgets[0].value).toBe('Always live');
+    expect(ws.map((w: any) => [w.label, w.value])).toEqual([['On battery', 'Save battery'], ['Quiet hours', '23–07'], ['Good morning', 'On'], ['Live for', '1 min'], ['Then standby for', '5 min']]);
+    expect(ws[0].sub).toBe('Live 1 min → standby 5 min → deep sleep until you press power.');   // ha-paper#37: default 5
     emu.renderVals().widgets[1].inc(); expect(emu.state.cfg.quiet).toBe('00-06');
     emu.renderVals().widgets[2].inc(); expect(emu.state.cfg.morning).toBe(false);
-    emu.renderVals().widgets[3].inc(); expect(emu.state.cfg.wakeEvery).toBe(30);
-    emu.renderVals().widgets[4].inc(); expect(emu.state.cfg.liveMin).toBe(5);
+    emu.renderVals().widgets[3].inc(); expect(emu.state.cfg.standbyAfter).toBe(3);
+    emu.renderVals().widgets[4].inc(); expect(emu.state.cfg.deepAfter).toBe(15);
+    expect(emu.renderVals().widgets[0].sub).toBe('Live 3 min → standby 15 min → deep sleep until you press power.');
+    for (let i = 0; i < 2; i++) emu.renderVals().widgets[4].dec();
+    expect(emu.renderVals().widgets[4].value).toBe('None'); expect(emu.state.cfg.deepAfter).toBe(-1);   // skip standby
+    expect(emu.renderVals().widgets[0].sub).toBe('Live 3 min → deep sleep until you press power.');
+    for (let i = 0; i < 5; i++) emu.renderVals().widgets[4].inc();
+    expect(emu.renderVals().widgets[4].value).toBe('Never'); expect(emu.state.cfg.deepAfter).toBe(0);
+    expect(emu.renderVals().widgets[0].sub).toBe('Live 3 min → then standby until you press a key.');
+    emu.renderVals().widgets[0].inc(); expect(emu.state.cfg.powerSave).toBe('off');
+    const off = emu.renderVals().widgets;
+    expect(off.map((w: any) => [w.label, w.value])).toEqual([['On battery', 'Always live'], ['Quiet hours', '00–06'], ['Good morning', 'Off']]);
+    expect(off[0].sub).toBe('');
+    off[0].dec(); expect(emu.renderVals().widgets).toHaveLength(5);
   });
-  it('standby + power saving → asleep with a 15-min timer; API unreachable; footer; timer wake → Connecting… → standby again', async () => {
-    const { emu, logs } = harness();
-    standbyOn(emu);
-    const full = emu.state.fullCount;
-    emu.powerTick();
-    expect(emu.state.asleep).toMatchObject({ wasStandby: true });
-    expect(emu.state.asleep!.wakeAt! - Date.now()).toBeGreaterThan(14 * 60_000);
-    expect(emu.state.fullCount).toBe(full + 1);
-    expect(emu.renderVals()).toMatchObject({ isSleeping: true, asleepLine: expect.stringMatching(/^Asleep · wakes \d\d:\d\d · press power$/) });
-    expect(emu.renderVals().statusLine).toMatch(/· asleep ·/);
-    await expect(emu.api.getState()).rejects.toThrow();
-    await expect(emu.api.putSettings({ display: { warmth: 50 } })).rejects.toThrow();
-    emu.nav(-1, 'BTN_PREV'); emu.home('KEY_HOME');
-    expect(emu.state.asleep).not.toBeNull();   // Left / Home don't wake
-    vi.setSystemTime(emu.state.asleep!.wakeAt!);
-    emu.powerTick();
-    expect(emu.state.asleep).toBeNull(); expect(emu.state.mode).toBe('boot'); expect(emu.state.bootMsg).toBe('Connecting…');
-    vi.advanceTimersByTime(1600);
-    expect(emu.state.mode).toBe('main'); expect(emu.state.sleeping).toBe(true);
-    expect(logs()).toContain('TIMER → wake from deep sleep (reset)');
-  });
-  it('never asleep with USB plugged, within 2 min of an API call, or with power saving off; Power key / USB wake it', async () => {
+  it('never asleep with USB plugged, within 2 min of an API call after the standby step, or with power saving off; Power key / USB wake it', async () => {
     const { emu } = harness();
-    standbyOn(emu);
+    pastStep(emu);
     emu.setUsb(true); emu.powerTick(); expect(emu.state.asleep).toBeNull();
     emu.setUsb(false);
     await emu.api.getSettings(); emu.powerTick(); expect(emu.state.asleep).toBeNull();   // recent API
     emu.lastApi = Date.now() - 120_000; emu.powerTick(); expect(emu.state.asleep).not.toBeNull();
-    emu.power(); expect(emu.state.asleep).toBeNull(); expect(emu.state.mode).toBe('boot');
-    vi.advanceTimersByTime(1600); expect(emu.state.sleeping).toBe(false);   // a key wake ends standby too
-    standbyOn(emu); emu.powerTick(); expect(emu.state.asleep).not.toBeNull();
+    emu.power(); expect(emu.state.asleep).toBeNull();
+    vi.advanceTimersByTime(1600); expect(emu.state.sleeping).toBe(false);
+    pastStep(emu); emu.powerTick(); expect(emu.state.asleep).not.toBeNull();
     emu.setUsb(true); expect(emu.state.asleep).toBeNull();   // the charger wakes it
     vi.advanceTimersByTime(1600);
     (emu as any).state = { ...emu.state, usb: false, cfg: { ...emu.state.cfg, powerSave: 'off' } };
-    standbyOn(emu); (emu as any).state = { ...emu.state, cfg: { ...emu.state.cfg, powerSave: 'off' } };
-    emu.powerTick(); expect(emu.state.asleep).toBeNull();
+    pastStep(emu); emu.powerTick(); expect(emu.state.asleep).toBeNull();
   });
 });
 
 describe('glance (eink-ha-os#10): deep sleep between timer wakes, redraw only on change', () => {
-  const idle = (emu: Emulator, min = 4) => { emu.lastInput = Date.now() - min * 60_000; };
+  const idle = (emu: Emulator, min = 17) => { emu.lastInput = Date.now() - min * 60_000; };   // past live (1 min) + standby (15 min)
   const same = (emu: Emulator) => { (emu as any).dataPatch = (s: EmuState) => ({ d: s.d, lastUpdate: new Date() }); };
-  it('default on battery: live for 3 min after input, then glance sleep: the sleep face, to the next transition (eink-ha-os#356)', () => {
+  it('default on battery: live for 1 min after input, then glance sleep: the sleep face, to the next transition (eink-ha-os#356)', () => {
     const { emu, logs } = harness();
     expect(emu.state.cfg.powerSave).toBe('glance');
-    idle(emu, 2); emu.powerTick(); expect(emu.state.asleep).toBeNull();   // live window
+    idle(emu, 0.5); emu.powerTick(); expect(emu.state.asleep).toBeNull();   // live window
     idle(emu); const full = emu.state.fullCount;
     emu.powerTick();
     expect(emu.state.asleep).toMatchObject({ glance: true });
@@ -578,7 +567,55 @@ describe('glance (eink-ha-os#10): deep sleep between timer wakes, redraw only on
     vi.advanceTimersByTime(1600);
     idle(emu, 5); emu.powerTick(); expect(emu.state.asleep).toBeNull();   // held: 10 min
     vi.advanceTimersByTime(7 * 60_000); emu.powerTick(); expect(emu.state.asleep).toBeNull();
-    vi.advanceTimersByTime(3 * 60_000); emu.powerTick(); expect(emu.state.asleep).toMatchObject({ glance: true });
+    vi.advanceTimersByTime(3 * 60_000); emu.powerTick(); expect(emu.state.asleep).toMatchObject({ glance: true });   // 15 min after the press: past live + standby (5 min)
+  });
+  it('ha-paper#37 standby step: after 1 min live the dashboard stays as drawn (no refresh, no HA updates, no clock), Wi-Fi and the API stay up, light off; any key or touch goes live at once; 15 min more → deep sleep', async () => {
+    const { emu, logs } = harness();
+    expect(emu.state.cfg).toMatchObject({ standbyAfter: 1, deepAfter: 5 });
+    idle(emu, 1.5); const full = emu.state.fullCount, part = emu.state.partialCount, at = emu.state.lastUpdate;
+    emu.powerTick();
+    expect(emu.state.standbyStep).toBe(true); expect(emu.state.asleep).toBeNull();
+    expect(emu.state.fullCount).toBe(full); expect(emu.state.partialCount).toBe(part);
+    expect(emu.renderVals().isGlanceFace).toBe(false); expect(emu.renderVals().lightOpacity).toBe(0);
+    expect(emu.renderVals().statusLine).toMatch(/· standby step ·/);
+    expect(logs().some((l) => l.startsWith('POWER standby · dashboard kept, no updates'))).toBe(true);
+    emu.tick(false); expect(emu.state.lastUpdate).toBe(at);   // no HA updates
+    await emu.api.getState();   // Wi-Fi on: the API answers, and a request does not end the step
+    emu.powerTick(); expect(emu.state.standbyStep).toBe(true);
+    // Left (not a deep-sleep wake key) ends it: live, same page, input consumed, HA back
+    const idx = emu.state.idx;
+    emu.nav(-1, 'BTN_PREV');
+    expect(emu.state.standbyStep).toBe(false); expect(emu.state.idx).toBe(idx); expect(emu.state.mode).toBe('main');
+    expect(emu.state.lastUpdate).not.toBe(at);
+    expect(logs().some((l) => l.startsWith('BTN_PREV → standby over · live'))).toBe(true);
+    // a touch ends it too
+    idle(emu, 1.5); emu.powerTick(); expect(emu.state.standbyStep).toBe(true);
+    (emu.renderVals() as any).ambientDown({ stopPropagation() {} }); expect(emu.state.standbyStep).toBe(false);
+    // Power ends it without toggling the standby face
+    idle(emu, 1.5); emu.powerTick(); emu.power(); expect(emu.state.standbyStep).toBe(false); expect(emu.state.sleeping).toBe(false);
+    // the step runs out: deep sleep with the glance face
+    idle(emu, 1.5); emu.powerTick(); expect(emu.state.standbyStep).toBe(true);
+    idle(emu, 16.5); const f2 = emu.state.fullCount; emu.powerTick();
+    expect(emu.state.standbyStep).toBe(false); expect(emu.state.asleep).toMatchObject({ glance: true });
+    expect(emu.state.fullCount).toBe(f2 + 1); expect(emu.renderVals().isGlanceFace).toBe(true);
+    expect(logs().some((l) => l.startsWith('POWER standby over (glance)'))).toBe(true);
+    // a timer wake from deep sleep has no press: straight back to deep sleep, never the standby step
+    (emu as any).dataPatch = (st: EmuState) => ({ d: st.d, lastUpdate: new Date() });
+    vi.setSystemTime(emu.state.asleep!.wakeAt!); emu.rtc = { ...emu.rtc, drawnAt: Date.now() }; emu.powerTick();
+    expect(emu.state.asleep).toMatchObject({ glance: true }); expect(emu.state.standbyStep).toBe(false);
+  });
+  it('ha-paper#37: deepAfter never keeps the standby step, none skips it; quiet hours win (deep sleep)', () => {
+    const { emu } = harness();
+    (emu as any).state = { ...emu.state, cfg: { ...emu.state.cfg, deepAfter: 0, quiet: 'off' } };
+    idle(emu, 600); emu.powerTick();
+    expect(emu.state.standbyStep).toBe(true); expect(emu.state.asleep).toBeNull();
+    const { emu: e0 } = harness();   // none (-1): live, then straight to deep sleep, never the step
+    (e0 as any).state = { ...e0.state, cfg: { ...e0.state.cfg, deepAfter: -1 } };
+    idle(e0, 1.5); e0.powerTick();
+    expect(e0.state.standbyStep).toBe(false); expect(e0.state.asleep).toMatchObject({ glance: true });
+    const { emu: e2 } = harness({ simHour: 2 } as Partial<EmuState>);
+    idle(e2, 1.5); e2.powerTick();
+    expect(e2.state.asleep).not.toBeNull(); expect(e2.state.standbyStep).toBe(false);
   });
   it('first-boot safety and guards: not armed, USB, unconfirmed OTA → never asleep', () => {
     const { emu } = harness();
@@ -615,7 +652,7 @@ describe('front light after a timer wake (eink-ha-os#357)', () => {
 });
 
 describe('empty-house sleep (eink-ha-os#331): 2 h glance and the Nobody home face while nobody is home', () => {
-  const idle = (emu: Emulator, min = 4) => { emu.lastInput = Date.now() - min * 60_000; };
+  const idle = (emu: Emulator, min = 17) => { emu.lastInput = Date.now() - min * 60_000; };   // past live (1 min) + standby (15 min)
   const set = (emu: Emulator, p: Partial<EmuState>) => { (emu as any).state = { ...emu.state, ...p }; };
   const home = (emu: Emulator, n: string) => set(emu, { ent: { ...emu.state.ent, 'zone.home': n } });
   const on = (emu: Emulator, hour = 12) => set(emu, { simHour: hour, cfg: { ...emu.state.cfg, emptyHouse: 'zone.home', quiet: '23-07' } });

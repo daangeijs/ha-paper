@@ -18,6 +18,10 @@ const std::vector<EntityDef>& entities();
 const EntityDef* findEntity(const std::string& id);
 const std::vector<SettingDef>& settingDefs();
 const SettingDef* findSetting(const std::string& key);
+// ha-paper#37 (emulator core/settings.ts powerStepsShown / powerSummary): Live for / Then standby for only with Save battery
+// (glance); the line under it, "Live 1 min → standby 15 min → deep sleep until you press power." (deepAfter 0 = never, -1 = none)
+bool powerStepsShown(const std::string& powerSave);
+std::string powerSummary(Lang l, int standbyAfter, int deepAfter);
 bool isWidgetType(const std::string& t);
 // Local widgets (stay real when Home Assistant was never linked).
 bool isLocalWidget(const std::string& t);

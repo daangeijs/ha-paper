@@ -5,7 +5,7 @@ import { PALETTE, PAL_GROUPS, ENDPOINTS, HOST, type HaEntity } from '../core/dat
 import { barsFor, entityGap, hm, type EntityGap } from '../core/format.ts';
 import { reportLine, type ReportStatus } from '../core/haReport.ts';
 import { toYaml, parseYaml, wLabel, cellsUsed, gridLayout, listOf, MAX_CELLS, MAX_APPS, MAX_USER_APPS, userConfig, BARS_SERIES, ENTITY_DOMAINS, GAUGE_DEFAULT_ENTITY, LIST_PICKS, ROUTE_MODES, type Config, type Screen, type Widget } from '../core/config.ts';
-import { settingsPages, type DeviceSettings, type SettingField, type SettingsPatch } from '../core/settings.ts';
+import { settingsPages, powerStepsShown, powerSummary, POWER_STEP_KEYS, type DeviceSettings, type SettingField, type SettingsPatch } from '../core/settings.ts';
 import { DEFAULT_EMPTY_SOURCE, validEmptySource } from '../core/emptyHouse.ts';
 import { fmtUptime, type Diagnostics } from '../core/diag.ts';
 import { armLine } from '../core/glance.ts';
@@ -613,7 +613,10 @@ export function useConsole(api: DeviceApi, initial: DeviceSnapshot | null = null
     devLines: S ? [{ k: t('firmware'), v: 'v' + S.firmware }, { k: t('kvIp'), v: S.ip || '—' }, { k: t('battery'), v: S.battery + '%' }, { k: t('tabScreens'), v: String(S.screens.length) }] : [],
     settingsReady: !!W.settings,
     // Settings (eink-ha-os#159): the device's fixed Settings pages, field for field
-    settingsGroups: W.settings ? settingsPages().map((p) => ({ id: p.id, title: t(p.title), fields: p.fields.map((f) => {
+    // ha-paper#37: Live for / Then standby for and the summary line only with Save battery
+    settingsGroups: W.settings ? settingsPages().map((p) => ({ id: p.id, title: t(p.title),
+      summary: p.id === 'power' && powerStepsShown(W.settings!.display.powerSave) ? powerSummary(lang, W.settings!.display.standbyAfter ?? 1, W.settings!.display.deepAfter ?? 15) : '',
+      fields: p.fields.filter((f) => !(POWER_STEP_KEYS.includes(f.key) && !powerStepsShown(W.settings!.display.powerSave))).map((f) => {
       const st = W.settings as Record<string, unknown> & DeviceSettings;
       const curV = f.top ? st[f.key] : (st.display as Record<string, unknown>)[f.key];
       // tz (eink-ha-os#147): "From Home Assistant · Europe/Amsterdam"; a POSIX string set over the API is offered as itself

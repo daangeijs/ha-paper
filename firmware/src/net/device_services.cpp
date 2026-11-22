@@ -319,6 +319,7 @@ void DeviceServices::pump(App& app, Board& board) {
     h.lastFullEpoch = t > 1700000000 ? int64_t(t) : 0;
   }
   if (restart) {
+    forgetAccessToken();   // #19: only a deep sleep keeps it (reboot, OTA, factory reset start over)
     LOG_WRN("NET", "restarting");
     delay(300);
     board.restart();
@@ -486,6 +487,7 @@ void DeviceServices::unlinkHa() {
   auth().endAllSessions();
   hub().post([link] {
     haClient().stop();
+    haClient().forgetToken();
     if (link.kind == "oauth" && !link.secret.empty()) HaAuth::revoke(link.url, link.secret);
   });
   LOG_WRN("HA", "unlinked · key deleted from the display");

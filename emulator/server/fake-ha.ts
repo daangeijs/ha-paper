@@ -17,7 +17,7 @@
 //                              · POST tls {mode: ok|hang|slow|reset, delay_s} (new https connections: handshake as normal,
 //                                never answered, answered after delay_s, or TCP reset on the ClientHello; eink-ha-os#87)
 //                              · POST tls-reset (TCP reset on every open https connection, WebSockets included)
-//                              · GET state: entities, refresh_tokens, connections, sessions (WebSocket auth_ok so far), users
+//                              · GET state: entities, refresh_tokens, refresh_grants (access tokens from a refresh token, #19), connections, sessions (WebSocket auth_ok so far), users
 //                              · GET entities: every entity_id (eink-ha-os#82: seeded tiles must name one of them)
 //                              · POST price-sensor {entity_id?, days?} (a Frank Energie-shaped price sensor: `prices` =
 //                                days × 96 quarter-hours {from,till,price} from local midnight, `prices_today` = today's 96, eink-ha-os#149)
@@ -257,6 +257,7 @@ export class FakeHa {
   users = new Map<string, User>();
   codes = new Map<string, Code>();
   refresh = new Map<string, { user: User; clientId: string }>();
+  refreshGrants = 0;   // grant_type=refresh_token answered (#19: a glance wake with a kept access token asks none)
   access = new Map<string, { user: User; exp: number }>();
   conns = new Set<{ ws: WsConn; user: User | null; subs: Map<number, string[] | null | 'events'> }>();
   /** Every service call, newest last (for tests / the simulator log). */
@@ -530,6 +531,7 @@ export class FakeHa {
         const r = this.refresh.get(p.get('refresh_token') || '');
         if (!r) return bad('invalid_grant', 'Invalid refresh token');
         if (r.clientId !== p.get('client_id')) return bad('invalid_request', 'Invalid client id');
+        this.refreshGrants++;
         return send(200, this.issueAccess(r.user));
       }
       return bad('unsupported_grant_type', 'Unsupported grant type');
@@ -613,7 +615,7 @@ export class FakeHa {
       }
       if (u.pathname === '/__fake/tls-reset' && req.method === 'POST') return send(200, { reset: this.resetTls() });
       if (u.pathname === '/__fake/drop-ws' && req.method === 'POST') { const n = this.conns.size; this.dropWs(); return send(200, { dropped: n }); }
-      if (u.pathname === '/__fake/state' && req.method === 'GET') return send(200, { house: this.house, entities: this.states.size, refresh_tokens: this.refresh.size, connections: this.conns.size, sessions: this.sessions, users: [...this.users.keys()], tls: { ...this.tlsFault, accepted: this.tlsAccepted, open: this.tlsSockets.size } });
+      if (u.pathname === '/__fake/state' && req.method === 'GET') return send(200, { house: this.house, entities: this.states.size, refresh_tokens: this.refresh.size, refresh_grants: this.refreshGrants, connections: this.conns.size, sessions: this.sessions, users: [...this.users.keys()], tls: { ...this.tlsFault, accepted: this.tlsAccepted, open: this.tlsSockets.size } });
       return send(404, { message: 'Not found' });
     }
     if (u.pathname === '/' || u.pathname === '/manifest.json') return send(200, page('Fake Home Assistant', '<p>This is the device simulator\'s fake Home Assistant. ' + this.states.size + ' entities, ' + this.refresh.size + ' refresh tokens.</p>'), 'text/html; charset=utf-8');

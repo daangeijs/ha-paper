@@ -4,7 +4,7 @@ import { SETTINGS } from './data.ts';
 import { tr, type Lang, type StrKey } from './strings.ts';
 import { CLEAN_EVERY, DEFAULT_CLEAN_EVERY } from './refresh.ts';
 import { POWER_SAVES, WAKE_EVERY, type PowerSave } from './power.ts';
-import { DEFAULT_LIVE_MIN, LIVE_MIN } from './glance.ts';
+import { DEEP_AFTER, DEFAULT_DEEP_AFTER, DEFAULT_LIVE_MIN, DEFAULT_STANDBY_AFTER, LIVE_MIN, STANDBY_AFTER } from './glance.ts';
 import { settingsScreens } from './config.ts';
 import { TZ_ZONES, validTzSetting } from './locale.ts';
 import { DEFAULT_LIGHT_TIMEOUT, LIGHT_TIMEOUTS } from './frontlight.ts';
@@ -29,6 +29,10 @@ export type DisplaySettings = { brightness: number; warmth: number; quiet: strin
   /** Power saving (eink-ha-os#10): `glance` by default (eink-ha-os#18) — on battery it deep-sleeps between wakes; on USB it is always live.
    *  New keys with defaults (migrate.ts rules): a firmware without them ignores them. */
   powerSave: PowerSave; wakeEvery: number; liveMin: number;
+  /** Glance (ha-paper#32, #37): minutes live after a key press ("Live for"), then the standby step (dashboard unchanged,
+   *  Wi-Fi on, no HA updates) for `deepAfter` minutes ("Then standby for", 0 = never, -1 = none), then deep sleep. liveMin and
+   *  wakeEvery stay for a rollback, no effect. Missing = 1 / 5. */
+  standbyAfter?: number; deepAfter?: number;
   /** Empty-house sleep (eink-ha-os#331, core/emptyHouse.ts): '' = off, else the presence entity. Missing = off. */
   emptyHouse?: string;
   /** Front light off after this many seconds without input, 0 = never (eink-ha-os#220). Missing = DEFAULT_LIGHT_TIMEOUT. */
@@ -51,21 +55,22 @@ export type OtaChannel = 'stable' | 'beta';
 export type DisplayCfg = { brightness: number; warmth: number; lightTimeout: number; quiet: string; fullEvery: number; cleanEvery: number; interval: number; returnHome: number; standby: number; clock: string;
   style: DisplayStyle; typeface: Typeface; surface: Surface; haReport: boolean; morning: boolean } & PowerCfg;
 /** Power saving (Settings › Power, eink-ha-os#10). On the wire in `display`. */
-export type PowerCfg = { powerSave: PowerSave; wakeEvery: number; liveMin: number; emptyHouse: string };
-export const DEFAULT_POWER: PowerCfg = { powerSave: 'glance', wakeEvery: 15, liveMin: DEFAULT_LIVE_MIN, emptyHouse: '' };
+export type PowerCfg = { powerSave: PowerSave; wakeEvery: number; liveMin: number; standbyAfter: number; deepAfter: number; emptyHouse: string };
+export const DEFAULT_POWER: PowerCfg = { powerSave: 'glance', wakeEvery: 15, liveMin: DEFAULT_LIVE_MIN, standbyAfter: DEFAULT_STANDBY_AFTER, deepAfter: DEFAULT_DEEP_AFTER, emptyHouse: '' };
 export type Cfg = DisplayCfg;
 
 export const cfgToDisplay = (c: DisplayCfg): DisplaySettings => ({
   brightness: c.brightness, warmth: c.warmth, lightTimeout: c.lightTimeout, quiet: c.quiet, returnHome: c.returnHome ? String(c.returnHome) : 'never',
   standby: c.standby ? String(c.standby) : 'never', clock: c.clock, intervalSec: c.interval, fullEvery: c.fullEvery, cleanEvery: c.cleanEvery,
   style: c.style, typeface: c.typeface, surface: c.surface, haReport: c.haReport,
-  powerSave: c.powerSave, wakeEvery: c.wakeEvery, liveMin: c.liveMin, emptyHouse: c.emptyHouse, morning: c.morning,
+  powerSave: c.powerSave, wakeEvery: c.wakeEvery, liveMin: c.liveMin, standbyAfter: c.standbyAfter, deepAfter: c.deepAfter, emptyHouse: c.emptyHouse, morning: c.morning,
 });
 export const displayToCfg = (d: DisplaySettings): DisplayCfg => ({
   brightness: d.brightness, warmth: d.warmth, lightTimeout: d.lightTimeout ?? DEFAULT_LIGHT_TIMEOUT, quiet: d.quiet ?? DEFAULT_QUIET, returnHome: d.returnHome === 'never' ? 0 : Number(d.returnHome),
   standby: d.standby === 'never' ? 0 : Number(d.standby), clock: d.clock, interval: d.intervalSec, fullEvery: d.fullEvery, cleanEvery: d.cleanEvery ?? DEFAULT_CLEAN_EVERY,
   style: d.style, typeface: d.typeface, surface: d.surface, haReport: d.haReport ?? true,
   powerSave: d.powerSave ?? DEFAULT_POWER.powerSave, wakeEvery: d.wakeEvery ?? DEFAULT_POWER.wakeEvery, liveMin: d.liveMin ?? DEFAULT_POWER.liveMin, morning: d.morning ?? true,
+  standbyAfter: d.standbyAfter ?? DEFAULT_POWER.standbyAfter, deepAfter: d.deepAfter ?? DEFAULT_POWER.deepAfter,
   emptyHouse: d.emptyHouse ?? DEFAULT_POWER.emptyHouse,
 });
 
@@ -77,7 +82,6 @@ export const DISPLAY_FIELDS: { key: keyof DisplaySettings; label: StrKey; info?:
   { key: 'warmth', label: SETTINGS.warmth.lk, values: range(0, 100, 10), fmt: (v, lg) => SETTINGS.warmth.fmt(v, lg) },
   { key: 'lightTimeout', label: SETTINGS.lightTimeout.lk, info: SETTINGS.lightTimeout.info, values: LIGHT_TIMEOUTS, fmt: (v, lg) => SETTINGS.lightTimeout.fmt(v, lg) },
   { key: 'returnHome', label: SETTINGS.returnHome.lk, values: ['never', '1', '5', '15'], fmt: (v, lg) => SETTINGS.returnHome.fmt(v === 'never' ? 0 : Number(v), lg) },
-  { key: 'standby', label: SETTINGS.standby.lk, info: SETTINGS.standby.info, values: ['never', '10', '30', '60'], fmt: (v, lg) => SETTINGS.standby.fmt(v === 'never' ? 0 : Number(v), lg) },
   { key: 'clock', label: SETTINGS.clock.lk, values: ['24', '12'], fmt: (v, lg) => SETTINGS.clock.fmt(v, lg) },
   { key: 'intervalSec', label: SETTINGS.interval.lk, info: SETTINGS.interval.info, values: [5, 10, 30, 60], fmt: (v, lg) => SETTINGS.interval.fmt(v, lg) },
   { key: 'cleanEvery', label: SETTINGS.cleanEvery.lk, info: SETTINGS.cleanEvery.info, values: [...CLEAN_EVERY], fmt: (v, lg) => SETTINGS.cleanEvery.fmt(v, lg) },
@@ -85,11 +89,11 @@ export const DISPLAY_FIELDS: { key: keyof DisplaySettings; label: StrKey; info?:
   { key: 'typeface', label: SETTINGS.typeface.lk, values: TYPEFACES, fmt: (v, lg) => SETTINGS.typeface.fmt(v, lg) },
   { key: 'surface', label: SETTINGS.surface.lk, values: SURFACES, fmt: (v, lg) => SETTINGS.surface.fmt(v, lg) },
   { key: 'haReport', label: 'setHaReport', info: 'infoHaReport', values: [true, false], fmt: (v, lg) => tr(lg, v ? 'on' : 'off') },
-  { key: 'powerSave', label: SETTINGS.powerSave.lk, info: SETTINGS.powerSave.info, values: POWER_SAVES, fmt: (v, lg) => SETTINGS.powerSave.fmt(v, lg) },
+  { key: 'powerSave', label: SETTINGS.powerSave.lk, info: SETTINGS.powerSave.info, values: POWER_SAVES, fmt: (v, lg) => (v === 'glance' ? tr(lg, 'psGlanceRec') : SETTINGS.powerSave.fmt(v, lg)) },
   { key: 'quiet', label: SETTINGS.quiet.lk, info: SETTINGS.quiet.info, values: QUIET_STEPS, fmt: (v, lg) => SETTINGS.quiet.fmt(v, lg) },
   { key: 'morning', label: SETTINGS.morning.lk, info: SETTINGS.morning.info, values: [true, false], fmt: (v, lg) => SETTINGS.morning.fmt(v, lg) },
-  { key: 'wakeEvery', label: SETTINGS.wakeEvery.lk, info: SETTINGS.wakeEvery.info, values: WAKE_EVERY, fmt: (v, lg) => SETTINGS.wakeEvery.fmt(v, lg) },
-  { key: 'liveMin', label: SETTINGS.liveMin.lk, info: SETTINGS.liveMin.info, values: LIVE_MIN, fmt: (v, lg) => SETTINGS.liveMin.fmt(v, lg) },
+  { key: 'standbyAfter', label: SETTINGS.standbyAfter.lk, info: SETTINGS.standbyAfter.info, values: STANDBY_AFTER, fmt: (v, lg) => SETTINGS.standbyAfter.fmt(v, lg) },
+  { key: 'deepAfter', label: SETTINGS.deepAfter.lk, info: SETTINGS.deepAfter.info, values: DEEP_AFTER, fmt: (v, lg) => (v === -1 ? tr(lg, 'deepNoneLong') : SETTINGS.deepAfter.fmt(v, lg)) },
 ];
 
 /** A setting the browser's Settings page edits (eink-ha-os#159): `display.<key>`, or a top-level key when `top`. */
@@ -105,8 +109,18 @@ export const TZ_FIELD: SettingField = { key: 'tz', top: true, label: 'timeZone',
 /** Settings › Power in the browser only (eink-ha-os#331): the presence source. Values: off and the default source; the console
  *  adds HA's zone / on-off entities and the current value. */
 export const EMPTY_FIELD: SettingField = { key: 'emptyHouse', label: 'setEmptyHouse', info: 'infoEmptyHouse', values: ['', DEFAULT_EMPTY_SOURCE], fmt: (v, lg) => (v === '' ? tr(lg, 'off') : String(v)) };
-/** Console-only fields appended to a page (no tile: the device's Power page is full). */
+/** Console-only fields appended to a page (no tile: the device's Power page is full). Check every left with the Standby
+ *  mode (ha-paper#37). */
 const EXTRA_FIELDS: Record<string, SettingField[]> = { power: [EMPTY_FIELD] };
+/** ha-paper#37: Live for / Then standby for only matter with Save battery; the device page and the console hide them with
+ *  Always live. */
+export const POWER_STEP_KEYS = ['standbyAfter', 'deepAfter'];
+export const powerStepsShown = (powerSave: string): boolean => powerSave === 'glance';
+/** ha-paper#37: the line under Save battery: "Live 1 min → standby 15 min → deep sleep until you press power." */
+export function powerSummary(lang: Lang, standbyAfter: number, deepAfter: number): string {
+  if (deepAfter === -1) return tr(lang, 'powerSummaryNone', standbyAfter);
+  return deepAfter === 0 ? tr(lang, 'powerSummaryNever', standbyAfter) : tr(lang, 'powerSummary', standbyAfter, deepAfter + ' min');
+}
 const PAGE_TITLE: Record<string, StrKey> = { display: 'display', style: 'menuStyle', power: 'menuPower', updates: 'menuUpdates', ha: 'menuHa' };
 const WIRE_KEY: Record<string, string> = { interval: 'intervalSec' };
 /** Fields behind a fixed system tile; haReport and tz have no tile on the device, they sit with Home Assistant. */
@@ -143,9 +157,11 @@ export function displayError(d: DisplaySettings): string | null {
   if (!(TYPEFACES as unknown[]).includes(d.typeface)) return 'typeface must be archivo, bricolage, fraunces or geist';
   if (!(SURFACES as unknown[]).includes(d.surface)) return 'surface must be dither or dots';
   if (typeof d.haReport !== 'boolean') return 'display.haReport must be true or false';
-  if (!(POWER_SAVES as unknown[]).includes(d.powerSave)) return 'display.powerSave must be off, standby or glance';
+  if (!(POWER_SAVES as unknown[]).includes(d.powerSave)) return 'display.powerSave must be off or glance';
   if (!WAKE_EVERY.includes(d.wakeEvery)) return 'display.wakeEvery must be 15, 30 or 60';
   if (!LIVE_MIN.includes(d.liveMin)) return 'display.liveMin must be 1, 3, 5 or 10';
+  if (d.standbyAfter !== undefined && !STANDBY_AFTER.includes(d.standbyAfter)) return 'display.standbyAfter must be 1, 3 or 5';
+  if (d.deepAfter !== undefined && !DEEP_AFTER.includes(d.deepAfter)) return 'display.deepAfter must be -1, 0, 5, 15, 30 or 60';
   if (d.emptyHouse !== undefined && !validEmptySource(d.emptyHouse)) return EMPTY_HOUSE_ERROR;
   // Firmware-only key (Settings › Updates); the simulators accept it so a firmware GET round-trips.
   const otaAuto = (d as { otaAuto?: unknown }).otaAuto;
@@ -159,7 +175,7 @@ export const nameError = (name: unknown): string | null => (typeof name !== 'str
 /** PUT /settings key tables (eink-ha-os#43). A new setting = one row here and one in firmware core/settings_api.cpp. */
 export const SETTINGS_KEYS = ['display', 'ota_channel', 'tz', 'name', 'entities'] as const;
 export const DISPLAY_KEYS = ['brightness', 'warmth', 'lightTimeout', 'quiet', 'returnHome', 'standby', 'clock', 'intervalSec', 'fullEvery', 'cleanEvery', 'otaAuto',
-  'style', 'typeface', 'surface', 'haReport', 'powerSave', 'wakeEvery', 'liveMin', 'emptyHouse', 'debugInput', 'morning'] as const;
+  'style', 'typeface', 'surface', 'haReport', 'powerSave', 'wakeEvery', 'liveMin', 'emptyHouse', 'debugInput', 'morning', 'standbyAfter', 'deepAfter'] as const;
 /** Shared with firmware net/storage.cpp (without the "display." prefix there). */
 export const EMPTY_HOUSE_ERROR = 'display.emptyHouse must be "" or a zone, binary_sensor, input_boolean or group entity id';
 export const TZ_ERROR = 'tz must be "", a known zone like Europe/Amsterdam or a POSIX TZ string like CET-1CEST,M3.5.0,M10.5.0/3';

@@ -1,0 +1,250 @@
+{
+  "name": "11-standby-step",
+  "description": "Standby step (ha-paper#32, reworked in ha-paper#37): after live mode (standbyAfter minutes after a press, \"Live for\") glance stays awake while standbyLeftS > 0 (\"Then standby for\", core glancePhase, standby-step.json): standby = true, the dashboard stays on the panel unchanged, the HA WebSocket is closed, Wi-Fi stays associated (modem sleep), API and web console reachable; any key or touch goes live at once. No deep sleep and no timer in the step: the device decides again on every check. The step wins over a recent API request (the console does not wake HA); setup, the 03:00 install window and quiet hours (deep sleep) win over it; deepAfter never = standbyLeftS 8 h each time. When the step ends: deep sleep (glance) as before.",
+  "base": {
+    "nowEpoch": 1800000000,
+    "localSec": 43200,
+    "powerSave": "glance",
+    "quiet": "23-07",
+    "peeking": false,
+    "charging": false,
+    "usb": false,
+    "chargedAgoMin": null,
+    "voltage": 3.9,
+    "battery": 60,
+    "otaPendingVerify": false,
+    "otaBusy": false,
+    "otaAuto": "notify",
+    "otaDue": false,
+    "setup": false,
+    "msSinceApi": null,
+    "live": false,
+    "glanceFails": 0,
+    "armBootsLeft": 0,
+    "standbyLeftS": 900
+  },
+  "cases": [
+    {
+      "name": "live (a press within standbyAfter): awake, not the step",
+      "input": {
+        "live": true,
+        "standbyLeftS": 0
+      },
+      "expect": {
+        "deepSleepNow": false,
+        "standby": false,
+        "reason": "live"
+      }
+    },
+    {
+      "name": "standby step at 12:00, 15 min left: awake, Wi-Fi on (modem sleep), no HA updates",
+      "input": {},
+      "expect": {
+        "deepSleepNow": false,
+        "wakeAtEpoch": null,
+        "standby": true,
+        "reason": "standby",
+        "buttonWakeOnly": false,
+        "cpuProfile": "auto",
+        "wifiPs": "min",
+        "external": false
+      }
+    },
+    {
+      "name": "22:50, quiet 23-07: still the step until quiet hours start",
+      "input": {
+        "localSec": 82200
+      },
+      "expect": {
+        "deepSleepNow": false,
+        "wakeAtEpoch": null,
+        "standby": true,
+        "reason": "standby",
+        "buttonWakeOnly": false,
+        "cpuProfile": "auto",
+        "wifiPs": "min",
+        "external": false
+      }
+    },
+    {
+      "name": "23:58, quiet off: midnight does not end the step",
+      "input": {
+        "localSec": 86280,
+        "quiet": "off"
+      },
+      "expect": {
+        "deepSleepNow": false,
+        "standby": true,
+        "reason": "standby"
+      }
+    },
+    {
+      "name": "deepAfter never (standbyLeftS = 8 h), quiet off: the step",
+      "input": {
+        "standbyLeftS": 28800,
+        "quiet": "off"
+      },
+      "expect": {
+        "deepSleepNow": false,
+        "standby": true,
+        "reason": "standby"
+      }
+    },
+    {
+      "name": "02:55, quiet off, auto install due: the step until 03:00",
+      "input": {
+        "localSec": 10500,
+        "quiet": "off",
+        "otaDue": true,
+        "otaAuto": "night"
+      },
+      "expect": {
+        "deepSleepNow": false,
+        "standby": true,
+        "reason": "standby"
+      }
+    },
+    {
+      "name": "03:10, install due: the OTA window wins",
+      "input": {
+        "localSec": 11400,
+        "quiet": "off",
+        "otaDue": true,
+        "otaAuto": "night"
+      },
+      "expect": {
+        "deepSleepNow": false,
+        "standby": false,
+        "reason": "ota window"
+      }
+    },
+    {
+      "name": "quiet hours (02:00, 23-07) win: deep sleep to 07:00",
+      "input": {
+        "localSec": 7200
+      },
+      "expect": {
+        "deepSleepNow": true,
+        "wakeAtEpoch": 1800018000,
+        "standby": false,
+        "reason": "quiet"
+      }
+    },
+    {
+      "name": "peeking at 02:00 inside the step: the step (the peek lifts quiet hours)",
+      "input": {
+        "localSec": 7200,
+        "peeking": true
+      },
+      "expect": {
+        "deepSleepNow": false,
+        "standby": true,
+        "reason": "standby"
+      }
+    },
+    {
+      "name": "step over (standbyLeftS 0): deep sleep with the glance face",
+      "input": {
+        "standbyLeftS": 0
+      },
+      "expect": {
+        "deepSleepNow": true,
+        "wakeAtEpoch": 1800028800,
+        "standby": false,
+        "reason": "glance"
+      }
+    },
+    {
+      "name": "nobody home: the press still gets its standby step",
+      "input": {
+        "emptyHouse": true
+      },
+      "expect": {
+        "deepSleepNow": false,
+        "standby": true,
+        "reason": "standby"
+      }
+    },
+    {
+      "name": "recent API request in the step: still the step (console reachable, HA stays paused)",
+      "input": {
+        "msSinceApi": 30000
+      },
+      "expect": {
+        "deepSleepNow": false,
+        "standby": true,
+        "reason": "standby"
+      }
+    },
+    {
+      "name": "recent API request after the step: awake, no deep sleep",
+      "input": {
+        "msSinceApi": 30000,
+        "standbyLeftS": 0
+      },
+      "expect": {
+        "deepSleepNow": false,
+        "standby": false,
+        "reason": "recent api"
+      }
+    },
+    {
+      "name": "on USB: always live",
+      "input": {
+        "usb": true
+      },
+      "expect": {
+        "deepSleepNow": false,
+        "standby": false,
+        "reason": "external power",
+        "external": true
+      }
+    },
+    {
+      "name": "low battery: deep sleep, keys or charger only",
+      "input": {
+        "battery": 3
+      },
+      "expect": {
+        "deepSleepNow": true,
+        "wakeAtEpoch": null,
+        "standby": false,
+        "buttonWakeOnly": true,
+        "reason": "low battery"
+      }
+    },
+    {
+      "name": "not armed (first-boot safety): awake",
+      "input": {
+        "armBootsLeft": 2
+      },
+      "expect": {
+        "deepSleepNow": false,
+        "standby": false,
+        "reason": "not armed"
+      }
+    },
+    {
+      "name": "setup mode: not the step",
+      "input": {
+        "setup": true
+      },
+      "expect": {
+        "deepSleepNow": false,
+        "standby": false,
+        "reason": "setup mode"
+      }
+    },
+    {
+      "name": "Always live (powerSave off): no step",
+      "input": {
+        "powerSave": "off"
+      },
+      "expect": {
+        "deepSleepNow": false,
+        "standby": false,
+        "reason": "power save off"
+      }
+    }
+  ]
+}

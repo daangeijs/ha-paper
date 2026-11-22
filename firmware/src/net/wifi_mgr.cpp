@@ -171,7 +171,7 @@ void WifiMgr::begin() {
   if (have) {
     WiFi.mode(WIFI_STA);
     WiFi.setAutoReconnect(true);
-    beginFast(c);
+    beginFast(c, powerWake() == WakeKind::Timer);
     std::lock_guard<std::recursive_mutex> l(hub().mu);
     hub().status.wifi = WifiState::Connecting;
     hub().status.ssid = c.ssid;
@@ -765,12 +765,12 @@ void WifiMgr::checkInbound(bool up) {
 
 // After a deep-sleep timer wake (eink-ha-os#10): join with the BSSID/channel from RTC memory (no scan) and, while the lease is
 // younger than an hour, the cached IP (no DHCP). Falls back to a normal join after kFastMs (core/glance wifiFast).
-void WifiMgr::beginFast(const WifiCreds& c) {
+void WifiMgr::beginFast(const WifiCreds& c, bool cached) {
   const char* pw = c.password.empty() ? nullptr : c.password.c_str();
   glance::WifiCache w{};
-  if (powerWake() == WakeKind::Timer) powerWifiCache([&](glance::WifiCache& r) { w = r; });
+  if (cached) powerWifiCache([&](glance::WifiCache& r) { w = r; });
   const time_t t = time(nullptr);   // kept across deep sleep by the RTC timer
-  fast_ = powerWake() == WakeKind::Timer ? glance::wifiFast(w, glance::fnv1a(c.ssid), t > 1700000000 ? int64_t(t) : 0) : glance::WifiFast::None;
+  fast_ = cached ? glance::wifiFast(w, glance::fnv1a(c.ssid), t > 1700000000 ? int64_t(t) : 0) : glance::WifiFast::None;
   if (fast_ == glance::WifiFast::None) {
     staBegin(c.ssid.c_str(), pw);
     return;

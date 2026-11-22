@@ -27,6 +27,7 @@ export function DeviceTab({ v }: { v: ConsoleView }) {
                     </select>
                   </div>
                   {!!f.info && f.infoOpen && (<div id={'x4-info-' + f.key} style={{ margin: "4px 0 6px", padding: "10px 12px", borderRadius: "8px", background: "#F6F5F2", fontSize: "13px", lineHeight: "1.5", color: "#3d3c39" }}>{f.info}</div>)}
+                  {f.key === 'deepAfter' && !!g.summary && (<div style={{ padding: "2px 0 4px", fontSize: "13px", lineHeight: "1.45", color: "#5c5a55" }}>{g.summary}</div>)}
                 </div>))}
             </Fragment>))}
             {!!(v.web.hasSettingsMsg) && (<div style={{ fontSize: "13px", color: v.web.settingsMsgColor, marginTop: "6px" }}>{v.web.settingsMsg}</div>)}

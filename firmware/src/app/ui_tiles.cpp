@@ -788,11 +788,20 @@ std::string settingValue(const I& a, const std::string& key) {
   if (key == "style") return a.t(s.style == "sleek" ? S::styleSleek : S::styleClassic);
   if (key == "typeface") return s.typeface == "bricolage" ? "Bricolage" : s.typeface == "fraunces" ? "Fraunces" : s.typeface == "geist" ? "Geist" : "Archivo";
   if (key == "surface") return a.t(s.surface == "dots" ? S::surfDots : S::surfDither);
-  if (key == "powerSave")
-    return a.t(s.powerSave == "off" ? S::psOff : s.powerSave == "standby" ? S::psStandby : S::psGlance);
+  if (key == "powerSave") return a.t(s.powerSave == "off" ? S::psOff : S::psGlance);
   if (key == "wakeEvery") return std::to_string(s.wakeEvery) + " min";
   if (key == "liveMin") return std::to_string(s.liveMin) + " min";
+  if (key == "standbyAfter") return std::to_string(s.standbyAfter) + " min";   // ha-paper#32
+  if (key == "deepAfter") return s.deepAfter == 0 ? std::string(a.t(S::never)) : s.deepAfter < 0 ? std::string(a.t(S::deepNone)) : std::to_string(s.deepAfter) + " min";
   return "?";
+}
+
+bool settingHidden(const I& a, const std::string& key) {
+  return (key == "standbyAfter" || key == "deepAfter") && !powerStepsShown(a.set.powerSave);
+}
+std::string settingSub(const I& a, const std::string& key) {
+  const DisplaySettings& s = a.set;
+  return key == "powerSave" && powerStepsShown(s.powerSave) ? powerSummary(a.lang, s.standbyAfter, s.deepAfter) : "";
 }
 
 static void settingTile(Canvas& c, I& a, const Widget& w, Rect r) {
@@ -803,10 +812,13 @@ static void settingTile(Canvas& c, I& a, const Widget& w, Rect r) {
   int ll = labelLines(c, lab, r.w - 28);   // "TERUG NAAR START", "SCHERM VERVERSEN" wrap (eink-ha-os#199)
   tileLabel(c, r.x + 14, top, lab, r.w - 28, ll);
   top += (ll - 1) * kLabelH;
-  // title + value only (eink-ha-os#310), spaced like the emulator's column
-  int g = ((bottom - top) - kLabelH - 31 - 46) / 2;
+  // title + value only (eink-ha-os#310), spaced like the emulator's column; Save battery adds its summary (ha-paper#37)
+  const std::string sub = settingSub(a, key);
+  const int subH = sub.empty() ? 0 : 2 * kSubH;
+  int g = ((bottom - top) - kLabelH - 31 - subH - 46) / (sub.empty() ? 2 : 3);
   TextOpts t; t.tabular = true; t.maxW = r.w - 28;
   c.text(r.x + 14, baseline(top + kLabelH + g, B(26), 1.2), settingValue(a, key), B(26), t);
+  if (!sub.empty()) c.paragraph(r.x + 14, top + kLabelH + g + 31 + g, r.w - 28, kSubH, sub, R(18), TextOpts(), 2);
   int bw = (r.w - 28 - 8) / 2;
   Rect m = rc(r.x + 14, bottom - 46, bw, 46), p = rc(r.x + 14 + bw + 8, bottom - 46, bw, 46);
   c.box(m, 8, Ink::Paper, 2, Ink::Black);
@@ -821,6 +833,7 @@ static void settingTile(Canvas& c, I& a, const Widget& w, Rect r) {
 
 void tile(Canvas& c, I& a, const Widget& w, int i, Rect r) {
   if (w.type == "weather") { weatherTile(c, a, w, r); return; }   // eink-ha-os#318
+  if (w.type == "setting" && settingHidden(a, w.field("key"))) return;   // ha-paper#37: an empty cell
   if (sleek() && sleekTile(c, a, w, r, w.type == "setting" ? settingValue(a, w.field("key")) : std::string())) return;
   tileFrame(c, r);
   if (w.type == "stat") statTile(c, a, w, r);

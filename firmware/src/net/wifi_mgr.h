@@ -51,7 +51,7 @@ class WifiMgr {
   void startMdns(const char* reason);   // "connect" | "got_ip" | "bssid" | "idle" (eink-ha-os#227 /diagnostics mdns)
   void checkMdns(bool up);              // eink-ha-os#376: minute sample + repair ("v4_off" | "renamed"; IPv6: log only)
   void beginSaved();     // WiFi.begin() with the saved credentials
-  void beginFast(const WifiCreds& c);   // boot: deep-sleep wake → cached BSSID/channel (+ IP), else beginSaved
+  void beginFast(const WifiCreds& c, bool cached);   // cached: RTC BSSID/channel (+ IP), else a normal join
   void fastDone(bool ok);               // connected → refresh the RTC cache; fast join timed out → normal join
   glance::WifiFast fast_ = glance::WifiFast::None;
   uint32_t fastAtMs_ = 0;

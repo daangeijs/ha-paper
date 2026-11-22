@@ -50,7 +50,7 @@ describe('UI strings (spec/test-vectors/strings.json, eink-ha-os#98)', () => {
   it('settings values and our stat tiles follow the language (eink-ha-os#111)', () => {
     expect(SETTINGS.returnHome.fmt(5, 'nl')).toBe('na 5 min');
     expect(SETTINGS.returnHome.fmt(0)).toBe('Never');
-    expect(SETTINGS.powerSave.fmt('glance', 'nl')).toBe('Oogopslag');
+    expect(SETTINGS.powerSave.fmt('glance', 'nl')).toBe('Batterij sparen');
     expect(tr('nl', SETTINGS.brightness.lk)).toBe('Verlichting');
     expect(SETTINGS.brightness.label).toBe('Front light');
     expect(ENT['sensor.solar_power'].get({ solar: 0 } as Derived, 'nl').sub).toBe('Geen zon');

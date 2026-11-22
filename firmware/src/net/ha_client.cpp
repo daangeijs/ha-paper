@@ -13,6 +13,7 @@
 #include <new>
 
 #include "Logging.h"
+#include "core/access_cache.h"
 #include "core/ha_stream.h"
 #include "core/net_policy.h"
 #include "core/seed.h"
@@ -207,14 +208,14 @@ void HaClient::requestStatistics() {
 
 void HaClient::restart() {
   restartRequested_ = true;
-  access_.clear();
-  accessTtlMs_ = 0;
+  forgetToken();
 }
 
 void HaClient::stop() {
   ws_.close();
   state_ = St::Idle;
   nextTryMs_ = millis();
+  keepToken();   // #19: before a deep sleep (stop() runs then); unlink forgets it right after
   access_.clear();
   entitySubs_.clear();
   {
@@ -239,6 +240,22 @@ bool HaClient::yieldTls() {
   nextTryMs_ = millis();
   entitySubs_.clear();
   return true;
+}
+
+void HaClient::pause(bool on) {
+  if (on == paused_) return;
+  paused_ = on;
+  if (on) {
+    if (state_ == St::Idle || state_ == St::Revoked) return;
+    if (state_ != St::Backoff) LOG_INF("HA", "WebSocket closed for the standby step · Wi-Fi stays on");
+    ws_.close();
+    state_ = St::Backoff;
+    entitySubs_.clear();
+    return;
+  }
+  backoffMs_ = 2000;
+  nextTryMs_ = millis();
+  LOG_INF("HA", "standby step over · reconnecting");
 }
 
 bool HaClient::shedHeap(uint32_t waitMs) {
@@ -294,6 +311,33 @@ void HaClient::callService(const std::string& domain, const std::string& service
   LOG_INF("HA", "call_service %s.%s %s", domain.c_str(), service.c_str(), jsonData.c_str());
 }
 
+// ---- access token across deep sleep (#19, core/access_cache.h) ----
+namespace {
+RTC_NOINIT_ATTR access::Rec g_accessRtc;   // garbage after power-on (checksum); wiped on reboot, OTA, unlink, auth failure
+}
+
+void HaClient::forgetToken() {
+  access_.clear();
+  accessTtlMs_ = 0;
+  accessFromRtc_ = false;
+  access::clear(g_accessRtc);
+}
+
+void forgetAccessToken() { access::clear(g_accessRtc); }
+
+// The RTC copy with the time left now: a token refreshed before the clock was set (first link, NTP pending) was not kept.
+void HaClient::keepToken() {
+  const uint32_t age = millis() - accessAtMs_;
+  if (access_.empty() || age >= accessTtlMs_) return;
+  HaLink link;
+  {
+    std::lock_guard<std::recursive_mutex> l(hub().mu);
+    link = hub().link;
+  }
+  if (!link.linked() || link.kind == "llat") return;
+  access::store(g_accessRtc, access_, epochMs(), int64_t(accessTtlMs_ - age), access::bindOf(link.url, link.clientId, link.secret));
+}
+
 std::string HaClient::accessToken(bool* revoked) {
   if (revoked) *revoked = false;
   HaLink link;
@@ -305,12 +349,26 @@ std::string HaClient::accessToken(bool* revoked) {
   if (link.kind == "llat") return link.secret;
   // elapsed-vs-ttl (unsigned): an absolute expiry stale by > 24.8 days would read as still valid
   if (!access_.empty() && accessTtlMs_ > 60000 && millis() - accessAtMs_ < accessTtlMs_ - 60000) return access_;
+  const uint32_t bind = access::bindOf(link.url, link.clientId, link.secret);
+  if (access_.empty()) {
+    std::string tok;
+    if (const int64_t left = access::take(g_accessRtc, epochMs(), bind, tok)) {
+      access_ = std::move(tok);
+      accessAtMs_ = millis();
+      accessTtlMs_ = uint32_t(left);
+      accessFromRtc_ = true;
+      LOG_INF("HA", "access token from RTC · %lld s left", static_cast<long long>(left / 1000));
+      return access_;
+    }
+  }
   TokenSet t;
   switch (HaAuth::refresh(link.url, link.clientId, link.secret, t)) {
     case RefreshResult::Ok:
       access_ = t.access;
       accessAtMs_ = millis();
       accessTtlMs_ = t.expiresInSec * 1000UL;
+      accessFromRtc_ = false;
+      access::store(g_accessRtc, access_, epochMs(), int64_t(t.expiresInSec) * 1000, bind);
       return access_;
     case RefreshResult::Revoked:
       if (revoked) *revoked = true;
@@ -383,6 +441,7 @@ void HaClient::loop() {
     nextTryMs_ = millis();   // now, not 0: signed compare below breaks when millis() >= 2^31
   }
   if (state_ == St::Revoked) return;   // wait for re-link (restart())
+  if (paused_) return;                  // ha-paper#37 standby step: no reconnect until it ends
   if (!netConnected()) {
     if (state_ != St::Idle && state_ != St::Backoff) fail("wifi down");
     setHaState(static_cast<int>(HaState::Offline));
@@ -655,9 +714,11 @@ void HaClient::onMessage(const std::string& msg) {
       return;
     }
     // access token may simply be stale: drop it; the next connect refreshes (invalid_grant → KeyRevoked)
-    access_.clear();
-    accessTtlMs_ = 0;
-    return fail("auth_invalid");
+    const bool fromRtc = accessFromRtc_;
+    forgetToken();
+    fail("auth_invalid");
+    if (fromRtc) nextTryMs_ = millis();   // a kept token HA no longer takes: refresh now, a glance wake has no time to wait
+    return;
   }
   const uint32_t id = d["id"] | 0;
   if (!strcmp(type, "result")) {

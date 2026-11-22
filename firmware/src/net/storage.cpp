@@ -263,6 +263,8 @@ std::string Storage::settingsToJson(const DisplaySettings& s) {
   d["powerSave"] = s.powerSave;
   d["wakeEvery"] = s.wakeEvery;
   d["liveMin"] = s.liveMin;
+  d["standbyAfter"] = s.standbyAfter;   // ha-paper#32
+  d["deepAfter"] = s.deepAfter;
   d["emptyHouse"] = s.emptyHouse;
   d["debugInput"] = s.debugInput;
   d["morning"] = s.morning;   // eink-ha-os#330
@@ -319,7 +321,7 @@ bool Storage::settingsFromJson(const std::string& json, DisplaySettings& s, std:
     if (!d["haReport"].isNull() && !d["haReport"].is<bool>()) return fail("haReport must be true or false");
     if (!d["debugInput"].isNull() && !d["debugInput"].is<bool>()) return fail("debugInput must be true or false");
     if (!d["morning"].isNull() && !d["morning"].is<bool>()) return fail("morning must be true or false");
-    if (!strIn("powerSave", {"off", "standby", "glance"})) return fail("powerSave must be off, standby or glance");
+    if (!strIn("powerSave", {"off", "glance"})) return fail("powerSave must be off or glance");   // standby left in ha-paper#37
     auto oneOf = [&](const char* k, std::initializer_list<int> ok) {
       JsonVariant v = d[k];
       if (v.isNull()) return true;
@@ -329,6 +331,8 @@ bool Storage::settingsFromJson(const std::string& json, DisplaySettings& s, std:
     };
     if (!oneOf("wakeEvery", {15, 30, 60})) return fail("wakeEvery must be 15, 30 or 60");
     if (!oneOf("liveMin", {1, 3, 5, 10})) return fail("liveMin must be 1, 3, 5 or 10");
+    if (!oneOf("standbyAfter", {1, 3, 5})) return fail("standbyAfter must be 1, 3 or 5");
+    if (!oneOf("deepAfter", {-1, 0, 5, 15, 30, 60})) return fail("deepAfter must be -1, 0, 5, 15, 30 or 60");
     if (!d["emptyHouse"].isNull() && !(d["emptyHouse"].is<const char*>() && validEmptySource(d["emptyHouse"].as<const char*>())))
       return fail("emptyHouse must be \"\" or a zone, binary_sensor, input_boolean or group entity id");
   }
@@ -357,9 +361,11 @@ bool Storage::settingsFromJson(const std::string& json, DisplaySettings& s, std:
   if (d["haReport"].is<bool>()) s.haReport = d["haReport"].as<bool>();
   if (d["debugInput"].is<bool>()) s.debugInput = d["debugInput"].as<bool>();
   if (d["morning"].is<bool>()) s.morning = d["morning"].as<bool>();
-  pick("powerSave", {"off", "standby", "glance"}, s.powerSave);
+  pick("powerSave", {"off", "glance"}, s.powerSave);   // a stored standby (before schema 4) reads as the default glance
   if (d["wakeEvery"].is<int>()) { int w = d["wakeEvery"].as<int>(); if (w == 15 || w == 30 || w == 60) s.wakeEvery = w; }
   if (d["liveMin"].is<int>()) { int l = d["liveMin"].as<int>(); if (l == 1 || l == 3 || l == 5 || l == 10) s.liveMin = l; }
+  if (d["standbyAfter"].is<int>()) { int v = d["standbyAfter"].as<int>(); if (v == 1 || v == 3 || v == 5) s.standbyAfter = v; }
+  if (d["deepAfter"].is<int>()) { int v = d["deepAfter"].as<int>(); if (v == -1 || v == 0 || v == 5 || v == 15 || v == 30 || v == 60) s.deepAfter = v; }
   if (d["emptyHouse"].is<const char*>() && validEmptySource(d["emptyHouse"].as<const char*>())) s.emptyHouse = d["emptyHouse"].as<const char*>();
   return true;
 }

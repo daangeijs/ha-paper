@@ -14,6 +14,18 @@ int64_t secsUntil(int32_t localSec, int32_t targetSec) {
   return d == 0 ? 86400 : d;
 }
 
+GlancePhase glancePhase(int64_t msSinceInput, int standbyAfter, int deepAfter) {
+  GlancePhase p;
+  if (msSinceInput < 0) return p;
+  const int64_t liveMs = int64_t(standbyAfter) * 60000;
+  if (msSinceInput < liveMs) { p.live = true; return p; }
+  if (deepAfter == 0) { p.standbyLeftS = kMaxSleepS; return p; }
+  if (deepAfter < 0) return p;   // ha-paper#37 none: straight to deep sleep
+  const int64_t left = liveMs + int64_t(deepAfter) * 60000 - msSinceInput;
+  p.standbyLeftS = left > 0 ? (left + 999) / 1000 : 0;
+  return p;
+}
+
 int64_t glanceWaitS(int32_t localSec, const std::string& quiet) {
   const int64_t midnight = secsUntil(localSec, 0);
   return nightEndHour(quiet) < 0 ? midnight : std::min(midnight, secsUntil(localSec, std::atoi(quiet.c_str()) * 3600));
@@ -37,20 +49,22 @@ PowerDecision powerDecision(const PowerInputs& i) {
   if (i.battery < 0) return awake("battery unknown");
   if (i.battery < kLowBatteryPct) { d.deepSleepNow = true; d.buttonWakeOnly = true; return awake("low battery"); }
   if (i.setup) return awake("setup mode");
-  if (i.msSinceApi >= 0 && i.msSinceApi < kApiQuietMs) return awake("recent api");
   const int hour = (i.localSec / 3600) % 24;
   const bool otaWanted = i.otaDue && i.otaAuto != OtaAuto::Off;
-  if (otaWanted && hour == kOtaHour) return awake("ota window");
-  if (i.powerSave == PowerSave::Off) return awake("power save off");
-  if (i.powerSave == PowerSave::Glance && i.live) return awake("live");
-
+  const bool otaNow = otaWanted && hour == kOtaHour;
   const bool quiet = isNightHour(hour, i.quiet) && !i.peeking;   // quiet hours (eink-ha-os#295): no timer wakes in the window
+  // ha-paper#37 standby step: wins over a recent API request (the console stays reachable without waking HA); quiet hours
+  // (deep sleep) and the install window win over it
+  if (i.powerSave == PowerSave::Glance && !i.live && i.standbyLeftS > 0 && !quiet && !otaNow) { d.standby = true; return awake("standby"); }
+  if (i.msSinceApi >= 0 && i.msSinceApi < kApiQuietMs) return awake("recent api");
+  if (otaNow) return awake("ota window");
+  if (i.powerSave == PowerSave::Off) return awake("power save off");
+  if (i.live) return awake("live");
+
   int64_t wait = kMaxSleepS;
   if (quiet) { d.reason = "quiet"; wait = std::min(wait, secsUntil(i.localSec, nightEndHour(i.quiet) * 3600)); }
-  else if (i.powerSave == PowerSave::Standby && i.standby) { d.reason = "standby"; wait = std::min<int64_t>(wait, int64_t(i.wakeEvery) * 60); }
-  else if (i.powerSave == PowerSave::Glance && i.emptyHouse) { d.reason = "empty house"; wait = std::min(wait, emptyWaitS(i.localSec, i.quiet)); }   // eink-ha-os#331
-  else if (i.powerSave == PowerSave::Glance) { d.reason = "glance"; wait = std::min(wait, glanceWaitS(i.localSec, i.quiet)); }   // eink-ha-os#356
-  else return awake("awake");
+  else if (i.emptyHouse) { d.reason = "empty house"; wait = std::min(wait, emptyWaitS(i.localSec, i.quiet)); }   // eink-ha-os#331
+  else { d.reason = "glance"; wait = std::min(wait, glanceWaitS(i.localSec, i.quiet)); }   // eink-ha-os#356
   if (otaWanted) wait = std::min(wait, secsUntil(i.localSec, kOtaHour * 3600));
   d.deepSleepNow = true;
   d.wakeAtEpoch = i.nowEpoch + wait;
@@ -58,11 +72,10 @@ PowerDecision powerDecision(const PowerInputs& i) {
 }
 
 const char* powerSaveName(PowerSave p) {
-  return p == PowerSave::Standby ? "standby" : p == PowerSave::Glance ? "glance" : "off";
+  return p == PowerSave::Glance ? "glance" : "off";
 }
 bool parsePowerSave(const std::string& s, PowerSave& out) {
   if (s == "off") out = PowerSave::Off;
-  else if (s == "standby") out = PowerSave::Standby;
   else if (s == "glance") out = PowerSave::Glance;
   else return false;
   return true;

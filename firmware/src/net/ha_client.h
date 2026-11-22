@@ -37,6 +37,9 @@ class HaClient : private WsStream {
   void stop();                       // unlink / factory reset
   // Close the WebSocket so a second TLS session gets its heap; reconnects on the next loop(). False: nothing open.
   bool yieldTls();
+  // ha-paper#37 standby step (net task): on = close the WebSocket and stay off (Wi-Fi stays on), keep the entities and the
+  // HA status (a pause, not a loss: nothing on the panel changes); off = reconnect at once, no backoff.
+  void pause(bool on);
   // Internal RAM under the floor (eink-ha-os#248): close the WebSocket and stay off for waitMs (the TLS guard then decides).
   bool shedHeap(uint32_t waitMs);
   void callService(const std::string& domain, const std::string& service, const std::string& jsonData);
@@ -48,6 +51,7 @@ class HaClient : private WsStream {
   void requestEntityList();
   // Access token for the current link (refreshing if needed). Blocking. "" if unavailable.
   std::string accessToken(bool* revoked = nullptr);
+  void forgetToken();                // drop the access token, the RTC copy too (#19)
   // History tiles of the config (eink-ha-os#269); active = on the current app's screens, the only ones fetched. Net task.
   void setHistoryTiles(const std::vector<hist::Fetcher::Want>& want, bool configChanged);
   // Weather tiles of the config (eink-ha-os#318): their entities' forecasts, kept in RTC memory across deep sleep. Net task.
@@ -97,7 +101,10 @@ class HaClient : private WsStream {
   uint32_t nextId_ = 1;
   std::string access_;
   uint32_t accessAtMs_ = 0, accessTtlMs_ = 0;
+  bool accessFromRtc_ = false;   // access_ came from the RTC copy (#19)
+  void keepToken();              // access_ → the RTC copy with the time left (#19)
   bool restartRequested_ = false;
+  bool paused_ = false;   // ha-paper#37: the standby step holds the WebSocket closed
 
   std::set<std::string> configIds_, discoveredIds_;
   std::string presenceId_;                                         // eink-ha-os#331
@@ -130,5 +137,6 @@ class HaClient : private WsStream {
 };
 
 HaClient& haClient();
+void forgetAccessToken();   // wipe the RTC copy only (#19): before a reboot, any task
 
 }  // namespace x4::net

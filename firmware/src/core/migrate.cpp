@@ -26,7 +26,19 @@ void settings1to2(Json& d) {
   }
   if (Json* p = member(d, "powerSave"); p && p->isStr() && p->str == "night") p->str = "glance";
 }
-constexpr Step kSettingsSteps[] = {settings0to1, settings1to2};
+Json number(double v);
+// 2 → 3 (ha-paper#32): the standby step. New key `standbyAfter` from `liveMin` (kept for a rollback): 5 and 10 → 5, else 1.
+void settings2to3(Json& d) {
+  if (member(d, "standbyAfter")) return;
+  const Json* l = d.get("liveMin");
+  d.obj.push_back({"standbyAfter", number(l && l->isNum() && (l->num == 5 || l->num == 10) ? 5 : 1)});
+}
+// 3 → 4 (ha-paper#37): the Standby battery mode is gone; it becomes Save battery (glance). wakeEvery and the display
+// `standby` key stay for a rollback, ignored.
+void settings3to4(Json& d) {
+  if (Json* p = member(d, "powerSave"); p && p->isStr() && p->str == "standby") p->str = "glance";
+}
+constexpr Step kSettingsSteps[] = {settings0to1, settings1to2, settings2to3, settings3to4};
 static_assert(sizeof kSettingsSteps / sizeof kSettingsSteps[0] == kSettingsSchema, "one step per version");
 
 Json* member(Json& o, const std::string& k) {

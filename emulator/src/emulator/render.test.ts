@@ -254,7 +254,8 @@ describe('web console renders', () => {
     }));
     const folded = render({ settingsGroups: groups(false) });
     expect(folded).toContain('aria-label="Change Wi-Fi network"'); expect(folded).not.toContain('type="password"');
-    for (const k of ['powerSave', 'wakeEvery', 'liveMin', 'intervalSec', 'standby', 'cleanEvery', 'haReport']) expect(folded).toContain('aria-label="About ' + k + '"');
+    for (const k of ['powerSave', 'standbyAfter', 'deepAfter', 'intervalSec', 'cleanEvery', 'haReport']) expect(folded).toContain('aria-label="About ' + k + '"');
+    for (const k of ['wakeEvery', 'standby']) expect(folded).not.toContain('aria-label="About ' + k + '"');   // ha-paper#37
     expect(folded).not.toContain('aria-label="About brightness"'); expect(folded).not.toContain('INFO ');
     const open = render({ settingsGroups: groups(true), wifiOpen: true });
     expect(open).toContain('type="password"'); expect(open).toContain('INFO powerSave');

@@ -71,6 +71,8 @@ std::mutex g_trailMu;                  // g_trailLines / g_trailBefore: main tas
 std::vector<std::string> g_trailLines;
 std::string g_trailBefore;             // last trail line when this boot started
 bool g_standbyLogged = false;          // last standby face state logged
+std::atomic<bool> g_nap{false};        // ha-paper#37 standby step: panel kept, HA paused, Wi-Fi on
+uint32_t g_napAtMs = 0;
 uint32_t g_powerDownMs = 0;            // Power key held since (heldKeys), valid when g_powerDown
 bool g_powerDown = false;
 uint32_t g_resetMs = 0;                // QEMU: millis() keeps counting through esp_restart; hardware: 0
@@ -260,10 +262,8 @@ PowerInputs inputs(App& app, Board& board) {
     i.localSec = 12 * 3600;   // clock unknown: noon (no quiet hours, no OTA hour); the timer still counts seconds
   }
   parsePowerSave(s.powerSave, i.powerSave);
-  i.wakeEvery = s.wakeEvery;
   i.quiet = s.quiet;
   i.peeking = v.peeking;
-  i.standby = v.standby;
   i.charging = p.charging;
   i.usb = p.usb;   // USB host seen (HWCDC): external power, never sleeps
   i.battery = p.known ? int(p.batteryPct) : -1;
@@ -284,9 +284,12 @@ PowerInputs inputs(App& app, Board& board) {
     i.setup = v.setup || hub().softAp;
     i.msSinceApi = hub().apiUsed ? int64_t(now - hub().lastApiMs) : -1;
   }
-  // a boot that is not a timer wake (power-on, Power/Right key, charger) counts as a key press: live for liveMin
+  // a boot that is not a timer wake (power-on, Power/Right key, charger) counts as a key press: live for standbyAfter,
+  // then the standby step (ha-paper#32, #37)
   const int64_t sinceInput = v.msSinceUserInput >= 0 || g_wake == WakeKind::Timer ? v.msSinceUserInput : int64_t(now - g_bootMs);
-  i.live = glance::liveNow(sinceInput, s.liveMin) || (g_hold && int32_t(now - g_holdUntilMs) < 0);
+  const GlancePhase ph = glancePhase(sinceInput, s.standbyAfter, s.deepAfter);
+  i.live = ph.live || (g_hold && int32_t(now - g_holdUntilMs) < 0);
+  i.standbyLeftS = i.live ? 0 : ph.standbyLeftS;
   i.glanceFails = g_rtc.fails;
   i.armBootsLeft = armLeftNow();
   i.emptyHouse = v.emptyHouse;   // eink-ha-os#331: the presence source says nobody is home
@@ -526,6 +529,26 @@ void wakeHoldLoop(App& app, uint32_t now) {
   app.redraw(std::string("key wake · ") + why);
 }
 
+// ha-paper#37 standby step: the panel stays as drawn (App::nap: no redraws, light off) and the WebSocket closes (net task).
+// Wi-Fi stays associated with modem sleep (the battery profile), so the API and the web console answer. No light sleep:
+// with Wi-Fi up that needs CONFIG_PM_ENABLE (auto light sleep), which the Arduino libs ship without.
+void napEnter(App& app) {
+  g_nap = true;
+  g_mode = "standby";
+  g_napAtMs = millis();
+  app.nap(true);
+  hub().post([] { haClient().pause(true); });
+  LOG_INF("POWER", "standby step · dashboard kept, no redraws · Home Assistant paused · Wi-Fi on (modem sleep) · any key or touch goes live");
+}
+
+// Out of the step (a key or touch, or the rules): HA reconnects at once; not on the way into deep sleep (ha = false).
+void napResume(const char* why, bool ha = true) {
+  if (!g_nap.exchange(false)) return;
+  g_mode = "awake";
+  if (ha) hub().post([] { haClient().pause(false); });
+  LOG_INF("POWER", "standby step over (%s) · %u s", why, unsigned((millis() - g_napAtMs) / 1000));
+}
+
 // the next timer wake compares against what the panel shows now
 void snapshotForSleep(App& app, Board& board) {
   app.prepareSleep();
@@ -683,16 +706,26 @@ void powerLoop(App& app, Board& board) {
   const PowerDecision d = powerDecision(inputs(app, board));
   applyProfile(d, now);
   const App::PowerView v = app.powerView();
+  // ha-paper#37: out of the standby step by the rules (USB, the install window, setup, …); a key or touch ended it in
+  // App::loop already (onNapWake → napResume)
+  if (g_nap && !d.standby && !(d.deepSleepNow && !g_profile.settling())) { napResume(d.reason); app.nap(false); }
   if (!v.main || now - g_bootMs < kAwakeMinMs || (v.msSinceUserInput >= 0 && v.msSinceUserInput < kAwakeMinMs)) return;
+  if (d.standby) {
+    if (!g_nap && !g_profile.settling()) napEnter(app);
+    return;
+  }
   if (!d.deepSleepNow || g_profile.settling()) {   // power source just changed: no deep sleep until it holds 2 s
     const char* why = d.deepSleepNow ? "power source settling" : d.reason;
     if (strcmp(why, g_lastReason)) LOG_INF("POWER", "stays awake: %s", why);
     g_lastReason = why;
     return;
   }
+  if (g_nap) { napResume(d.reason, false); app.nap(false); }   // into deep sleep: HA stays closed, the panel redraws again
   if (app.settings().powerSave == "glance") snapshotForSleep(app, board);
   enterSleep(d, app, board);
 }
+
+void powerNapWake() { napResume("key or touch"); }
 
 SleepNowCheck powerSleepRequest(bool isNumber, double seconds) {
   SleepNowCheck c;

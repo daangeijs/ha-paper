@@ -7,7 +7,9 @@
 
 namespace x4 {
 
-enum class PowerSave : uint8_t { Off, Standby, Glance };   // glance: default on battery (eink-ha-os#10, eink-ha-os#18); "night" left in eink-ha-os#295
+// Off = Always live, Glance = Save battery: default on battery (eink-ha-os#10, eink-ha-os#18); "night" left in eink-ha-os#295,
+// Standby (timer wakes with the standby face on) in ha-paper#37
+enum class PowerSave : uint8_t { Off, Glance };
 enum class OtaAuto : uint8_t { Off, Notify, Night };
 enum class CpuProfile : uint8_t { Full, Auto };   // Full = 240 MHz; Auto = 80 MHz (cpuMhzFor, eink-ha-os#177)
 enum class WifiPs : uint8_t { None, Min };        // None = no modem sleep; Min = modem sleep (DTIM)
@@ -23,10 +25,8 @@ struct PowerInputs {
   int64_t nowEpoch = 0;          // seconds (UTC)
   int32_t localSec = 0;          // seconds since local midnight
   PowerSave powerSave = PowerSave::Off;
-  int wakeEvery = 15;            // minutes, standby timer wake
   std::string quiet = "off";     // quiet hours "23-07" | "off" (eink-ha-os#295)
   bool peeking = false;          // dashboard shown for 60 s after a press in quiet hours
-  bool standby = false;          // standby face is on
   bool charging = false;
   bool usb = false;              // USB host connected (USB-JTAG)
   double chargedAgoMin = -1;     // < 0 = not since boot
@@ -38,7 +38,8 @@ struct PowerInputs {
   bool otaDue = false;           // an install (auto night) or the daily check is due
   bool setup = false;            // AP / setup wizard
   int64_t msSinceApi = -1;       // < 0 = no API request since boot
-  bool live = false;             // glance: key press / touch within liveMin minutes (or a key held at boot)
+  bool live = false;             // glance: key press / touch within standbyAfter minutes (or a key held at boot)
+  int64_t standbyLeftS = 0;      // glance (ha-paper#32, #37): seconds left in the standby step after live mode; 0 = not in it
   int glanceFails = 0;           // glance: wakes in a row that could not reach HA (diagnostics; no backoff since eink-ha-os#356)
   int armBootsLeft = 0;          // first-boot safety: confirmed boots still needed before any deep sleep
   bool emptyHouse = false;       // glance (eink-ha-os#331): the presence source says nobody is home
@@ -47,6 +48,7 @@ struct PowerInputs {
 struct PowerDecision {
   bool deepSleepNow = false;
   int64_t wakeAtEpoch = 0;       // 0 = none (awake, or low battery: button/charger only)
+  bool standby = false;          // ha-paper#37 standby step: awake, Wi-Fi on, no HA updates, the panel unchanged
   bool buttonWakeOnly = false;
   CpuProfile cpuProfile = CpuProfile::Full;
   WifiPs wifiPs = WifiPs::None;
@@ -54,19 +56,24 @@ struct PowerDecision {
   const char* reason = "";       // same words as the emulator ("unconfirmed image", "quiet", …)
 };
 
+// Glance after a key press (ha-paper#32, #37, emulator glancePhase, spec/test-vectors/standby-step.json): live for standbyAfter
+// minutes, then the standby step for deepAfter minutes (0 = never: kMaxSleepS at a time; -1 = none, ha-paper#37), then deep sleep.
+// msSinceInput < 0 = no key since the wake (a timer wake): neither. standbyLeftS = whole seconds left, rounded up.
+struct GlancePhase { bool live = false; int64_t standbyLeftS = 0; };
+GlancePhase glancePhase(int64_t msSinceInput, int standbyAfter, int deepAfter);
 int64_t secsUntil(int32_t localSec, int32_t targetSec);   // next targetSec of the day; equal = a full day
 int64_t glanceWaitS(int32_t localSec, const std::string& quiet);   // eink-ha-os#356: to midnight or quiet start, the first
 bool isExternalPower(const PowerInputs& i);
 PowerDecision powerDecision(const PowerInputs& i);
 
 // POST /api/v1/device/sleep {"seconds": N} (eink-ha-os#178, emulator sleepNowCheck, spec/test-vectors/sleep-now.json): deep sleep
-// now, skipping liveMin and the API quiet. 422 bad seconds; 409 "stays awake: <powerDecision word>" on an unconfirmed
+// now, skipping live mode, the standby step and the API quiet. 422 bad seconds; 409 "stays awake: <powerDecision word>" on an unconfirmed
 // image, OTA, external power, setup. isNumber false = missing / not a JSON number.
 constexpr int64_t kSleepNowMinS = 60, kSleepNowMaxS = 86400;
 struct SleepNowCheck { int status; std::string error; };   // 202 = sleep
 SleepNowCheck sleepNowCheck(bool isNumber, double seconds, const PowerInputs& i);
 
-const char* powerSaveName(PowerSave p);   // off | standby | glance
+const char* powerSaveName(PowerSave p);   // off | glance
 bool parsePowerSave(const std::string& s, PowerSave& out);
 const char* cpuProfileName(CpuProfile p); // full | auto
 const char* wifiPsName(WifiPs p);         // none | min

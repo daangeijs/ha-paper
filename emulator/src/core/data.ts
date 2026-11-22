@@ -139,6 +139,7 @@ const SETTING_DEFS: Record<string, Omit<SettingDef, 'label'>> = {
   // Front light timeout (eink-ha-os#220), seconds; 0 = never.
   lightTimeout: { lk: 'setLightTimeout', info: 'infoLightTimeout', fmt: (v, lg = 'en') => (v === 0 ? tr(lg, 'never') : v < 60 ? tr(lg, 'afterSec', v) : tr(lg, 'afterMin', v / 60)), steps: [30, 60, 120, 300, 0] },
   returnHome: { lk: 'setReturnHome', fmt: (v, lg = 'en') => (v === 0 ? tr(lg, 'never') : tr(lg, 'afterMin', v)), steps: [0, 1, 5, 15] },
+  // Display › Standby (the standby face after N min): no tile since ha-paper#37, stored and ignored (a rollback keeps it)
   standby: { lk: 'setStandby', info: 'infoStandby', fmt: (v, lg = 'en') => (v === 0 ? tr(lg, 'never') : tr(lg, 'afterMin', v)), steps: [0, 10, 30, 60] },
   clock: { lk: 'setClock', fmt: (v, lg = 'en') => tr(lg, v === '24' ? 'hour24' : 'hour12'), steps: ['24', '12'] },
   interval: { lk: 'setInterval', info: 'infoInterval', fmt: (v, lg = 'en') => tr(lg, 'everySec', v), steps: [5, 10, 30, 60] },
@@ -148,13 +149,17 @@ const SETTING_DEFS: Record<string, Omit<SettingDef, 'label'>> = {
   typeface: { lk: 'setTypeface', fmt: (v) => ({ archivo: 'Archivo', bricolage: 'Bricolage', fraunces: 'Fraunces', geist: 'Geist' } as Record<string, string>)[v] || String(v), steps: ['archivo', 'bricolage', 'fraunces', 'geist'] },
   surface: { lk: 'setSurface', fmt: (v, lg = 'en') => tr(lg, v === 'dots' ? 'surfDots' : 'surfDither'), steps: ['dither', 'dots'] },
   // Power (ROBUSTNESS_PLAN Phase 3, src/core/power.ts; glance eink-ha-os#10). GET/PUT /settings `display`.
-  powerSave: { lk: 'setPowerSave', info: 'infoPowerSave', fmt: (v, lg = 'en') => { const k = ({ off: 'psOff', standby: 'psStandby', glance: 'psGlance' } as Record<string, StrKey>)[v]; return k ? tr(lg, k) : String(v); }, steps: ['glance', 'standby', 'off'] },
+  // Save battery | Always live (ha-paper#37: the Standby mode is gone, schema 4 moves it to glance)
+  powerSave: { lk: 'setPowerSave', info: 'infoPowerSave', fmt: (v, lg = 'en') => { const k = ({ off: 'psOff', glance: 'psGlance' } as Record<string, StrKey>)[v]; return k ? tr(lg, k) : String(v); }, steps: ['glance', 'off'] },
   // Quiet hours (eink-ha-os#295, core/quiet.ts): replaces Display › Night mode and the "Sleep at night" power mode.
   quiet: { lk: 'setQuiet', info: 'infoQuiet', fmt: (v, lg = 'en') => (v === 'off' ? tr(lg, 'off') : v.split('-').map((x: string) => pad(+x)).join('–')), steps: ['off', '22-06', '23-07', '00-06'] },
   // Good morning page (eink-ha-os#330, core/morning.ts): on / off, under Quiet hours.
   morning: { lk: 'setMorning', info: 'infoMorning', fmt: (v, lg = 'en') => tr(lg, v ? 'on' : 'off'), steps: [true, false] },
-  wakeEvery: { lk: 'setWakeEvery', info: 'infoWakeEvery', fmt: (v) => v + ' min', steps: [15, 30, 60] },
-  liveMin: { lk: 'setLiveMin', info: 'infoLiveMin', fmt: (v) => v + ' min', steps: [1, 3, 5, 10] },
+  wakeEvery: { lk: 'setWakeEvery', info: 'infoWakeEvery', fmt: (v) => v + ' min', steps: [15, 30, 60] },   // legacy: no effect since ha-paper#37
+  liveMin: { lk: 'setLiveMin', info: 'infoLiveMin', fmt: (v) => v + ' min', steps: [1, 3, 5, 10] },   // legacy: no tile since ha-paper#32
+  // Save battery phases (ha-paper#32, #37; core/power.ts glancePhase): Live for → Then standby for → deep sleep. 0 = never.
+  standbyAfter: { lk: 'setStandbyAfter', info: 'infoStandbyAfter', fmt: (v) => v + ' min', steps: [1, 3, 5] },
+  deepAfter: { lk: 'setDeepAfter', info: 'infoDeepAfter', fmt: (v, lg = 'en') => (v === 0 ? tr(lg, 'never') : v === -1 ? tr(lg, 'deepNone') : v + ' min'), steps: [-1, 5, 15, 30, 60, 0] },
 };
 export const SETTINGS: Record<string, SettingDef> = Object.fromEntries(Object.entries(SETTING_DEFS).map(([k, d]) => [k, { ...d, label: tr('en', d.lk) }]));
 /** Settings tile key (screens.yaml) → emulator cfg key, where they differ. Legacy `fullEvery` tiles step the clean interval (eink-ha-os#26, eink-ha-os#44). */
