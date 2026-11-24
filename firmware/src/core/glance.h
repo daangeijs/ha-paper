@@ -23,6 +23,7 @@ constexpr int kOfflineAfter = 3;                // failed wakes in a row before 
 constexpr int kStaleMin = 60;                   // unchanged values: redraw anyway after 60 min (clock)
 constexpr int64_t kWifiIpMaxAgeS = 3600;        // reuse the cached IP (no DHCP) while younger
 constexpr int kWifiCacheMaxFails = 2;           // fast connects failed in a row → drop the cache
+constexpr int kWifiFastMinRssi = -75;           // ha-paper#41: a weaker cached AP gets a full scan (nearest AP)
 constexpr int kArmBoots = 3;                    // first-boot safety: confirmed boots with network before any sleep
 constexpr double kArmUptimeMin = 30;            // ... or this long online in one boot with a confirmed image (eink-ha-os#231)
 constexpr int kBootHoldLiveMin = 10;            // a key held through the boot screen keeps it live this long
@@ -44,6 +45,7 @@ StepOut step(const StepIn& i);
 
 struct WifiCache {
   bool valid;
+  int8_t rssi;                   // dBm at the last join; 0 = unknown (ha-paper#41: was padding, an older cache reads 0)
   uint32_t ssidHash;
   uint8_t bssid[6];
   uint8_t channel;
@@ -51,8 +53,9 @@ struct WifiCache {
   uint32_t ip, gw, mask, dns;    // network order (lwIP u32_addr)
   int64_t ipAtEpoch;             // when DHCP gave us ip; 0 = clock unknown
 };
+static_assert(offsetof(WifiCache, ssidHash) == 4 && sizeof(WifiCache) == 40, "RTC layout: rssi lives in former padding");
 enum class WifiFast : uint8_t { None, Radio, Ip };   // normal connect | BSSID+channel, DHCP | + static IP
-WifiFast wifiFast(const WifiCache& c, uint32_t savedSsidHash, int64_t nowEpoch);
+WifiFast wifiFast(const WifiCache& c, uint32_t savedSsidHash, int64_t nowEpoch);   // rssi unknown or weak = None
 const char* wifiFastName(WifiFast f);   // none | radio | ip
 
 bool liveNow(int64_t msSinceInput, int liveMin);   // msSinceInput < 0 = no input since the wake

@@ -103,8 +103,12 @@ std::string qemuIp() {
 // ha-paper#20: every STA join asks for an IPv6 link-local address (Arduino adds it on STA_CONNECTED), so the mDNS
 // responder answers AAAA and getaddrinfo(AF_UNSPEC) on <name>.local returns at once instead of after ~5 s. Set before
 // each begin: WIFI_OFF destroys the netif and its "want IPv6" bit. The web server binds IPADDR_TYPE_ANY (v4 + v6).
+// ha-paper#41: Arduino's default WIFI_FAST_SCAN joins the first AP with the SSID; a full join scans every channel and
+// takes the strongest (sort by signal needs ALL_CHANNEL). A pinned BSSID/channel (wake fast join) keeps the fast scan.
 void staBegin(const char* ssid, const char* pw, int32_t channel = 0, const uint8_t* bssid = nullptr) {
   WiFi.enableIPv6(true);
+  WiFi.setScanMethod(bssid ? WIFI_FAST_SCAN : WIFI_ALL_CHANNEL_SCAN);
+  WiFi.setSortMethod(WIFI_CONNECT_AP_BY_SIGNAL);
   WiFi.begin(ssid, pw, channel, bssid);
 }
 
@@ -472,7 +476,12 @@ void WifiMgr::onConnected() {
     hub().wifiJoin = "connected";
     hub().markStatus();
   }
+#if X4_QEMU
   LOG_INF("WIFI", "connected · %s · %s", ssid.c_str(), ip.c_str());
+#else
+  LOG_INF("WIFI", "connected · %s · %s · ap %s · ch %d · rssi %d", ssid.c_str(), ip.c_str(), bssidTag(WiFi.BSSID()).c_str(),
+          int(WiFi.channel()), int(WiFi.RSSI()));   // ha-paper#41: which AP (hashed BSSID) and how far
+#endif
   heapMark("Wi-Fi connected");
 #if !X4_QEMU
   fastDone(true);   // RTC Wi-Fi cache for the next deep-sleep wake (eink-ha-os#10)
@@ -678,8 +687,8 @@ void WifiMgr::checkStale(bool up) {
   LOG_WRN("WIFI", "link up but HA unreachable (%u failed connects in %u min) · DHCP restart", unsigned(fails), unsigned(windowMin));
   qemu_eth_renew();
 #else
-  LOG_WRN("WIFI", "link up but HA unreachable (%u failed connects in %u min) · reconnect", unsigned(fails), unsigned(windowMin));
-  WiFi.reconnect();
+  LOG_WRN("WIFI", "link up but HA unreachable (%u failed connects in %u min) · full scan rejoin", unsigned(fails), unsigned(windowMin));
+  rescan();
 #endif
 }
 
@@ -758,8 +767,8 @@ void WifiMgr::checkInbound(bool up) {
   LOG_WRN("WIFI", "no web request for %u min · gateway silent · DHCP restart", unsigned(InboundWatch::kIdleMs / 60000));
   qemu_eth_renew();
 #else
-  LOG_WRN("WIFI", "no web request for %u min · gateway silent · reconnect", unsigned(InboundWatch::kIdleMs / 60000));
-  WiFi.reconnect();
+  LOG_WRN("WIFI", "no web request for %u min · gateway silent · full scan rejoin", unsigned(InboundWatch::kIdleMs / 60000));
+  rescan();
 #endif
 }
 
@@ -800,17 +809,28 @@ void WifiMgr::fastDone(bool ok) {
   const uint8_t* bssid = WiFi.BSSID();
   const uint32_t ip = WiFi.localIP(), gw = WiFi.gatewayIP(), mask = WiFi.subnetMask(), dns = WiFi.dnsIP();
   const uint8_t ch = uint8_t(WiFi.channel());
+  const int32_t rssi = WiFi.RSSI();
   powerWifiCache([&](glance::WifiCache& r) {
     const bool sameIp = r.valid && r.ip == ip;
     r.valid = bssid != nullptr && ch >= 1 && ch <= 14;
     r.ssidHash = glance::fnv1a(ssid);
     if (bssid) memcpy(r.bssid, bssid, sizeof r.bssid);
     r.channel = ch;
+    r.rssi = int8_t(rssi < -127 ? -127 : rssi > -1 ? -1 : rssi);   // 0 is "unknown"
     r.fails = 0;
     r.ip = ip; r.gw = gw; r.mask = mask; r.dns = dns;
     // the lease age counts from the last DHCP answer; a static (cached) join keeps it
     if (was != glance::WifiFast::Ip || !sameIp) r.ipAtEpoch = t > 1700000000 ? int64_t(t) : 0;
   });
+}
+
+// ha-paper#41: the ESP32 does not roam and reconnect() keeps the AP (pinned BSSID or first-found). Drop the RTC fast-join
+// cache (the next wake scans too), back to DHCP, then a full-scan join that picks the strongest AP.
+void WifiMgr::rescan() {
+  powerWifiCache([](glance::WifiCache& r) { r.valid = false; });
+  lease_.pending = false;
+  WiFi.config(IPAddress(), IPAddress(), IPAddress());   // 0.0.0.0 = DHCP (a cached-IP wake set a static IP)
+  beginSaved();   // STA.connect disconnects first
 }
 
 void WifiMgr::beginSaved() {

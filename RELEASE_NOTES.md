@@ -5,6 +5,17 @@ display lists under "What's new" on its Updates screen (manifest.json `notes`): 
 most 34 characters. The release workflow fails if the tag's section is missing or a bullet is too long
 (`firmware/tools/release_notes.py`). Prose below the bullets goes only into the GitHub release.
 
+## 0.3.1-beta.1
+
+- Wi-Fi joins the nearest AP
+- Rescan when HA is unreachable
+
+With more than one access point on the same network (mesh, extender), the display could join a far one and stay on
+it: Wi-Fi showed connected, but Home Assistant stayed offline because the connection kept timing out. Wi-Fi now scans
+every channel and joins the strongest access point. A wake from deep sleep reuses the last access point only when its
+signal was good (-75 dBm or better), and when Home Assistant cannot be reached the display does a full scan instead of
+reconnecting to the same access point. The log shows the channel and signal strength of every join.
+
 ## 0.3.0
 
 - First release out of beta

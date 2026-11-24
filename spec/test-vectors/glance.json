@@ -1,5 +1,5 @@
 {
-  "description": "Glance wakes (eink-ha-os#10, emulator src/core/glance.ts, firmware core/glance.cpp). snapshotDiff: region key -> hash maps (prev null = no valid snapshot in RTC), ignore = clock regions; result sorted. glanceStep: what a wake does with its result (unreachable: changed = what the face shows without new data, eink-ha-os#356). wifiFast: how to reconnect from the RTC Wi-Fi cache. liveNow: live mode after a key press. arm: first-boot safety per firmware version, armed after ARM_BOOTS = 3 confirmed boots with network or (eink-ha-os#231) ARM_UPTIME_MIN = 30 min of one boot with network and a confirmed image (stored = null: none; ops count = this boot confirmed; then up = [netUpMin, otaPendingVerify] when present; by = armedBy). tally (eink-ha-os#178): wake counters since power-on in RTC memory, ops in order from zero: [\"wake\", sleptAtEpoch, wakeAtEpoch, nowEpoch] (slept = clock when known and not backwards, else planned timer, else 0), [\"glance\", ok, redraw, wifiMs|null, haMs|null, totalMs], [\"sleep\", awakeMs, fullRefreshes, partialRefreshes]. timer (eink-ha-os#364): sleep-timer drift. ppm = timerPpm(prev, programmedS, realS) (learned from timer sleeps >= TIMER_LEARN_MIN_S = 3600 s; |ppm| > TIMER_PPM_MAX = 50000 or realS 0 keeps prev; rounded half up), seconds = timerSeconds(realS, ppm) (>= 1, rounded half up), early = earlyWake(wakeAtEpoch, nowEpoch) (0 = unknown; up to EARLY_WAIT_S = 15 s early waits awake, earlier sleeps again).",
+  "description": "Glance wakes (eink-ha-os#10, emulator src/core/glance.ts, firmware core/glance.cpp). snapshotDiff: region key -> hash maps (prev null = no valid snapshot in RTC), ignore = clock regions; result sorted. glanceStep: what a wake does with its result (unreachable: changed = what the face shows without new data, eink-ha-os#356). wifiFast: how to reconnect from the RTC Wi-Fi cache (ha-paper#41: rssi at the last join, 0 = unknown; weaker than WIFI_FAST_MIN_RSSI = -75 dBm or unknown = full scan). liveNow: live mode after a key press. arm: first-boot safety per firmware version, armed after ARM_BOOTS = 3 confirmed boots with network or (eink-ha-os#231) ARM_UPTIME_MIN = 30 min of one boot with network and a confirmed image (stored = null: none; ops count = this boot confirmed; then up = [netUpMin, otaPendingVerify] when present; by = armedBy). tally (eink-ha-os#178): wake counters since power-on in RTC memory, ops in order from zero: [\"wake\", sleptAtEpoch, wakeAtEpoch, nowEpoch] (slept = clock when known and not backwards, else planned timer, else 0), [\"glance\", ok, redraw, wifiMs|null, haMs|null, totalMs], [\"sleep\", awakeMs, fullRefreshes, partialRefreshes]. timer (eink-ha-os#364): sleep-timer drift. ppm = timerPpm(prev, programmedS, realS) (learned from timer sleeps >= TIMER_LEARN_MIN_S = 3600 s; |ppm| > TIMER_PPM_MAX = 50000 or realS 0 keeps prev; rounded half up), seconds = timerSeconds(realS, ppm) (>= 1, rounded half up), early = earlyWake(wakeAtEpoch, nowEpoch) (0 = unknown; up to EARLY_WAIT_S = 15 s early waits awake, earlier sleeps again).",
   "snapshotDiff": [
     {
       "name": "no snapshot: every region but the clock",
@@ -281,7 +281,8 @@
         "ssidHash": 42,
         "channel": 6,
         "fails": 0,
-        "ipAtEpoch": 1800000000
+        "ipAtEpoch": 1800000000,
+        "rssi": -60
       },
       "saved": 42,
       "now": 1800000900,
@@ -294,7 +295,8 @@
         "ssidHash": 42,
         "channel": 6,
         "fails": 0,
-        "ipAtEpoch": 1800000000
+        "ipAtEpoch": 1800000000,
+        "rssi": -60
       },
       "saved": 42,
       "now": 1800003600,
@@ -307,7 +309,8 @@
         "ssidHash": 42,
         "channel": 6,
         "fails": 0,
-        "ipAtEpoch": 1800000000
+        "ipAtEpoch": 1800000000,
+        "rssi": -60
       },
       "saved": 42,
       "now": 0,
@@ -320,7 +323,8 @@
         "ssidHash": 42,
         "channel": 6,
         "fails": 0,
-        "ipAtEpoch": 1800000000
+        "ipAtEpoch": 1800000000,
+        "rssi": -60
       },
       "saved": 42,
       "now": 1799999000,
@@ -333,7 +337,8 @@
         "ssidHash": 42,
         "channel": 6,
         "fails": 0,
-        "ipAtEpoch": 1800000000
+        "ipAtEpoch": 1800000000,
+        "rssi": -60
       },
       "saved": 43,
       "now": 1800000900,
@@ -346,7 +351,8 @@
         "ssidHash": 42,
         "channel": 6,
         "fails": 2,
-        "ipAtEpoch": 1800000000
+        "ipAtEpoch": 1800000000,
+        "rssi": -60
       },
       "saved": 42,
       "now": 1800000900,
@@ -359,7 +365,8 @@
         "ssidHash": 42,
         "channel": 0,
         "fails": 0,
-        "ipAtEpoch": 1800000000
+        "ipAtEpoch": 1800000000,
+        "rssi": -60
       },
       "saved": 42,
       "now": 1800000900,
@@ -372,7 +379,64 @@
         "ssidHash": 42,
         "channel": 6,
         "fails": 0,
-        "ipAtEpoch": 1800000000
+        "ipAtEpoch": 1800000000,
+        "rssi": -60
+      },
+      "saved": 42,
+      "now": 1800000900,
+      "fast": "none"
+    },
+    {
+      "name": "weak signal (-80 dBm): full scan for a nearer access point",
+      "cache": {
+        "valid": true,
+        "ssidHash": 42,
+        "channel": 6,
+        "fails": 0,
+        "ipAtEpoch": 1800000000,
+        "rssi": -80
+      },
+      "saved": 42,
+      "now": 1800000900,
+      "fast": "none"
+    },
+    {
+      "name": "at the threshold (-75 dBm): fast",
+      "cache": {
+        "valid": true,
+        "ssidHash": 42,
+        "channel": 6,
+        "fails": 0,
+        "ipAtEpoch": 1800000000,
+        "rssi": -75
+      },
+      "saved": 42,
+      "now": 1800000900,
+      "fast": "ip"
+    },
+    {
+      "name": "just below the threshold (-76 dBm): full scan",
+      "cache": {
+        "valid": true,
+        "ssidHash": 42,
+        "channel": 6,
+        "fails": 0,
+        "ipAtEpoch": 1800000000,
+        "rssi": -76
+      },
+      "saved": 42,
+      "now": 1800000900,
+      "fast": "none"
+    },
+    {
+      "name": "signal unknown (0, a cache from before ha-paper#41): full scan",
+      "cache": {
+        "valid": true,
+        "ssidHash": 42,
+        "channel": 6,
+        "fails": 0,
+        "ipAtEpoch": 1800000000,
+        "rssi": 0
       },
       "saved": 42,
       "now": 1800000900,
