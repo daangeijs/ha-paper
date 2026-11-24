@@ -25,6 +25,8 @@ export const GLANCE_STALE_MIN = 60;
 export const WIFI_IP_MAX_AGE_S = 3600;
 /** A cached BSSID/channel that failed this often in a row is dropped (full scan + DHCP). */
 export const WIFI_CACHE_MAX_FAILS = 2;
+/** ha-paper#41: a cached access point heard weaker than this (dBm) is not rejoined blind; a full scan picks the nearest. */
+export const WIFI_FAST_MIN_RSSI = -75;
 
 /** What the panel shows: region key → FNV-1a of the region text (core/regions.ts). Lives in RTC memory. */
 export type Snapshot = Record<string, number>;
@@ -67,12 +69,14 @@ export function glanceStep(i: GlanceIn): GlanceOut {
 }
 
 /** Wi-Fi details kept in RTC memory after a successful connect. */
-export type WifiCache = { valid: boolean; ssidHash: number; channel: number; fails: number; ipAtEpoch: number };
+export type WifiCache = { valid: boolean; ssidHash: number; channel: number; fails: number; ipAtEpoch: number; rssi: number };
 export type WifiFast = 'none' | 'radio' | 'ip';
 /** How to reconnect after a wake: 'ip' = cached BSSID/channel + static IP (no scan, no DHCP), 'radio' = cached
- *  BSSID/channel + DHCP, 'none' = normal connect. Clock unknown (0) = no IP reuse. */
+ *  BSSID/channel + DHCP, 'none' = normal connect. Clock unknown (0) = no IP reuse. rssi at the last join, 0 = unknown:
+ *  unknown or weaker than WIFI_FAST_MIN_RSSI = 'none' (ha-paper#41: a far access point would stick on every wake). */
 export function wifiFast(c: WifiCache, savedSsidHash: number, nowEpoch: number): WifiFast {
   if (!c.valid || c.ssidHash !== savedSsidHash || c.channel < 1 || c.channel > 14 || c.fails >= WIFI_CACHE_MAX_FAILS) return 'none';
+  if (c.rssi === 0 || c.rssi < WIFI_FAST_MIN_RSSI) return 'none';
   return nowEpoch > 0 && c.ipAtEpoch > 0 && nowEpoch >= c.ipAtEpoch && nowEpoch - c.ipAtEpoch < WIFI_IP_MAX_AGE_S ? 'ip' : 'radio';
 }
 

@@ -72,6 +72,7 @@ StepOut step(const StepIn& i) {
 
 WifiFast wifiFast(const WifiCache& c, uint32_t savedSsidHash, int64_t nowEpoch) {
   if (!c.valid || c.ssidHash != savedSsidHash || c.channel < 1 || c.channel > 14 || c.fails >= kWifiCacheMaxFails) return WifiFast::None;
+  if (c.rssi == 0 || c.rssi < kWifiFastMinRssi) return WifiFast::None;
   return nowEpoch > 0 && c.ipAtEpoch > 0 && nowEpoch >= c.ipAtEpoch && nowEpoch - c.ipAtEpoch < kWifiIpMaxAgeS ? WifiFast::Ip : WifiFast::Radio;
 }
 const char* wifiFastName(WifiFast f) { return f == WifiFast::Ip ? "ip" : f == WifiFast::Radio ? "radio" : "none"; }

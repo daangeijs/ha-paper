@@ -1249,7 +1249,7 @@ void test_glance_vectors() {
     const Json& w = *c.get("cache");
     glance::WifiCache wc{};
     wc.valid = w.get("valid")->b; wc.ssidHash = uint32_t(w.get("ssidHash")->num); wc.channel = uint8_t(w.get("channel")->num);
-    wc.fails = uint8_t(w.get("fails")->num); wc.ipAtEpoch = int64_t(w.get("ipAtEpoch")->num);
+    wc.fails = uint8_t(w.get("fails")->num); wc.ipAtEpoch = int64_t(w.get("ipAtEpoch")->num); wc.rssi = int8_t(w.get("rssi")->num);
     TEST_ASSERT_EQUAL_STRING_MESSAGE(c.get("fast")->str.c_str(),
         glance::wifiFastName(glance::wifiFast(wc, uint32_t(c.get("saved")->num), int64_t(c.get("now")->num))), c.get("name")->str.c_str());
     ++cases;
